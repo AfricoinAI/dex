@@ -49,4 +49,168 @@ def pair_price1CumulativeLast_spec (result : Uint256) (s : ContractState) : Prop
 def pair_kLast_spec (result : Uint256) : Prop :=
   result = 0
 
+/-
+Local state-transition specs.
+
+These properties avoid ERC20/callback ECM behavior and are therefore honest
+Lean obligations over the executable source model. Liquidity and swap behavior
+remain covered by Foundry tests until the external-token balance model is rich
+enough to prove them directly.
+-/
+
+def pair_initialize_reverts_for_non_factory
+    (token0Value token1Value : Address) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  s.sender != s.storageAddr factorySlot.slot →
+    result = ContractResult.revert "UniswapV2: FORBIDDEN" s
+
+def pair_initialize_reverts_when_already_initialized
+    (token0Value token1Value : Address) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  s.sender = s.storageAddr factorySlot.slot →
+    (s.storageAddr token0Slot.slot != zeroAddress ∨
+      s.storageAddr token1Slot.slot != zeroAddress) →
+      result = ContractResult.revert "UniswapV2: ALREADY_INITIALIZED" s
+
+def pair_initialize_sets_tokens
+    (token0Value token1Value : Address) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  s.sender = s.storageAddr factorySlot.slot →
+    s.storageAddr token0Slot.slot = zeroAddress →
+      s.storageAddr token1Slot.slot = zeroAddress →
+        result = ContractResult.success () result.snd ∧
+        result.snd.storageAddr token0Slot.slot = token0Value ∧
+        result.snd.storageAddr token1Slot.slot = token1Value
+
+def pair_approve_succeeds
+    (spender : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  result = ContractResult.success true result.snd
+
+def pair_approve_sets_allowance
+    (spender : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  result.snd.storageMap2 allowancesSlot.slot s.sender spender = amount
+
+def pair_approve_keeps_balances
+    (spender : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  result.snd.storageMap = s.storageMap
+
+def pair_approve_keeps_total_supply
+    (spender : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  result.snd.storage totalSupplySlot.slot = s.storage totalSupplySlot.slot
+
+def pair_transfer_reverts_when_balance_low
+    (toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  amount.val > (s.storageMap balancesSlot.slot s.sender).val →
+    result = ContractResult.revert "UniswapV2: INSUFFICIENT_BALANCE" s
+
+def pair_transfer_to_self_keeps_balances
+    (toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  amount.val ≤ (s.storageMap balancesSlot.slot s.sender).val →
+    s.sender = toAddr →
+      result = ContractResult.success true result.snd ∧
+      result.snd.storageMap = s.storageMap
+
+def pair_transfer_reverts_when_recipient_balance_would_overflow
+    (toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  amount.val ≤ (s.storageMap balancesSlot.slot s.sender).val →
+    s.sender ≠ toAddr →
+      (s.storageMap balancesSlot.slot toAddr).val + amount.val > Verity.Stdlib.Math.MAX_UINT256 →
+        result = ContractResult.revert "UniswapV2: BALANCE_OVERFLOW" s
+
+def pair_transfer_moves_tokens_between_distinct_accounts
+    (toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  amount.val ≤ (s.storageMap balancesSlot.slot s.sender).val →
+    s.sender ≠ toAddr →
+      (s.storageMap balancesSlot.slot toAddr).val + amount.val ≤ Verity.Stdlib.Math.MAX_UINT256 →
+        result = ContractResult.success true result.snd ∧
+        result.snd.storageMap balancesSlot.slot s.sender =
+          (s.storageMap balancesSlot.slot s.sender) - amount ∧
+        result.snd.storageMap balancesSlot.slot toAddr =
+          (s.storageMap balancesSlot.slot toAddr) + amount
+
+def pair_transfer_keeps_total_supply
+    (toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  result.snd.storage totalSupplySlot.slot = s.storage totalSupplySlot.slot
+
+def pair_transferFrom_reverts_when_allowance_low
+    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  amount.val > (s.storageMap2 allowancesSlot.slot fromAddr s.sender).val →
+    result = ContractResult.revert "UniswapV2: INSUFFICIENT_ALLOWANCE" s
+
+def pair_transferFrom_reverts_when_balance_low
+    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  amount.val ≤ (s.storageMap2 allowancesSlot.slot fromAddr s.sender).val →
+    amount.val > (s.storageMap balancesSlot.slot fromAddr).val →
+      result = ContractResult.revert "UniswapV2: INSUFFICIENT_BALANCE" s
+
+def pair_transferFrom_reverts_when_recipient_balance_would_overflow
+    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  amount.val ≤ (s.storageMap2 allowancesSlot.slot fromAddr s.sender).val →
+    amount.val ≤ (s.storageMap balancesSlot.slot fromAddr).val →
+      fromAddr ≠ toAddr →
+        (s.storageMap balancesSlot.slot toAddr).val + amount.val > Verity.Stdlib.Math.MAX_UINT256 →
+          result = ContractResult.revert "UniswapV2: BALANCE_OVERFLOW" s
+
+def pair_transferFrom_to_self_keeps_balances
+    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  amount.val ≤ (s.storageMap2 allowancesSlot.slot fromAddr s.sender).val →
+    amount.val ≤ (s.storageMap balancesSlot.slot fromAddr).val →
+      fromAddr = toAddr →
+        result = ContractResult.success true result.snd ∧
+        result.snd.storageMap = s.storageMap
+
+def pair_transferFrom_moves_tokens_between_distinct_accounts
+    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  amount.val ≤ (s.storageMap2 allowancesSlot.slot fromAddr s.sender).val →
+    amount.val ≤ (s.storageMap balancesSlot.slot fromAddr).val →
+      fromAddr ≠ toAddr →
+        (s.storageMap balancesSlot.slot toAddr).val + amount.val ≤ Verity.Stdlib.Math.MAX_UINT256 →
+          result = ContractResult.success true result.snd ∧
+          result.snd.storageMap balancesSlot.slot fromAddr =
+            (s.storageMap balancesSlot.slot fromAddr) - amount ∧
+          result.snd.storageMap balancesSlot.slot toAddr =
+            (s.storageMap balancesSlot.slot toAddr) + amount
+
+def pair_transferFrom_keeps_total_supply
+    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  result.snd.storage totalSupplySlot.slot = s.storage totalSupplySlot.slot
+
+def pair_transferFrom_keeps_infinite_allowance
+    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  amount.val ≤ (s.storageMap2 allowancesSlot.slot fromAddr s.sender).val →
+    amount.val ≤ (s.storageMap balancesSlot.slot fromAddr).val →
+      (fromAddr = toAddr ∨
+        (fromAddr ≠ toAddr ∧
+          (s.storageMap balancesSlot.slot toAddr).val + amount.val ≤ Verity.Stdlib.Math.MAX_UINT256)) →
+        s.storageMap2 allowancesSlot.slot fromAddr s.sender = maxUint256 →
+          result.snd.storageMap2 allowancesSlot.slot fromAddr s.sender = maxUint256
+
+def pair_transferFrom_spends_finite_allowance
+    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  amount.val ≤ (s.storageMap2 allowancesSlot.slot fromAddr s.sender).val →
+    amount.val ≤ (s.storageMap balancesSlot.slot fromAddr).val →
+      (fromAddr = toAddr ∨
+        (fromAddr ≠ toAddr ∧
+          (s.storageMap balancesSlot.slot toAddr).val + amount.val ≤ Verity.Stdlib.Math.MAX_UINT256)) →
+        s.storageMap2 allowancesSlot.slot fromAddr s.sender != maxUint256 →
+          result.snd.storageMap2 allowancesSlot.slot fromAddr s.sender =
+            (s.storageMap2 allowancesSlot.slot fromAddr s.sender) - amount
+
 end TamaUniV2.Spec.UniswapV2PairSpec

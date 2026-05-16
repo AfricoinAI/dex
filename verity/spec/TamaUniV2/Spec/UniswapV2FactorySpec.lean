@@ -18,4 +18,38 @@ def factory_allPairs_success_spec (index : Uint256) (result : Address) (s : Cont
   index < s.storage allPairsLengthSlot.slot →
     result = wordToAddress (s.storageMapUint allPairsSlot.slot index)
 
+/-!
+Local factory state-transition obligations.
+
+Successful pair creation depends on the CREATE2 and initialize ECMs. Those
+runtime properties are covered by Foundry mirror tests and trust entries; the
+Lean obligations here stay within behavior represented by the source model.
+-/
+
+def factory_allPairs_reverts_out_of_bounds
+    (index : Uint256) (s : ContractState) (result : ContractResult Address) : Prop :=
+  ¬ index < s.storage allPairsLengthSlot.slot →
+    result = ContractResult.revert "UniswapV2: INDEX_OUT_OF_BOUNDS" s
+
+def factory_createPair_rejects_identical_addresses
+    (tokenA tokenB : Address) (s : ContractState) (result : ContractResult Address) : Prop :=
+  tokenA = tokenB →
+    result = ContractResult.revert "UniswapV2: IDENTICAL_ADDRESSES" s
+
+def factory_createPair_rejects_zero_address
+    (tokenA tokenB : Address) (s : ContractState) (result : ContractResult Address) : Prop :=
+  tokenA ≠ tokenB →
+    (tokenA = zeroAddress ∨ tokenB = zeroAddress) →
+      result = ContractResult.revert "UniswapV2: ZERO_ADDRESS" s
+
+def factory_createPair_rejects_duplicates
+    (tokenA tokenB : Address) (s : ContractState) (result : ContractResult Address) : Prop :=
+  tokenA ≠ tokenB →
+    tokenA ≠ zeroAddress →
+      tokenB ≠ zeroAddress →
+        s.storageMap2 pairForSlot.slot
+          (if (addressToWord tokenA) < (addressToWord tokenB) then tokenA else tokenB)
+          (if (addressToWord tokenA) < (addressToWord tokenB) then tokenB else tokenA) ≠ 0 →
+          result = ContractResult.revert "UniswapV2: PAIR_EXISTS" s
+
 end TamaUniV2.Spec.UniswapV2FactorySpec

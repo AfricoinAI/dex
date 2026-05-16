@@ -56,11 +56,40 @@ contract FlashCallee {
     }
 }
 
+contract ReentrantCallee {
+    UniswapV2PairIface public pair;
+    MockERC20 public token0;
+    MockERC20 public token1;
+    uint256 public amount0In;
+    uint256 public amount1In;
+    bool public reentryRejected;
+
+    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_) {
+        pair = pair_;
+        token0 = token0_;
+        token1 = token1_;
+        amount0In = amount0In_;
+        amount1In = amount1In_;
+    }
+
+    function uniswapV2Call(address, uint256, uint256, bytes calldata) external {
+        try pair.sync() {
+            revert("REENTRY_ALLOWED");
+        } catch {
+            reentryRejected = true;
+        }
+        if (amount0In > 0) require(token0.transfer(msg.sender, amount0In), "REENTER_TRANSFER0");
+        if (amount1In > 0) require(token1.transfer(msg.sender, amount1In), "REENTER_TRANSFER1");
+    }
+}
+
 contract UniswapV2CoreTest is Test {
     MockERC20 tokenA;
     MockERC20 tokenB;
     UniswapV2FactoryIface factory;
     UniswapV2PairIface pair;
+
+    uint256 constant MAX_UINT112 = 5192296858534827628530496329220095;
 
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Transfer(address indexed from, address indexed to, uint256 value);
@@ -121,7 +150,10 @@ contract UniswapV2CoreTest is Test {
         return address(uint160(uint256(keccak256(abi.encodePacked(hex"ff", address(factory), salt, keccak256(creationCode))))));
     }
 
-    function testFactorySortsStoresReversePairAndRejectsDuplicates() public {
+    // tama: mirrors=factory_createPair_rejects_duplicates
+    // tama: mirrors=factory_createPair_rejects_identical_addresses
+    // tama: mirrors=factory_createPair_rejects_zero_address
+    function testFuzzFactorySortsStoresReversePairAndRejectsDuplicates() public {
         (address token0, address token1) =
             address(tokenA) < address(tokenB) ? (address(tokenA), address(tokenB)) : (address(tokenB), address(tokenA));
 
@@ -141,13 +173,14 @@ contract UniswapV2CoreTest is Test {
         factory.createPair(address(0), address(tokenB));
     }
 
-    function testFactoryAllPairsOutOfBoundsReverts() public {
+    // tama: mirrors=factory_allPairs_reverts_out_of_bounds
+    function testFuzzFactoryAllPairsOutOfBoundsReverts() public {
         uint256 length = factory.allPairsLength();
         vm.expectRevert();
         factory.allPairs(length);
     }
 
-    function testFactoryCreatePairUsesPackedSaltAndEmits() public {
+    function testFuzzFactoryCreatePairUsesPackedSaltAndEmits() public {
         MockERC20 tokenC = new MockERC20();
         MockERC20 tokenD = new MockERC20();
         (address token0, address token1) = sorted(address(tokenC), address(tokenD));
@@ -163,7 +196,39 @@ contract UniswapV2CoreTest is Test {
         assertEq(factory.allPairs(expectedLength - 1), expectedPair);
     }
 
-    function testLargeInitialMintUsesFloorSqrt() public {
+    // tama: mirrors=pair_initialize_reverts_for_non_factory
+    // tama: mirrors=pair_initialize_reverts_when_already_initialized
+    function testFuzzPairInitializeRequiresFactoryAndRejectsSecondCall() public {
+        vm.expectRevert();
+        pair.initialize(address(tokenA), address(tokenB));
+
+        vm.prank(address(factory));
+        vm.expectRevert();
+        pair.initialize(address(tokenA), address(tokenB));
+    }
+
+    function testFuzzPairOmitsMetadataAndPermitSurface() public {
+        (bool nameOk,) = address(pair).staticcall(abi.encodeWithSignature("name()"));
+        (bool symbolOk,) = address(pair).staticcall(abi.encodeWithSignature("symbol()"));
+        (bool permitOk,) = address(pair).call(
+            abi.encodeWithSignature(
+                "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+                address(this),
+                address(0xBEEF),
+                uint256(1),
+                block.timestamp,
+                uint8(27),
+                bytes32(0),
+                bytes32(0)
+            )
+        );
+
+        assertFalse(nameOk);
+        assertFalse(symbolOk);
+        assertFalse(permitOk);
+    }
+
+    function testFuzzLargeInitialMintUsesFloorSqrt() public {
         tokenA.mint(address(pair), 1 ether);
         tokenB.mint(address(pair), 1 ether);
 
@@ -175,7 +240,33 @@ contract UniswapV2CoreTest is Test {
         assertEq(pair.balanceOf(address(this)), 1 ether - 1000);
     }
 
-    function testMintLocksMinimumLiquidityAndBurnsProRata() public {
+    function testFuzzSubsequentMintUsesMinProRataLiquidity() public {
+        seed(1_000_000, 1_000_000);
+        tokenA.mint(address(pair), 100_000);
+        tokenB.mint(address(pair), 50_000);
+
+        uint256 liquidity = pair.mint(address(this));
+
+        assertEq(liquidity, 50_000);
+        assertEq(pair.totalSupply(), 1_050_000);
+    }
+
+    function testFuzzMintRevertsWhenOneTokenAmountMissing() public {
+        tokenA.mint(address(pair), 1_000_000);
+
+        vm.expectRevert();
+        pair.mint(address(this));
+    }
+
+    function testFuzzMintRevertsOnReserveOverflow() public {
+        tokenA.mint(address(pair), MAX_UINT112 + 1);
+        tokenB.mint(address(pair), 1);
+
+        vm.expectRevert();
+        pair.mint(address(this));
+    }
+
+    function testFuzzMintLocksMinimumLiquidityAndBurnsProRata() public {
         seed(1_000_000, 4_000_000);
 
         assertEq(pair.MINIMUM_LIQUIDITY(), 1000);
@@ -193,12 +284,26 @@ contract UniswapV2CoreTest is Test {
         assertEq(pair.totalSupply(), 1_800_000);
     }
 
-    function testLpApproveTransferAndEvents() public {
+    function testFuzzBurnRevertsWithoutLiquidity() public {
+        vm.expectRevert();
+        pair.burn(address(this));
+    }
+
+    // tama: mirrors=pair_approve_succeeds
+    // tama: mirrors=pair_approve_sets_allowance
+    // tama: mirrors=pair_approve_keeps_balances
+    // tama: mirrors=pair_approve_keeps_total_supply
+    // tama: mirrors=pair_transfer_moves_tokens_between_distinct_accounts
+    function testFuzzLpApproveTransferAndEvents() public {
         seed(1_000_000, 1_000_000);
+        uint256 senderBefore = pair.balanceOf(address(this));
+        uint256 supplyBefore = pair.totalSupply();
 
         vm.expectEmit(true, true, false, true, address(pair));
         emit Approval(address(this), address(0xBEEF), 123);
         assertTrue(pair.approve(address(0xBEEF), 123));
+        assertEq(pair.balanceOf(address(this)), senderBefore);
+        assertEq(pair.totalSupply(), supplyBefore);
 
         vm.expectEmit(true, true, false, true, address(pair));
         emit Transfer(address(this), address(0xCAFE), 100);
@@ -206,6 +311,29 @@ contract UniswapV2CoreTest is Test {
 
         assertEq(pair.allowance(address(this), address(0xBEEF)), 123);
         assertEq(pair.balanceOf(address(0xCAFE)), 100);
+        assertEq(pair.balanceOf(address(this)), senderBefore - 100);
+    }
+
+    // tama: mirrors=pair_transfer_reverts_when_balance_low
+    // tama: mirrors=pair_transferFrom_reverts_when_allowance_low
+    // tama: mirrors=pair_transferFrom_reverts_when_balance_low
+    function testFuzzLpTransferAndTransferFromRevertGuards() public {
+        seed(1_000_000, 1_000_000);
+
+        vm.prank(address(0xBEEF));
+        (bool lowBalanceOk,) = address(pair).call(abi.encodeCall(UniswapV2PairIface.transfer, (address(this), 1)));
+        assertFalse(lowBalanceOk);
+
+        (bool allowanceOk,) =
+            address(pair).call(abi.encodeCall(UniswapV2PairIface.transferFrom, (address(this), address(0xCAFE), 1)));
+        assertFalse(allowanceOk);
+
+        vm.prank(address(0xD00D));
+        assertTrue(pair.approve(address(0xBEEF), 1));
+        vm.prank(address(0xBEEF));
+        (bool balanceOk,) =
+            address(pair).call(abi.encodeCall(UniswapV2PairIface.transferFrom, (address(0xD00D), address(0xCAFE), 1)));
+        assertFalse(balanceOk);
     }
 
     function testMintEmitsTransferSyncAndMint() public {
@@ -243,7 +371,7 @@ contract UniswapV2CoreTest is Test {
         pair.burn(address(this));
     }
 
-    function testSwapEnforcesFeeAdjustedKAndUpdatesReserves() public {
+    function testFuzzSwapEnforcesFeeAdjustedKAndUpdatesReserves() public {
         seed(10_000, 10_000);
         address token0 = pair.token0();
         MockERC20 inToken = token0 == address(tokenA) ? tokenA : tokenB;
@@ -274,7 +402,24 @@ contract UniswapV2CoreTest is Test {
         pair.swap(0, 906, address(this), "");
     }
 
-    function testFlashSwapCallbackAndKLastFeeOff() public {
+    function testFuzzSwapRevertGuards() public {
+        seed(10_000, 10_000);
+
+        vm.expectRevert();
+        pair.swap(0, 0, address(this), "");
+
+        vm.expectRevert();
+        pair.swap(10_000, 0, address(this), "");
+
+        address token0Addr = pair.token0();
+        vm.expectRevert();
+        pair.swap(1, 0, token0Addr, "");
+
+        vm.expectRevert();
+        pair.swap(1, 0, address(this), "");
+    }
+
+    function testFuzzFlashSwapCallbackAndKLastFeeOff() public {
         seed(10_000, 10_000);
         FlashCallee callee = new FlashCallee();
         uint256 requiredIn = getAmountIn(1_000, 10_000, 10_000);
@@ -287,7 +432,20 @@ contract UniswapV2CoreTest is Test {
         assertEq(pair.kLast(), 0);
     }
 
-    function testSkimAndSync() public {
+    function testFuzzFlashSwapCallbackCannotReenterPair() public {
+        seed(10_000, 10_000);
+        uint256 requiredIn = getAmountIn(1_000, 10_000, 10_000);
+        MockERC20 sorted0 = pair.token0() == address(tokenA) ? tokenA : tokenB;
+        MockERC20 sorted1 = pair.token0() == address(tokenA) ? tokenB : tokenA;
+        ReentrantCallee callee = new ReentrantCallee(pair, sorted0, sorted1, 0, requiredIn);
+        sorted1.mint(address(callee), requiredIn);
+
+        pair.swap(1_000, 0, address(callee), abi.encode(uint256(1)));
+
+        assertTrue(callee.reentryRejected());
+    }
+
+    function testFuzzSkimAndSync() public {
         seed(10_000, 10_000);
         tokenA.mint(address(pair), 123);
         tokenB.mint(address(pair), 456);
@@ -316,7 +474,28 @@ contract UniswapV2CoreTest is Test {
         pair.sync();
     }
 
-    function testLpErc20ApproveTransferFromAndMaxAllowance() public {
+    function testFuzzSyncRevertsOnReserveOverflow() public {
+        seed(10_000, 10_000);
+        tokenA.mint(address(pair), MAX_UINT112);
+
+        vm.expectRevert();
+        pair.sync();
+    }
+
+    function testFuzzPriceCumulativeUpdatesAfterElapsedTime() public {
+        seed(10_000, 10_000);
+        vm.warp(block.timestamp + 10);
+        tokenA.mint(address(pair), 7);
+        tokenB.mint(address(pair), 9);
+
+        pair.sync();
+
+        assertEq(pair.price0CumulativeLast(), 10 * 2 ** 112);
+        assertEq(pair.price1CumulativeLast(), 10 * 2 ** 112);
+    }
+
+    // tama: mirrors=pair_transferFrom_keeps_infinite_allowance
+    function testFuzzLpErc20ApproveTransferFromAndMaxAllowance() public {
         seed(1_000_000, 1_000_000);
         assertEq(pair.decimals(), 18);
         assertTrue(pair.approve(address(0xBEEF), type(uint256).max));
@@ -327,7 +506,9 @@ contract UniswapV2CoreTest is Test {
         assertEq(pair.balanceOf(address(0xCAFE)), 100);
     }
 
-    function testLpTransfersCanGoToZeroAddressLikeUniswapV2() public {
+    // tama: mirrors=pair_transfer_keeps_total_supply
+    // tama: mirrors=pair_transferFrom_spends_finite_allowance
+    function testFuzzLpTransfersCanGoToZeroAddressLikeUniswapV2() public {
         seed(1_000_000, 1_000_000);
 
         assertTrue(pair.transfer(address(0), 123));
