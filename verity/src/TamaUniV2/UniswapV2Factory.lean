@@ -264,6 +264,26 @@ def pairCreate2Module (resultVar : String) : ExternalCallModule where
       ])
     ])
 
+def pairCreate2Word (token0Value token1Value : Address) : Contract Uint256 := do
+  return (externalCall "uniswapV2PairCreate2" [token0Value, token1Value])
+
+def pairCreate2Word_model : FunctionSpec := {
+  name := "pairCreate2Word"
+  params := [
+    { name := "token0Value", ty := ParamType.address },
+    { name := "token1Value", ty := ParamType.address }
+  ]
+  returnType := some FieldType.uint256
+  returns := [ParamType.uint256]
+  body := [
+    Stmt.ecm (pairCreate2Module "pairWord") [
+      Expr.param "token0Value",
+      Expr.param "token1Value"
+    ],
+    Stmt.return (Expr.localVar "pairWord")
+  ]
+}
+
 verity_contract UniswapV2FactoryBase where
   storage
     pairForSlot : Address → Address → Uint256 := slot 0
@@ -297,7 +317,7 @@ verity_contract UniswapV2FactoryBase where
       token1Value := tokenA
     let existing ← getMapping2 pairForSlot token0Value token1Value
     require (existing == 0) "UniswapV2: PAIR_EXISTS"
-    let pairWord ← ecmCall (fun resultVar => pairCreate2Module resultVar) [token0Value, token1Value]
+    let pairWord ← TamaUniV2.pairCreate2Word token0Value token1Value
     let pair := wordToAddress pairWord
     require (pair != zeroAddress) "UniswapV2: CREATE2_FAILED"
     ecmDo pairInitializeModule [pair, token0Value, token1Value]

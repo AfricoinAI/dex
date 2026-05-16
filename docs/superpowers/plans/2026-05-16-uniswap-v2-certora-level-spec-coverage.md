@@ -111,15 +111,15 @@ Prove successful swap postconditions imply `PairWorldSwapStep` and the fee-adjus
 - Modify: `tama.toml`
 - Modify: `test/verity/UniswapV2Core.t.sol`
 
-- [ ] **Step 1: Add sorting and deterministic-result specs**
+- [x] **Step 1: Add sorting and deterministic-result specs**
 
 Specify sorted token order, nonzero pair result, and the CREATE2 boundary as the only deployment assumption.
 
-- [ ] **Step 2: Add storage update specs**
+- [x] **Step 2: Add storage update specs**
 
 Specify bidirectional mappings, append at old length, length increment, pair initialize call boundary, and `PairCreated` event.
 
-- [ ] **Step 3: Add ordered createPair reverts**
+- [x] **Step 3: Add ordered createPair reverts**
 
 Add exact run-result specs for CREATE2 failure and pair-count overflow after proving earlier guards pass.
 

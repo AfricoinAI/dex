@@ -31,8 +31,8 @@ Intentionally out of scope versus canonical Uniswap V2 core:
 | Area | Current coverage | Gap to full coverage |
 | --- | --- | --- |
 | Views | Direct storage/value specs for `getPair`, `allPairs`, and `allPairsLength`; out-of-bounds exact revert. | None for supported view surface. |
-| Create pair guards | Exact run-result reverts for identical, zero, and duplicate pairs. | Add ordered reverts for CREATE2 failure and pair-count overflow. |
-| Create pair success | Not yet specified at full executable level. | Add sorting, bidirectional pair mapping, append/length update, deterministic nonzero pair result assumption boundary, pair initialize call, and `PairCreated` event obligations. |
+| Create pair guards | Exact run-result reverts for identical, zero, duplicate, CREATE2 zero-address failure, and pair-count overflow. | Add revert-frame/event absence refinements if needed by the final ordered matrix. |
+| Create pair success | Executable success spec proves sorted-token path, nonzero CREATE2 result boundary, bidirectional mapping writes, `allPairs` append, length increment, and `PairCreated` event. | Add a trace/event boundary for the pair initialize call if the final factory coverage requires observing that ECM explicitly. |
 
 ## Global Invariants
 
