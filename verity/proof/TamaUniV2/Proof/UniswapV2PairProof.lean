@@ -10,6 +10,7 @@ open Verity.EVM.Uint256
 open TamaUniV2.Spec.UniswapV2PairSpec
 open TamaUniV2.UniswapV2Pair
 open TamaUniV2.Common.UniswapV2PairConcrete
+open TamaUniV2.Common.UniswapV2PairGhost
 
 attribute [local simp] decimals totalSupply balanceOf allowance factory token0 token1
   MINIMUM_LIQUIDITY getReserves price0CumulativeLast price1CumulativeLast kLast
@@ -777,5 +778,219 @@ theorem sync_reverts_when_balance1_overflows (s : ContractState) :
     Contract.run, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
     observedBalance0, observedBalance1, TamaUniV2.erc20BalanceOf,
     h_unlocked_raw, h_require_false_raw]
+
+private theorem pairWorldStep_preserves_good
+    {action : PairWorldAction} {before after : PairWorldState} :
+  PairWorldGood before →
+    PairWorldStep action before after →
+      PairWorldGood after := by
+  intro h_good h_step
+  cases action <;>
+    simp [PairWorldStep, PairWorldMintStep, PairWorldBurnStep, PairWorldSwapStep,
+      PairWorldSkimStep, PairWorldSyncStep] at h_step
+  · subst after
+    exact h_good
+  · subst after
+    exact h_good
+  · subst after
+    exact h_good
+  · rcases h_good with ⟨h_back0, h_back1, h_bound0, h_bound1, h_supply⟩
+    rcases h_step with ⟨h_balance0, h_balance1, h_reserve0, h_reserve1,
+      h_supply_eq, h_locked_eq⟩
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · rw [h_reserve0, h_balance0]
+      omega
+    · rw [h_reserve1, h_balance1]
+      omega
+    · rw [h_reserve0]
+      exact h_bound0
+    · rw [h_reserve1]
+      exact h_bound1
+    · simpa [PairWorldSupplyGood, h_supply_eq, h_locked_eq] using h_supply
+  · rcases h_good with ⟨_h_back0, _h_back1, _h_bound0, _h_bound1, h_supply⟩
+    rcases h_step with ⟨_h_amount0, _h_amount1, h_liquidity,
+      _h_balance0, _h_balance1, h_reserve0, h_reserve1, h_bound0, h_bound1,
+      h_supply_eq, h_locked_eq⟩
+    refine ⟨?_, ?_, h_bound0, h_bound1, ?_⟩
+    · rw [h_reserve0]
+    · rw [h_reserve1]
+    · by_cases h_zero : before.totalSupply = 0
+      · right
+        rw [h_supply_eq, h_locked_eq]
+        simp [h_zero, minimumLiquidityNat]
+      · rcases h_supply with h_empty | h_nonzero
+        · exact False.elim (h_zero h_empty.1)
+        · rcases h_nonzero with ⟨h_positive, h_locked, h_min⟩
+          have h_min_raw : 1000 ≤ before.totalSupply := by
+            simpa [minimumLiquidityNat] using h_min
+          right
+          rw [h_supply_eq, h_locked_eq]
+          simp [h_zero, h_locked, minimumLiquidityNat]
+          omega
+  · rcases h_good with ⟨_h_back0, _h_back1, _h_bound0, _h_bound1, h_supply⟩
+    rcases h_step with ⟨_h_amount0, _h_amount1, h_liquidity_le,
+      h_locked_remaining, _h_balance0, _h_balance1, h_reserve0, h_reserve1,
+      h_bound0, h_bound1, h_supply_eq, h_locked_eq⟩
+    refine ⟨?_, ?_, h_bound0, h_bound1, ?_⟩
+    · rw [h_reserve0]
+    · rw [h_reserve1]
+    · rcases h_supply with h_empty | h_nonzero
+      · left
+        rw [h_supply_eq, h_locked_eq]
+        omega
+      · rcases h_nonzero with ⟨_h_positive, h_locked, _h_min⟩
+        right
+        rw [h_supply_eq, h_locked_eq]
+        constructor
+        · rw [h_locked] at h_locked_remaining
+          simp [minimumLiquidityNat] at h_locked_remaining
+          omega
+        · constructor
+          · exact h_locked
+          · rw [h_locked] at h_locked_remaining
+            exact h_locked_remaining
+  · rcases h_good with ⟨_h_back0, _h_back1, _h_bound0, _h_bound1, h_supply⟩
+    rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0, _h_enough1,
+      _h_input, _h_balance0, _h_balance1, h_reserve0, h_reserve1, h_bound0,
+      h_bound1, h_supply_eq, h_locked_eq, _h_fee0, _h_fee1, _h_k⟩
+    refine ⟨?_, ?_, h_bound0, h_bound1, ?_⟩
+    · rw [h_reserve0]
+    · rw [h_reserve1]
+    · simpa [PairWorldSupplyGood, h_supply_eq, h_locked_eq] using h_supply
+  · rcases h_good with ⟨_h_back0, _h_back1, h_bound0, h_bound1, h_supply⟩
+    rcases h_step with ⟨h_balance0, h_balance1, h_reserve0, h_reserve1,
+      h_supply_eq, h_locked_eq⟩
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · rw [h_reserve0, h_balance0]
+    · rw [h_reserve1, h_balance1]
+    · rw [h_reserve0]
+      exact h_bound0
+    · rw [h_reserve1]
+      exact h_bound1
+    · simpa [PairWorldSupplyGood, h_supply_eq, h_locked_eq] using h_supply
+  · rcases h_good with ⟨_h_back0, _h_back1, _h_bound0, _h_bound1, h_supply⟩
+    rcases h_step with ⟨h_bound0, h_bound1, h_balance0, h_balance1,
+      h_reserve0, h_reserve1, h_supply_eq, h_locked_eq⟩
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · rw [h_reserve0, h_balance0]
+    · rw [h_reserve1, h_balance1]
+    · rw [h_reserve0]
+      exact h_bound0
+    · rw [h_reserve1]
+      exact h_bound1
+    · simpa [PairWorldSupplyGood, h_supply_eq, h_locked_eq] using h_supply
+
+private theorem pairWorldReachable_good
+    (w : PairWorldState) :
+  PairWorldReachable w → PairWorldGood w := by
+  intro h_reachable
+  induction h_reachable with
+  | init =>
+      simp [PairWorldInitial, PairWorldGood, PairWorldSupplyGood,
+        minimumLiquidityNat, maxUint112Nat]
+  | step action h_before h_step ih =>
+      exact pairWorldStep_preserves_good ih h_step
+
+-- tama: discharges=pair_closed_world_reachable_reserves_backed
+theorem closed_world_reachable_reserves_backed
+    (w : PairWorldState) :
+  pair_closed_world_reachable_reserves_backed w := by
+  intro h_reachable
+  rcases pairWorldReachable_good w h_reachable with
+    ⟨h_back0, h_back1, _h_bound0, _h_bound1, _h_supply⟩
+  exact ⟨h_back0, h_back1⟩
+
+-- tama: discharges=pair_closed_world_reachable_reserves_fit_uint112
+theorem closed_world_reachable_reserves_fit_uint112
+    (w : PairWorldState) :
+  pair_closed_world_reachable_reserves_fit_uint112 w := by
+  intro h_reachable
+  rcases pairWorldReachable_good w h_reachable with
+    ⟨_h_back0, _h_back1, h_bound0, h_bound1, _h_supply⟩
+  exact ⟨h_bound0, h_bound1⟩
+
+-- tama: discharges=pair_closed_world_nonzero_supply_locks_minimum_liquidity
+theorem closed_world_nonzero_supply_locks_minimum_liquidity
+    (w : PairWorldState) :
+  pair_closed_world_nonzero_supply_locks_minimum_liquidity w := by
+  intro h_reachable h_nonzero
+  rcases pairWorldReachable_good w h_reachable with
+    ⟨_h_back0, _h_back1, _h_bound0, _h_bound1, h_supply⟩
+  rcases h_supply with h_empty | h_nonempty
+  · exact False.elim (h_nonzero h_empty.1)
+  · rcases h_nonempty with ⟨_h_positive, h_locked, h_min⟩
+    exact ⟨h_locked, h_min⟩
+
+-- tama: discharges=pair_closed_world_mint_updates_reserves_to_balances
+theorem closed_world_mint_updates_reserves_to_balances
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_mint_updates_reserves_to_balances
+    amount0 amount1 liquidity before after := by
+  intro h_step
+  simp [PairWorldStep, PairWorldMintStep] at h_step
+  rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, _h_balance0,
+    _h_balance1, h_reserve0, h_reserve1, _h_bound0, _h_bound1, _h_supply,
+    _h_locked⟩
+  exact ⟨h_reserve0, h_reserve1⟩
+
+-- tama: discharges=pair_closed_world_burn_updates_reserves_to_balances
+theorem closed_world_burn_updates_reserves_to_balances
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_burn_updates_reserves_to_balances
+    amount0 amount1 liquidity before after := by
+  intro h_step
+  simp [PairWorldStep, PairWorldBurnStep] at h_step
+  rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, _h_locked_remaining,
+    _h_balance0, _h_balance1, h_reserve0, h_reserve1, _h_bound0, _h_bound1,
+    _h_supply, _h_locked⟩
+  exact ⟨h_reserve0, h_reserve1⟩
+
+-- tama: discharges=pair_closed_world_swap_updates_reserves_to_balances
+theorem closed_world_swap_updates_reserves_to_balances
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_swap_updates_reserves_to_balances
+    amount0In amount1In amount0Out amount1Out before after := by
+  intro h_step
+  simp [PairWorldStep, PairWorldSwapStep] at h_step
+  rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0, _h_enough1,
+    _h_input, _h_balance0, _h_balance1, h_reserve0, h_reserve1, _h_bound0,
+    _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, _h_k⟩
+  exact ⟨h_reserve0, h_reserve1⟩
+
+-- tama: discharges=pair_closed_world_swap_respects_fee_adjusted_k
+theorem closed_world_swap_respects_fee_adjusted_k
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_swap_respects_fee_adjusted_k
+    amount0In amount1In amount0Out amount1Out before after := by
+  intro h_step
+  simp [PairWorldStep, PairWorldSwapStep] at h_step
+  rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0, _h_enough1,
+    _h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0,
+    _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, h_k⟩
+  exact h_k
+
+-- tama: discharges=pair_closed_world_skim_removes_surplus
+theorem closed_world_skim_removes_surplus
+    (before after : PairWorldState) :
+  pair_closed_world_skim_removes_surplus before after := by
+  intro h_step
+  simp [PairWorldStep, PairWorldSkimStep] at h_step
+  rcases h_step with ⟨h_balance0, h_balance1, h_reserve0, h_reserve1,
+    _h_supply, _h_locked⟩
+  exact ⟨h_balance0, h_balance1, h_reserve0, h_reserve1⟩
+
+-- tama: discharges=pair_closed_world_sync_sets_reserves_to_balances
+theorem closed_world_sync_sets_reserves_to_balances
+    (before after : PairWorldState) :
+  pair_closed_world_sync_sets_reserves_to_balances before after := by
+  intro h_step
+  simp [PairWorldStep, PairWorldSyncStep] at h_step
+  rcases h_step with ⟨_h_bound0, _h_bound1, h_balance0, h_balance1,
+    h_reserve0, h_reserve1, _h_supply, _h_locked⟩
+  exact ⟨h_reserve0, h_reserve1, h_balance0, h_balance1⟩
 
 end TamaUniV2.Proof.UniswapV2PairProof

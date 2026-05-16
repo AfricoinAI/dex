@@ -1,5 +1,6 @@
 import TamaUniV2.UniswapV2Pair
 import TamaUniV2.Common.UniswapV2PairConcrete
+import TamaUniV2.Common.UniswapV2PairGhost
 
 namespace TamaUniV2.Spec.UniswapV2PairSpec
 
@@ -7,6 +8,7 @@ open Verity
 open Verity.EVM.Uint256
 open TamaUniV2.UniswapV2Pair
 open TamaUniV2.Common.UniswapV2PairConcrete
+open TamaUniV2.Common.UniswapV2PairGhost
 
 /-!
 Behavior specs for the production-style Uniswap v2 pair.
@@ -287,5 +289,82 @@ def pair_sync_reverts_when_balance1_overflows
   s.storage unlockedSlot.slot = 1 →
     observedBalance1 s > maxUint112 →
       result = ContractResult.revert "UniswapV2: OVERFLOW" s
+
+/-!
+Closed-world economic invariants.
+
+These specs mirror Tamago's ERC4626 trace-wide style. They quantify over every
+finite successful transition sequence in `PairWorldReachable`; external ERC20
+movement is represented by explicit mint/burn/swap/donate/skim/sync steps rather
+than by new assumptions about Verity ECM internals.
+-/
+
+def pair_closed_world_reachable_reserves_backed
+    (w : PairWorldState) : Prop :=
+  PairWorldReachable w →
+    w.reserve0 ≤ w.balance0 ∧
+    w.reserve1 ≤ w.balance1
+
+def pair_closed_world_reachable_reserves_fit_uint112
+    (w : PairWorldState) : Prop :=
+  PairWorldReachable w →
+    w.reserve0 ≤ maxUint112Nat ∧
+    w.reserve1 ≤ maxUint112Nat
+
+def pair_closed_world_nonzero_supply_locks_minimum_liquidity
+    (w : PairWorldState) : Prop :=
+  PairWorldReachable w →
+    w.totalSupply ≠ 0 →
+      w.lockedLiquidity = minimumLiquidityNat ∧
+      minimumLiquidityNat ≤ w.totalSupply
+
+def pair_closed_world_mint_updates_reserves_to_balances
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+    after.reserve0 = after.balance0 ∧
+    after.reserve1 = after.balance1
+
+def pair_closed_world_burn_updates_reserves_to_balances
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+    after.reserve0 = after.balance0 ∧
+    after.reserve1 = after.balance1
+
+def pair_closed_world_swap_updates_reserves_to_balances
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    after.reserve0 = after.balance0 ∧
+    after.reserve1 = after.balance1
+
+def pair_closed_world_swap_respects_fee_adjusted_k
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    feeAdjustedBalance after.balance0 amount0In *
+        feeAdjustedBalance after.balance1 amount1In ≥
+      requiredK before.reserve0 before.reserve1
+
+def pair_closed_world_skim_removes_surplus
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep PairWorldAction.skim before after →
+    after.balance0 = before.reserve0 ∧
+    after.balance1 = before.reserve1 ∧
+    after.reserve0 = before.reserve0 ∧
+    after.reserve1 = before.reserve1
+
+def pair_closed_world_sync_sets_reserves_to_balances
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep PairWorldAction.sync before after →
+    after.reserve0 = before.balance0 ∧
+    after.reserve1 = before.balance1 ∧
+    after.balance0 = before.balance0 ∧
+    after.balance1 = before.balance1
 
 end TamaUniV2.Spec.UniswapV2PairSpec
