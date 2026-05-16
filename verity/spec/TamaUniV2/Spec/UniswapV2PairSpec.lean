@@ -213,4 +213,31 @@ def pair_transferFrom_spends_finite_allowance
           result.snd.storageMap2 allowancesSlot.slot fromAddr s.sender =
             (s.storageMap2 allowancesSlot.slot fromAddr s.sender) - amount
 
+def pair_mint_reverts_when_locked
+    (toAddr : Address) (s : ContractState) (result : ContractResult Uint256) : Prop :=
+  s.storage unlockedSlot.slot != 1 →
+    result = ContractResult.revert "UniswapV2: LOCKED" s
+
+def pair_burn_reverts_when_locked
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) : Prop :=
+  s.storage unlockedSlot.slot != 1 →
+    result = ContractResult.revert "UniswapV2: LOCKED" s
+
+def pair_swap_reverts_when_locked
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  s.storage unlockedSlot.slot != 1 →
+    result = ContractResult.revert "UniswapV2: LOCKED" s
+
+def pair_skim_reverts_when_locked
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=
+  s.storage unlockedSlot.slot != 1 →
+    result = ContractResult.revert "UniswapV2: LOCKED" s
+
+def pair_sync_reverts_when_locked
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  s.storage unlockedSlot.slot != 1 →
+    result = ContractResult.revert "UniswapV2: LOCKED" s
+
 end TamaUniV2.Spec.UniswapV2PairSpec
