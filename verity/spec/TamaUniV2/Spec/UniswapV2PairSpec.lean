@@ -293,9 +293,9 @@ def pair_sync_reverts_when_balance1_overflows
 /-!
 Exact executable guard specs.
 
-These mirror the Foglight revert-proof shape: the public obligation mentions the
-actual entrypoint run result, not a separately supplied result value. The older
-`result`-parameter specs above are kept as small reusable adapters.
+The public obligation mentions the actual entrypoint run result, not a
+separately supplied result value. The older `result`-parameter specs above are
+kept as small reusable adapters.
 -/
 
 def pair_initialize_run_revert_non_factory
