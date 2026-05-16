@@ -291,6 +291,82 @@ def pair_sync_reverts_when_balance1_overflows
       result = ContractResult.revert "UniswapV2: OVERFLOW" s
 
 /-!
+Exact executable guard specs.
+
+These mirror the Foglight revert-proof shape: the public obligation mentions the
+actual entrypoint run result, not a separately supplied result value. The older
+`result`-parameter specs above are kept as small reusable adapters.
+-/
+
+def pair_mint_run_revert_locked
+    (toAddr : Address) (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot != 1 →
+    (mint toAddr).run s =
+      ContractResult.revert "UniswapV2: LOCKED" s
+
+def pair_burn_run_revert_locked
+    (toAddr : Address) (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot != 1 →
+    (burn toAddr).run s =
+      ContractResult.revert "UniswapV2: LOCKED" s
+
+def pair_swap_run_revert_locked
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot != 1 →
+    (swap amount0Out amount1Out toAddr data).run s =
+      ContractResult.revert "UniswapV2: LOCKED" s
+
+def pair_swap_run_revert_insufficient_output
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    amount0Out = 0 →
+      amount1Out = 0 →
+        (swap amount0Out amount1Out toAddr data).run s =
+          ContractResult.revert "UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT" s
+
+def pair_skim_run_revert_locked
+    (toAddr : Address) (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot != 1 →
+    (skim toAddr).run s =
+      ContractResult.revert "UniswapV2: LOCKED" s
+
+def pair_skim_run_revert_balance0_below_reserve
+    (toAddr : Address) (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    observedBalance0 s < s.storage reserve0Slot.slot →
+      (skim toAddr).run s =
+        ContractResult.revert "UniswapV2: INSUFFICIENT_BALANCE" s
+
+def pair_skim_run_revert_balance1_below_reserve
+    (toAddr : Address) (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    observedBalance1 s < s.storage reserve1Slot.slot →
+      (skim toAddr).run s =
+        ContractResult.revert "UniswapV2: INSUFFICIENT_BALANCE" s
+
+def pair_sync_run_revert_locked
+    (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot != 1 →
+    (sync).run s =
+      ContractResult.revert "UniswapV2: LOCKED" s
+
+def pair_sync_run_revert_balance0_overflows
+    (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    observedBalance0 s > maxUint112 →
+      (sync).run s =
+        ContractResult.revert "UniswapV2: OVERFLOW" s
+
+def pair_sync_run_revert_balance1_overflows
+    (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    observedBalance1 s > maxUint112 →
+      (sync).run s =
+        ContractResult.revert "UniswapV2: OVERFLOW" s
+
+/-!
 Closed-world economic invariants.
 
 These specs mirror Tamago's ERC4626 trace-wide style. They quantify over every

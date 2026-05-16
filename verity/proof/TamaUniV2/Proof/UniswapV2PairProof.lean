@@ -779,6 +779,77 @@ theorem sync_reverts_when_balance1_overflows (s : ContractState) :
     observedBalance0, observedBalance1, TamaUniV2.erc20BalanceOf,
     h_unlocked_raw, h_require_false_raw]
 
+-- tama: discharges=pair_mint_run_revert_locked
+theorem mint_run_revert_locked (toAddr : Address) (s : ContractState) :
+  pair_mint_run_revert_locked toAddr s := by
+  simpa [pair_mint_run_revert_locked, pair_mint_reverts_when_locked]
+    using mint_reverts_when_locked toAddr s
+
+-- tama: discharges=pair_burn_run_revert_locked
+theorem burn_run_revert_locked (toAddr : Address) (s : ContractState) :
+  pair_burn_run_revert_locked toAddr s := by
+  simpa [pair_burn_run_revert_locked, pair_burn_reverts_when_locked]
+    using burn_reverts_when_locked toAddr s
+
+-- tama: discharges=pair_swap_run_revert_locked
+theorem swap_run_revert_locked
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) :
+  pair_swap_run_revert_locked amount0Out amount1Out toAddr data s := by
+  simpa [pair_swap_run_revert_locked, pair_swap_reverts_when_locked]
+    using swap_reverts_when_locked amount0Out amount1Out toAddr data s
+
+-- tama: discharges=pair_swap_run_revert_insufficient_output
+theorem swap_run_revert_insufficient_output
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) :
+  pair_swap_run_revert_insufficient_output amount0Out amount1Out toAddr data s := by
+  simpa [pair_swap_run_revert_insufficient_output,
+    pair_swap_reverts_for_insufficient_output]
+    using swap_reverts_for_insufficient_output amount0Out amount1Out toAddr data s
+
+-- tama: discharges=pair_skim_run_revert_locked
+theorem skim_run_revert_locked (toAddr : Address) (s : ContractState) :
+  pair_skim_run_revert_locked toAddr s := by
+  simpa [pair_skim_run_revert_locked, pair_skim_reverts_when_locked]
+    using skim_reverts_when_locked toAddr s
+
+-- tama: discharges=pair_skim_run_revert_balance0_below_reserve
+theorem skim_run_revert_balance0_below_reserve
+    (toAddr : Address) (s : ContractState) :
+  pair_skim_run_revert_balance0_below_reserve toAddr s := by
+  simpa [pair_skim_run_revert_balance0_below_reserve,
+    pair_skim_reverts_when_balance0_below_reserve]
+    using skim_reverts_when_balance0_below_reserve toAddr s
+
+-- tama: discharges=pair_skim_run_revert_balance1_below_reserve
+theorem skim_run_revert_balance1_below_reserve
+    (toAddr : Address) (s : ContractState) :
+  pair_skim_run_revert_balance1_below_reserve toAddr s := by
+  simpa [pair_skim_run_revert_balance1_below_reserve,
+    pair_skim_reverts_when_balance1_below_reserve]
+    using skim_reverts_when_balance1_below_reserve toAddr s
+
+-- tama: discharges=pair_sync_run_revert_locked
+theorem sync_run_revert_locked (s : ContractState) :
+  pair_sync_run_revert_locked s := by
+  simpa [pair_sync_run_revert_locked, pair_sync_reverts_when_locked]
+    using sync_reverts_when_locked s
+
+-- tama: discharges=pair_sync_run_revert_balance0_overflows
+theorem sync_run_revert_balance0_overflows (s : ContractState) :
+  pair_sync_run_revert_balance0_overflows s := by
+  simpa [pair_sync_run_revert_balance0_overflows,
+    pair_sync_reverts_when_balance0_overflows]
+    using sync_reverts_when_balance0_overflows s
+
+-- tama: discharges=pair_sync_run_revert_balance1_overflows
+theorem sync_run_revert_balance1_overflows (s : ContractState) :
+  pair_sync_run_revert_balance1_overflows s := by
+  simpa [pair_sync_run_revert_balance1_overflows,
+    pair_sync_reverts_when_balance1_overflows]
+    using sync_reverts_when_balance1_overflows s
+
 private theorem pairWorldStep_preserves_good
     {action : PairWorldAction} {before after : PairWorldState} :
   PairWorldGood before →
