@@ -21,9 +21,9 @@ def factory_allPairs_success_spec (index : Uint256) (result : Address) (s : Cont
 /-!
 Local factory state-transition obligations.
 
-Successful pair creation depends on the CREATE2 and initialize ECMs. Those
-runtime properties are covered by Foundry mirror tests and trust entries; the
-Lean obligations here stay within behavior represented by the source model.
+Successful pair creation crosses the CREATE2 and pair-initialize boundaries.
+Factory-local storage and ordering behavior should still be specified directly;
+only the external deployment/call effects belong at those boundaries.
 -/
 
 def factory_allPairs_reverts_out_of_bounds

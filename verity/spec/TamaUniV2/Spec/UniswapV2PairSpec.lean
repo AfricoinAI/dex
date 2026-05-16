@@ -70,10 +70,10 @@ def pair_safeTransfer_traces_token_transfer
 /-
 Local state-transition specs.
 
-These properties avoid ERC20/callback ECM behavior and are therefore honest
-Lean obligations over the executable source model. Liquidity and swap behavior
-remain covered by Foundry tests until the external-token balance model is rich
-enough to prove them directly.
+These properties are executable Lean obligations over the source model.
+Entrypoints that read token balances or make callbacks are proved by combining
+pair-local storage facts, explicit external-boundary assumptions, and the
+closed-world economic invariants below.
 -/
 
 def pair_initialize_reverts_for_non_factory
@@ -416,6 +416,49 @@ def pair_sync_run_revert_balance1_overflows
     observedBalance1 s > maxUint112 →
       (sync).run s =
         ContractResult.revert "UniswapV2: OVERFLOW" s
+
+def pair_mint_first_expected_refines_closed_world
+    (toAddr : Address) (s : ContractState) : Prop :=
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  let liquidity := mintFirstLiquidity s
+  s.storage unlockedSlot.slot = 1 →
+    s.storage totalSupplySlot.slot = 0 →
+      observedBalance0 s ≤ maxUint112 →
+        observedBalance1 s ≤ maxUint112 →
+          s.storage reserve0Slot.slot ≤ observedBalance0 s →
+            s.storage reserve1Slot.slot ≤ observedBalance1 s →
+              amount0 > 0 →
+                amount1 > 0 →
+                  (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
+                    mintFirstRoot s > minimumLiquidity →
+                      PairWorldStep
+                        (PairWorldAction.mint amount0.val amount1.val liquidity.val)
+                        (pairWorldBeforeMintRun s)
+                        (pairWorldAfterFirstMintRun s)
+
+def pair_mint_first_success_run_refines_closed_world
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  let liquidity := mintFirstLiquidity s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      s.storage unlockedSlot.slot = 1 →
+        s.storage totalSupplySlot.slot = 0 →
+          observedBalance0 s ≤ maxUint112 →
+            observedBalance1 s ≤ maxUint112 →
+              s.storage reserve0Slot.slot ≤ observedBalance0 s →
+                s.storage reserve1Slot.slot ≤ observedBalance1 s →
+                  amount0 > 0 →
+                    amount1 > 0 →
+                      (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
+                        mintFirstRoot s > minimumLiquidity →
+                          PairWorldStep
+                            (PairWorldAction.mint amount0.val amount1.val liquidity.val)
+                            (pairWorldBeforeMintRun s)
+                            (pairWorldAfterFirstMintRun s)
 
 /-!
 Closed-world economic invariants.

@@ -907,6 +907,120 @@ theorem sync_run_revert_balance1_overflows (s : ContractState) :
     pair_sync_reverts_when_balance1_overflows]
     using sync_reverts_when_balance1_overflows s
 
+-- tama: discharges=pair_mint_first_expected_refines_closed_world
+theorem mint_first_expected_refines_closed_world (toAddr : Address) (s : ContractState) :
+  pair_mint_first_expected_refines_closed_world toAddr s := by
+  dsimp [pair_mint_first_expected_refines_closed_world]
+  intro h_unlocked h_supply_zero h_bound0 h_bound1 h_reserve0 h_reserve1
+    h_amount0 h_amount1 h_product h_root
+  have h_supply_zero_raw : s.storage 8 = (0 : Uint256) := by
+    simpa [totalSupplySlot] using h_supply_zero
+  have h_supply_zero_val : (s.storage 8).val = 0 := by
+    rw [h_supply_zero_raw]
+    rfl
+  unfold PairWorldStep PairWorldMintStep pairWorldBeforeMintRun
+    pairWorldAfterFirstMintRun pairWorldLockedLiquidity
+  simp only [totalSupplySlot, h_supply_zero_raw, h_supply_zero_val, if_true]
+  constructor
+  · simpa [mintAmount0] using h_amount0
+  constructor
+  · simpa [mintAmount1] using h_amount1
+  constructor
+  · have h_root_le : minimumLiquidity.val ≤ (mintFirstRoot s).val :=
+      Nat.le_of_lt h_root
+    have h_liquidity_eq :
+        (mintFirstLiquidity s).val =
+          (mintFirstRoot s).val - minimumLiquidity.val := by
+      simpa [mintFirstLiquidity] using
+        (Verity.Core.Uint256.sub_eq_of_le
+          (a := mintFirstRoot s) (b := minimumLiquidity) h_root_le)
+    have h_liquidity_pos : 0 < (mintFirstLiquidity s).val := by
+      rw [h_liquidity_eq]
+      omega
+    simpa [mintFirstLiquidity] using h_liquidity_pos
+  constructor
+  · have h_sub :
+        (mintAmount0 s).val =
+          (observedBalance0 s).val - (s.storage reserve0Slot.slot).val := by
+      simpa [mintAmount0] using
+        (Verity.Core.Uint256.sub_eq_of_le
+          (a := observedBalance0 s) (b := s.storage reserve0Slot.slot) h_reserve0)
+    have h_sub_raw :
+        (Verity.EVM.Uint256.sub
+            ((Contracts.balanceOf (s.storageAddr 1) s.thisAddress).run s).fst
+            (s.storage 3)).val =
+          (observedBalance0 s).val - (s.storage reserve0Slot.slot).val := by
+      simpa [mintAmount0, observedBalance0, pairToken0, pairSelf,
+        TamaUniV2.erc20BalanceOf, Contracts.balanceOf, reserve0Slot, Contract.run,
+        ContractResult.fst, Verity.pure, Pure.pure] using h_sub
+    rw [h_sub_raw]
+    omega
+  constructor
+  · have h_sub :
+        (mintAmount1 s).val =
+          (observedBalance1 s).val - (s.storage reserve1Slot.slot).val := by
+      simpa [mintAmount1] using
+        (Verity.Core.Uint256.sub_eq_of_le
+          (a := observedBalance1 s) (b := s.storage reserve1Slot.slot) h_reserve1)
+    have h_sub_raw :
+        (Verity.EVM.Uint256.sub
+            ((Contracts.balanceOf (s.storageAddr 2) s.thisAddress).run s).fst
+            (s.storage 4)).val =
+          (observedBalance1 s).val - (s.storage reserve1Slot.slot).val := by
+      simpa [mintAmount1, observedBalance1, pairToken1, pairSelf,
+        TamaUniV2.erc20BalanceOf, Contracts.balanceOf, reserve1Slot, Contract.run,
+        ContractResult.fst, Verity.pure, Pure.pure] using h_sub
+    rw [h_sub_raw]
+    omega
+  constructor
+  · simp
+  constructor
+  · simp
+  constructor
+  · simp
+  constructor
+  · simp
+  constructor
+  · simpa [maxUint112Nat, maxUint112, UniswapV2PairBase.maxUint112] using
+      h_bound0
+  constructor
+  · simpa [maxUint112Nat, maxUint112, UniswapV2PairBase.maxUint112] using
+      h_bound1
+  constructor
+  · have h_root_le : minimumLiquidity.val ≤ (mintFirstRoot s).val :=
+      Nat.le_of_lt h_root
+    have h_min_val : minimumLiquidity.val = minimumLiquidityNat := by
+      change (Verity.Core.Uint256.ofNat 1000).val = (1000 : Nat)
+      norm_num [Verity.Core.Uint256.ofNat, Verity.Core.Uint256.modulus,
+        Verity.Core.UINT256_MODULUS]
+    have h_liquidity_eq :
+        (mintFirstLiquidity s).val =
+          (mintFirstRoot s).val - minimumLiquidity.val := by
+      simpa [mintFirstLiquidity] using
+        (Verity.Core.Uint256.sub_eq_of_le
+          (a := mintFirstRoot s) (b := minimumLiquidity) h_root_le)
+    have h_root_le_nat : minimumLiquidityNat ≤ (mintFirstRoot s).val := by
+      rw [← h_min_val]
+      exact h_root_le
+    have h_root_eq :
+        (mintFirstRoot s).val =
+          minimumLiquidityNat + ((mintFirstRoot s).val - minimumLiquidityNat) := by
+      exact (Nat.add_sub_of_le h_root_le_nat).symm
+    simpa [h_supply_zero_val, h_liquidity_eq, h_min_val] using h_root_eq
+  · simp [h_supply_zero_val]
+
+-- tama: discharges=pair_mint_first_success_run_refines_closed_world
+theorem mint_first_success_run_refines_closed_world
+    (toAddr : Address) (s : ContractState) :
+  pair_mint_first_success_run_refines_closed_world toAddr s
+    ((mint toAddr).run s) := by
+  dsimp [pair_mint_first_success_run_refines_closed_world]
+  intro _h_actual _h_success h_unlocked h_supply_zero h_bound0 h_bound1
+    h_reserve0 h_reserve1 h_amount0 h_amount1 h_product h_root
+  exact mint_first_expected_refines_closed_world toAddr s
+    h_unlocked h_supply_zero h_bound0 h_bound1 h_reserve0 h_reserve1
+    h_amount0 h_amount1 h_product h_root
+
 private theorem pairWorldStep_preserves_good
     {action : PairWorldAction} {before after : PairWorldState} :
   PairWorldGood before →
@@ -937,11 +1051,12 @@ private theorem pairWorldStep_preserves_good
     · simpa [PairWorldSupplyGood, h_supply_eq, h_locked_eq] using h_supply
   · rcases h_good with ⟨_h_back0, _h_back1, _h_bound0, _h_bound1, h_supply⟩
     rcases h_step with ⟨_h_amount0, _h_amount1, h_liquidity,
-      _h_balance0, _h_balance1, h_reserve0, h_reserve1, h_bound0, h_bound1,
-      h_supply_eq, h_locked_eq⟩
+      _h_before_balance0, _h_before_balance1, h_after_balance0, h_after_balance1,
+      h_after_reserve0, h_after_reserve1, h_bound0, h_bound1, h_supply_eq,
+      h_locked_eq⟩
     refine ⟨?_, ?_, h_bound0, h_bound1, ?_⟩
-    · rw [h_reserve0]
-    · rw [h_reserve1]
+    · rw [h_after_reserve0, h_after_balance0]
+    · rw [h_after_reserve1, h_after_balance1]
     · by_cases h_zero : before.totalSupply = 0
       · right
         rw [h_supply_eq, h_locked_eq]
@@ -1057,10 +1172,12 @@ theorem closed_world_mint_updates_reserves_to_balances
     amount0 amount1 liquidity before after := by
   intro h_step
   simp [PairWorldStep, PairWorldMintStep] at h_step
-  rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, _h_balance0,
-    _h_balance1, h_reserve0, h_reserve1, _h_bound0, _h_bound1, _h_supply,
-    _h_locked⟩
-  exact ⟨h_reserve0, h_reserve1⟩
+  rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, _h_before_balance0,
+    _h_before_balance1, h_after_balance0, h_after_balance1, h_after_reserve0,
+    h_after_reserve1, _h_bound0, _h_bound1, _h_supply, _h_locked⟩
+  constructor
+  · rw [h_after_reserve0, h_after_balance0]
+  · rw [h_after_reserve1, h_after_balance1]
 
 -- tama: discharges=pair_closed_world_burn_updates_reserves_to_balances
 theorem closed_world_burn_updates_reserves_to_balances

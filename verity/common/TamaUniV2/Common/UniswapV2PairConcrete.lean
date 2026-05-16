@@ -1,4 +1,5 @@
 import TamaUniV2.UniswapV2Pair
+import TamaUniV2.Common.UniswapV2PairGhost
 
 /-!
 Concrete helper formulas for Uniswap V2 pair specs.
@@ -13,6 +14,8 @@ namespace TamaUniV2.Common.UniswapV2PairConcrete
 
 open Verity
 open TamaUniV2.UniswapV2Pair
+open TamaUniV2.Common.UniswapV2PairGhost
+open Tamago.Utils
 
 def pairSelf (s : ContractState) : Address :=
   s.thisAddress
@@ -44,6 +47,41 @@ def mintAmount0 (s : ContractState) : Uint256 :=
 
 def mintAmount1 (s : ContractState) : Uint256 :=
   Verity.EVM.Uint256.sub (observedBalance1 s) (s.storage reserve1Slot.slot)
+
+def mintFirstProduct (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.mul (mintAmount0 s) (mintAmount1 s)
+
+def mintLockedState (s : ContractState) : ContractState :=
+  { s with «storage» := fun slotIdx =>
+      if slotIdx = unlockedSlot.slot then 0 else s.storage slotIdx }
+
+def sqrtValue (x : Uint256) (s : ContractState) : Uint256 :=
+  ((FixedPointMathLibBase.sqrt x).run s).fst
+
+def mintFirstRoot (s : ContractState) : Uint256 :=
+  sqrtValue (mintFirstProduct s) (mintLockedState s)
+
+def mintFirstLiquidity (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.sub (mintFirstRoot s) minimumLiquidity
+
+def pairWorldLockedLiquidity (supply : Uint256) : Nat :=
+  if supply.val = 0 then 0 else minimumLiquidityNat
+
+def pairWorldBeforeMintRun (s : ContractState) : PairWorldState :=
+  { balance0 := (observedBalance0 s).val
+    balance1 := (observedBalance1 s).val
+    reserve0 := (s.storage reserve0Slot.slot).val
+    reserve1 := (s.storage reserve1Slot.slot).val
+    totalSupply := (s.storage totalSupplySlot.slot).val
+    lockedLiquidity := pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) }
+
+def pairWorldAfterFirstMintRun (s : ContractState) : PairWorldState :=
+  { balance0 := (observedBalance0 s).val
+    balance1 := (observedBalance1 s).val
+    reserve0 := (observedBalance0 s).val
+    reserve1 := (observedBalance1 s).val
+    totalSupply := (mintFirstRoot s).val
+    lockedLiquidity := minimumLiquidityNat }
 
 def timestamp32 (s : ContractState) : Uint256 :=
   Verity.EVM.Uint256.mod s.blockTimestamp uint32Modulus

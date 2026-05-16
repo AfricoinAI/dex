@@ -52,10 +52,12 @@ def PairWorldMintStep
   0 < amount0 ∧
   0 < amount1 ∧
   0 < liquidity ∧
-  after.balance0 = before.balance0 + amount0 ∧
-  after.balance1 = before.balance1 + amount1 ∧
-  after.reserve0 = after.balance0 ∧
-  after.reserve1 = after.balance1 ∧
+  before.balance0 = before.reserve0 + amount0 ∧
+  before.balance1 = before.reserve1 + amount1 ∧
+  after.balance0 = before.balance0 ∧
+  after.balance1 = before.balance1 ∧
+  after.reserve0 = before.balance0 ∧
+  after.reserve1 = before.balance1 ∧
   after.reserve0 ≤ maxUint112Nat ∧
   after.reserve1 ≤ maxUint112Nat ∧
   after.totalSupply =
