@@ -298,6 +298,57 @@ actual entrypoint run result, not a separately supplied result value. The older
 `result`-parameter specs above are kept as small reusable adapters.
 -/
 
+def pair_initialize_run_revert_non_factory
+    (token0Value token1Value : Address) (s : ContractState) : Prop :=
+  s.sender != s.storageAddr factorySlot.slot →
+    («initialize» token0Value token1Value).run s =
+      ContractResult.revert "UniswapV2: FORBIDDEN" s
+
+def pair_initialize_run_revert_already_initialized
+    (token0Value token1Value : Address) (s : ContractState) : Prop :=
+  s.sender = s.storageAddr factorySlot.slot →
+    (s.storageAddr token0Slot.slot != zeroAddress ∨
+      s.storageAddr token1Slot.slot != zeroAddress) →
+      («initialize» token0Value token1Value).run s =
+        ContractResult.revert "UniswapV2: ALREADY_INITIALIZED" s
+
+def pair_transfer_run_revert_balance_low
+    (toAddr : Address) (amount : Uint256) (s : ContractState) : Prop :=
+  amount.val > (s.storageMap balancesSlot.slot s.sender).val →
+    (transfer toAddr amount).run s =
+      ContractResult.revert "UniswapV2: INSUFFICIENT_BALANCE" s
+
+def pair_transfer_run_revert_recipient_balance_overflow
+    (toAddr : Address) (amount : Uint256) (s : ContractState) : Prop :=
+  amount.val ≤ (s.storageMap balancesSlot.slot s.sender).val →
+    s.sender ≠ toAddr →
+      (s.storageMap balancesSlot.slot toAddr).val + amount.val > Verity.Stdlib.Math.MAX_UINT256 →
+        (transfer toAddr amount).run s =
+          ContractResult.revert "UniswapV2: BALANCE_OVERFLOW" s
+
+def pair_transferFrom_run_revert_allowance_low
+    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState) : Prop :=
+  amount.val > (s.storageMap2 allowancesSlot.slot fromAddr s.sender).val →
+    (transferFrom fromAddr toAddr amount).run s =
+      ContractResult.revert "UniswapV2: INSUFFICIENT_ALLOWANCE" s
+
+def pair_transferFrom_run_revert_balance_low
+    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState) : Prop :=
+  amount.val ≤ (s.storageMap2 allowancesSlot.slot fromAddr s.sender).val →
+    amount.val > (s.storageMap balancesSlot.slot fromAddr).val →
+      (transferFrom fromAddr toAddr amount).run s =
+        ContractResult.revert "UniswapV2: INSUFFICIENT_BALANCE" s
+
+def pair_transferFrom_run_revert_recipient_balance_overflow
+    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState) : Prop :=
+  amount.val ≤ (s.storageMap2 allowancesSlot.slot fromAddr s.sender).val →
+    amount.val ≤ (s.storageMap balancesSlot.slot fromAddr).val →
+      fromAddr ≠ toAddr →
+        (s.storageMap balancesSlot.slot toAddr).val + amount.val >
+            Verity.Stdlib.Math.MAX_UINT256 →
+          (transferFrom fromAddr toAddr amount).run s =
+            ContractResult.revert "UniswapV2: BALANCE_OVERFLOW" s
+
 def pair_mint_run_revert_locked
     (toAddr : Address) (s : ContractState) : Prop :=
   s.storage unlockedSlot.slot != 1 →

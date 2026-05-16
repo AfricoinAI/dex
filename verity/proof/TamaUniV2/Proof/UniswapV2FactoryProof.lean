@@ -108,4 +108,35 @@ theorem createPair_rejects_duplicates
       h_tokenB_nonzero, h_tokenA_not_zero, h_tokenB_not_zero, h_sort, h_sort_raw,
       h_existing_branch]
 
+-- tama: discharges=factory_allPairs_run_revert_out_of_bounds
+theorem allPairs_run_revert_out_of_bounds (index : Uint256) (s : ContractState) :
+  factory_allPairs_run_revert_out_of_bounds index s := by
+  simpa [factory_allPairs_run_revert_out_of_bounds,
+    factory_allPairs_reverts_out_of_bounds]
+    using allPairs_reverts_out_of_bounds index s
+
+-- tama: discharges=factory_createPair_run_revert_identical_addresses
+theorem createPair_run_revert_identical_addresses
+    (tokenA tokenB : Address) (s : ContractState) :
+  factory_createPair_run_revert_identical_addresses tokenA tokenB s := by
+  simpa [factory_createPair_run_revert_identical_addresses,
+    factory_createPair_rejects_identical_addresses]
+    using createPair_rejects_identical_addresses tokenA tokenB s
+
+-- tama: discharges=factory_createPair_run_revert_zero_address
+theorem createPair_run_revert_zero_address
+    (tokenA tokenB : Address) (s : ContractState) :
+  factory_createPair_run_revert_zero_address tokenA tokenB s := by
+  simpa [factory_createPair_run_revert_zero_address,
+    factory_createPair_rejects_zero_address]
+    using createPair_rejects_zero_address tokenA tokenB s
+
+-- tama: discharges=factory_createPair_run_revert_duplicates
+theorem createPair_run_revert_duplicates
+    (tokenA tokenB : Address) (s : ContractState) :
+  factory_createPair_run_revert_duplicates tokenA tokenB s := by
+  simpa [factory_createPair_run_revert_duplicates,
+    factory_createPair_rejects_duplicates]
+    using createPair_rejects_duplicates tokenA tokenB s
+
 end TamaUniV2.Proof.UniswapV2FactoryProof

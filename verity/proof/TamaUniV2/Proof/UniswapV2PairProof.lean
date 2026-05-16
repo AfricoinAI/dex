@@ -779,6 +779,63 @@ theorem sync_reverts_when_balance1_overflows (s : ContractState) :
     observedBalance0, observedBalance1, TamaUniV2.erc20BalanceOf,
     h_unlocked_raw, h_require_false_raw]
 
+-- tama: discharges=pair_initialize_run_revert_non_factory
+theorem initialize_run_revert_non_factory
+    (token0Value token1Value : Address) (s : ContractState) :
+  pair_initialize_run_revert_non_factory token0Value token1Value s := by
+  simpa [pair_initialize_run_revert_non_factory,
+    pair_initialize_reverts_for_non_factory]
+    using initialize_reverts_for_non_factory token0Value token1Value s
+
+-- tama: discharges=pair_initialize_run_revert_already_initialized
+theorem initialize_run_revert_already_initialized
+    (token0Value token1Value : Address) (s : ContractState) :
+  pair_initialize_run_revert_already_initialized token0Value token1Value s := by
+  simpa [pair_initialize_run_revert_already_initialized,
+    pair_initialize_reverts_when_already_initialized]
+    using initialize_reverts_when_already_initialized token0Value token1Value s
+
+-- tama: discharges=pair_transfer_run_revert_balance_low
+theorem transfer_run_revert_balance_low
+    (toAddr : Address) (amount : Uint256) (s : ContractState) :
+  pair_transfer_run_revert_balance_low toAddr amount s := by
+  simpa [pair_transfer_run_revert_balance_low,
+    pair_transfer_reverts_when_balance_low]
+    using transfer_reverts_when_balance_low toAddr amount s
+
+-- tama: discharges=pair_transfer_run_revert_recipient_balance_overflow
+theorem transfer_run_revert_recipient_balance_overflow
+    (toAddr : Address) (amount : Uint256) (s : ContractState) :
+  pair_transfer_run_revert_recipient_balance_overflow toAddr amount s := by
+  simpa [pair_transfer_run_revert_recipient_balance_overflow,
+    pair_transfer_reverts_when_recipient_balance_would_overflow]
+    using transfer_reverts_when_recipient_balance_would_overflow toAddr amount s
+
+-- tama: discharges=pair_transferFrom_run_revert_allowance_low
+theorem transferFrom_run_revert_allowance_low
+    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState) :
+  pair_transferFrom_run_revert_allowance_low fromAddr toAddr amount s := by
+  simpa [pair_transferFrom_run_revert_allowance_low,
+    pair_transferFrom_reverts_when_allowance_low]
+    using transferFrom_reverts_when_allowance_low fromAddr toAddr amount s
+
+-- tama: discharges=pair_transferFrom_run_revert_balance_low
+theorem transferFrom_run_revert_balance_low
+    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState) :
+  pair_transferFrom_run_revert_balance_low fromAddr toAddr amount s := by
+  simpa [pair_transferFrom_run_revert_balance_low,
+    pair_transferFrom_reverts_when_balance_low]
+    using transferFrom_reverts_when_balance_low fromAddr toAddr amount s
+
+-- tama: discharges=pair_transferFrom_run_revert_recipient_balance_overflow
+theorem transferFrom_run_revert_recipient_balance_overflow
+    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState) :
+  pair_transferFrom_run_revert_recipient_balance_overflow fromAddr toAddr amount s := by
+  simpa [pair_transferFrom_run_revert_recipient_balance_overflow,
+    pair_transferFrom_reverts_when_recipient_balance_would_overflow]
+    using transferFrom_reverts_when_recipient_balance_would_overflow
+      fromAddr toAddr amount s
+
 -- tama: discharges=pair_mint_run_revert_locked
 theorem mint_run_revert_locked (toAddr : Address) (s : ContractState) :
   pair_mint_run_revert_locked toAddr s := by
