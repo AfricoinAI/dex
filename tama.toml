@@ -35,6 +35,9 @@ metadata_bytecode_hash = "none"
 
 [trust.allow_surfaces]
 "contractAddress" = "Used by pair operations to read token balances held by the pair contract."
+"mstore" = "Used only to restore the EVM free-memory pointer to 0x80 before native event emission after ECMs that use scratch memory."
+"restore free memory pointer before native events after ERC20 transfer ECMs" = "Documents the burn-path memory repair required after ERC20 transfer ECM calls and before native events."
+"restore free memory pointer before native events after callback/transfer ECMs" = "Documents the swap-path memory repair required after ERC20 transfer/callback ECM calls and before native events."
 
 [coverage.proof_only]
 "UniswapV2Pair.pair_decimals_spec" = "Pure ABI view proven directly in Lean."

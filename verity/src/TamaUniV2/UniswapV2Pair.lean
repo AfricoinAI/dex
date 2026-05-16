@@ -1,6 +1,9 @@
 import Contracts.Common
 import Compiler.ECM
+import Compiler.CompilationModel
 import Compiler.Modules.ERC20
+import Tamago.Common.Events
+import Tamago.Utils.FixedPointMathLib
 
 namespace TamaUniV2
 
@@ -8,8 +11,58 @@ open Verity hiding pure bind
 open Contracts
 open Verity.EVM.Uint256
 open Verity.Stdlib.Math
+open Compiler.CompilationModel
 open Compiler.Yul
 open Compiler.ECM
+open Tamago.Utils
+
+namespace UniswapV2PairEvents
+
+def indexedAddress (name : String) : EventParam :=
+  { name := name, ty := ParamType.address, kind := EventParamKind.indexed }
+
+def address (name : String) : EventParam :=
+  { name := name, ty := ParamType.address, kind := EventParamKind.unindexed }
+
+def uint256 (name : String) : EventParam :=
+  { name := name, ty := ParamType.uint256, kind := EventParamKind.unindexed }
+
+def mint : EventDef :=
+  { name := "Mint"
+    params := [
+      indexedAddress "sender",
+      uint256 "amount0",
+      uint256 "amount1"
+    ] }
+
+def burn : EventDef :=
+  { name := "Burn"
+    params := [
+      indexedAddress "sender",
+      uint256 "amount0",
+      uint256 "amount1",
+      indexedAddress "to"
+    ] }
+
+def swap : EventDef :=
+  { name := "Swap"
+    params := [
+      indexedAddress "sender",
+      uint256 "amount0In",
+      uint256 "amount1In",
+      uint256 "amount0Out",
+      uint256 "amount1Out",
+      indexedAddress "to"
+    ] }
+
+def sync : EventDef :=
+  { name := "Sync"
+    params := [
+      uint256 "reserve0",
+      uint256 "reserve1"
+    ] }
+
+end UniswapV2PairEvents
 
 def uniswapV2CallbackModule : ExternalCallModule where
   name := "uniswapV2Call"
@@ -55,7 +108,7 @@ def uniswapV2CallbackModule : ExternalCallModule where
       ]
     pure [YulStmt.if_ (YulExpr.call "gt" [bytesLenExpr, YulExpr.lit 0]) [YulStmt.block callBlock]]
 
-verity_contract UniswapV2Pair where
+verity_contract UniswapV2PairBase where
   storage
     factorySlot : Address := slot 0
     token0Slot : Address := slot 1
@@ -144,11 +197,11 @@ verity_contract UniswapV2Pair where
   function approve (spender : Address, amount : Uint256) : Bool := do
     let sender ← msgSender
     setMapping2 allowancesSlot sender spender amount
+    emit "Approval" [addressToWord sender, addressToWord spender, amount]
     return true
 
   function transfer (toAddr : Address, amount : Uint256) : Bool := do
     let sender ← msgSender
-    require (toAddr != zeroAddress) "UniswapV2: TRANSFER_TO_ZERO_ADDRESS"
     let senderBalance ← getMapping balancesSlot sender
     require (senderBalance >= amount) "UniswapV2: INSUFFICIENT_BALANCE"
     if sender == toAddr then
@@ -158,11 +211,11 @@ verity_contract UniswapV2Pair where
       let newToBalance ← requireSomeUint (safeAdd toBalance amount) "UniswapV2: BALANCE_OVERFLOW"
       setMapping balancesSlot sender (sub senderBalance amount)
       setMapping balancesSlot toAddr newToBalance
+    emit "Transfer" [addressToWord sender, addressToWord toAddr, amount]
     return true
 
   function transferFrom (fromAddr : Address, toAddr : Address, amount : Uint256) : Bool := do
     let spender ← msgSender
-    require (toAddr != zeroAddress) "UniswapV2: TRANSFER_TO_ZERO_ADDRESS"
     let currentAllowance ← getMapping2 allowancesSlot fromAddr spender
     require (currentAllowance >= amount) "UniswapV2: INSUFFICIENT_ALLOWANCE"
     let fromBalance ← getMapping balancesSlot fromAddr
@@ -178,185 +231,14 @@ verity_contract UniswapV2Pair where
       pure ()
     else
       setMapping2 allowancesSlot fromAddr spender (sub currentAllowance amount)
+    emit "Transfer" [addressToWord fromAddr, addressToWord toAddr, amount]
     return true
-
-  function view sqrt (y : Uint256) : Uint256 := do
-    let mut z := 1
-    if y == 0 then
-      z := 0
-    else
-      pure ()
-    if y > 3 then
-      z := y
-      let mut x := add (div y 2) 1
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-      if x < z then
-        z := x
-        x := div (add (div y x) x) 2
-      else
-        pure ()
-    else
-      pure ()
-    return z
 
   function allow_post_interaction_writes mint (toAddr : Address) : Uint256 := do
     let lockValue ← getStorage unlockedSlot
     require (lockValue == 1) "UniswapV2: LOCKED"
     setStorage unlockedSlot 0
+    let sender ← msgSender
     let token0Value ← getStorageAddr token0Slot
     let token1Value ← getStorageAddr token1Slot
     let selfAddr ← Verity.contractAddress
@@ -374,14 +256,16 @@ verity_contract UniswapV2Pair where
     if supply == 0 then
       let product := mul amount0 amount1
       require (amount0 == 0 || div product amount0 == amount1) "UniswapV2: MINT_OVERFLOW"
-      let root ← sqrt product
+      let root ← FixedPointMathLibBase.sqrt product
       require (root > minimumLiquidity) "UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED"
       liquidity := sub root minimumLiquidity
       setStorage totalSupplySlot root
       setMapping balancesSlot zeroAddress minimumLiquidity
+      emit "Transfer" [addressToWord zeroAddress, addressToWord zeroAddress, minimumLiquidity]
       let toBalance ← getMapping balancesSlot toAddr
       let newToBalance ← requireSomeUint (safeAdd toBalance liquidity) "UniswapV2: BALANCE_OVERFLOW"
       setMapping balancesSlot toAddr newToBalance
+      emit "Transfer" [addressToWord zeroAddress, addressToWord toAddr, liquidity]
     else
       require (reserve0Value > 0 && reserve1Value > 0) "UniswapV2: INSUFFICIENT_LIQUIDITY"
       let liq0Product := mul amount0 supply
@@ -397,6 +281,7 @@ verity_contract UniswapV2Pair where
       let newToBalance ← requireSomeUint (safeAdd toBalance liquidity) "UniswapV2: BALANCE_OVERFLOW"
       setStorage totalSupplySlot newSupply
       setMapping balancesSlot toAddr newToBalance
+      emit "Transfer" [addressToWord zeroAddress, addressToWord toAddr, liquidity]
     let currentTimestamp ← Verity.blockTimestamp
     let timestamp32 := mod currentTimestamp uint32Modulus
     let previousTimestamp ← getStorage blockTimestampLastSlot
@@ -417,6 +302,8 @@ verity_contract UniswapV2Pair where
     setStorage reserve0Slot balance0Now
     setStorage reserve1Slot balance1Now
     setStorage blockTimestampLastSlot timestamp32
+    emit "Sync" [balance0Now, balance1Now]
+    emit "Mint" [addressToWord sender, amount0, amount1]
     setStorage unlockedSlot 1
     return liquidity
 
@@ -424,6 +311,7 @@ verity_contract UniswapV2Pair where
     let lockValue ← getStorage unlockedSlot
     require (lockValue == 1) "UniswapV2: LOCKED"
     setStorage unlockedSlot 0
+    let sender ← msgSender
     let token0Value ← getStorageAddr token0Slot
     let token1Value ← getStorageAddr token1Slot
     let selfAddr ← Verity.contractAddress
@@ -441,11 +329,14 @@ verity_contract UniswapV2Pair where
     require (amount0 > 0 && amount1 > 0) "UniswapV2: INSUFFICIENT_LIQUIDITY_BURNED"
     setMapping balancesSlot selfAddr 0
     setStorage totalSupplySlot (sub supply liquidity)
+    emit "Transfer" [addressToWord selfAddr, addressToWord zeroAddress, liquidity]
     safeTransfer token0Value toAddr amount0
     safeTransfer token1Value toAddr amount1
     let balance0After ← ecmCall (fun resultVar => Compiler.Modules.ERC20.balanceOfModule resultVar) [token0Value, selfAddr]
     let balance1After ← ecmCall (fun resultVar => Compiler.Modules.ERC20.balanceOfModule resultVar) [token1Value, selfAddr]
     require (balance0After <= maxUint112 && balance1After <= maxUint112) "UniswapV2: OVERFLOW"
+    unsafe "restore free memory pointer before native events after ERC20 transfer ECMs" do
+      mstore 64 128
     let reserve0Value ← getStorage reserve0Slot
     let reserve1Value ← getStorage reserve1Slot
     let currentTimestamp ← Verity.blockTimestamp
@@ -468,6 +359,8 @@ verity_contract UniswapV2Pair where
     setStorage reserve0Slot balance0After
     setStorage reserve1Slot balance1After
     setStorage blockTimestampLastSlot timestamp32
+    emit "Sync" [balance0After, balance1After]
+    emit "Burn" [addressToWord sender, amount0, amount1, addressToWord toAddr]
     setStorage unlockedSlot 1
     return (amount0, amount1)
 
@@ -549,6 +442,17 @@ verity_contract UniswapV2Pair where
     setStorage reserve0Slot balance0Now
     setStorage reserve1Slot balance1Now
     setStorage blockTimestampLastSlot timestamp32
+    unsafe "restore free memory pointer before native events after callback/transfer ECMs" do
+      mstore 64 128
+    emit "Sync" [balance0Now, balance1Now]
+    emit "Swap" [
+      addressToWord sender,
+      amount0In,
+      amount1In,
+      amount0Out,
+      amount1Out,
+      addressToWord toAddr
+    ]
     setStorage unlockedSlot 1
 
   function allow_post_interaction_writes skim (toAddr : Address) : Unit := do
@@ -599,6 +503,67 @@ verity_contract UniswapV2Pair where
     setStorage reserve0Slot balance0Now
     setStorage reserve1Slot balance1Now
     setStorage blockTimestampLastSlot timestamp32
+    emit "Sync" [balance0Now, balance1Now]
     setStorage unlockedSlot 1
+
+namespace UniswapV2Pair
+
+abbrev factorySlot := UniswapV2PairBase.factorySlot
+abbrev token0Slot := UniswapV2PairBase.token0Slot
+abbrev token1Slot := UniswapV2PairBase.token1Slot
+abbrev reserve0Slot := UniswapV2PairBase.reserve0Slot
+abbrev reserve1Slot := UniswapV2PairBase.reserve1Slot
+abbrev blockTimestampLastSlot := UniswapV2PairBase.blockTimestampLastSlot
+abbrev price0CumulativeLastSlot := UniswapV2PairBase.price0CumulativeLastSlot
+abbrev price1CumulativeLastSlot := UniswapV2PairBase.price1CumulativeLastSlot
+abbrev totalSupplySlot := UniswapV2PairBase.totalSupplySlot
+abbrev balancesSlot := UniswapV2PairBase.balancesSlot
+abbrev allowancesSlot := UniswapV2PairBase.allowancesSlot
+abbrev unlockedSlot := UniswapV2PairBase.unlockedSlot
+
+abbrev minimumLiquidity := UniswapV2PairBase.minimumLiquidity
+abbrev feeDenominator := UniswapV2PairBase.feeDenominator
+abbrev feeAdjustment := UniswapV2PairBase.feeAdjustment
+abbrev maxUint112 := UniswapV2PairBase.maxUint112
+abbrev q112 := UniswapV2PairBase.q112
+abbrev uint32Modulus := UniswapV2PairBase.uint32Modulus
+abbrev maxUint256 := UniswapV2PairBase.maxUint256
+
+abbrev decimals := UniswapV2PairBase.decimals
+abbrev totalSupply := UniswapV2PairBase.totalSupply
+abbrev balanceOf := UniswapV2PairBase.balanceOf
+abbrev allowance := UniswapV2PairBase.allowance
+abbrev factory := UniswapV2PairBase.factory
+abbrev token0 := UniswapV2PairBase.token0
+abbrev token1 := UniswapV2PairBase.token1
+abbrev MINIMUM_LIQUIDITY := UniswapV2PairBase.MINIMUM_LIQUIDITY
+abbrev getReserves := UniswapV2PairBase.getReserves
+abbrev price0CumulativeLast := UniswapV2PairBase.price0CumulativeLast
+abbrev price1CumulativeLast := UniswapV2PairBase.price1CumulativeLast
+abbrev kLast := UniswapV2PairBase.kLast
+abbrev «initialize» := UniswapV2PairBase.«initialize»
+abbrev approve := UniswapV2PairBase.approve
+abbrev transfer := UniswapV2PairBase.transfer
+abbrev transferFrom := UniswapV2PairBase.transferFrom
+abbrev mint := UniswapV2PairBase.mint
+abbrev burn := UniswapV2PairBase.burn
+abbrev swap := UniswapV2PairBase.swap
+abbrev skim := UniswapV2PairBase.skim
+abbrev sync := UniswapV2PairBase.sync
+
+def spec : CompilationModel :=
+  { UniswapV2PairBase.spec with
+    name := "UniswapV2Pair"
+    functions := UniswapV2PairBase.spec.functions.filter (fun fn => fn.name != "sqrt")
+    events := [
+      Tamago.Common.Events.transfer,
+      Tamago.Common.Events.approval,
+      UniswapV2PairEvents.mint,
+      UniswapV2PairEvents.burn,
+      UniswapV2PairEvents.swap,
+      UniswapV2PairEvents.sync
+    ] }
+
+end UniswapV2Pair
 
 end TamaUniV2

@@ -3,6 +3,12 @@
 pragma solidity ^0.8.20;
 
 interface UniswapV2PairIface {
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event Mint(address indexed sender, uint256 amount0, uint256 amount1);
+    event Burn(address indexed sender, uint256 amount0, uint256 amount1, address indexed to);
+    event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to);
+    event Sync(uint256 reserve0, uint256 reserve1);
     function decimals() external view returns (uint256);
     function totalSupply() external view returns (uint256);
     function balanceOf(address owner) external view returns (uint256);
@@ -19,7 +25,6 @@ interface UniswapV2PairIface {
     function approve(address spender, uint256 amount) external returns (bool);
     function transfer(address toAddr, uint256 amount) external returns (bool);
     function transferFrom(address fromAddr, address toAddr, uint256 amount) external returns (bool);
-    function sqrt(uint256 y) external view returns (uint256);
     function mint(address toAddr) external returns (uint256);
     function burn(address toAddr) external returns (uint256, uint256);
     function swap(uint256 amount0Out, uint256 amount1Out, address toAddr, bytes calldata data) external;

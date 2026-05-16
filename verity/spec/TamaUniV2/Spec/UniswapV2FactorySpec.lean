@@ -15,6 +15,7 @@ def factory_allPairsLength_spec (result : Uint256) (s : ContractState) : Prop :=
   result = s.storage allPairsLengthSlot.slot
 
 def factory_allPairs_success_spec (index : Uint256) (result : Address) (s : ContractState) : Prop :=
-  result = wordToAddress (s.storageMapUint allPairsSlot.slot index)
+  index < s.storage allPairsLengthSlot.slot →
+    result = wordToAddress (s.storageMapUint allPairsSlot.slot index)
 
 end TamaUniV2.Spec.UniswapV2FactorySpec

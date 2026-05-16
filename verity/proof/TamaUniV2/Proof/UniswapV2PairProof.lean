@@ -11,6 +11,11 @@ attribute [local simp] decimals totalSupply balanceOf allowance factory token0 t
   MINIMUM_LIQUIDITY price0CumulativeLast price1CumulativeLast kLast
   factorySlot token0Slot token1Slot totalSupplySlot balancesSlot allowancesSlot
   price0CumulativeLastSlot price1CumulativeLastSlot
+  UniswapV2PairBase.decimals UniswapV2PairBase.totalSupply
+  UniswapV2PairBase.balanceOf UniswapV2PairBase.allowance
+  UniswapV2PairBase.factory UniswapV2PairBase.token0 UniswapV2PairBase.token1
+  UniswapV2PairBase.MINIMUM_LIQUIDITY UniswapV2PairBase.price0CumulativeLast
+  UniswapV2PairBase.price1CumulativeLast UniswapV2PairBase.kLast
 
 -- tama: discharges=pair_decimals_spec
 theorem decimals_meets_spec (s : ContractState) :

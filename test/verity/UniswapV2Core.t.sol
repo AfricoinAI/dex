@@ -62,6 +62,21 @@ contract UniswapV2CoreTest is Test {
     UniswapV2FactoryIface factory;
     UniswapV2PairIface pair;
 
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Mint(address indexed sender, uint256 amount0, uint256 amount1);
+    event Burn(address indexed sender, uint256 amount0, uint256 amount1, address indexed to);
+    event Swap(
+        address indexed sender,
+        uint256 amount0In,
+        uint256 amount1In,
+        uint256 amount0Out,
+        uint256 amount1Out,
+        address indexed to
+    );
+    event Sync(uint256 reserve0, uint256 reserve1);
+    event PairCreated(address indexed token0, address indexed token1, address pair, uint256 allPairsLength);
+
     function setUp() public {
         tokenA = new MockERC20();
         tokenB = new MockERC20();
@@ -77,6 +92,33 @@ contract UniswapV2CoreTest is Test {
 
     function getAmountIn(uint256 amountOut, uint256 reserveIn, uint256 reserveOut) internal pure returns (uint256) {
         return (reserveIn * amountOut * 1000) / ((reserveOut - amountOut) * 997) + 1;
+    }
+
+    function sorted(address x, address y) internal pure returns (address token0, address token1) {
+        return x < y ? (x, y) : (y, x);
+    }
+
+    function sortedAmounts(uint256 amountA, uint256 amountB) internal view returns (uint256 amount0, uint256 amount1) {
+        return pair.token0() == address(tokenA) ? (amountA, amountB) : (amountB, amountA);
+    }
+
+    function pairCreationCodeHex() internal view returns (string memory) {
+        bytes memory raw = bytes(vm.readFile("artifacts/bytecode/UniswapV2Pair.bin"));
+        uint256 length = raw.length;
+        if (length > 0 && raw[length - 1] == 0x0a) {
+            length -= 1;
+        }
+        bytes memory trimmed = new bytes(length);
+        for (uint256 i = 0; i < length; i++) {
+            trimmed[i] = raw[i];
+        }
+        return string.concat("0x", string(trimmed));
+    }
+
+    function expectedCreate2Pair(address token0, address token1) internal view returns (address) {
+        bytes memory creationCode = vm.parseBytes(pairCreationCodeHex());
+        bytes32 salt = keccak256(abi.encodePacked(token0, token1));
+        return address(uint160(uint256(keccak256(abi.encodePacked(hex"ff", address(factory), salt, keccak256(creationCode))))));
     }
 
     function testFactorySortsStoresReversePairAndRejectsDuplicates() public {
@@ -99,6 +141,40 @@ contract UniswapV2CoreTest is Test {
         factory.createPair(address(0), address(tokenB));
     }
 
+    function testFactoryAllPairsOutOfBoundsReverts() public {
+        uint256 length = factory.allPairsLength();
+        vm.expectRevert();
+        factory.allPairs(length);
+    }
+
+    function testFactoryCreatePairUsesPackedSaltAndEmits() public {
+        MockERC20 tokenC = new MockERC20();
+        MockERC20 tokenD = new MockERC20();
+        (address token0, address token1) = sorted(address(tokenC), address(tokenD));
+        address expectedPair = expectedCreate2Pair(token0, token1);
+        uint256 expectedLength = factory.allPairsLength() + 1;
+
+        vm.expectEmit(true, true, false, true, address(factory));
+        emit PairCreated(token0, token1, expectedPair, expectedLength);
+        address created = factory.createPair(address(tokenC), address(tokenD));
+
+        assertEq(created, expectedPair);
+        assertEq(factory.getPair(address(tokenC), address(tokenD)), expectedPair);
+        assertEq(factory.allPairs(expectedLength - 1), expectedPair);
+    }
+
+    function testLargeInitialMintUsesFloorSqrt() public {
+        tokenA.mint(address(pair), 1 ether);
+        tokenB.mint(address(pair), 1 ether);
+
+        uint256 liquidity = pair.mint(address(this));
+
+        assertEq(liquidity, 1 ether - 1000);
+        assertEq(pair.totalSupply(), 1 ether);
+        assertEq(pair.balanceOf(address(0)), 1000);
+        assertEq(pair.balanceOf(address(this)), 1 ether - 1000);
+    }
+
     function testMintLocksMinimumLiquidityAndBurnsProRata() public {
         seed(1_000_000, 4_000_000);
 
@@ -117,6 +193,56 @@ contract UniswapV2CoreTest is Test {
         assertEq(pair.totalSupply(), 1_800_000);
     }
 
+    function testLpApproveTransferAndEvents() public {
+        seed(1_000_000, 1_000_000);
+
+        vm.expectEmit(true, true, false, true, address(pair));
+        emit Approval(address(this), address(0xBEEF), 123);
+        assertTrue(pair.approve(address(0xBEEF), 123));
+
+        vm.expectEmit(true, true, false, true, address(pair));
+        emit Transfer(address(this), address(0xCAFE), 100);
+        assertTrue(pair.transfer(address(0xCAFE), 100));
+
+        assertEq(pair.allowance(address(this), address(0xBEEF)), 123);
+        assertEq(pair.balanceOf(address(0xCAFE)), 100);
+    }
+
+    function testMintEmitsTransferSyncAndMint() public {
+        uint256 amountA = 1_000_000;
+        uint256 amountB = 4_000_000;
+        (uint256 amount0, uint256 amount1) = sortedAmounts(amountA, amountB);
+        tokenA.mint(address(pair), amountA);
+        tokenB.mint(address(pair), amountB);
+
+        vm.expectEmit(true, true, false, true, address(pair));
+        emit Transfer(address(0), address(0), 1000);
+        vm.expectEmit(true, true, false, true, address(pair));
+        emit Transfer(address(0), address(this), 1_999_000);
+        vm.expectEmit(false, false, false, true, address(pair));
+        emit Sync(amount0, amount1);
+        vm.expectEmit(true, false, false, true, address(pair));
+        emit Mint(address(this), amount0, amount1);
+        pair.mint(address(this));
+    }
+
+    function testBurnEmitsTransferSyncAndBurn() public {
+        seed(1_000_000, 4_000_000);
+        (uint256 reserve0, uint256 reserve1,) = pair.getReserves();
+        uint256 liquidity = 200_000;
+        assertTrue(pair.transfer(address(pair), liquidity));
+        uint256 amount0 = (liquidity * reserve0) / pair.totalSupply();
+        uint256 amount1 = (liquidity * reserve1) / pair.totalSupply();
+
+        vm.expectEmit(true, true, false, true, address(pair));
+        emit Transfer(address(pair), address(0), liquidity);
+        vm.expectEmit(false, false, false, true, address(pair));
+        emit Sync(reserve0 - amount0, reserve1 - amount1);
+        vm.expectEmit(true, true, false, true, address(pair));
+        emit Burn(address(this), amount0, amount1, address(this));
+        pair.burn(address(this));
+    }
+
     function testSwapEnforcesFeeAdjustedKAndUpdatesReserves() public {
         seed(10_000, 10_000);
         address token0 = pair.token0();
@@ -133,6 +259,19 @@ contract UniswapV2CoreTest is Test {
         inToken.mint(address(pair), 1_000);
         vm.expectRevert();
         pair.swap(0, 907, address(this), "");
+    }
+
+    function testSwapEmitsSyncAndSwap() public {
+        seed(10_000, 10_000);
+        address token0 = pair.token0();
+        MockERC20 inToken = token0 == address(tokenA) ? tokenA : tokenB;
+        inToken.mint(address(pair), 1_000);
+
+        vm.expectEmit(false, false, false, true, address(pair));
+        emit Sync(11_000, 9_094);
+        vm.expectEmit(true, true, false, true, address(pair));
+        emit Swap(address(this), 1_000, 0, 0, 906, address(this));
+        pair.swap(0, 906, address(this), "");
     }
 
     function testFlashSwapCallbackAndKLastFeeOff() public {
@@ -165,6 +304,18 @@ contract UniswapV2CoreTest is Test {
         assertEq(reserve1, 10_000 + (pair.token0() == address(tokenA) ? 9 : 7));
     }
 
+    function testSyncEmitsUpdatedReserves() public {
+        seed(10_000, 10_000);
+        tokenA.mint(address(pair), 7);
+        tokenB.mint(address(pair), 9);
+        uint256 reserve0 = 10_000 + (pair.token0() == address(tokenA) ? 7 : 9);
+        uint256 reserve1 = 10_000 + (pair.token0() == address(tokenA) ? 9 : 7);
+
+        vm.expectEmit(false, false, false, true, address(pair));
+        emit Sync(reserve0, reserve1);
+        pair.sync();
+    }
+
     function testLpErc20ApproveTransferFromAndMaxAllowance() public {
         seed(1_000_000, 1_000_000);
         assertEq(pair.decimals(), 18);
@@ -174,5 +325,20 @@ contract UniswapV2CoreTest is Test {
         assertTrue(pair.transferFrom(address(this), address(0xCAFE), 100));
         assertEq(pair.allowance(address(this), address(0xBEEF)), type(uint256).max);
         assertEq(pair.balanceOf(address(0xCAFE)), 100);
+    }
+
+    function testLpTransfersCanGoToZeroAddressLikeUniswapV2() public {
+        seed(1_000_000, 1_000_000);
+
+        assertTrue(pair.transfer(address(0), 123));
+        assertEq(pair.balanceOf(address(0)), 1123);
+        assertEq(pair.totalSupply(), 1_000_000);
+
+        assertTrue(pair.approve(address(0xBEEF), 50));
+        vm.prank(address(0xBEEF));
+        assertTrue(pair.transferFrom(address(this), address(0), 50));
+        assertEq(pair.balanceOf(address(0)), 1173);
+        assertEq(pair.allowance(address(this), address(0xBEEF)), 0);
+        assertEq(pair.totalSupply(), 1_000_000);
     }
 }

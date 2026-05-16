@@ -8,6 +8,11 @@ name = "verity"
 git = "https://github.com/lfglabs-dev/verity.git"
 rev = "9b0114efcc0af589af63dd3f2eafcdf1a24dbf1e"
 
+[[require]]
+name = "tamago"
+git = "https://github.com/Bacon-labs/tamago.git"
+rev = "6b2708d091dd280d0a974156cbd79b0e24fd7238"
+
 [[lean_lib]]
 name = "TamaUniV2"
 srcDir = "verity/src"
@@ -19,3 +24,9 @@ srcDir = "verity/spec"
 [[lean_lib]]
 name = "TamaUniV2.Proof"
 srcDir = "verity/proof"
+
+[[lean_exe]]
+name = "verity-compiler"
+root = "Compiler.Main"
+srcDir = ".lake/packages/verity"
+supportInterpreter = true

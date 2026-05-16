@@ -3,6 +3,7 @@
 pragma solidity ^0.8.20;
 
 interface UniswapV2FactoryIface {
+    event PairCreated(address indexed token0, address indexed token1, address pair, uint256 allPairsLength);
     function getPair(address tokenA, address tokenB) external view returns (address);
     function allPairs(uint256 index) external view returns (address);
     function allPairsLength() external view returns (uint256);
