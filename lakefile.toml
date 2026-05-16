@@ -18,6 +18,10 @@ name = "TamaUniV2"
 srcDir = "verity/src"
 
 [[lean_lib]]
+name = "TamaUniV2.Common"
+srcDir = "verity/common"
+
+[[lean_lib]]
 name = "TamaUniV2.Spec"
 srcDir = "verity/spec"
 

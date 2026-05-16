@@ -105,8 +105,69 @@ def uniswapV2CallbackModule : ExternalCallModule where
           YulStmt.expr (YulExpr.call "returndatacopy" [YulExpr.lit 0, YulExpr.lit 0, YulExpr.ident "__uv2_cb_rds"]),
           YulStmt.expr (YulExpr.call "revert" [YulExpr.lit 0, YulExpr.ident "__uv2_cb_rds"])
         ]
-      ]
+    ]
     pure [YulStmt.if_ (YulExpr.call "gt" [bytesLenExpr, YulExpr.lit 0]) [YulStmt.block callBlock]]
+
+def erc20BalanceOf (token owner : Address) : Contract Uint256 :=
+  Contracts.balanceOf token owner
+
+def pairTokenSafeTransferEvent
+    (token fromAddr toAddr : Address) (amount : Uint256) : Event :=
+  {
+    name := "UniswapV2PairTokenSafeTransfer",
+    args := [addressToWord token, addressToWord fromAddr, addressToWord toAddr, amount],
+    indexedArgs := []
+  }
+
+def tracePairTokenSafeTransfer
+    (token toAddr : Address) (amount : Uint256) : Contract Unit :=
+  fun state =>
+    ContractResult.success () { state with
+      events :=
+        state.events ++
+          [pairTokenSafeTransferEvent token state.thisAddress toAddr amount]
+    }
+
+def pairSafeTransfer (token toAddr : Address) (amount : Uint256) : Contract Uint256 := do
+  Contracts.safeTransfer token toAddr amount
+  tracePairTokenSafeTransfer token toAddr amount
+  return 1
+
+def erc20BalanceOf_model : FunctionSpec := {
+  name := "erc20BalanceOf"
+  params := [
+    { name := "token", ty := ParamType.address },
+    { name := "owner", ty := ParamType.address }
+  ]
+  returnType := some FieldType.uint256
+  returns := [ParamType.uint256]
+  body := [
+    Stmt.ecm (Compiler.Modules.ERC20.balanceOfModule "erc20BalanceResult") [
+      Expr.param "token",
+      Expr.param "owner"
+    ],
+    Stmt.return (Expr.localVar "erc20BalanceResult")
+  ]
+}
+
+def pairSafeTransfer_model : FunctionSpec := {
+  name := "pairSafeTransfer"
+  params := [
+    { name := "token", ty := ParamType.address },
+    { name := "toAddr", ty := ParamType.address },
+    { name := "amount", ty := ParamType.uint256 }
+  ]
+  returnType := some FieldType.uint256
+  returns := [ParamType.uint256]
+  body := [
+    Stmt.ecm Compiler.Modules.ERC20.safeTransferModule [
+      Expr.param "token",
+      Expr.param "toAddr",
+      Expr.param "amount"
+    ],
+    Stmt.return (Expr.literal 1)
+  ]
+}
 
 verity_contract UniswapV2PairBase where
   storage
@@ -242,8 +303,8 @@ verity_contract UniswapV2PairBase where
     let token0Value ← getStorageAddr token0Slot
     let token1Value ← getStorageAddr token1Slot
     let selfAddr ← Verity.contractAddress
-    let balance0Now ← ecmCall (fun resultVar => Compiler.Modules.ERC20.balanceOfModule resultVar) [token0Value, selfAddr]
-    let balance1Now ← ecmCall (fun resultVar => Compiler.Modules.ERC20.balanceOfModule resultVar) [token1Value, selfAddr]
+    let balance0Now ← TamaUniV2.erc20BalanceOf token0Value selfAddr
+    let balance1Now ← TamaUniV2.erc20BalanceOf token1Value selfAddr
     require (balance0Now <= maxUint112 && balance1Now <= maxUint112) "UniswapV2: OVERFLOW"
     let reserve0Value ← getStorage reserve0Slot
     let reserve1Value ← getStorage reserve1Slot
@@ -315,8 +376,8 @@ verity_contract UniswapV2PairBase where
     let token0Value ← getStorageAddr token0Slot
     let token1Value ← getStorageAddr token1Slot
     let selfAddr ← Verity.contractAddress
-    let balance0Now ← ecmCall (fun resultVar => Compiler.Modules.ERC20.balanceOfModule resultVar) [token0Value, selfAddr]
-    let balance1Now ← ecmCall (fun resultVar => Compiler.Modules.ERC20.balanceOfModule resultVar) [token1Value, selfAddr]
+    let balance0Now ← TamaUniV2.erc20BalanceOf token0Value selfAddr
+    let balance1Now ← TamaUniV2.erc20BalanceOf token1Value selfAddr
     let liquidity ← getMapping balancesSlot selfAddr
     let supply ← getStorage totalSupplySlot
     require (liquidity > 0 && supply > 0) "UniswapV2: INSUFFICIENT_LIQUIDITY_BURNED"
@@ -330,10 +391,10 @@ verity_contract UniswapV2PairBase where
     setMapping balancesSlot selfAddr 0
     setStorage totalSupplySlot (sub supply liquidity)
     emit "Transfer" [addressToWord selfAddr, addressToWord zeroAddress, liquidity]
-    safeTransfer token0Value toAddr amount0
-    safeTransfer token1Value toAddr amount1
-    let balance0After ← ecmCall (fun resultVar => Compiler.Modules.ERC20.balanceOfModule resultVar) [token0Value, selfAddr]
-    let balance1After ← ecmCall (fun resultVar => Compiler.Modules.ERC20.balanceOfModule resultVar) [token1Value, selfAddr]
+    let _transfer0Done ← TamaUniV2.pairSafeTransfer token0Value toAddr amount0
+    let _transfer1Done ← TamaUniV2.pairSafeTransfer token1Value toAddr amount1
+    let balance0After ← TamaUniV2.erc20BalanceOf token0Value selfAddr
+    let balance1After ← TamaUniV2.erc20BalanceOf token1Value selfAddr
     require (balance0After <= maxUint112 && balance1After <= maxUint112) "UniswapV2: OVERFLOW"
     unsafe "restore free memory pointer before native events after ERC20 transfer ECMs" do
       mstore 64 128
@@ -376,18 +437,18 @@ verity_contract UniswapV2PairBase where
     let token1Value ← getStorageAddr token1Slot
     require (toAddr != token0Value && toAddr != token1Value) "UniswapV2: INVALID_TO"
     if amount0Out > 0 then
-      safeTransfer token0Value toAddr amount0Out
+      let _transfer0Done ← TamaUniV2.pairSafeTransfer token0Value toAddr amount0Out
     else
       pure ()
     if amount1Out > 0 then
-      safeTransfer token1Value toAddr amount1Out
+      let _transfer1Done ← TamaUniV2.pairSafeTransfer token1Value toAddr amount1Out
     else
       pure ()
     let sender ← msgSender
     ecmDo uniswapV2CallbackModule [addressToWord toAddr, addressToWord sender, amount0Out, amount1Out]
     let selfAddr ← Verity.contractAddress
-    let balance0Now ← ecmCall (fun resultVar => Compiler.Modules.ERC20.balanceOfModule resultVar) [token0Value, selfAddr]
-    let balance1Now ← ecmCall (fun resultVar => Compiler.Modules.ERC20.balanceOfModule resultVar) [token1Value, selfAddr]
+    let balance0Now ← TamaUniV2.erc20BalanceOf token0Value selfAddr
+    let balance1Now ← TamaUniV2.erc20BalanceOf token1Value selfAddr
     let expected0 := sub reserve0Value amount0Out
     let expected1 := sub reserve1Value amount1Out
     let mut amount0In := 0
@@ -462,13 +523,13 @@ verity_contract UniswapV2PairBase where
     let token0Value ← getStorageAddr token0Slot
     let token1Value ← getStorageAddr token1Slot
     let selfAddr ← Verity.contractAddress
-    let balance0Now ← ecmCall (fun resultVar => Compiler.Modules.ERC20.balanceOfModule resultVar) [token0Value, selfAddr]
-    let balance1Now ← ecmCall (fun resultVar => Compiler.Modules.ERC20.balanceOfModule resultVar) [token1Value, selfAddr]
+    let balance0Now ← TamaUniV2.erc20BalanceOf token0Value selfAddr
+    let balance1Now ← TamaUniV2.erc20BalanceOf token1Value selfAddr
     let reserve0Value ← getStorage reserve0Slot
     let reserve1Value ← getStorage reserve1Slot
     require (balance0Now >= reserve0Value && balance1Now >= reserve1Value) "UniswapV2: INSUFFICIENT_BALANCE"
-    safeTransfer token0Value toAddr (sub balance0Now reserve0Value)
-    safeTransfer token1Value toAddr (sub balance1Now reserve1Value)
+    let _transfer0Done ← TamaUniV2.pairSafeTransfer token0Value toAddr (sub balance0Now reserve0Value)
+    let _transfer1Done ← TamaUniV2.pairSafeTransfer token1Value toAddr (sub balance1Now reserve1Value)
     setStorage unlockedSlot 1
 
   function allow_post_interaction_writes sync () : Unit := do
@@ -478,8 +539,8 @@ verity_contract UniswapV2PairBase where
     let token0Value ← getStorageAddr token0Slot
     let token1Value ← getStorageAddr token1Slot
     let selfAddr ← Verity.contractAddress
-    let balance0Now ← ecmCall (fun resultVar => Compiler.Modules.ERC20.balanceOfModule resultVar) [token0Value, selfAddr]
-    let balance1Now ← ecmCall (fun resultVar => Compiler.Modules.ERC20.balanceOfModule resultVar) [token1Value, selfAddr]
+    let balance0Now ← TamaUniV2.erc20BalanceOf token0Value selfAddr
+    let balance1Now ← TamaUniV2.erc20BalanceOf token1Value selfAddr
     require (balance0Now <= maxUint112 && balance1Now <= maxUint112) "UniswapV2: OVERFLOW"
     let reserve0Value ← getStorage reserve0Slot
     let reserve1Value ← getStorage reserve1Slot

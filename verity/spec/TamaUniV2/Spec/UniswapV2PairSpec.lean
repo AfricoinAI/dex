@@ -1,19 +1,22 @@
 import TamaUniV2.UniswapV2Pair
+import TamaUniV2.Common.UniswapV2PairConcrete
 
 namespace TamaUniV2.Spec.UniswapV2PairSpec
 
 open Verity
 open Verity.EVM.Uint256
 open TamaUniV2.UniswapV2Pair
+open TamaUniV2.Common.UniswapV2PairConcrete
 
 /-!
 Behavior specs for the production-style Uniswap v2 pair.
 
 The executable contract uses external-call modules for token transfers, token
-balances, pair creation, and flash callbacks. The fully proved layer below is
-therefore intentionally focused on local ABI/storage obligations. Higher-level
-mint/burn/swap specs remain expressed as local obligations around the external
-token balance assumptions rather than old example arithmetic APIs.
+balances, pair creation, and flash callbacks. Specs follow Tamago's ERC4626
+style: local storage/accounting obligations are proved directly, while
+external-token movement is connected to concrete execution through pair-local
+ghost transfer traces. The remaining assumptions stay at actual external
+boundaries such as ERC20 calls, callbacks, and CREATE2 deployment.
 -/
 
 def pair_decimals_spec (result : Uint256) : Prop :=
@@ -40,6 +43,13 @@ def pair_token1_spec (result : Address) (s : ContractState) : Prop :=
 def pair_minimumLiquidity_spec (result : Uint256) : Prop :=
   result = minimumLiquidity
 
+def pair_getReserves_spec
+    (result : Uint256 × Uint256 × Uint256) (s : ContractState) : Prop :=
+  result =
+    (s.storage reserve0Slot.slot,
+      s.storage reserve1Slot.slot,
+      s.storage blockTimestampLastSlot.slot)
+
 def pair_price0CumulativeLast_spec (result : Uint256) (s : ContractState) : Prop :=
   result = s.storage price0CumulativeLastSlot.slot
 
@@ -48,6 +58,12 @@ def pair_price1CumulativeLast_spec (result : Uint256) (s : ContractState) : Prop
 
 def pair_kLast_spec (result : Uint256) : Prop :=
   result = 0
+
+def pair_safeTransfer_traces_token_transfer
+    (token toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  result = ContractResult.success 1 result.snd ∧
+  hasPairSafeTransferTrace token s.thisAddress toAddr amount result.snd
 
 /-
 Local state-transition specs.
@@ -229,6 +245,14 @@ def pair_swap_reverts_when_locked
     (s : ContractState) (result : ContractResult Unit) : Prop :=
   s.storage unlockedSlot.slot != 1 →
     result = ContractResult.revert "UniswapV2: LOCKED" s
+
+def pair_swap_reverts_for_insufficient_output
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    amount0Out = 0 →
+      amount1Out = 0 →
+        result = ContractResult.revert "UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT" s
 
 def pair_skim_reverts_when_locked
     (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=

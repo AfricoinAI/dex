@@ -9,9 +9,10 @@ open Verity
 open Verity.EVM.Uint256
 open TamaUniV2.Spec.UniswapV2PairSpec
 open TamaUniV2.UniswapV2Pair
+open TamaUniV2.Common.UniswapV2PairConcrete
 
 attribute [local simp] decimals totalSupply balanceOf allowance factory token0 token1
-  MINIMUM_LIQUIDITY price0CumulativeLast price1CumulativeLast kLast
+  MINIMUM_LIQUIDITY getReserves price0CumulativeLast price1CumulativeLast kLast
   «initialize» approve transfer transferFrom mint burn swap skim sync
   factorySlot token0Slot token1Slot reserve0Slot reserve1Slot blockTimestampLastSlot
   totalSupplySlot balancesSlot allowancesSlot price0CumulativeLastSlot price1CumulativeLastSlot
@@ -19,7 +20,8 @@ attribute [local simp] decimals totalSupply balanceOf allowance factory token0 t
   UniswapV2PairBase.decimals UniswapV2PairBase.totalSupply
   UniswapV2PairBase.balanceOf UniswapV2PairBase.allowance
   UniswapV2PairBase.factory UniswapV2PairBase.token0 UniswapV2PairBase.token1
-  UniswapV2PairBase.MINIMUM_LIQUIDITY UniswapV2PairBase.price0CumulativeLast
+  UniswapV2PairBase.MINIMUM_LIQUIDITY UniswapV2PairBase.getReserves
+  UniswapV2PairBase.price0CumulativeLast
   UniswapV2PairBase.price1CumulativeLast UniswapV2PairBase.kLast
   UniswapV2PairBase.«initialize» UniswapV2PairBase.approve
   UniswapV2PairBase.transfer UniswapV2PairBase.transferFrom
@@ -32,6 +34,10 @@ attribute [local simp] decimals totalSupply balanceOf allowance factory token0 t
   UniswapV2PairBase.allowancesSlot UniswapV2PairBase.price0CumulativeLastSlot
   UniswapV2PairBase.price1CumulativeLastSlot UniswapV2PairBase.unlockedSlot
   UniswapV2PairBase.maxUint256
+  TamaUniV2.erc20BalanceOf pairSelf pairToken0 pairToken1 observedBalance0 observedBalance1
+  TamaUniV2.pairSafeTransfer TamaUniV2.tracePairTokenSafeTransfer
+  TamaUniV2.pairTokenSafeTransferEvent pairTraceContains hasPairSafeTransferTrace
+  mintAmount0 mintAmount1 swapExpected0 swapExpected1 swapAmount0In swapAmount1In
   Contracts.emit emitEvent
 
 -- tama: discharges=pair_decimals_spec
@@ -77,6 +83,13 @@ theorem minimumLiquidity_meets_spec (s : ContractState) :
   pair_minimumLiquidity_spec ((MINIMUM_LIQUIDITY).run s).fst := by
   rfl
 
+-- tama: discharges=pair_getReserves_spec
+theorem getReserves_meets_spec (s : ContractState) :
+  pair_getReserves_spec ((getReserves).run s).fst s := by
+  simp [pair_getReserves_spec, getReserves, reserve0Slot, reserve1Slot,
+    blockTimestampLastSlot, getStorage, Contract.run, ContractResult.fst,
+    Verity.bind, Bind.bind, Verity.pure, Pure.pure]
+
 -- tama: discharges=pair_price0CumulativeLast_spec
 theorem price0CumulativeLast_meets_spec (s : ContractState) :
   pair_price0CumulativeLast_spec ((price0CumulativeLast).run s).fst s := by
@@ -91,6 +104,16 @@ theorem price1CumulativeLast_meets_spec (s : ContractState) :
 theorem kLast_meets_spec (s : ContractState) :
   pair_kLast_spec ((kLast).run s).fst := by
   rfl
+
+-- tama: discharges=pair_safeTransfer_traces_token_transfer
+theorem safeTransfer_traces_token_transfer
+    (token toAddr : Address) (amount : Uint256) (s : ContractState) :
+  pair_safeTransfer_traces_token_transfer token toAddr amount s
+    ((TamaUniV2.pairSafeTransfer token toAddr amount).run s) := by
+  simp [pair_safeTransfer_traces_token_transfer, TamaUniV2.pairSafeTransfer,
+    TamaUniV2.tracePairTokenSafeTransfer, hasPairSafeTransferTrace,
+    pairTraceContains, TamaUniV2.pairTokenSafeTransferEvent, Contracts.safeTransfer,
+    Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure]
 
 -- tama: discharges=pair_initialize_reverts_for_non_factory
 theorem initialize_reverts_for_non_factory
@@ -622,6 +645,21 @@ theorem swap_reverts_when_locked
     simpa [unlockedSlot] using h_locked
   simp [pair_swap_reverts_when_locked, swap, unlockedSlot, getStorage,
     Verity.require, Contract.run, Verity.bind, Bind.bind, h_locked_raw]
+
+-- tama: discharges=pair_swap_reverts_for_insufficient_output
+theorem swap_reverts_for_insufficient_output
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) :
+  pair_swap_reverts_for_insufficient_output amount0Out amount1Out toAddr data s
+    ((swap amount0Out amount1Out toAddr data).run s) := by
+  intro h_unlocked h_amount0 h_amount1
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_unlocked
+  subst h_amount0
+  subst h_amount1
+  simp [pair_swap_reverts_for_insufficient_output, swap, UniswapV2PairBase.swap,
+    unlockedSlot, getStorage, setStorage, Verity.require, Contract.run,
+    Verity.bind, Bind.bind, h_unlocked_raw]
 
 -- tama: discharges=pair_skim_reverts_when_locked
 theorem skim_reverts_when_locked (toAddr : Address) (s : ContractState) :
