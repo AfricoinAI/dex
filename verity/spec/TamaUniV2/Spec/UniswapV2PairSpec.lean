@@ -423,6 +423,31 @@ def pair_skim_run_revert_balance1_below_reserve
       (skim toAddr).run s =
         ContractResult.revert "UniswapV2: INSUFFICIENT_BALANCE" s
 
+def pair_skim_run_success_transfers_excess_and_restores_unlocked
+    (toAddr : Address) (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    s.storage reserve0Slot.slot ≤ observedBalance0 s →
+      s.storage reserve1Slot.slot ≤ observedBalance1 s →
+        (skim toAddr).run s =
+          ContractResult.success () ((skim toAddr).run s).snd ∧
+        ((skim toAddr).run s).snd.storage reserve0Slot.slot =
+          s.storage reserve0Slot.slot ∧
+        ((skim toAddr).run s).snd.storage reserve1Slot.slot =
+          s.storage reserve1Slot.slot ∧
+        ((skim toAddr).run s).snd.storage unlockedSlot.slot = 1 ∧
+        hasPairSafeTransferTrace
+          (s.storageAddr token0Slot.slot)
+          s.thisAddress
+          toAddr
+          (skimExcess0 s)
+          ((skim toAddr).run s).snd ∧
+        hasPairSafeTransferTrace
+          (s.storageAddr token1Slot.slot)
+          s.thisAddress
+          toAddr
+          (skimExcess1 s)
+          ((skim toAddr).run s).snd
+
 def pair_sync_run_revert_locked
     (s : ContractState) : Prop :=
   s.storage unlockedSlot.slot != 1 →
