@@ -1,0 +1,21 @@
+name = "tama_uni_v2"
+version = "0.1.0"
+defaultTargets = ["TamaUniV2.Proof"]
+buildDir = "artifacts/lean"
+
+[[require]]
+name = "verity"
+git = "https://github.com/lfglabs-dev/verity.git"
+rev = "9b0114efcc0af589af63dd3f2eafcdf1a24dbf1e"
+
+[[lean_lib]]
+name = "TamaUniV2"
+srcDir = "verity/src"
+
+[[lean_lib]]
+name = "TamaUniV2.Spec"
+srcDir = "verity/spec"
+
+[[lean_lib]]
+name = "TamaUniV2.Proof"
+srcDir = "verity/proof"

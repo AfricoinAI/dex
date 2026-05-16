@@ -1,0 +1,10 @@
+import TamaUniV2.Proof.UniswapV2PairProof
+#print ContractState
+#print Verity.ContractState
+#check ContractState
+#check Contract.run
+#check ContractResult.snd
+#check getStorage
+#check setStorage
+#check Verity.Stdlib.Math.safeAdd
+#check Verity.Stdlib.Math.requireSomeUint

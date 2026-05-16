@@ -1,0 +1,10 @@
+import TamaUniV2.UniswapV2Pair
+open Verity
+#print Contract
+#print ContractState
+#print ContractResult
+#print setStorage
+#print getStorage
+#print setMapping
+#print getMapping
+#print ContractResult.snd

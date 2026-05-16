@@ -1,0 +1,53 @@
+[project]
+name = "tama-uni-v2"
+verity = "9b0114efcc0af589af63dd3f2eafcdf1a24dbf1e"
+
+[paths]
+src = "verity/src"
+spec = "verity/spec"
+proof = "verity/proof"
+mirror_test = "test/verity"
+out = "artifacts"
+generated_solidity = "src/generated/verity"
+
+[modules]
+src = "TamaUniV2"
+spec = "TamaUniV2.Spec"
+proof = "TamaUniV2.Proof"
+
+[yul]
+solc = "0.8.33"
+optimizer = true
+optimizer_runs = 200
+yul_optimizer = true
+evm_version = "cancun"
+metadata_bytecode_hash = "none"
+
+[trust.allow_axioms]
+"Classical.choice" = "Lean standard classical reasoning accepted for this project"
+"propext" = "Lean standard propositional extensionality accepted for this project"
+"Quot.sound" = "Lean quotient soundness accepted for this project"
+"pair_create2_interface" = "Custom ECM deploys the generated UniswapV2Pair creation bytecode with CREATE2."
+"pair_initialize_interface" = "Custom ECM calls initialize(address,address) on the newly deployed pair."
+"uniswap_v2_callback_interface" = "Custom ECM forwards the Uniswap V2 flash-swap callback when data is non-empty."
+"erc20_balanceOf_interface" = "Standard ERC20 balanceOf staticcall ECM assumption for token balances."
+"erc20_transfer_interface" = "Standard ERC20 transfer ECM assumption for token transfers."
+
+[trust.allow_surfaces]
+"contractAddress" = "Used by pair operations to read token balances held by the pair contract."
+
+[coverage.proof_only]
+"UniswapV2Pair.pair_decimals_spec" = "Pure ABI view proven directly in Lean."
+"UniswapV2Pair.pair_totalSupply_spec" = "Storage-backed ABI view proven directly in Lean."
+"UniswapV2Pair.pair_balanceOf_spec" = "Storage-backed ABI view proven directly in Lean."
+"UniswapV2Pair.pair_allowance_spec" = "Storage-backed ABI view proven directly in Lean."
+"UniswapV2Pair.pair_factory_spec" = "Storage-backed ABI view proven directly in Lean."
+"UniswapV2Pair.pair_token0_spec" = "Storage-backed ABI view proven directly in Lean."
+"UniswapV2Pair.pair_token1_spec" = "Storage-backed ABI view proven directly in Lean."
+"UniswapV2Pair.pair_minimumLiquidity_spec" = "Pure ABI view proven directly in Lean."
+"UniswapV2Pair.pair_price0CumulativeLast_spec" = "Storage-backed ABI view proven directly in Lean."
+"UniswapV2Pair.pair_price1CumulativeLast_spec" = "Storage-backed ABI view proven directly in Lean."
+"UniswapV2Pair.pair_kLast_spec" = "Fee-off constant view proven directly in Lean."
+"UniswapV2Factory.factory_getPair_spec" = "Storage-backed ABI view proven directly in Lean."
+"UniswapV2Factory.factory_allPairsLength_spec" = "Storage-backed ABI view proven directly in Lean."
+"UniswapV2Factory.factory_allPairs_success_spec" = "Storage-backed ABI view proven directly in Lean."

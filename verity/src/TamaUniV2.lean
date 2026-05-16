@@ -1,0 +1,2 @@
+import TamaUniV2.UniswapV2Pair
+import TamaUniV2.UniswapV2Factory

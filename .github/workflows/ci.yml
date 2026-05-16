@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TAMA_LAKE_PACKAGE_CACHE: ${{ github.workspace }}/.cache/tama/lake-packages
+
+jobs:
+  verify:
+    name: tama verify
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache Lake packages and Tama artifacts
+        uses: actions/cache@v4
+        with:
+          path: .cache/tama
+          key: tama-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lake-manifest.json', 'tama.lock') }}
+          restore-keys: |
+            tama-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache Lean build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            artifacts/lean
+            .lake/build
+            .lake/packages/*/.lake/build
+          key: lean-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json', 'tama.lock') }}
+          restore-keys: |
+            lean-build-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache elan and Foundry toolchains
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.elan
+            ~/.foundry
+          key: toolchain-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean-toolchain', 'tama.lock') }}
+          restore-keys: |
+            toolchain-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Add toolchain bin directories to PATH
+        run: |
+          {
+            echo "$HOME/.elan/bin"
+            echo "$HOME/.foundry/bin"
+            echo "$HOME/.tama/bin"
+          } >> "$GITHUB_PATH"
+
+      # Set TAMA_VERSION (e.g. "0.1.0") to pin a specific Tama release.
+      - name: Install Tama
+        env:
+          TAMA_VERSION: ""
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-delay 2 --retry-connrefused \
+            https://tama.tools/install.sh | sh
+          if [ -n "$TAMA_VERSION" ]; then
+            "$HOME/.tama/bin/tamaup" install "$TAMA_VERSION"
+          fi
+
+      - name: Configure solc from tama.toml
+        run: |
+          set -euo pipefail
+          solc_path="$(tama toolchain solc)"
+          echo "TAMA_SOLC=$solc_path" >> "$GITHUB_ENV"
+          dirname "$solc_path" >> "$GITHUB_PATH"
+
+      - name: Print toolchain versions
+        run: |
+          tama --version
+          forge --version
+          solc --version
+
+      - run: tama doctor --fix
+      - run: git diff --exit-code -- tama.lock lakefile.toml lake-manifest.json
+      - run: tama doctor
+      - name: Fetch Mathlib binary cache
+        run: env -u CI lake exe cache get
+      - run: env -u CI tama build --locked
+      - run: env -u CI tama test
+      - run: env -u CI tama audit
