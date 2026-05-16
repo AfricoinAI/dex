@@ -37,7 +37,8 @@ attribute [local simp] decimals totalSupply balanceOf allowance factory token0 t
   TamaUniV2.erc20BalanceOf pairSelf pairToken0 pairToken1 observedBalance0 observedBalance1
   TamaUniV2.pairSafeTransfer TamaUniV2.tracePairTokenSafeTransfer
   TamaUniV2.pairTokenSafeTransferEvent pairTraceContains hasPairSafeTransferTrace
-  mintAmount0 mintAmount1 swapExpected0 swapExpected1 swapAmount0In swapAmount1In
+  mintAmount0 mintAmount1 timestamp32 skimExcess0 skimExcess1
+  swapExpected0 swapExpected1 swapAmount0In swapAmount1In
   Contracts.emit emitEvent
 
 -- tama: discharges=pair_decimals_spec
@@ -670,6 +671,56 @@ theorem skim_reverts_when_locked (toAddr : Address) (s : ContractState) :
   simp [pair_skim_reverts_when_locked, skim, unlockedSlot, getStorage,
     Verity.require, Contract.run, Verity.bind, Bind.bind, h_locked_raw]
 
+-- tama: discharges=pair_skim_reverts_when_balance0_below_reserve
+theorem skim_reverts_when_balance0_below_reserve
+    (toAddr : Address) (s : ContractState) :
+  pair_skim_reverts_when_balance0_below_reserve toAddr s ((skim toAddr).run s) := by
+  intro h_unlocked h_balance0
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_unlocked
+  have h_balance0_raw : (observedBalance0 s).val < (s.storage 3).val := by
+    simpa [reserve0Slot] using h_balance0
+  have h_require_false :
+      ¬ ((s.storage 3).val ≤ (observedBalance0 s).val ∧
+        (s.storage 4).val ≤ (observedBalance1 s).val) := by
+    intro h
+    omega
+  have h_require_false_raw := h_require_false
+  dsimp [observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run,
+    ContractResult.fst, Verity.pure, Pure.pure] at h_require_false_raw
+  simp [pair_skim_reverts_when_balance0_below_reserve, skim, UniswapV2PairBase.skim,
+    unlockedSlot, token0Slot, token1Slot, reserve0Slot, reserve1Slot,
+    getStorage, getStorageAddr, setStorage, Verity.contractAddress,
+    Contracts.balanceOf, Verity.require, Contract.run, Verity.bind, Bind.bind,
+    Verity.pure, Pure.pure, observedBalance0, observedBalance1,
+    TamaUniV2.erc20BalanceOf, h_unlocked_raw, h_require_false_raw]
+
+-- tama: discharges=pair_skim_reverts_when_balance1_below_reserve
+theorem skim_reverts_when_balance1_below_reserve
+    (toAddr : Address) (s : ContractState) :
+  pair_skim_reverts_when_balance1_below_reserve toAddr s ((skim toAddr).run s) := by
+  intro h_unlocked h_balance1
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_unlocked
+  have h_balance1_raw : (observedBalance1 s).val < (s.storage 4).val := by
+    simpa [reserve1Slot] using h_balance1
+  have h_require_false :
+      ¬ ((s.storage 3).val ≤ (observedBalance0 s).val ∧
+        (s.storage 4).val ≤ (observedBalance1 s).val) := by
+    intro h
+    omega
+  have h_require_false_raw := h_require_false
+  dsimp [observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run,
+    ContractResult.fst, Verity.pure, Pure.pure] at h_require_false_raw
+  simp [pair_skim_reverts_when_balance1_below_reserve, skim, UniswapV2PairBase.skim,
+    unlockedSlot, token0Slot, token1Slot, reserve0Slot, reserve1Slot,
+    getStorage, getStorageAddr, setStorage, Verity.contractAddress,
+    Contracts.balanceOf, Verity.require, Contract.run, Verity.bind, Bind.bind,
+    Verity.pure, Pure.pure, observedBalance0, observedBalance1,
+    TamaUniV2.erc20BalanceOf, h_unlocked_raw, h_require_false_raw]
+
 -- tama: discharges=pair_sync_reverts_when_locked
 theorem sync_reverts_when_locked (s : ContractState) :
   pair_sync_reverts_when_locked s ((sync).run s) := by
@@ -678,5 +729,53 @@ theorem sync_reverts_when_locked (s : ContractState) :
     simpa [unlockedSlot] using h_locked
   simp [pair_sync_reverts_when_locked, sync, unlockedSlot, getStorage,
     Verity.require, Contract.run, Verity.bind, Bind.bind, h_locked_raw]
+
+-- tama: discharges=pair_sync_reverts_when_balance0_overflows
+theorem sync_reverts_when_balance0_overflows (s : ContractState) :
+  pair_sync_reverts_when_balance0_overflows s ((sync).run s) := by
+  intro h_unlocked h_balance0
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_unlocked
+  have h_balance0_raw : maxUint112.val < (observedBalance0 s).val := by
+    simpa using h_balance0
+  have h_require_false :
+      ¬ ((observedBalance0 s).val ≤ maxUint112.val ∧
+        (observedBalance1 s).val ≤ maxUint112.val) := by
+    intro h
+    omega
+  have h_require_false_raw := h_require_false
+  dsimp [observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run,
+    ContractResult.fst, Verity.pure, Pure.pure] at h_require_false_raw
+  simp [pair_sync_reverts_when_balance0_overflows, sync, UniswapV2PairBase.sync,
+    unlockedSlot, token0Slot, token1Slot, maxUint112, getStorage, getStorageAddr,
+    setStorage, Verity.contractAddress, Contracts.balanceOf, Verity.require,
+    Contract.run, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+    observedBalance0, observedBalance1, TamaUniV2.erc20BalanceOf,
+    h_unlocked_raw, h_require_false_raw]
+
+-- tama: discharges=pair_sync_reverts_when_balance1_overflows
+theorem sync_reverts_when_balance1_overflows (s : ContractState) :
+  pair_sync_reverts_when_balance1_overflows s ((sync).run s) := by
+  intro h_unlocked h_balance1
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_unlocked
+  have h_balance1_raw : maxUint112.val < (observedBalance1 s).val := by
+    simpa using h_balance1
+  have h_require_false :
+      ¬ ((observedBalance0 s).val ≤ maxUint112.val ∧
+        (observedBalance1 s).val ≤ maxUint112.val) := by
+    intro h
+    omega
+  have h_require_false_raw := h_require_false
+  dsimp [observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run,
+    ContractResult.fst, Verity.pure, Pure.pure] at h_require_false_raw
+  simp [pair_sync_reverts_when_balance1_overflows, sync, UniswapV2PairBase.sync,
+    unlockedSlot, token0Slot, token1Slot, maxUint112, getStorage, getStorageAddr,
+    setStorage, Verity.contractAddress, Contracts.balanceOf, Verity.require,
+    Contract.run, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+    observedBalance0, observedBalance1, TamaUniV2.erc20BalanceOf,
+    h_unlocked_raw, h_require_false_raw]
 
 end TamaUniV2.Proof.UniswapV2PairProof

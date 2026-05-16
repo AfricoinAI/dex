@@ -259,9 +259,33 @@ def pair_skim_reverts_when_locked
   s.storage unlockedSlot.slot != 1 →
     result = ContractResult.revert "UniswapV2: LOCKED" s
 
+def pair_skim_reverts_when_balance0_below_reserve
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    observedBalance0 s < s.storage reserve0Slot.slot →
+      result = ContractResult.revert "UniswapV2: INSUFFICIENT_BALANCE" s
+
+def pair_skim_reverts_when_balance1_below_reserve
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    observedBalance1 s < s.storage reserve1Slot.slot →
+      result = ContractResult.revert "UniswapV2: INSUFFICIENT_BALANCE" s
+
 def pair_sync_reverts_when_locked
     (s : ContractState) (result : ContractResult Unit) : Prop :=
   s.storage unlockedSlot.slot != 1 →
     result = ContractResult.revert "UniswapV2: LOCKED" s
+
+def pair_sync_reverts_when_balance0_overflows
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    observedBalance0 s > maxUint112 →
+      result = ContractResult.revert "UniswapV2: OVERFLOW" s
+
+def pair_sync_reverts_when_balance1_overflows
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    observedBalance1 s > maxUint112 →
+      result = ContractResult.revert "UniswapV2: OVERFLOW" s
 
 end TamaUniV2.Spec.UniswapV2PairSpec

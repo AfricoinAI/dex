@@ -45,6 +45,15 @@ def mintAmount0 (s : ContractState) : Uint256 :=
 def mintAmount1 (s : ContractState) : Uint256 :=
   Verity.EVM.Uint256.sub (observedBalance1 s) (s.storage reserve1Slot.slot)
 
+def timestamp32 (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.mod s.blockTimestamp uint32Modulus
+
+def skimExcess0 (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.sub (observedBalance0 s) (s.storage reserve0Slot.slot)
+
+def skimExcess1 (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.sub (observedBalance1 s) (s.storage reserve1Slot.slot)
+
 def swapExpected0 (amount0Out : Uint256) (s : ContractState) : Uint256 :=
   Verity.EVM.Uint256.sub (s.storage reserve0Slot.slot) amount0Out
 
