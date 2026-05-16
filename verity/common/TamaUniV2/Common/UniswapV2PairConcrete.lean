@@ -35,6 +35,50 @@ def observedBalance1 (s : ContractState) : Uint256 :=
 def pairTraceContains (event : Event) (events : List Event) : Prop :=
   event ∈ events
 
+def pairLpApprovalEvent
+    (owner spender : Address) (amount : Uint256) : Event :=
+  { name := "Approval"
+    args := [addressToWord owner, addressToWord spender, amount]
+    indexedArgs := [] }
+
+def pairLpTransferEvent
+    (fromAddr toAddr : Address) (amount : Uint256) : Event :=
+  { name := "Transfer"
+    args := [addressToWord fromAddr, addressToWord toAddr, amount]
+    indexedArgs := [] }
+
+def pairMintEvent
+    (sender : Address) (amount0 amount1 : Uint256) : Event :=
+  { name := "Mint"
+    args := [addressToWord sender, amount0, amount1]
+    indexedArgs := [] }
+
+def pairBurnEvent
+    (sender : Address) (amount0 amount1 : Uint256) (toAddr : Address) : Event :=
+  { name := "Burn"
+    args := [addressToWord sender, amount0, amount1, addressToWord toAddr]
+    indexedArgs := [] }
+
+def pairSwapEvent
+    (sender : Address)
+    (amount0In amount1In amount0Out amount1Out : Uint256)
+    (toAddr : Address) : Event :=
+  { name := "Swap"
+    args := [
+      addressToWord sender,
+      amount0In,
+      amount1In,
+      amount0Out,
+      amount1Out,
+      addressToWord toAddr
+    ]
+    indexedArgs := [] }
+
+def pairSyncEvent (reserve0 reserve1 : Uint256) : Event :=
+  { name := "Sync"
+    args := [reserve0, reserve1]
+    indexedArgs := [] }
+
 def hasPairSafeTransferTrace
     (token fromAddr toAddr : Address) (amount : Uint256)
     (s : ContractState) : Prop :=

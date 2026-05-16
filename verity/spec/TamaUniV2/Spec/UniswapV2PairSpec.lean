@@ -120,6 +120,11 @@ def pair_approve_keeps_total_supply
     (result : ContractResult Bool) : Prop :=
   result.snd.storage totalSupplySlot.slot = s.storage totalSupplySlot.slot
 
+def pair_approve_emits_approval
+    (spender : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  pairTraceContains (pairLpApprovalEvent s.sender spender amount) result.snd.events
+
 def pair_transfer_reverts_when_balance_low
     (toAddr : Address) (amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
@@ -158,6 +163,16 @@ def pair_transfer_keeps_total_supply
     (toAddr : Address) (amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result.snd.storage totalSupplySlot.slot = s.storage totalSupplySlot.slot
+
+def pair_transfer_emits_transfer
+    (toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  amount.val ≤ (s.storageMap balancesSlot.slot s.sender).val →
+    (s.sender = toAddr ∨
+      (s.sender ≠ toAddr ∧
+        (s.storageMap balancesSlot.slot toAddr).val + amount.val ≤
+          Verity.Stdlib.Math.MAX_UINT256)) →
+      pairTraceContains (pairLpTransferEvent s.sender toAddr amount) result.snd.events
 
 def pair_transferFrom_reverts_when_allowance_low
     (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState)
@@ -230,6 +245,17 @@ def pair_transferFrom_spends_finite_allowance
         s.storageMap2 allowancesSlot.slot fromAddr s.sender != maxUint256 →
           result.snd.storageMap2 allowancesSlot.slot fromAddr s.sender =
             (s.storageMap2 allowancesSlot.slot fromAddr s.sender) - amount
+
+def pair_transferFrom_emits_transfer
+    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  amount.val ≤ (s.storageMap2 allowancesSlot.slot fromAddr s.sender).val →
+    amount.val ≤ (s.storageMap balancesSlot.slot fromAddr).val →
+      (fromAddr = toAddr ∨
+        (fromAddr ≠ toAddr ∧
+          (s.storageMap balancesSlot.slot toAddr).val + amount.val ≤
+            Verity.Stdlib.Math.MAX_UINT256)) →
+        pairTraceContains (pairLpTransferEvent fromAddr toAddr amount) result.snd.events
 
 def pair_mint_reverts_when_locked
     (toAddr : Address) (s : ContractState) (result : ContractResult Uint256) : Prop :=

@@ -38,6 +38,7 @@ attribute [local simp] decimals totalSupply balanceOf allowance factory token0 t
   TamaUniV2.erc20BalanceOf pairSelf pairToken0 pairToken1 observedBalance0 observedBalance1
   TamaUniV2.pairSafeTransfer TamaUniV2.tracePairTokenSafeTransfer
   TamaUniV2.pairTokenSafeTransferEvent pairTraceContains hasPairSafeTransferTrace
+  pairLpApprovalEvent pairLpTransferEvent pairMintEvent pairBurnEvent pairSwapEvent pairSyncEvent
   mintAmount0 mintAmount1 timestamp32 skimExcess0 skimExcess1
   swapExpected0 swapExpected1 swapAmount0In swapAmount1In
   Contracts.emit emitEvent
@@ -177,10 +178,12 @@ private theorem approve_properties_after_run
   pair_approve_succeeds spender amount s ((approve spender amount).run s) ∧
   pair_approve_sets_allowance spender amount s ((approve spender amount).run s) ∧
   pair_approve_keeps_balances spender amount s ((approve spender amount).run s) ∧
-  pair_approve_keeps_total_supply spender amount s ((approve spender amount).run s) := by
+  pair_approve_keeps_total_supply spender amount s ((approve spender amount).run s) ∧
+  pair_approve_emits_approval spender amount s ((approve spender amount).run s) := by
   unfold pair_approve_succeeds pair_approve_sets_allowance
     pair_approve_keeps_balances pair_approve_keeps_total_supply
-  refine ⟨?_, ?_, ?_, ?_⟩
+    pair_approve_emits_approval
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
   · simp [approve, allowancesSlot, msgSender, setMapping2, Contract.run,
       ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure]
   · simp [approve, allowancesSlot, msgSender, setMapping2, Contract.run,
@@ -190,6 +193,9 @@ private theorem approve_properties_after_run
       ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure]
   · simp [approve, allowancesSlot, msgSender, setMapping2, Contract.run,
       ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure]
+  · simp [approve, allowancesSlot, msgSender, setMapping2, Contract.run,
+      ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+      pairTraceContains]
 
 -- tama: discharges=pair_approve_succeeds
 theorem approve_succeeds (spender : Address) (amount : Uint256) (s : ContractState) :
@@ -209,7 +215,12 @@ theorem approve_keeps_balances (spender : Address) (amount : Uint256) (s : Contr
 -- tama: discharges=pair_approve_keeps_total_supply
 theorem approve_keeps_total_supply (spender : Address) (amount : Uint256) (s : ContractState) :
   pair_approve_keeps_total_supply spender amount s ((approve spender amount).run s) :=
-  (approve_properties_after_run spender amount s).2.2.2
+  (approve_properties_after_run spender amount s).2.2.2.1
+
+-- tama: discharges=pair_approve_emits_approval
+theorem approve_emits_approval (spender : Address) (amount : Uint256) (s : ContractState) :
+  pair_approve_emits_approval spender amount s ((approve spender amount).run s) :=
+  (approve_properties_after_run spender amount s).2.2.2.2
 
 private theorem transfer_properties_after_run
     (toAddr : Address) (amount : Uint256) (s : ContractState) :
@@ -219,13 +230,15 @@ private theorem transfer_properties_after_run
     ((transfer toAddr amount).run s) ∧
   pair_transfer_moves_tokens_between_distinct_accounts toAddr amount s
     ((transfer toAddr amount).run s) ∧
-  pair_transfer_keeps_total_supply toAddr amount s ((transfer toAddr amount).run s) := by
+  pair_transfer_keeps_total_supply toAddr amount s ((transfer toAddr amount).run s) ∧
+  pair_transfer_emits_transfer toAddr amount s ((transfer toAddr amount).run s) := by
   unfold pair_transfer_reverts_when_balance_low
     pair_transfer_to_self_keeps_balances
     pair_transfer_reverts_when_recipient_balance_would_overflow
     pair_transfer_moves_tokens_between_distinct_accounts
     pair_transfer_keeps_total_supply
-  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    pair_transfer_emits_transfer
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro h_insufficient
     have h_not_balance : ¬ amount.val ≤ (s.storageMap 9 s.sender).val := by
       have h_insufficient_raw : amount.val > (s.storageMap 9 s.sender).val := by
@@ -294,6 +307,26 @@ private theorem transfer_properties_after_run
             Verity.Stdlib.Math.safeAdd, h_balance, h_same, h_overflow]
     · simp [transfer, balancesSlot, totalSupplySlot, msgSender, getMapping, Contract.run,
         ContractResult.snd, Verity.bind, Bind.bind, Verity.require, h_balance]
+  · intro h_balance h_path
+    have h_balance_raw : amount.val ≤ (s.storageMap 9 s.sender).val := by
+      simpa [balancesSlot] using h_balance
+    rcases h_path with h_same | ⟨h_ne, h_no_overflow⟩
+    · subst h_same
+      simp [transfer, balancesSlot, msgSender, getMapping, Contract.run,
+        ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+        Verity.require, h_balance_raw, pairTraceContains]
+    · have h_no_overflow_raw :
+          (s.storageMap 9 toAddr).val + amount.val ≤ Verity.Stdlib.Math.MAX_UINT256 := by
+        simpa [balancesSlot] using h_no_overflow
+      have h_not_overflow :
+          ¬ Verity.Stdlib.Math.MAX_UINT256 <
+            (s.storageMap 9 toAddr).val + amount.val := by
+        omega
+      simp [transfer, balancesSlot, msgSender, getMapping, setMapping, Contract.run,
+        ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+        Verity.require, Verity.Stdlib.Math.requireSomeUint,
+        Verity.Stdlib.Math.safeAdd, h_balance_raw, h_ne, h_not_overflow,
+        pairTraceContains]
 
 -- tama: discharges=pair_transfer_reverts_when_balance_low
 theorem transfer_reverts_when_balance_low
@@ -325,7 +358,13 @@ theorem transfer_moves_tokens_between_distinct_accounts
 theorem transfer_keeps_total_supply
     (toAddr : Address) (amount : Uint256) (s : ContractState) :
   pair_transfer_keeps_total_supply toAddr amount s ((transfer toAddr amount).run s) :=
-  (transfer_properties_after_run toAddr amount s).2.2.2.2
+  (transfer_properties_after_run toAddr amount s).2.2.2.2.1
+
+-- tama: discharges=pair_transfer_emits_transfer
+theorem transfer_emits_transfer
+    (toAddr : Address) (amount : Uint256) (s : ContractState) :
+  pair_transfer_emits_transfer toAddr amount s ((transfer toAddr amount).run s) :=
+  (transfer_properties_after_run toAddr amount s).2.2.2.2.2
 
 private theorem transferFrom_properties_after_run
     (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState) :
@@ -344,6 +383,8 @@ private theorem transferFrom_properties_after_run
   pair_transferFrom_keeps_infinite_allowance fromAddr toAddr amount s
     ((transferFrom fromAddr toAddr amount).run s) ∧
   pair_transferFrom_spends_finite_allowance fromAddr toAddr amount s
+    ((transferFrom fromAddr toAddr amount).run s) ∧
+  pair_transferFrom_emits_transfer fromAddr toAddr amount s
     ((transferFrom fromAddr toAddr amount).run s) := by
   unfold pair_transferFrom_reverts_when_allowance_low
     pair_transferFrom_reverts_when_balance_low
@@ -353,7 +394,8 @@ private theorem transferFrom_properties_after_run
     pair_transferFrom_keeps_total_supply
     pair_transferFrom_keeps_infinite_allowance
     pair_transferFrom_spends_finite_allowance
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    pair_transferFrom_emits_transfer
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro h_insufficient_allowance
     have h_insufficient_allowance_raw :
         amount.val > (s.storageMap2 10 fromAddr s.sender).val := by
@@ -561,6 +603,55 @@ private theorem transferFrom_properties_after_run
         Verity.Stdlib.Math.requireSomeUint, Verity.Stdlib.Math.safeAdd,
         h_allowance_raw, h_balance_raw, h_ne, h_not_overflow,
         h_not_max_ofNat, HSub.hSub]
+  · intro h_allowance h_balance h_path
+    have h_allowance_raw :
+        amount.val ≤ (s.storageMap2 10 fromAddr s.sender).val := by
+      simpa [allowancesSlot] using h_allowance
+    have h_balance_raw : amount.val ≤ (s.storageMap 9 fromAddr).val := by
+      simpa [balancesSlot] using h_balance
+    rcases h_path with h_eq | ⟨h_ne, h_no_overflow⟩
+    · subst h_eq
+      by_cases h_max :
+          s.storageMap2 10 fromAddr s.sender =
+            maxUint256
+      · simp [Verity.Stdlib.Math.MAX_UINT256, Verity.Core.MAX_UINT256] at h_max
+        have h_allowance_max : amount.val ≤ (sub 0 1 : Uint256).val := by
+          simpa [h_max] using h_allowance_raw
+        simp [transferFrom, allowancesSlot, balancesSlot, msgSender, getMapping2,
+          getMapping, setMapping2, Contract.run, ContractResult.snd, Verity.bind,
+          Bind.bind, Verity.pure, Pure.pure, Verity.require, h_allowance_raw,
+          h_allowance_max, h_balance_raw, h_max, pairTraceContains]
+      · simp [Verity.Stdlib.Math.MAX_UINT256, Verity.Core.MAX_UINT256] at h_max
+        simp [transferFrom, allowancesSlot, balancesSlot, msgSender, getMapping2,
+          getMapping, setMapping2, Contract.run, ContractResult.snd, Verity.bind,
+          Bind.bind, Verity.pure, Pure.pure, Verity.require, h_allowance_raw,
+          h_balance_raw, h_max, pairTraceContains]
+    · have h_no_overflow_raw :
+          (s.storageMap 9 toAddr).val + amount.val ≤ Verity.Stdlib.Math.MAX_UINT256 := by
+        simpa [balancesSlot] using h_no_overflow
+      have h_not_overflow :
+          ¬ Verity.Stdlib.Math.MAX_UINT256 <
+            (s.storageMap 9 toAddr).val + amount.val := by
+        omega
+      by_cases h_max :
+          s.storageMap2 10 fromAddr s.sender =
+            maxUint256
+      · simp [Verity.Stdlib.Math.MAX_UINT256, Verity.Core.MAX_UINT256] at h_max
+        have h_allowance_max : amount.val ≤ (sub 0 1 : Uint256).val := by
+          simpa [h_max] using h_allowance_raw
+        simp [transferFrom, allowancesSlot, balancesSlot, msgSender, getMapping2,
+          getMapping, setMapping, setMapping2, Contract.run, ContractResult.snd,
+          Verity.bind, Bind.bind, Verity.pure, Pure.pure, Verity.require,
+          Verity.Stdlib.Math.requireSomeUint, Verity.Stdlib.Math.safeAdd,
+          h_allowance_raw, h_allowance_max, h_balance_raw, h_ne, h_not_overflow,
+          h_max, pairTraceContains]
+      · simp [Verity.Stdlib.Math.MAX_UINT256, Verity.Core.MAX_UINT256] at h_max
+        simp [transferFrom, allowancesSlot, balancesSlot, msgSender, getMapping2,
+          getMapping, setMapping, setMapping2, Contract.run, ContractResult.snd,
+          Verity.bind, Bind.bind, Verity.pure, Pure.pure, Verity.require,
+          Verity.Stdlib.Math.requireSomeUint, Verity.Stdlib.Math.safeAdd,
+          h_allowance_raw, h_balance_raw, h_ne, h_not_overflow,
+          h_max, pairTraceContains]
 
 -- tama: discharges=pair_transferFrom_reverts_when_allowance_low
 theorem transferFrom_reverts_when_allowance_low
@@ -616,7 +707,14 @@ theorem transferFrom_spends_finite_allowance
     (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState) :
   pair_transferFrom_spends_finite_allowance fromAddr toAddr amount s
     ((transferFrom fromAddr toAddr amount).run s) :=
-  (transferFrom_properties_after_run fromAddr toAddr amount s).2.2.2.2.2.2.2
+  (transferFrom_properties_after_run fromAddr toAddr amount s).2.2.2.2.2.2.2.1
+
+-- tama: discharges=pair_transferFrom_emits_transfer
+theorem transferFrom_emits_transfer
+    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState) :
+  pair_transferFrom_emits_transfer fromAddr toAddr amount s
+    ((transferFrom fromAddr toAddr amount).run s) :=
+  (transferFrom_properties_after_run fromAddr toAddr amount s).2.2.2.2.2.2.2.2
 
 -- tama: discharges=pair_mint_reverts_when_locked
 theorem mint_reverts_when_locked (toAddr : Address) (s : ContractState) :
