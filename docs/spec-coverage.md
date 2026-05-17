@@ -135,9 +135,9 @@ Pair:
   total LP supply and locked liquidity exactly. Locked liquidity is also proved
   monotone from good/reachable states: once established, finite successful
   histories cannot reduce it. The invariant layer now also exposes the
-  token-side no-drain consequence directly: from any reachable nonempty pool,
-  every finite successful modeled history leaves both actual token balances
-  positive. The same layer also covers the
+  token-side positive-balance consequence directly: from any reachable nonempty
+  pool, every finite successful modeled history leaves both actual token
+  balances positive. The same layer also covers the
   one-step LP-supply firewall for any action other than mint or burn, one-step
   and finite-history supply-direction invariants showing no-burn histories
   cannot decrease LP supply and no-mint histories cannot increase LP supply,
@@ -183,12 +183,12 @@ Pair:
   the strict locked-share consequence that the first LP cannot own the entire
   supply, every valid mint strictly increasing total supply, exact burn supply
   reduction, burns never increasing supply, and the fact that burns cannot
-  redeem the locked liquidity floor. The reachable burn no-drain theorem states
-  directly that a valid burn from a reachable nonempty pool cannot empty either
-  token side. The burn ghost transition itself now requires positive liquidity,
+  redeem the locked liquidity floor. The reachable burn theorem states directly
+  that a valid burn from a reachable nonempty pool cannot empty either token
+  side. The burn ghost transition itself now requires positive liquidity,
   positive pre-burn supply, and positive redeemed token amounts, and the
   token-side lock consequence proves burns from good positive-token states
-  cannot drain either token balance to zero. Mint and
+  cannot empty either token balance. Mint and
   burn now also have explicit LP-share safety obligations: existing positive
   pools cannot be diluted by mints, and burns cannot over-extract from the
   remaining LPs, because each preserves or improves K per squared LP supply.

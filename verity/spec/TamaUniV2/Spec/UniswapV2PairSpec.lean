@@ -1438,7 +1438,7 @@ def pair_closed_world_reachable_positive_supply_path_has_positive_reserves
         0 < after.reserve0 ∧
         0 < after.reserve1
 
-/-- Token-side no-drain invariant. The positive-reserve theorem says cached
+/-- Token-side positive-balance invariant. The positive-reserve theorem says cached
 reserves stay nonzero; reserve backing then says the actual ERC20 balances held
 by the pair are also nonzero. Thus no finite successful modeled history from a
 reachable nonempty pool can leave either token balance at zero. -/
@@ -1838,7 +1838,7 @@ def pair_closed_world_burn_preserves_positive_balances
           0 < after.balance0 ∧
           0 < after.balance1
 
-/-- Reachable burn no-drain theorem. In the form a maintainer should cite, a
+/-- Reachable burn positive-balance theorem. In the form a maintainer should cite, a
 valid burn from any reachable nonempty pool cannot empty either token side. The
 reachable invariant supplies the pre-burn positive balances; the burn theorem
 uses the locked minimum liquidity to show some token backing must remain. -/
@@ -2204,7 +2204,7 @@ Properties specified:
   K cannot decrease.
 
 Security conclusions:
-* Swap-only and no-burn histories cannot drain the pool by weakening K.
+* Swap-only and no-burn histories cannot empty the pool by weakening K.
 * Mint/burn round trips do not create a hidden extraction path, because the
   LP-normalized invariant survives the round trip and same supply cancels the
   normalization.
@@ -2474,7 +2474,7 @@ def pair_closed_world_reachable_no_mint_burn_path_token_balance_loss_bounded_by_
 mint and no burn preserve LP supply by the supply firewall, so the same
 actual-balance no-extraction conclusion applies without restating a same-supply
 premise. This is the most direct closed-world expression of "ordinary pair
-operation cannot profitably drain actual token balances from a clean starting
+operation cannot profitably reduce actual token balances from a clean starting
 state." -/
 def pair_closed_world_reachable_zero_surplus_no_mint_burn_path_no_token_balance_value_extraction
     (before after : PairWorldState) : Prop :=

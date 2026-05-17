@@ -95,10 +95,10 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   successful modeled history remains nonempty, making the minimum-liquidity
   argument explicit at the trace level.
 
-  2026-05-17 05:33 PDT checkpoint: adding the token-side no-drain consequence
-  of the positive-reserve and reserve-backing invariants. From any reachable
-  nonempty pool, every finite successful modeled history leaves both actual
-  token balances positive.
+  2026-05-17 05:33 PDT checkpoint: adding the token-side positive-balance
+  consequence of the positive-reserve and reserve-backing invariants. From any
+  reachable nonempty pool, every finite successful modeled history leaves both
+  actual token balances positive.
 
   2026-05-17 11:40 PDT checkpoint: added explicit trace closure for the
   closed-world Pair model. If a state is reachable and a finite successful path
@@ -284,11 +284,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   2026-05-16 22:43 PDT checkpoint: the closed-world burn step was tightened to
   match executable burn success by requiring positive redeemed amounts, positive
   burned liquidity, and positive pre-burn supply. A new token-side lock theorem
-  proves a valid burn from a good positive-token state cannot drain either token
-  balance to zero.
+  proves a valid burn from a good positive-token state cannot empty either token
+  balance.
 
   2026-05-17 12:38 PDT checkpoint: added the reachable form of the burn
-  no-drain theorem. From any reachable nonempty pool, a valid burn cannot empty
+  positive-balance theorem. From any reachable nonempty pool, a valid burn cannot empty
   either token side; reachability supplies the good-state and pre-burn token
   balance premises.
 
