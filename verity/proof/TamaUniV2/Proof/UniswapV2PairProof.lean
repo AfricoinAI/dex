@@ -1066,6 +1066,24 @@ theorem sync_run_revert_locked (s : ContractState) :
   simpa [pair_sync_run_revert_locked, pair_sync_reverts_when_locked]
     using sync_reverts_when_locked s
 
+-- tama: discharges=pair_sync_expected_refines_closed_world
+theorem sync_expected_refines_closed_world (s : ContractState) :
+  pair_sync_expected_refines_closed_world s := by
+  intro h_bound0 h_bound1
+  simp [pair_sync_expected_refines_closed_world, PairWorldStep,
+    PairWorldSyncStep, pairWorldFromConcreteState, pairWorldAfterSyncRun,
+    pairWorldLockedLiquidity, maxUint112Nat, maxUint112,
+    UniswapV2PairBase.maxUint112]
+  exact ⟨by simpa [maxUint112Nat, maxUint112, UniswapV2PairBase.maxUint112] using h_bound0,
+    by simpa [maxUint112Nat, maxUint112, UniswapV2PairBase.maxUint112] using h_bound1⟩
+
+-- tama: discharges=pair_sync_success_run_refines_closed_world
+theorem sync_success_run_refines_closed_world
+    (s : ContractState) (result : ContractResult Unit) :
+  pair_sync_success_run_refines_closed_world s result := by
+  intro _h_run _h_success h_bound0 h_bound1
+  exact sync_expected_refines_closed_world s h_bound0 h_bound1
+
 -- tama: discharges=pair_mint_first_expected_refines_closed_world
 theorem mint_first_expected_refines_closed_world (toAddr : Address) (s : ContractState) :
   pair_mint_first_expected_refines_closed_world toAddr s := by

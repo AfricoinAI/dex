@@ -570,6 +570,24 @@ def pair_sync_run_revert_locked
     (sync).run s =
       ContractResult.revert "UniswapV2: LOCKED" s
 
+def pair_sync_expected_refines_closed_world
+    (s : ContractState) : Prop :=
+  observedBalance0 s ≤ maxUint112 →
+    observedBalance1 s ≤ maxUint112 →
+      PairWorldStep PairWorldAction.sync
+        (pairWorldFromConcreteState s)
+        (pairWorldAfterSyncRun s)
+
+def pair_sync_success_run_refines_closed_world
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  result = (sync).run s →
+    result = ContractResult.success () result.snd →
+      observedBalance0 s ≤ maxUint112 →
+        observedBalance1 s ≤ maxUint112 →
+          PairWorldStep PairWorldAction.sync
+            (pairWorldFromConcreteState s)
+            (pairWorldAfterSyncRun s)
+
 def pair_mint_first_expected_refines_closed_world
     (toAddr : Address) (s : ContractState) : Prop :=
   let amount0 := mintAmount0 s

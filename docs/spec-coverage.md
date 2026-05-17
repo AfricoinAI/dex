@@ -48,6 +48,9 @@ Pair:
 - `skim` success spec for exact surplus transfer traces, unchanged reserves,
   restored lock, and refinement to the closed-world skim transition.
 - First-mint closed-world bridge predicates for the expected state.
+- `sync` expected-state and success-conditional bridge predicates showing that
+  observed balances inside uint112 bounds refine the closed-world sync
+  transition when the public run succeeds.
 - Closed-world `PairWorldGood` preservation for one step and all finite
   reachable traces, plus finite-path preservation from any good state, reserve
   backing, uint112 reserve bounds, path-wide LP-supply coherence, path-wide
