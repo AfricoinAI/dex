@@ -352,6 +352,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   work should first factor the shared reserve-update tail into a proof-local
   adapter, then expose only the short public property.
 
+  2026-05-17 14:50 PDT checkpoint: added the narrow public `sync`
+  success-to-oracle bridge by composing the existing successful-run transition
+  proof with the shared concrete reserve-write rule. This connects a real
+  successful `sync` call to reserve-to-balance writes and the generic TWAP
+  arithmetic facts without unfolding the whole entrypoint again.
+
 - [ ] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when
@@ -375,6 +381,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   the Pair spec read as contract-level oracle behavior shared by mint, burn,
   swap, and sync; the still-open work is executable bridge coverage for the
   mint/burn/swap reserve-update paths.
+
+  2026-05-17 14:50 PDT checkpoint: the `sync` side of that executable bridge
+  now exists as a short public theorem. Remaining oracle bridge work should
+  focus on mint, burn, and swap, preferably through proof-local adapters that
+  expose the shared reserve-update suffix rather than full-entrypoint
+  unfoldings.
 
 - [ ] **6. Add flash-swap specs**
 

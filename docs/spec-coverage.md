@@ -126,12 +126,13 @@ Pair:
   prices unchanged, elapsed updates with nonzero old reserves add the canonical
   UQ112x112 encoded price times elapsed time, and elapsed branches with zero elapsed
   time or a zero old reserve leave cumulative prices unchanged. `sync` keeps
-  direct bridge obligations as the smallest public reserve-update entrypoint.
-  The shared concrete reserve-write bridge now packages those oracle facts
-  with the reserve-to-balance write rule for any mint, burn, swap, or sync
-  transition from a concrete state. Remaining work is deriving more of the
-  arithmetic premises directly from successful public runs where that can be
-  done with small adapters.
+  direct bridge obligations as the smallest public reserve-update entrypoint,
+  including a success-run bridge from a real `sync` call to reserve-to-balance
+  writes plus the generic TWAP rule. The shared concrete reserve-write bridge
+  now packages those oracle facts with the reserve-to-balance write rule for
+  any mint, burn, swap, or sync transition from a concrete state. Remaining
+  work is deriving more of the arithmetic premises directly from successful
+  mint, burn, and swap runs where that can be done with small adapters.
 - Closed-world `PairWorldGood` preservation for one step and all finite
   reachable traces, finite-path preservation from any good state, and
   reachability closure for appending finite successful paths. The
@@ -326,8 +327,10 @@ the executable bridge from canonical public entrypoints to that story.
   or keep it as mirrored runtime boundary coverage.
 - Skim/sync bridge: `skim` has exact surplus-transfer and closed-world
   transition coverage. `sync` has uint112 overflow reverts and a closed-world
-  transition bridge. Remaining work is only the narrow executable bridge from
-  successful reserve-update runs to the TWAP/oracle arithmetic facts.
+  transition bridge. A successful public `sync` run is now connected to the
+  reserve-to-balance write rule and the generic TWAP/oracle arithmetic facts.
+  Remaining bridge work is for the more complex mint, burn, and swap
+  reserve-update paths.
 - Ordered revert matrix: cover canonical guard priority for mint, burn, swap,
   skim, sync, and factory, with exact revert payload/state.
   Swap now has a public Lean proof for the zero-output guard after the lock

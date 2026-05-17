@@ -5030,6 +5030,30 @@ theorem closed_world_concrete_reserve_write_uses_oracle_rule
     reserve_update_oracle_elapsed_updates_price_cumulatives s,
     reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s⟩
 
+-- tama: discharges=pair_sync_success_run_uses_oracle_rule
+theorem sync_success_run_uses_oracle_rule
+    (s : ContractState) (result : ContractResult Unit) :
+  pair_sync_success_run_uses_oracle_rule s result := by
+  intro h_run h_success h_bound0 h_bound1
+  have h_step :=
+    sync_success_run_refines_closed_world
+      s result h_run h_success h_bound0 h_bound1
+  have h_action :
+      ((∃ amount0 amount1 liquidity,
+          PairWorldAction.sync = PairWorldAction.mint amount0 amount1 liquidity) ∨
+        (∃ amount0 amount1 liquidity,
+          PairWorldAction.sync = PairWorldAction.burn amount0 amount1 liquidity) ∨
+        (∃ amount0In amount1In amount0Out amount1Out,
+          PairWorldAction.sync =
+            PairWorldAction.swap amount0In amount1In amount0Out amount1Out) ∨
+        PairWorldAction.sync = PairWorldAction.sync) := by
+    right
+    right
+    right
+    rfl
+  exact closed_world_concrete_reserve_write_uses_oracle_rule
+    PairWorldAction.sync (pairWorldAfterSyncRun s) s h_action h_step
+
 -- tama: discharges=pair_closed_world_skim_or_sync_token_balance_value_never_increases
 theorem closed_world_skim_or_sync_token_balance_value_never_increases
     (action : PairWorldAction) (before after : PairWorldState) :

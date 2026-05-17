@@ -1037,6 +1037,25 @@ def pair_sync_oracle_inactive_elapsed_keeps_price_cumulatives
     (s : ContractState) : Prop :=
   pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
 
+/-- Successful `sync` is the simplest public reserve-write bridge. Once the
+real entrypoint succeeds with token balances inside the reserve domain, the
+closed-world endpoint has cached reserves equal to the observed balances, and
+the TWAP accumulators follow the same generic reserve-update rule used by mint,
+burn, and swap. -/
+def pair_sync_success_run_uses_oracle_rule
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  result = (sync).run s →
+    result = ContractResult.success () result.snd →
+      observedBalance0 s ≤ maxUint112 →
+        observedBalance1 s ≤ maxUint112 →
+          (pairWorldAfterSyncRun s).reserve0 =
+              (pairWorldAfterSyncRun s).balance0 ∧
+            (pairWorldAfterSyncRun s).reserve1 =
+              (pairWorldAfterSyncRun s).balance1 ∧
+            pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives s ∧
+            pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
+            pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
+
 /-- Shared bridge for reserve-writing actions. Once a mint, burn, swap, or sync
 has been connected to the closed-world transition from a concrete state, the
 common reserve-update facts are available together: cached reserves end at the
