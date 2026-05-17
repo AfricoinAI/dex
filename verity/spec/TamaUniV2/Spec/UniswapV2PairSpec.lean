@@ -2396,6 +2396,32 @@ def pair_closed_world_reachable_positive_supply_swap_no_caller_spot_profit
           callerValueAfter + PairWorldSpotValueNum before after →
           callerValueAfter ≤ callerValueBefore
 
+/--
+Caller-facing one-swap no-profit over actual pair token balances.
+
+The previous theorem measures cached reserve value. This version is the token
+balance statement a user usually wants when the pool starts clean: if there is
+no surplus above cached reserves before the swap, then the pair's actual token
+balances are the value source that matters. A valid swap preserves LP supply,
+so it is a same-supply history; the general same-supply no-profit theorem then
+rules out caller profit under the explicit caller-plus-pair value conservation
+premise.
+-/
+def pair_closed_world_reachable_zero_surplus_swap_no_caller_token_balance_profit
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState)
+    (callerValueBefore callerValueAfter : Nat) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldSurplus0 before = 0 →
+        PairWorldSurplus1 before = 0 →
+          PairWorldStep
+              (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+              before after →
+            callerValueBefore + PairWorldBalanceSpotValueNum before before =
+              callerValueAfter + PairWorldBalanceSpotValueNum before after →
+              callerValueAfter ≤ callerValueBefore
+
 /-!
 ### 7. Sequence-Level Economic Consequences
 

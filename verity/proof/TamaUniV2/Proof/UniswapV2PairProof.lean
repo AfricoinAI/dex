@@ -4700,6 +4700,26 @@ theorem closed_world_reachable_zero_surplus_same_supply_path_no_caller_token_bal
       before after h_reachable h_positive h_surplus0 h_surplus1 h_path h_supply
   omega
 
+-- tama: discharges=pair_closed_world_reachable_zero_surplus_swap_no_caller_token_balance_profit
+theorem closed_world_reachable_zero_surplus_swap_no_caller_token_balance_profit
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState)
+    (callerValueBefore callerValueAfter : Nat) :
+  pair_closed_world_reachable_zero_surplus_swap_no_caller_token_balance_profit
+    amount0In amount1In amount0Out amount1Out before after
+    callerValueBefore callerValueAfter := by
+  intro h_reachable h_positive h_surplus0 h_surplus1 h_step h_total_value
+  have h_supply :=
+    (closed_world_swap_preserves_liquidity_supply
+      amount0In amount1In amount0Out amount1Out before after h_step).1
+  have h_path : PairWorldPath before after :=
+    PairWorldPath.step
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      (PairWorldPath.refl before) h_step
+  exact closed_world_reachable_zero_surplus_same_supply_path_no_caller_token_balance_profit
+    before after callerValueBefore callerValueAfter h_reachable h_positive
+    h_surplus0 h_surplus1 h_path h_supply.symm h_total_value
+
 -- tama: discharges=pair_closed_world_reachable_balanced_same_supply_path_no_token_balance_value_extraction
 theorem closed_world_reachable_balanced_same_supply_path_no_token_balance_value_extraction
     (before after : PairWorldState) :
