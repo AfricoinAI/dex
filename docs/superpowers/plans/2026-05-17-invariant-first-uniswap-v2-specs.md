@@ -311,6 +311,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   a reader would use to reason about caller profit, with the expression scaled
   by `reserve0` to avoid division.
 
+  2026-05-17 05:15 PDT checkpoint: adding the actual-token-balance
+  no-extraction theorem. It keeps the statement truthful by requiring a
+  balanced start state with no surplus over cached reserves; donated surplus is
+  an external gift and can be removed by `skim`.
+
 - [x] **9. Add factory-world invariants**
 
   Model pair creation as a finite factory trace and prove sorted-token

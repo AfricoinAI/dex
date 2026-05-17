@@ -3758,6 +3758,42 @@ theorem closed_world_reachable_positive_supply_same_supply_path_no_spot_value_ex
     before after h_reachable h_positive h_path h_supply
     h_reserves.1 h_reserves.2
 
+private theorem pairWorldSpotValue_le_balanceSpotValue
+    {spot pool : PairWorldState} :
+  PairWorldGood pool →
+    PairWorldSpotValueNum spot pool ≤
+      PairWorldBalanceSpotValueNum spot pool := by
+  intro h_good
+  rcases h_good with ⟨h_back0, h_back1, _h_bound0, _h_bound1, _h_supply⟩
+  unfold PairWorldSpotValueNum PairWorldBalanceSpotValueNum
+  exact Nat.add_le_add
+    (Nat.mul_le_mul_right spot.reserve1 h_back0)
+    (Nat.mul_le_mul_right spot.reserve0 h_back1)
+
+-- tama: discharges=pair_closed_world_reachable_balanced_same_supply_path_no_token_balance_value_extraction
+theorem closed_world_reachable_balanced_same_supply_path_no_token_balance_value_extraction
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_balanced_same_supply_path_no_token_balance_value_extraction
+    before after := by
+  intro h_reachable h_positive h_balance0 h_balance1 h_path h_supply
+  have h_reserve_value :=
+    closed_world_reachable_positive_supply_same_supply_path_no_spot_value_extraction
+      before after h_reachable h_positive h_path h_supply
+  have h_after_good :=
+    pairWorldPath_preserves_good
+      (pairWorldReachable_good before h_reachable)
+      h_path
+  have h_final_reserve_to_balance :=
+    pairWorldSpotValue_le_balanceSpotValue
+      (spot := before) (pool := after) h_after_good
+  have h_initial_value :
+      PairWorldBalanceSpotValueNum before before =
+        PairWorldSpotValueNum before before := by
+    unfold PairWorldBalanceSpotValueNum PairWorldSpotValueNum
+    rw [h_balance0, h_balance1]
+  rw [h_initial_value]
+  exact Nat.le_trans h_reserve_value h_final_reserve_to_balance
+
 -- tama: discharges=pair_closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
 theorem closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
     (before after : PairWorldState) :

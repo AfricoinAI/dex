@@ -1887,6 +1887,27 @@ def pair_closed_world_reachable_positive_supply_same_supply_path_no_spot_value_e
           PairWorldSpotValueNum before before ≤
             PairWorldSpotValueNum before after
 
+/-- Actual token-balance no-extraction under the right closed-world premise.
+
+Reserve-value no-profit is the core AMM theorem, but users naturally think in
+terms of the pair's ERC20 token balances. This theorem makes that connection
+explicit without smuggling in a false claim about donated surplus: if the start
+state has no surplus over cached reserves, then any finite successful history
+that returns LP supply to its starting value leaves the pair's actual token
+balances worth at least as much at the initial spot price. If the start state
+already contains surplus, a later `skim` may remove that external gift; that is
+why the balanced-start premise is part of the statement. -/
+def pair_closed_world_reachable_balanced_same_supply_path_no_token_balance_value_extraction
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      before.balance0 = before.reserve0 →
+        before.balance1 = before.reserve1 →
+          PairWorldPath before after →
+            before.totalSupply = after.totalSupply →
+              PairWorldBalanceSpotValueNum before before ≤
+                PairWorldBalanceSpotValueNum before after
+
 /-- Non-liquidity histories are the common operational case: swaps, surplus
 management, donations, and LP-token bookkeeping, but no mint and no burn. The
 supply firewall above makes these histories same-supply histories, so the

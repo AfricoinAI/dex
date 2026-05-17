@@ -145,7 +145,10 @@ Pair:
   mint and no burn preserve LP supply and therefore cannot extract spot value
   at the initial price, without separate reserve-positive hypotheses. This
   allows mint/burn round trips rather than relying only on the older no-burn
-  path theorem.
+  path theorem. A token-balance version now connects the reserve theorem back
+  to actual ERC20 balances: from a reachable balanced start state with no
+  surplus over cached reserves, same-LP-supply histories cannot reduce the
+  pair's token-balance value at the initial spot price.
 
 Factory:
 
@@ -222,9 +225,11 @@ properties, not API-surface properties.
 - Sequence-level economics: the closed-world no-extraction theorem is now the
   active caller-facing story. Same-LP-supply reachable histories cannot reduce
   pool value at the initial spot price, and LP-normalized K explains why
-  mint/burn round trips are covered. Do not add a dummy caller ledger; only add
-  an external-wallet model if it tracks real action-level token and LP ownership
-  changes.
+  mint/burn round trips are covered. The actual token-balance theorem requires
+  a balanced start state, because pre-existing donated surplus is an external
+  gift that `skim` can legitimately remove. Do not add a dummy caller ledger;
+  only add an external-wallet model if it tracks real action-level token and LP
+  ownership changes.
 - Factory invariants: the closed-world reachable and path invariants are now in
   place, failed-create atomicity is proved, and successful create is bridged
   into the factory-world transition for both the empty base case and arbitrary

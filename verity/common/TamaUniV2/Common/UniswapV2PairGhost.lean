@@ -69,6 +69,9 @@ def PairWorldKPerSupplyNondecreasing (before after : PairWorldState) : Prop :=
 def PairWorldSpotValueNum (spot pool : PairWorldState) : Nat :=
   pool.reserve0 * spot.reserve1 + pool.reserve1 * spot.reserve0
 
+def PairWorldBalanceSpotValueNum (spot pool : PairWorldState) : Nat :=
+  pool.balance0 * spot.reserve1 + pool.balance1 * spot.reserve0
+
 def PairWorldNoSpotProfit (before after : PairWorldState) : Prop :=
   2 * PairWorldK before ≤ PairWorldSpotValueNum before after
 
