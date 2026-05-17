@@ -135,6 +135,13 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   same-block, elapsed/TWAP, and flash-callback cases only as proof structure,
   not as user-facing spec categories.
 
+  2026-05-17 02:20 PDT checkpoint: do not add more public executable-success or
+  ordered-prefix obligations by directly unfolding whole entrypoints. Attempts
+  to prove `sync` lock restoration and burn insufficient-liquidity this way
+  expanded into inline oracle/transfer tails. The next bridge work should first
+  introduce proof-local adapters for the shared reserve-update and ordered-guard
+  prefixes, then expose only short reader-facing obligations.
+
 - [ ] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when
@@ -177,6 +184,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   Insufficient-liquidity and invalid-recipient checks have exact Foundry
   revert-message coverage, but their public Lean obligations are deferred until
   the ordered-prefix proof is decomposed without monolithic swap unfolding.
+
+  2026-05-17 02:20 PDT checkpoint: the same warning applies to burn. A direct
+  proof attempt for the post-lock insufficient-liquidity guard also expanded
+  past the target guard. Build an ordered-prefix adapter before reintroducing
+  these public Lean obligations.
 
 - [x] **8. Add sequence-level economic safety**
 

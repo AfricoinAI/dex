@@ -173,7 +173,10 @@ properties, not API-surface properties.
   Swap now has a public Lean proof for the zero-output guard after the lock
   gate. Insufficient-liquidity and invalid-recipient runtime checks are exact in
   Foundry, but still need proof-local ordered-prefix Lean proofs before they
-  should be reintroduced as public obligations.
+  should be reintroduced as public obligations. Direct full-entrypoint unfolding
+  has now failed for both `sync` lock restoration and burn
+  insufficient-liquidity because it expands into later oracle/transfer tails;
+  the next Lean route should factor those prefixes privately first.
 - Sequence-level economics: the closed-world no-extraction theorem is now the
   active caller-facing story. Same-LP-supply reachable histories cannot reduce
   pool value at the initial spot price, and LP-normalized K explains why
