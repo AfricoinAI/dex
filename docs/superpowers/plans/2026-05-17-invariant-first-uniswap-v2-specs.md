@@ -162,6 +162,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   is at least the initial pool value. This keeps the public obligation short but
   makes the no-profit conclusion easier to read.
 
+  2026-05-17 00:38 PDT checkpoint: added the reachable LP-share backing theorem.
+  From any reachable positive-supply pool, every finite successful path preserves
+  or improves reserve product per squared LP supply. This is the concise global
+  mint/burn ratio statement that the same-supply no-profit theorem builds on.
+
 - [x] **9. Add factory-world invariants**
 
   Model pair creation as a finite factory trace and prove sorted-token

@@ -2842,6 +2842,14 @@ theorem closed_world_path_k_per_supply_never_decreases
   pair_closed_world_path_k_per_supply_never_decreases before after := by
   exact pairWorldPath_k_per_supply_never_decreases
 
+-- tama: discharges=pair_closed_world_reachable_path_lp_share_backing_never_decreases
+theorem closed_world_reachable_path_lp_share_backing_never_decreases
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_path_lp_share_backing_never_decreases before after := by
+  intro h_reachable h_positive h_path
+  exact pairWorldPath_k_per_supply_never_decreases
+    (pairWorldReachable_good before h_reachable) h_positive h_path
+
 -- tama: discharges=pair_closed_world_same_supply_path_never_decreases_k
 theorem closed_world_same_supply_path_never_decreases_k
     (before after : PairWorldState) :

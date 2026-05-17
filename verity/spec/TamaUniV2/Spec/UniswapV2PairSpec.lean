@@ -1404,6 +1404,17 @@ def pair_closed_world_path_k_per_supply_never_decreases
       PairWorldPath before after →
         PairWorldKPerSupplyNondecreasing before after
 
+/-- The reachable-state version of the LP-share backing theorem. Starting from
+any actually reachable pool with positive LP supply, every finite successful
+path leaves reserve product per squared LP supply at least as strong as it was
+at the start. This is the global mint/burn ratio guarantee in one sentence. -/
+def pair_closed_world_reachable_path_lp_share_backing_never_decreases
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        PairWorldKPerSupplyNondecreasing before after
+
 /- If a finite path returns to the same LP supply, LP normalization cancels.
 The pool's raw reserve product therefore cannot be lower than where it began. -/
 def pair_closed_world_same_supply_path_never_decreases_k
