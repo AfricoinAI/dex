@@ -93,10 +93,12 @@ Pair:
   finite-history version lifts that fixed point to any path made only of
   `skim` and `sync`. The broader passive-maintenance invariant adds LP share
   bookkeeping to that path family: any `approve`/`transfer`/`transferFrom` plus
-  `skim`/`sync` history from a good balanced pool is also a fixed point. Its
-  reader-facing economic corollary now states the same fact in no-extraction
-  terms: passive-maintenance histories from a clean balanced pool preserve
-  actual token-balance value exactly at the initial spot price. The sync/K
+  `skim`/`sync` history from a good balanced pool is also a fixed point. The
+  same section now exposes the clean-state invariant directly: those histories
+  preserve zero surplus, so they cannot create new excess token balances above
+  cached reserves. Its reader-facing economic corollary states the same fact in
+  no-extraction terms: passive-maintenance histories from a clean balanced pool
+  preserve actual token-balance value exactly at the initial spot price. The sync/K
   refinement states that sync preserves cached K exactly when the start state
   has no surplus, and the converse reader-facing theorem states that any
   sync-driven K increase requires pre-existing excess token balances.

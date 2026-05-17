@@ -232,6 +232,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   any such history from a clean balanced pool preserves actual token-balance
   value at the initial spot price.
 
+  2026-05-17 10:09 PDT checkpoint: added the sibling clean-state theorem.
+  Passive-maintenance histories from a good zero-surplus pool preserve zero
+  surplus, making the no-extraction value corollary read as a consequence of a
+  directly stated invariant.
+
   2026-05-16 22:43 PDT checkpoint: the closed-world burn step was tightened to
   match executable burn success by requiring positive redeemed amounts, positive
   burned liquidity, and positive pre-burn supply. A new token-side lock theorem

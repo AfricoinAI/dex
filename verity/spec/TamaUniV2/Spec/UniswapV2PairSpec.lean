@@ -2636,6 +2636,19 @@ def pair_closed_world_balanced_maintenance_path_preserves_pool
           after.totalSupply = before.totalSupply ∧
           after.lockedLiquidity = before.lockedLiquidity
 
+/-- Clean pools stay clean under passive maintenance. Since LP bookkeeping is
+pool-neutral and balanced `skim`/`sync` have no surplus to reconcile, a path
+made only of those actions cannot create new token balance surplus above cached
+reserves. -/
+def pair_closed_world_balanced_maintenance_path_preserves_zero_surplus
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldSurplus0 before = 0 →
+      PairWorldSurplus1 before = 0 →
+        PairWorldPathMaintenance before after →
+          PairWorldSurplus0 after = 0 ∧
+          PairWorldSurplus1 after = 0
+
 /-- Economic reading of the passive-maintenance fixed point. If a clean,
 balanced pool only goes through LP approval/transfer bookkeeping plus
 `skim`/`sync`, the actual token balances held by the pool have exactly the same
