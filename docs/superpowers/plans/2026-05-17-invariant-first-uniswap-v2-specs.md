@@ -510,6 +510,22 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   zero-surplus history with no liquidity issuance or redemption cannot increase
   caller spot value when caller-plus-pair value is only redistributed.
 
+  2026-05-17 15:55 PDT checkpoint: added the reserve-value caller no-profit
+  consequence for arbitrary same-LP-supply histories. If caller-plus-pool
+  cached spot value is merely redistributed, the caller cannot finish richer;
+  token-balance versions remain the zero-surplus facts above.
+
+  2026-05-17 16:02 PDT checkpoint: added the common no-mint/no-burn form of
+  the reserve-value caller theorem. Ordinary non-liquidity histories now expose
+  a direct caller no-profit statement without requiring readers to compose the
+  LP-supply firewall themselves.
+
+  2026-05-17 16:09 PDT checkpoint: added the non-balanced caller-profit bound.
+  Same-LP-supply histories, and the common no-mint/no-burn histories that
+  imply same supply, can increase caller actual-token-balance value only by
+  consuming surplus that was already donated above cached reserves at the
+  start.
+
 - [x] **9. Add factory-world invariants**
 
   Model pair creation as a finite factory trace and prove sorted-token

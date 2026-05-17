@@ -2636,6 +2636,28 @@ def pair_closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_i
             PairWorldBalanceSpotValueNum before after +
               PairWorldSurplusSpotValueNum before before
 
+/--
+Caller profit bounded by starting surplus for same-supply histories.
+
+Actual token balances may include donations above cached reserves. The pool
+theorem above says a same-LP-supply history can reduce actual token-balance
+value only by consuming that starting surplus. This theorem states the
+corresponding caller-facing bound: if caller-plus-pair actual token-balance
+value is merely redistributed, the caller's gain cannot exceed the surplus that
+was already outside the AMM's cached reserves at the start.
+-/
+def pair_closed_world_reachable_same_supply_path_caller_token_balance_profit_bounded_by_initial_surplus
+    (before after : PairWorldState)
+    (callerValueBefore callerValueAfter : Nat) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        before.totalSupply = after.totalSupply →
+          callerValueBefore + PairWorldBalanceSpotValueNum before before =
+            callerValueAfter + PairWorldBalanceSpotValueNum before after →
+            callerValueAfter ≤
+              callerValueBefore + PairWorldSurplusSpotValueNum before before
+
 /-- Zero-surplus actual-balance no-extraction, stated in invariant language.
 
 The bounded theorem above says any actual-token-balance loss must come out of
@@ -2770,6 +2792,24 @@ def pair_closed_world_reachable_no_mint_burn_path_token_balance_loss_bounded_by_
         PairWorldBalanceSpotValueNum before before ≤
           PairWorldBalanceSpotValueNum before after +
             PairWorldSurplusSpotValueNum before before
+
+/--
+Common operational caller bound with donated surplus made explicit. Histories
+with no mint and no burn preserve LP supply, so the same caller-profit bound
+applies without restating a same-supply premise: ordinary pair operation can
+only increase caller actual-token-balance value by consuming surplus that was
+already donated above cached reserves.
+-/
+def pair_closed_world_reachable_no_mint_burn_path_caller_token_balance_profit_bounded_by_initial_surplus
+    (before after : PairWorldState)
+    (callerValueBefore callerValueAfter : Nat) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPathNoMintBurn before after →
+        callerValueBefore + PairWorldBalanceSpotValueNum before before =
+          callerValueAfter + PairWorldBalanceSpotValueNum before after →
+          callerValueAfter ≤
+            callerValueBefore + PairWorldSurplusSpotValueNum before before
 
 /-- Common operational zero-surplus no-extraction theorem. Histories with no
 mint and no burn preserve LP supply by the supply firewall, so the same

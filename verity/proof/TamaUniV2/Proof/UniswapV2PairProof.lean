@@ -4672,6 +4672,21 @@ theorem closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_in
   exact Nat.add_le_add_right h_spot_to_balance
     (PairWorldSurplusSpotValueNum before before)
 
+-- tama: discharges=pair_closed_world_reachable_same_supply_path_caller_token_balance_profit_bounded_by_initial_surplus
+theorem closed_world_reachable_same_supply_path_caller_token_balance_profit_bounded_by_initial_surplus
+    (before after : PairWorldState)
+    (callerValueBefore callerValueAfter : Nat) :
+  pair_closed_world_reachable_same_supply_path_caller_token_balance_profit_bounded_by_initial_surplus
+    before after callerValueBefore callerValueAfter := by
+  intro h_reachable h_positive h_path h_supply h_total_value
+  have h_pair_bound :
+      PairWorldBalanceSpotValueNum before before ≤
+        PairWorldBalanceSpotValueNum before after +
+          PairWorldSurplusSpotValueNum before before :=
+    closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_initial_surplus
+      before after h_reachable h_positive h_path h_supply
+  omega
+
 -- tama: discharges=pair_closed_world_reachable_zero_surplus_same_supply_path_no_token_balance_value_extraction
 theorem closed_world_reachable_zero_surplus_same_supply_path_no_token_balance_value_extraction
     (before after : PairWorldState) :
@@ -4781,6 +4796,18 @@ theorem closed_world_reachable_no_mint_burn_path_token_balance_loss_bounded_by_i
   exact closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_initial_surplus
     before after h_reachable h_positive
     (pairWorldPath_of_noMintBurn h_path) h_supply.symm
+
+-- tama: discharges=pair_closed_world_reachable_no_mint_burn_path_caller_token_balance_profit_bounded_by_initial_surplus
+theorem closed_world_reachable_no_mint_burn_path_caller_token_balance_profit_bounded_by_initial_surplus
+    (before after : PairWorldState)
+    (callerValueBefore callerValueAfter : Nat) :
+  pair_closed_world_reachable_no_mint_burn_path_caller_token_balance_profit_bounded_by_initial_surplus
+    before after callerValueBefore callerValueAfter := by
+  intro h_reachable h_positive h_path h_total_value
+  have h_supply := (pairWorldNoMintBurnPath_preserves_supply h_path).1
+  exact closed_world_reachable_same_supply_path_caller_token_balance_profit_bounded_by_initial_surplus
+    before after callerValueBefore callerValueAfter h_reachable h_positive
+    (pairWorldPath_of_noMintBurn h_path) h_supply.symm h_total_value
 
 -- tama: discharges=pair_closed_world_reachable_zero_surplus_no_mint_burn_path_no_token_balance_value_extraction
 theorem closed_world_reachable_zero_surplus_no_mint_burn_path_no_token_balance_value_extraction

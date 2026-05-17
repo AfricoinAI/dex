@@ -243,8 +243,9 @@ Pair:
   no-mint/no-burn histories, so ordinary non-liquidity operation exposes a
   direct caller no-profit statement. The non-balanced case is now explicit too:
   same-LP-supply histories can reduce actual token-balance value by at most the
-  starting surplus above cached reserves, and no-mint/no-burn histories inherit
-  that bound automatically.
+  starting surplus above cached reserves, caller profit is bounded by that same
+  starting surplus when caller-plus-pair value is redistributed, and
+  no-mint/no-burn histories inherit both bounds automatically.
   The reader-facing zero-surplus corollaries spell out the clean operational
   conclusion directly: from a reachable nonempty state with no donated surplus
   above reserves, same-LP-supply histories, and in particular histories with no
