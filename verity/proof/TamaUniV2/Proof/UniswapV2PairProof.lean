@@ -4616,6 +4616,19 @@ theorem closed_world_sync_preserves_balanced_pool
   · rw [h_sync.2.1, h_balance1_before]
   exact ⟨h_supply, h_locked⟩
 
+-- tama: discharges=pair_closed_world_balanced_reserve_management_preserves_pool
+theorem closed_world_balanced_reserve_management_preserves_pool
+    (action : PairWorldAction) (before after : PairWorldState) :
+  pair_closed_world_balanced_reserve_management_preserves_pool action before after := by
+  intro h_action h_good h_step h_surplus0 h_surplus1
+  rcases h_action with h_skim | h_sync
+  · subst action
+    exact closed_world_skim_preserves_balanced_pool
+      before after h_good h_step h_surplus0 h_surplus1
+  · subst action
+    exact closed_world_sync_preserves_balanced_pool
+      before after h_good h_step h_surplus0 h_surplus1
+
 -- tama: discharges=pair_closed_world_sync_k_increase_requires_surplus
 theorem closed_world_sync_k_increase_requires_surplus
     (before after : PairWorldState) :

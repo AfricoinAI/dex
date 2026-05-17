@@ -213,6 +213,10 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   From a good zero-surplus state, sync must preserve token balances, cached
   reserves, LP supply, and locked liquidity exactly.
 
+  2026-05-17 09:05 PDT checkpoint: adding the reserve-management fixed-point
+  theorem. The action family `{skim, sync}` preserves a good balanced pool's
+  token balances, cached reserves, LP supply, and locked liquidity exactly.
+
   2026-05-16 22:43 PDT checkpoint: the closed-world burn step was tightened to
   match executable burn success by requiring positive redeemed amounts, positive
   burned liquidity, and positive pre-burn supply. A new token-side lock theorem

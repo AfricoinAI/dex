@@ -2583,6 +2583,24 @@ def pair_closed_world_sync_preserves_balanced_pool
           after.totalSupply = before.totalSupply ∧
           after.lockedLiquidity = before.lockedLiquidity
 
+/-- Reserve-management fixed point. The only modeled actions whose job is to
+reconcile token balances without minting, burning, or swapping are `skim` and
+`sync`. From a good balanced pool, either action preserves the pool's token
+balances, cached reserves, LP supply, and permanent liquidity lock exactly. -/
+def pair_closed_world_balanced_reserve_management_preserves_pool
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  (action = PairWorldAction.skim ∨ action = PairWorldAction.sync) →
+    PairWorldGood before →
+      PairWorldStep action before after →
+        PairWorldSurplus0 before = 0 →
+          PairWorldSurplus1 before = 0 →
+            after.balance0 = before.balance0 ∧
+            after.balance1 = before.balance1 ∧
+            after.reserve0 = before.reserve0 ∧
+            after.reserve1 = before.reserve1 ∧
+            after.totalSupply = before.totalSupply ∧
+            after.lockedLiquidity = before.lockedLiquidity
+
 /-- `sync` cannot manufacture cached liquidity value. In a good state, if
 syncing balances into reserves increases cached K, then at least one token
 balance was already above the cached reserve before the call. -/
