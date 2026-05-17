@@ -78,7 +78,8 @@ Pair:
   remain nonempty, that reachable nonempty pools have positive reserves on both
   token sides and preserve those positive reserves across finite successful
   histories, and that finite histories containing no mint and no burn preserve
-  total LP supply and locked liquidity exactly. The same layer also covers
+  total LP supply and locked liquidity exactly. The same layer also covers the
+  one-step LP-supply firewall for any action other than mint or burn,
   path-wide LP-supply coherence, path-wide locked-liquidity coverage,
   share-only action framing, reserve-update projections for
   mint/burn/swap/skim/sync, raw swap-K nondecrease, fee-adjusted K projection

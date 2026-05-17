@@ -2610,6 +2610,16 @@ theorem closed_world_supply_changes_only_on_mint_or_burn
         _h_reserve0, _h_reserve1, h_supply, _h_locked⟩
       exact False.elim (h_change h_supply)
 
+-- tama: discharges=pair_closed_world_non_liquidity_step_preserves_supply
+theorem closed_world_non_liquidity_step_preserves_supply
+    (action : PairWorldAction) (before after : PairWorldState) :
+  pair_closed_world_non_liquidity_step_preserves_supply action before after := by
+  intro h_step h_not_mint h_not_burn
+  exact pairWorldNoMintBurnPath_preserves_supply
+    (PairWorldPathNoMintBurn.step action
+      (PairWorldPathNoMintBurn.refl before)
+      h_step h_not_mint h_not_burn)
+
 -- tama: discharges=pair_closed_world_no_mint_burn_path_preserves_supply
 theorem closed_world_no_mint_burn_path_preserves_supply
     (before after : PairWorldState) :

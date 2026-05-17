@@ -84,6 +84,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   locked liquidity exactly, with a reachable reader-facing theorem for the same
   statement.
 
+  2026-05-17 03:00 PDT checkpoint: adding the one-step LP supply firewall that
+  the finite-history theorem iterates. Any successful modeled action other than
+  mint or burn preserves total LP supply and the permanently locked liquidity
+  amount.
+
   2026-05-17 01:43 PDT checkpoint: added the reader-facing no-liquidity
   no-extraction corollary. Reachable paths with no mint and no burn now prove
   no spot-value extraction directly by combining unchanged LP supply with the

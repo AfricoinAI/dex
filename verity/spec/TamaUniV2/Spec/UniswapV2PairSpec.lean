@@ -1259,6 +1259,20 @@ def pair_closed_world_supply_changes_only_on_mint_or_burn
       (∃ amount0 amount1 liquidity,
         action = PairWorldAction.burn amount0 amount1 liquidity)
 
+/-- The one-step LP-supply firewall. A successful modeled action that is not
+mint and not burn cannot change total LP supply or the permanently locked
+liquidity amount. This is the local fact that the finite-history theorem below
+iterates. -/
+def pair_closed_world_non_liquidity_step_preserves_supply
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldStep action before after →
+    (∀ amount0 amount1 liquidity,
+      action ≠ PairWorldAction.mint amount0 amount1 liquidity) →
+    (∀ amount0 amount1 liquidity,
+      action ≠ PairWorldAction.burn amount0 amount1 liquidity) →
+      after.totalSupply = before.totalSupply ∧
+      after.lockedLiquidity = before.lockedLiquidity
+
 /-- The finite-history version of the LP supply firewall. If a successful
 modeled path contains no mint and no burn, then it cannot change total LP supply
 or the permanently locked liquidity amount. -/
