@@ -959,6 +959,15 @@ def pair_sync_success_run_refines_closed_world
             (pairWorldFromConcreteState s)
             (pairWorldAfterSyncRun s)
 
+/-- A successful `sync` call must have passed the reentrancy lock gate. If the
+lock were closed, the exact locked-revert spec would force the run to return
+`LOCKED` instead of success. -/
+def pair_sync_success_run_implies_lock_open
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  result = (sync).run s →
+    result = ContractResult.success () result.snd →
+      s.storage unlockedSlot.slot = 1
+
 /-- A successful `sync` call cannot have observed balances outside the reserve
 domain. If either observed token balance were above `uint112`, the exact
 overflow revert specs above would force the run to revert instead. This is a
@@ -968,22 +977,20 @@ def pair_sync_success_run_implies_balances_fit_uint112
     (s : ContractState) (result : ContractResult Unit) : Prop :=
   result = (sync).run s →
     result = ContractResult.success () result.snd →
-      s.storage unlockedSlot.slot = 1 →
-        observedBalance0 s ≤ maxUint112 ∧
-        observedBalance1 s ≤ maxUint112
+      observedBalance0 s ≤ maxUint112 ∧
+      observedBalance1 s ≤ maxUint112
 
 /-- The public `sync` transition can now be cited without separately assuming
-the reserve-domain bounds. From an open lock, success of the real entrypoint
-implies those bounds, and therefore the run refines the closed-world sync
+the reserve-domain bounds. Success of the real entrypoint implies the lock gate
+and bounds passed, and therefore the run refines the closed-world sync
 transition used by the invariant section. -/
 def pair_sync_success_run_refines_closed_world_from_run
     (s : ContractState) (result : ContractResult Unit) : Prop :=
   result = (sync).run s →
     result = ContractResult.success () result.snd →
-      s.storage unlockedSlot.slot = 1 →
-        PairWorldStep PairWorldAction.sync
-          (pairWorldFromConcreteState s)
-          (pairWorldAfterSyncRun s)
+      PairWorldStep PairWorldAction.sync
+        (pairWorldFromConcreteState s)
+        (pairWorldAfterSyncRun s)
 
 /-!
 Oracle/TWAP arithmetic for reserve updates.

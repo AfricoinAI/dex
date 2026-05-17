@@ -131,10 +131,10 @@ Pair:
   reserve-writing action family now has a success-run bridge into that rule:
   first mint, subsequent mint, burn, swap, and sync all expose
   reserve-to-balance writes plus the generic TWAP cases once their existing
-  concrete arithmetic premises are established. For `sync`, success from an
-  open lock now derives the uint112 balance bounds directly from the exact
-  overflow revert specs, so the closed-world sync transition can be cited
-  without separate reserve-bound assumptions. The shared concrete reserve-write
+  concrete arithmetic premises are established. For `sync`, success now derives
+  both the open-lock fact and the uint112 balance bounds directly from exact
+  revert specs, so the closed-world sync transition can be cited without
+  separate lock or reserve-bound assumptions. The shared concrete reserve-write
   bridge packages the same facts for any mint, burn, swap, or sync transition
   from a concrete state. Remaining work is deriving more of the arithmetic
   premises directly from successful mint, burn, and swap runs where that can be

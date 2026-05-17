@@ -364,9 +364,9 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   rule once each action's concrete arithmetic premises are available.
 
   2026-05-17 16:04 PDT checkpoint: tightened the `sync` executable bridge.
-  Successful open-lock `sync` now derives the uint112 observed-balance bounds
-  from exact overflow revert facts and therefore refines the closed-world sync
-  transition without asking readers to supply those bounds separately.
+  Successful `sync` now derives the open-lock fact and uint112 observed-balance
+  bounds from exact revert facts and therefore refines the closed-world sync
+  transition without asking readers to supply those premises separately.
 
 - [x] **5. Add TWAP/oracle specs**
 

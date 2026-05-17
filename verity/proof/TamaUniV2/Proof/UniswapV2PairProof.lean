@@ -1660,11 +1660,26 @@ theorem sync_success_run_refines_closed_world
   intro _h_run _h_success h_bound0 h_bound1
   exact sync_expected_refines_closed_world s h_bound0 h_bound1
 
+-- tama: discharges=pair_sync_success_run_implies_lock_open
+theorem sync_success_run_implies_lock_open
+    (s : ContractState) (result : ContractResult Unit) :
+  pair_sync_success_run_implies_lock_open s result := by
+  intro h_run h_success
+  by_contra h_locked
+  have h_locked_bool :
+      (s.storage unlockedSlot.slot != (1 : Uint256)) = true := by
+    simpa [bne_iff_ne] using h_locked
+  have h_revert := sync_run_revert_locked s h_locked_bool
+  rw [h_run] at h_success
+  rw [h_revert] at h_success
+  cases h_success
+
 -- tama: discharges=pair_sync_success_run_implies_balances_fit_uint112
 theorem sync_success_run_implies_balances_fit_uint112
     (s : ContractState) (result : ContractResult Unit) :
   pair_sync_success_run_implies_balances_fit_uint112 s result := by
-  intro h_run h_success h_unlocked
+  intro h_run h_success
+  have h_unlocked := sync_success_run_implies_lock_open s result h_run h_success
   constructor
   · by_contra h_not_bound
     have h_not_bound_val :
@@ -1691,9 +1706,9 @@ theorem sync_success_run_implies_balances_fit_uint112
 theorem sync_success_run_refines_closed_world_from_run
     (s : ContractState) (result : ContractResult Unit) :
   pair_sync_success_run_refines_closed_world_from_run s result := by
-  intro h_run h_success h_unlocked
+  intro h_run h_success
   rcases sync_success_run_implies_balances_fit_uint112
-      s result h_run h_success h_unlocked with
+      s result h_run h_success with
     ⟨h_bound0, h_bound1⟩
   exact sync_expected_refines_closed_world s h_bound0 h_bound1
 
