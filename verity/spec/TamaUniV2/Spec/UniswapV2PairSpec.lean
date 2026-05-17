@@ -1360,6 +1360,16 @@ def pair_closed_world_reachable_good
   PairWorldReachable w →
     PairWorldGood w
 
+/-- Reachability is stable under finite successful histories. This is the
+trace-level closure fact that lets the rest of the section talk about "any
+later reachable state" rather than only states built directly from the initial
+pool. -/
+def pair_closed_world_path_preserves_reachability
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPath before after →
+      PairWorldReachable after
+
 def pair_closed_world_reachable_supply_good
     (w : PairWorldState) : Prop :=
   PairWorldReachable w →

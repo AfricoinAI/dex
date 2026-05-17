@@ -2391,6 +2391,18 @@ private theorem pairWorldPath_preserves_good
       intro h_good
       exact pairWorldStep_preserves_good (ih h_good) h_step
 
+private theorem pairWorldPath_preserves_reachability
+    {before after : PairWorldState} :
+  PairWorldReachable before →
+    PairWorldPath before after →
+      PairWorldReachable after := by
+  intro h_reachable h_path
+  induction h_path with
+  | refl =>
+      exact h_reachable
+  | step action h_prefix h_step ih =>
+      exact PairWorldReachable.step action ih h_step
+
 private theorem pairWorldPath_of_noBurn
     {before after : PairWorldState} :
   PairWorldPathNoBurn before after →
@@ -3078,6 +3090,12 @@ theorem closed_world_reachable_good
     (w : PairWorldState) :
   pair_closed_world_reachable_good w := by
   exact pairWorldReachable_good w
+
+-- tama: discharges=pair_closed_world_path_preserves_reachability
+theorem closed_world_path_preserves_reachability
+    (before after : PairWorldState) :
+  pair_closed_world_path_preserves_reachability before after := by
+  exact pairWorldPath_preserves_reachability
 
 -- tama: discharges=pair_closed_world_reachable_supply_good
 theorem closed_world_reachable_supply_good

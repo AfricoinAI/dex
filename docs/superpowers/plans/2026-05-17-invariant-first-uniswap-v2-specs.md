@@ -100,6 +100,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   nonempty pool, every finite successful modeled history leaves both actual
   token balances positive.
 
+  2026-05-17 11:40 PDT checkpoint: added explicit trace closure for the
+  closed-world Pair model. If a state is reachable and a finite successful path
+  starts there, the endpoint is reachable too, making later reachable-state
+  invariants apply directly after appended histories.
+
   2026-05-17 01:38 PDT checkpoint: added the finite-history LP supply
   firewall. A path containing no mint and no burn preserves total LP supply and
   locked liquidity exactly, with a reachable reader-facing theorem for the same

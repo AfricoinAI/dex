@@ -121,7 +121,8 @@ Pair:
   The remaining work is to bridge mint, burn, and swap reserve-update paths to
   these same concise arithmetic facts.
 - Closed-world `PairWorldGood` preservation for one step and all finite
-  reachable traces, plus finite-path preservation from any good state. The
+  reachable traces, finite-path preservation from any good state, and
+  reachability closure for appending finite successful paths. The
   reader-facing reachable-path reserve-backing theorem now states the central
   safety invariant directly: from any reachable pool state, every finite
   successful modeled history ends with cached reserves backed by actual token
