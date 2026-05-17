@@ -167,6 +167,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   equal final balances. The public swap bridge no longer takes raw K
   nondecrease as an input premise.
 
+  2026-05-17 05:07 PDT checkpoint: removed raw K nondecrease from the ghost
+  swap transition itself. The closed-world model now assumes the canonical
+  fee-adjusted K guard only, and every raw-K invariant proof derives raw K from
+  that guard plus the reserve-to-final-balance equations.
+
   2026-05-16 22:43 PDT checkpoint: the closed-world burn step was tightened to
   match executable burn success by requiring positive redeemed amounts, positive
   burned liquidity, and positive pre-burn supply. A new token-side lock theorem

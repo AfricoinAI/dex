@@ -143,8 +143,7 @@ def PairWorldSwapStep
   amount1In * feeAdjustmentNat ≤ after.balance1 * feeDenominatorNat ∧
   feeAdjustedBalance after.balance0 amount0In *
       feeAdjustedBalance after.balance1 amount1In ≥
-    requiredK before.reserve0 before.reserve1 ∧
-  PairWorldK before ≤ PairWorldK after
+    requiredK before.reserve0 before.reserve1
 
 def PairWorldSkimStep (before after : PairWorldState) : Prop :=
   after.balance0 = before.reserve0 ∧

@@ -90,7 +90,7 @@ Pair:
   path-wide LP-supply coherence,
   path-wide locked-liquidity coverage,
   share-only action framing, reserve-update projections for
-  mint/burn/swap/skim/sync, fee-adjusted K projection for swaps plus the
+  mint/burn/swap/skim/sync, canonical fee-adjusted K for swaps plus the
   arithmetic theorem that the fee-adjusted check implies raw cached-K
   nondecrease once reserves equal final balances, positive-input/output and
   output-below-reserve swap facts,

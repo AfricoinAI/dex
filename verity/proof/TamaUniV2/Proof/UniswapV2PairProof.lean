@@ -1814,15 +1814,6 @@ theorem swap_expected_refines_closed_world
   dsimp [pair_swap_expected_refines_closed_world]
   intro h_output h_liq0 h_liq1 h_input h_balance0 h_balance1 h_bound0 h_bound1
     h_fee0 h_fee1 h_adjusted_k
-  have h_raw_k :
-      PairWorldK (pairWorldFromConcreteState s) ≤
-        PairWorldK (pairWorldAfterSwapRun balance0Now balance1Now s) := by
-    exact feeAdjustedSwap_implies_raw_k
-      (swapAmount0In amount0Out balance0Now s).val
-      (swapAmount1In amount1Out balance1Now s).val
-      (pairWorldFromConcreteState s)
-      (pairWorldAfterSwapRun balance0Now balance1Now s)
-      rfl rfl h_adjusted_k
   unfold PairWorldStep PairWorldSwapStep pairWorldFromConcreteState
     pairWorldAfterSwapRun
   constructor
@@ -1869,9 +1860,7 @@ theorem swap_expected_refines_closed_world
   · exact h_fee0
   constructor
   · exact h_fee1
-  constructor
   · exact h_adjusted_k
-  · exact h_raw_k
 
 -- tama: discharges=pair_swap_success_run_refines_closed_world
 theorem swap_success_run_refines_closed_world
@@ -1957,7 +1946,7 @@ private theorem pairWorldStep_preserves_good
   · rcases h_good with ⟨_h_back0, _h_back1, _h_bound0, _h_bound1, h_supply⟩
     rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0, _h_enough1,
       _h_input, _h_balance0, _h_balance1, h_reserve0, h_reserve1, h_bound0,
-      h_bound1, h_supply_eq, h_locked_eq, _h_fee0, _h_fee1, _h_k, _h_raw_k⟩
+      h_bound1, h_supply_eq, h_locked_eq, _h_fee0, _h_fee1, _h_k⟩
     refine ⟨?_, ?_, h_bound0, h_bound1, ?_⟩
     · rw [h_reserve0]
     · rw [h_reserve1]
@@ -2081,7 +2070,7 @@ private theorem pairWorldNoMintBurnPath_preserves_supply
           rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0,
             _h_enough1, _h_input, _h_balance0, _h_balance1, _h_reserve0,
             _h_reserve1, _h_bound0, _h_bound1, h_supply, h_locked, _h_fee0,
-            _h_fee1, _h_adjusted_k, _h_raw_k⟩
+            _h_fee1, _h_adjusted_k⟩
           exact ⟨h_supply.trans ih.1, h_locked.trans ih.2⟩
       | skim =>
           simp [PairWorldStep, PairWorldSkimStep] at h_step
@@ -2137,7 +2126,7 @@ private theorem pairWorldNonBurnStep_never_decreases_supply
       rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0,
         _h_enough1, _h_input, _h_balance0, _h_balance1, _h_reserve0,
         _h_reserve1, _h_bound0, _h_bound1, h_supply, _h_locked, _h_fee0,
-        _h_fee1, _h_adjusted_k, _h_raw_k⟩
+        _h_fee1, _h_adjusted_k⟩
       rw [h_supply]
   | skim =>
       simp [PairWorldStep, PairWorldSkimStep] at h_step
@@ -2203,7 +2192,7 @@ private theorem pairWorldNonMintStep_never_increases_supply
       rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0,
         _h_enough1, _h_input, _h_balance0, _h_balance1, _h_reserve0,
         _h_reserve1, _h_bound0, _h_bound1, h_supply, _h_locked, _h_fee0,
-        _h_fee1, _h_adjusted_k, _h_raw_k⟩
+        _h_fee1, _h_adjusted_k⟩
       rw [h_supply]
   | skim =>
       simp [PairWorldStep, PairWorldSkimStep] at h_step
@@ -2282,7 +2271,7 @@ private theorem pairWorldStep_locked_liquidity_never_decreases
       rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0,
         _h_enough1, _h_input, _h_balance0, _h_balance1, _h_reserve0,
         _h_reserve1, _h_bound0, _h_bound1, _h_supply, h_locked, _h_fee0,
-        _h_fee1, _h_adjusted_k, _h_raw_k⟩
+        _h_fee1, _h_adjusted_k⟩
       rw [h_locked]
   | skim =>
       simp [PairWorldStep, PairWorldSkimStep] at h_step
@@ -2360,10 +2349,11 @@ private theorem pairWorldNonBurnStep_never_decreases_k
   | swap amount0In amount1In amount0Out amount1Out =>
       simp [PairWorldStep, PairWorldSwapStep] at h_step
       rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0, _h_enough1,
-        _h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1,
+        _h_input, _h_balance0, _h_balance1, h_reserve0, h_reserve1,
         _h_bound0, _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1,
-        _h_adjusted_k, h_raw_k⟩
-      exact h_raw_k
+        h_adjusted_k⟩
+      exact feeAdjustedSwap_implies_raw_k
+        amount0In amount1In before after h_reserve0 h_reserve1 h_adjusted_k
   | skim =>
       simp [PairWorldStep, PairWorldSkimStep] at h_step
       rcases h_step with ⟨_h_balance0, _h_balance1, h_reserve0, h_reserve1,
@@ -2456,7 +2446,7 @@ private theorem pairWorldStep_positive_supply_preserved
       rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0, _h_enough1,
         _h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1,
         _h_bound0, _h_bound1, h_supply, _h_locked, _h_fee0, _h_fee1,
-        _h_adjusted_k, _h_raw_k⟩
+        _h_adjusted_k⟩
       rw [h_supply]
       exact h_positive
   | skim =>
@@ -2587,9 +2577,13 @@ private theorem pairWorldStep_k_per_supply_never_decreases
   | swap amount0In amount1In amount0Out amount1Out =>
       simp [PairWorldStep, PairWorldSwapStep] at h_step
       rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0, _h_enough1,
-        _h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1,
+        _h_input, _h_balance0, _h_balance1, h_reserve0, h_reserve1,
         _h_bound0, _h_bound1, h_supply, _h_locked, _h_fee0, _h_fee1,
-        _h_adjusted_k, h_raw_k⟩
+        h_adjusted_k⟩
+      have h_raw_k :
+          PairWorldK before ≤ PairWorldK after :=
+        feeAdjustedSwap_implies_raw_k
+          amount0In amount1In before after h_reserve0 h_reserve1 h_adjusted_k
       unfold PairWorldKPerSupplyNondecreasing
       rw [h_supply]
       exact Nat.mul_le_mul_right before.totalSupply
@@ -2895,7 +2889,7 @@ theorem closed_world_supply_changes_only_on_mint_or_burn
       rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0, _h_enough1,
         _h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1,
         _h_bound0, _h_bound1, h_supply, _h_locked, _h_fee0, _h_fee1,
-        _h_adjusted_k, _h_raw_k⟩
+        _h_adjusted_k⟩
       exact False.elim (h_change h_supply)
   | skim =>
       simp [PairWorldStep, PairWorldSkimStep] at h_step
@@ -3216,7 +3210,7 @@ private theorem pairWorldStep_positive_reserves_preserved
       rcases h_step with ⟨_h_output, h_liq0, h_liq1, _h_enough0, _h_enough1,
         _h_input, h_balance0, h_balance1, h_reserve0, h_reserve1,
         _h_bound0, _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1,
-        _h_adjusted_k, _h_raw_k⟩
+        _h_adjusted_k⟩
       constructor
       · rw [h_reserve0, h_balance0]
         exact Nat.sub_pos_of_lt (by omega)
@@ -3307,7 +3301,7 @@ private theorem pairWorldReachable_positive_supply_positive_reserves
           rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0,
             _h_enough1, _h_input, _h_balance0, _h_balance1, _h_reserve0,
             _h_reserve1, _h_bound0, _h_bound1, h_supply, _h_locked,
-            _h_fee0, _h_fee1, _h_adjusted_k, _h_raw_k⟩
+            _h_fee0, _h_fee1, _h_adjusted_k⟩
           have h_positive_before : 0 < before.totalSupply := by
             rwa [h_supply] at h_positive_after
           have h_before_reserves := ih h_positive_before
@@ -3525,7 +3519,7 @@ theorem closed_world_swap_updates_reserves_to_balances
   simp [PairWorldStep, PairWorldSwapStep] at h_step
   rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0, _h_enough1,
     _h_input, _h_balance0, _h_balance1, h_reserve0, h_reserve1, _h_bound0,
-    _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, _h_k, _h_raw_k⟩
+    _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, _h_k⟩
   exact ⟨h_reserve0, h_reserve1⟩
 
 -- tama: discharges=pair_closed_world_swap_respects_fee_adjusted_k
@@ -3538,7 +3532,7 @@ theorem closed_world_swap_respects_fee_adjusted_k
   simp [PairWorldStep, PairWorldSwapStep] at h_step
   rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0, _h_enough1,
     _h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0,
-    _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, h_k, _h_raw_k⟩
+    _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, h_k⟩
   exact h_k
 
 -- tama: discharges=pair_closed_world_fee_adjusted_swap_implies_raw_k
@@ -3558,9 +3552,10 @@ theorem closed_world_swap_never_decreases_k
   intro h_step
   simp [PairWorldStep, PairWorldSwapStep] at h_step
   rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0, _h_enough1,
-    _h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0,
-    _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, _h_adjusted_k, h_raw_k⟩
-  exact h_raw_k
+    _h_input, _h_balance0, _h_balance1, h_reserve0, h_reserve1, _h_bound0,
+    _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, h_adjusted_k⟩
+  exact feeAdjustedSwap_implies_raw_k
+    amount0In amount1In before after h_reserve0 h_reserve1 h_adjusted_k
 
 -- tama: discharges=pair_closed_world_swap_has_input_and_output
 theorem closed_world_swap_has_input_and_output
@@ -3572,7 +3567,7 @@ theorem closed_world_swap_has_input_and_output
   simp [PairWorldStep, PairWorldSwapStep] at h_step
   rcases h_step with ⟨h_output, _h_liq0, _h_liq1, _h_enough0, _h_enough1,
     h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0,
-    _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, _h_adjusted_k, _h_raw_k⟩
+    _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, _h_adjusted_k⟩
   exact ⟨h_output, h_input⟩
 
 -- tama: discharges=pair_closed_world_swap_final_balances_account_for_input_and_output
@@ -3585,7 +3580,7 @@ theorem closed_world_swap_final_balances_account_for_input_and_output
   simp [PairWorldStep, PairWorldSwapStep] at h_step
   rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, h_enough0, h_enough1,
     _h_input, h_balance0, h_balance1, _h_reserve0, _h_reserve1, _h_bound0,
-    _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, _h_adjusted_k, _h_raw_k⟩
+    _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, _h_adjusted_k⟩
   constructor
   · rw [h_balance0, Nat.sub_add_cancel h_enough0]
   · rw [h_balance1, Nat.sub_add_cancel h_enough1]
@@ -3600,7 +3595,7 @@ theorem closed_world_swap_outputs_below_reserves
   simp [PairWorldStep, PairWorldSwapStep] at h_step
   rcases h_step with ⟨_h_output, h_liq0, h_liq1, _h_enough0, _h_enough1,
     _h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0,
-    _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, _h_adjusted_k, _h_raw_k⟩
+    _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, _h_adjusted_k⟩
   exact ⟨h_liq0, h_liq1⟩
 
 -- tama: discharges=pair_closed_world_swap_preserves_liquidity_supply
@@ -3613,7 +3608,7 @@ theorem closed_world_swap_preserves_liquidity_supply
   simp [PairWorldStep, PairWorldSwapStep] at h_step
   rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0, _h_enough1,
     _h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0,
-    _h_bound1, h_supply, h_locked, _h_fee0, _h_fee1, _h_adjusted_k, _h_raw_k⟩
+    _h_bound1, h_supply, h_locked, _h_fee0, _h_fee1, _h_adjusted_k⟩
   exact ⟨h_supply, h_locked⟩
 
 -- tama: discharges=pair_closed_world_step_k_per_supply_never_decreases
