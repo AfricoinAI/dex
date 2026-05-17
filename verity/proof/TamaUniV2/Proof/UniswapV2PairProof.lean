@@ -5016,6 +5016,20 @@ theorem closed_world_reserve_write_sets_reserves_to_balances
     · rw [h_sync_step.1, h_sync_step.2.2.1]
     · rw [h_sync_step.2.1, h_sync_step.2.2.2]
 
+-- tama: discharges=pair_closed_world_concrete_reserve_write_uses_oracle_rule
+theorem closed_world_concrete_reserve_write_uses_oracle_rule
+    (action : PairWorldAction) (after : PairWorldState)
+    (s : ContractState) :
+  pair_closed_world_concrete_reserve_write_uses_oracle_rule action after s := by
+  intro h_action h_step
+  have h_write :=
+    closed_world_reserve_write_sets_reserves_to_balances
+      action (pairWorldFromConcreteState s) after h_action h_step
+  exact ⟨h_write.1, h_write.2,
+    reserve_update_oracle_same_timestamp_keeps_price_cumulatives s,
+    reserve_update_oracle_elapsed_updates_price_cumulatives s,
+    reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s⟩
+
 -- tama: discharges=pair_closed_world_skim_or_sync_token_balance_value_never_increases
 theorem closed_world_skim_or_sync_token_balance_value_never_increases
     (action : PairWorldAction) (before after : PairWorldState) :

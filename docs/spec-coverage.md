@@ -127,8 +127,11 @@ Pair:
   UQ112x112 encoded price times elapsed time, and elapsed branches with zero elapsed
   time or a zero old reserve leave cumulative prices unchanged. `sync` keeps
   direct bridge obligations as the smallest public reserve-update entrypoint.
-  The remaining work is to bridge mint, burn, and swap reserve-update paths to
-  these same concise arithmetic facts.
+  The shared concrete reserve-write bridge now packages those oracle facts
+  with the reserve-to-balance write rule for any mint, burn, swap, or sync
+  transition from a concrete state. Remaining work is deriving more of the
+  arithmetic premises directly from successful public runs where that can be
+  done with small adapters.
 - Closed-world `PairWorldGood` preservation for one step and all finite
   reachable traces, finite-path preservation from any good state, and
   reachability closure for appending finite successful paths. The

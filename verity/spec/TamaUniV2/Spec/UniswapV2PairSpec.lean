@@ -1037,6 +1037,28 @@ def pair_sync_oracle_inactive_elapsed_keeps_price_cumulatives
     (s : ContractState) : Prop :=
   pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
 
+/-- Shared bridge for reserve-writing actions. Once a mint, burn, swap, or sync
+has been connected to the closed-world transition from a concrete state, the
+common reserve-update facts are available together: cached reserves end at the
+actual token balances, and the cumulative prices follow the generic Uniswap V2
+TWAP rule above. -/
+def pair_closed_world_concrete_reserve_write_uses_oracle_rule
+    (action : PairWorldAction) (after : PairWorldState)
+    (s : ContractState) : Prop :=
+  ((∃ amount0 amount1 liquidity,
+      action = PairWorldAction.mint amount0 amount1 liquidity) ∨
+    (∃ amount0 amount1 liquidity,
+      action = PairWorldAction.burn amount0 amount1 liquidity) ∨
+    (∃ amount0In amount1In amount0Out amount1Out,
+      action = PairWorldAction.swap amount0In amount1In amount0Out amount1Out) ∨
+    action = PairWorldAction.sync) →
+    PairWorldStep action (pairWorldFromConcreteState s) after →
+      after.reserve0 = after.balance0 ∧
+      after.reserve1 = after.balance1 ∧
+      pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives s ∧
+      pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
+      pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
+
 /-!
 ## Flash-Swap Boundary
 

@@ -263,6 +263,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   token balances, making the common accounting rule explicit for later bridge
   and oracle arguments.
 
+  2026-05-17 14:44 PDT checkpoint: added the shared concrete reserve-write
+  oracle bridge. Once a mint, burn, swap, or sync transition is connected to a
+  concrete state, the proof now exposes both the reserve-to-balance write fact
+  and all three generic TWAP update cases together.
+
   2026-05-17 10:49 PDT checkpoint: added executable LP-bookkeeping storage
   frame facts. The actual `approve`, `transfer`, and `transferFrom` runs may
   update LP allowance/balance maps and emit ERC20 events, but they cannot
