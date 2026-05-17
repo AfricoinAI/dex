@@ -1061,6 +1061,19 @@ def pair_closed_world_burn_cannot_redeem_locked_liquidity
     before.lockedLiquidity ≤ after.totalSupply ∧
     after.lockedLiquidity = before.lockedLiquidity
 
+/-- The minimum-liquidity lock is not just an LP-supply accounting fact. From a
+good state with positive token balances, a valid burn cannot redeem every unit
+of either token; some token backing must remain with the locked liquidity. -/
+def pair_closed_world_burn_preserves_positive_balances
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+      0 < before.balance0 →
+        0 < before.balance1 →
+          0 < after.balance0 ∧
+          0 < after.balance1
+
 /-!
 ### 4. Token Inflow Without Accounting
 

@@ -1570,6 +1570,14 @@ theorem burn_expected_refines_closed_world
   unfold PairWorldStep PairWorldBurnStep pairWorldFromConcreteState
     pairWorldAfterBurnRun pairWorldLockedLiquidity
   constructor
+  · simpa using h_amount0
+  constructor
+  · simpa using h_amount1
+  constructor
+  · exact h_liquidity_pos
+  constructor
+  · exact h_supply_pos
+  constructor
   · simpa using h_amount0_le
   constructor
   · simpa using h_amount1_le
@@ -1728,16 +1736,15 @@ private theorem pairWorldStep_preserves_good
           simp [h_zero, h_locked, minimumLiquidityNat]
           omega
   · rcases h_good with ⟨_h_back0, _h_back1, _h_bound0, _h_bound1, h_supply⟩
-    rcases h_step with ⟨_h_amount0, _h_amount1, h_liquidity_le,
+    rcases h_step with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+      h_supply_pos, _h_amount0_le, _h_amount1_le, h_liquidity_le,
       h_locked_remaining, _h_balance0, _h_balance1, h_reserve0, h_reserve1,
       h_bound0, h_bound1, h_supply_eq, h_locked_eq, _h_ratio0, _h_ratio1⟩
     refine ⟨?_, ?_, h_bound0, h_bound1, ?_⟩
     · rw [h_reserve0]
     · rw [h_reserve1]
     · rcases h_supply with h_empty | h_nonzero
-      · left
-        rw [h_supply_eq, h_locked_eq]
-        omega
+      · exact False.elim (Nat.ne_of_gt h_supply_pos h_empty.1)
       · rcases h_nonzero with ⟨_h_positive, h_locked, _h_min⟩
         right
         rw [h_supply_eq, h_locked_eq]
@@ -1944,7 +1951,8 @@ private theorem pairWorldStep_positive_supply_preserved
   | burn amount0 amount1 liquidity =>
       rcases h_good with ⟨_h_back0, _h_back1, _h_bound0, _h_bound1, h_supply_good⟩
       simp [PairWorldStep, PairWorldBurnStep] at h_step
-      rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, h_locked_remaining,
+      rcases h_step with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+        _h_supply_pos, _h_amount0, _h_amount1, _h_liquidity, h_locked_remaining,
         _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0, _h_bound1,
         h_supply, _h_locked, _h_ratio0, _h_ratio1⟩
       rcases h_supply_good with h_empty | h_nonempty
@@ -2052,7 +2060,8 @@ private theorem pairWorldStep_k_per_supply_never_decreases
   | burn amount0 amount1 liquidity =>
       rcases h_good with ⟨h_back0, h_back1, _h_bound0, _h_bound1, _h_supply_good⟩
       simp [PairWorldStep, PairWorldBurnStep] at h_step
-      rcases h_step with ⟨h_amount0, h_amount1, h_liquidity, _h_locked_remaining,
+      rcases h_step with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+        _h_supply_pos, h_amount0, h_amount1, h_liquidity, _h_locked_remaining,
         h_balance0, h_balance1, h_reserve0, h_reserve1, _h_bound0, _h_bound1,
         h_supply, _h_locked, h_ratio0, h_ratio1⟩
       have h_after0 :
@@ -2435,7 +2444,8 @@ theorem closed_world_burn_reduces_supply_by_liquidity
     amount0 amount1 liquidity before after := by
   intro h_step
   simp [PairWorldStep, PairWorldBurnStep] at h_step
-  rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, _h_locked_remaining,
+  rcases h_step with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+    _h_supply_pos, _h_amount0, _h_amount1, _h_liquidity, _h_locked_remaining,
     _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0, _h_bound1,
     h_supply, _h_locked, _h_ratio0, _h_ratio1⟩
   exact h_supply
@@ -2448,7 +2458,8 @@ theorem closed_world_burn_never_increases_supply
     amount0 amount1 liquidity before after := by
   intro h_step
   simp [PairWorldStep, PairWorldBurnStep] at h_step
-  rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, _h_locked_remaining,
+  rcases h_step with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+    _h_supply_pos, _h_amount0, _h_amount1, _h_liquidity, _h_locked_remaining,
     _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0, _h_bound1,
     h_supply, _h_locked, _h_ratio0, _h_ratio1⟩
   rw [h_supply]
@@ -2462,11 +2473,75 @@ theorem closed_world_burn_cannot_redeem_locked_liquidity
     amount0 amount1 liquidity before after := by
   intro h_step
   simp [PairWorldStep, PairWorldBurnStep] at h_step
-  rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, h_locked_remaining,
+  rcases h_step with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+    _h_supply_pos, _h_amount0, _h_amount1, _h_liquidity, h_locked_remaining,
     _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0, _h_bound1,
     h_supply, h_locked, _h_ratio0, _h_ratio1⟩
   rw [h_supply]
   exact ⟨h_locked_remaining, h_locked⟩
+
+-- tama: discharges=pair_closed_world_burn_preserves_positive_balances
+theorem closed_world_burn_preserves_positive_balances
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_burn_preserves_positive_balances
+    amount0 amount1 liquidity before after := by
+  intro h_good h_step h_before_balance0 h_before_balance1
+  rcases h_good with ⟨_h_back0, _h_back1, _h_bound0, _h_bound1, h_supply_good⟩
+  simp [PairWorldStep, PairWorldBurnStep] at h_step
+  rcases h_step with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+    h_supply_pos, h_amount0_le, h_amount1_le, _h_liquidity_le,
+    h_locked_remaining, h_balance0, h_balance1, _h_reserve0, _h_reserve1,
+    _h_bound0, _h_bound1, _h_supply, _h_locked, h_ratio0, h_ratio1⟩
+  have h_locked : before.lockedLiquidity = minimumLiquidityNat := by
+    rcases h_supply_good with h_empty | h_nonempty
+    · exact False.elim (Nat.ne_of_gt h_supply_pos h_empty.1)
+    · exact h_nonempty.2.1
+  have h_locked_remaining_min :
+      minimumLiquidityNat ≤ before.totalSupply - liquidity := by
+    simpa [h_locked] using h_locked_remaining
+  have h_liquidity_lt_supply : liquidity < before.totalSupply := by
+    have h_sub_pos : 0 < before.totalSupply - liquidity := by
+      exact Nat.lt_of_lt_of_le (by norm_num [minimumLiquidityNat])
+        h_locked_remaining_min
+    exact Nat.sub_pos_iff_lt.mp h_sub_pos
+  have h_amount0_lt : amount0 < before.balance0 := by
+    by_contra h_not_lt
+    have h_ge : before.balance0 ≤ amount0 := Nat.le_of_not_gt h_not_lt
+    have h_eq : amount0 = before.balance0 := le_antisymm h_amount0_le h_ge
+    have h_ratio0' :
+        before.balance0 * before.totalSupply ≤ liquidity * before.balance0 := by
+      simpa [h_eq] using h_ratio0
+    have h_balance_pos_int : (0 : Int) < before.balance0 := by
+      exact_mod_cast h_before_balance0
+    have h_liquidity_lt_int : (liquidity : Int) < before.totalSupply := by
+      exact_mod_cast h_liquidity_lt_supply
+    have h_ratio0_int :
+        (before.balance0 : Int) * before.totalSupply ≤
+          (liquidity : Int) * before.balance0 := by
+      exact_mod_cast h_ratio0'
+    nlinarith
+  have h_amount1_lt : amount1 < before.balance1 := by
+    by_contra h_not_lt
+    have h_ge : before.balance1 ≤ amount1 := Nat.le_of_not_gt h_not_lt
+    have h_eq : amount1 = before.balance1 := le_antisymm h_amount1_le h_ge
+    have h_ratio1' :
+        before.balance1 * before.totalSupply ≤ liquidity * before.balance1 := by
+      simpa [h_eq] using h_ratio1
+    have h_balance_pos_int : (0 : Int) < before.balance1 := by
+      exact_mod_cast h_before_balance1
+    have h_liquidity_lt_int : (liquidity : Int) < before.totalSupply := by
+      exact_mod_cast h_liquidity_lt_supply
+    have h_ratio1_int :
+        (before.balance1 : Int) * before.totalSupply ≤
+          (liquidity : Int) * before.balance1 := by
+      exact_mod_cast h_ratio1'
+    nlinarith
+  constructor
+  · rw [h_balance0]
+    omega
+  · rw [h_balance1]
+    omega
 
 -- tama: discharges=pair_closed_world_donate_preserves_reserves_and_supply
 theorem closed_world_donate_preserves_reserves_and_supply
@@ -2559,7 +2634,8 @@ theorem closed_world_burn_updates_reserves_to_balances
     amount0 amount1 liquidity before after := by
   intro h_step
   simp [PairWorldStep, PairWorldBurnStep] at h_step
-  rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, _h_locked_remaining,
+  rcases h_step with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+    _h_supply_pos, _h_amount0, _h_amount1, _h_liquidity, _h_locked_remaining,
     _h_balance0, _h_balance1, h_reserve0, h_reserve1, _h_bound0, _h_bound1,
     _h_supply, _h_locked, _h_ratio0, _h_ratio1⟩
   exact ⟨h_reserve0, h_reserve1⟩
@@ -2572,7 +2648,8 @@ theorem closed_world_burn_liquidity_ratio
     amount0 amount1 liquidity before after := by
   intro h_step
   simp [PairWorldStep, PairWorldBurnStep] at h_step
-  rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, _h_locked_remaining,
+  rcases h_step with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+    _h_supply_pos, _h_amount0, _h_amount1, _h_liquidity, _h_locked_remaining,
     _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0, _h_bound1,
     _h_supply, _h_locked, h_ratio0, h_ratio1⟩
   exact ⟨h_ratio0, h_ratio1⟩

@@ -90,6 +90,10 @@ def PairWorldMintStep
 def PairWorldBurnStep
     (amount0 amount1 liquidity : Nat)
     (before after : PairWorldState) : Prop :=
+  0 < amount0 ∧
+  0 < amount1 ∧
+  0 < liquidity ∧
+  0 < before.totalSupply ∧
   amount0 ≤ before.balance0 ∧
   amount1 ≤ before.balance1 ∧
   liquidity ≤ before.totalSupply ∧

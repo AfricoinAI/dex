@@ -73,7 +73,10 @@ Pair:
   `MINIMUM_LIQUIDITY` locking, subsequent-mint locked-liquidity preservation,
   every valid mint strictly increasing total supply, exact burn supply
   reduction, burns never increasing supply, and the fact that burns cannot
-  redeem the locked liquidity floor.
+  redeem the locked liquidity floor. The burn ghost transition itself now
+  requires positive liquidity, positive pre-burn supply, and positive redeemed
+  token amounts, and the token-side lock consequence proves burns from good
+  positive-token states cannot drain either token balance to zero.
 - Same-LP-supply spot-value no-profit projection from reserve-product
   nondecrease. The stronger closed-world LP-normalized K theorem now covers
   arbitrary finite paths from good positive-supply states: each step preserves
