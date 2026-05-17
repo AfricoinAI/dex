@@ -714,12 +714,21 @@ accounting consequence of a reserve update. These obligations pin that rule in
 small pieces. If the 32-bit timestamp has not advanced, the cumulative prices
 are unchanged. If time has advanced and both old reserves are nonzero, each
 cumulative price increases by the canonical Uniswap V2 fixed-point price times
-the elapsed time. The `sync` transition bridge above ties the public entrypoint
-to the closed-world reserve transition; these claims isolate the oracle
-arithmetic that every reserve-update proof should reuse.
+the elapsed time. If the timestamp branch is entered but elapsed time or either
+old reserve is zero, cumulatives stay unchanged.
+
+The arithmetic is contract-level reserve-update behavior. The concrete helper
+names still say `Sync` because `sync` is the smallest public entrypoint that
+exposes the reserve update directly, but the first three specs below are stated
+as generic reserve-update obligations. The `sync`-named obligations are kept as
+the public-entrypoint bridge for the simple case.
 -/
 
-def pair_sync_oracle_same_timestamp_keeps_price_cumulatives
+/-- Reserve updates in the same 32-bit timestamp window do not move the TWAP
+accumulators. This is a contract-level oracle rule shared by mint, burn, swap,
+and sync; the new reserves may change, but no time has elapsed at the old
+price. -/
+def pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives
     (s : ContractState) : Prop :=
   timestamp32 s = s.storage blockTimestampLastSlot.slot →
     oraclePrice0CumulativeAfterSync s =
@@ -727,7 +736,11 @@ def pair_sync_oracle_same_timestamp_keeps_price_cumulatives
     oraclePrice1CumulativeAfterSync s =
       s.storage price1CumulativeLastSlot.slot
 
-def pair_sync_oracle_elapsed_updates_price_cumulatives
+/-- When a reserve update crosses into a later 32-bit timestamp and both old
+reserves are nonzero, the pair adds exactly the canonical fixed-point
+`reserve1 / reserve0` and `reserve0 / reserve1` prices multiplied by elapsed
+time. -/
+def pair_reserve_update_oracle_elapsed_updates_price_cumulatives
     (s : ContractState) : Prop :=
   (timestamp32 s != s.storage blockTimestampLastSlot.slot) = true →
     oracleElapsed s > 0 →
@@ -738,12 +751,10 @@ def pair_sync_oracle_elapsed_updates_price_cumulatives
           oraclePrice1CumulativeAfterSync s =
             oraclePrice1CumulativeAfterElapsed s
 
-/--
-Entering the timestamp-change branch is not enough to move the oracle. If the
+/-- A timestamp change alone is not enough to update TWAP accumulators. If the
 elapsed-price branch is inactive because elapsed time or either old reserve is
-zero, both cumulative prices remain unchanged.
--/
-def pair_sync_oracle_inactive_elapsed_keeps_price_cumulatives
+zero, both cumulative prices remain unchanged. -/
+def pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives
     (s : ContractState) : Prop :=
   (timestamp32 s != s.storage blockTimestampLastSlot.slot) = true →
     ¬ (oracleElapsed s > 0 ∧
@@ -753,6 +764,24 @@ def pair_sync_oracle_inactive_elapsed_keeps_price_cumulatives
         s.storage price0CumulativeLastSlot.slot ∧
       oraclePrice1CumulativeAfterSync s =
         s.storage price1CumulativeLastSlot.slot
+
+/-- `sync` is the direct public bridge to the generic same-timestamp reserve
+update rule. -/
+def pair_sync_oracle_same_timestamp_keeps_price_cumulatives
+    (s : ContractState) : Prop :=
+  pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives s
+
+/-- `sync` is the direct public bridge to the generic active-elapsed reserve
+update rule. -/
+def pair_sync_oracle_elapsed_updates_price_cumulatives
+    (s : ContractState) : Prop :=
+  pair_reserve_update_oracle_elapsed_updates_price_cumulatives s
+
+/-- `sync` is the direct public bridge to the generic inactive-elapsed reserve
+update rule. -/
+def pair_sync_oracle_inactive_elapsed_keeps_price_cumulatives
+    (s : ContractState) : Prop :=
+  pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
 
 /-!
 ## Flash-Swap Boundary

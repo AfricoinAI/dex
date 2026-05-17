@@ -64,12 +64,14 @@ Pair:
 - `sync` expected-state and success-conditional bridge predicates showing that
   observed balances inside uint112 bounds refine the closed-world sync
   transition when the public run succeeds.
-- TWAP/oracle arithmetic obligations for reserve updates: same-timestamp
-  updates leave cumulative prices unchanged, elapsed updates with nonzero old
-  reserves add the canonical fixed-point price times elapsed time, and elapsed
-  branches with zero elapsed time or a zero old reserve leave cumulative prices
-  unchanged. The remaining work is to bridge every public reserve-update
-  entrypoint to these oracle arithmetic facts.
+- TWAP/oracle arithmetic obligations for reserve updates are now stated in the
+  generic contract-level form first: same-timestamp updates leave cumulative
+  prices unchanged, elapsed updates with nonzero old reserves add the canonical
+  fixed-point price times elapsed time, and elapsed branches with zero elapsed
+  time or a zero old reserve leave cumulative prices unchanged. `sync` keeps
+  direct bridge obligations as the smallest public reserve-update entrypoint.
+  The remaining work is to bridge mint, burn, and swap reserve-update paths to
+  these same concise arithmetic facts.
 - Closed-world `PairWorldGood` preservation for one step and all finite
   reachable traces, plus finite-path preservation from any good state. The
   reader-facing reachable-path reserve-backing theorem now states the central
@@ -204,8 +206,10 @@ properties, not API-surface properties.
   transfers, fee-adjusted K, derived raw K nondecrease, lock restoration,
   events, and the closed-world swap transition.
 - TWAP/oracle updates: the arithmetic cases now cover same timestamp, active
-  elapsed update, and inactive elapsed no-op behavior. The remaining work is to
-  connect those concise arithmetic claims to every public reserve-update path.
+  elapsed update, and inactive elapsed no-op behavior as generic reserve-update
+  obligations, with `sync` as the direct public bridge. The remaining work is
+  to connect mint, burn, and swap reserve-update paths to those same concise
+  arithmetic claims.
 - Flash swaps: callback gating is now proved at the ECM compile-template
   boundary, and closed-world swap accounting now states that K is checked
   against final balances after output plus inferred repayment. The ECM template

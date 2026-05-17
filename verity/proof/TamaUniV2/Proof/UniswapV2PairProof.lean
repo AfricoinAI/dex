@@ -1268,10 +1268,10 @@ theorem sync_success_run_refines_closed_world
   intro _h_run _h_success h_bound0 h_bound1
   exact sync_expected_refines_closed_world s h_bound0 h_bound1
 
--- tama: discharges=pair_sync_oracle_same_timestamp_keeps_price_cumulatives
-theorem sync_oracle_same_timestamp_keeps_price_cumulatives
+-- tama: discharges=pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives
+theorem reserve_update_oracle_same_timestamp_keeps_price_cumulatives
     (s : ContractState) :
-  pair_sync_oracle_same_timestamp_keeps_price_cumulatives s := by
+  pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives s := by
   intro h_same_timestamp
   have h_same_raw :
       Verity.EVM.Uint256.mod s.blockTimestamp uint32Modulus =
@@ -1284,7 +1284,7 @@ theorem sync_oracle_same_timestamp_keeps_price_cumulatives
   have h_same_bne_false :
       (timestamp32 s != s.storage blockTimestampLastSlot.slot) = false := by
     simp [timestamp32, blockTimestampLastSlot, uint32Modulus, h_same_num, BEq.beq]
-  simp [pair_sync_oracle_same_timestamp_keeps_price_cumulatives,
+  simp [pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives,
     oraclePrice0CumulativeAfterSync, oraclePrice1CumulativeAfterSync,
     oraclePrice0CumulativeAfterElapsed, oraclePrice1CumulativeAfterElapsed,
     oraclePrice0Increment, oraclePrice1Increment, oraclePrice0, oraclePrice1,
@@ -1293,10 +1293,16 @@ theorem sync_oracle_same_timestamp_keeps_price_cumulatives
     price1CumulativeLastSlot, uint32Modulus, q112,
     h_same_raw, h_same_num, h_same_bne_false]
 
--- tama: discharges=pair_sync_oracle_elapsed_updates_price_cumulatives
-theorem sync_oracle_elapsed_updates_price_cumulatives
+-- tama: discharges=pair_sync_oracle_same_timestamp_keeps_price_cumulatives
+theorem sync_oracle_same_timestamp_keeps_price_cumulatives
     (s : ContractState) :
-  pair_sync_oracle_elapsed_updates_price_cumulatives s := by
+  pair_sync_oracle_same_timestamp_keeps_price_cumulatives s := by
+  exact reserve_update_oracle_same_timestamp_keeps_price_cumulatives s
+
+-- tama: discharges=pair_reserve_update_oracle_elapsed_updates_price_cumulatives
+theorem reserve_update_oracle_elapsed_updates_price_cumulatives
+    (s : ContractState) :
+  pair_reserve_update_oracle_elapsed_updates_price_cumulatives s := by
   intro h_time_changed h_elapsed h_reserve0 h_reserve1
   have h_elapsed_branch :
       oracleElapsed s > 0 ∧
@@ -1340,7 +1346,7 @@ theorem sync_oracle_elapsed_updates_price_cumulatives
           4294967296).val := by
     simpa [oracleElapsed, timestamp32, blockTimestampLastSlot,
       uint32Modulus, Verity.Core.Uint256.lt_def] using h_elapsed
-  simp [pair_sync_oracle_elapsed_updates_price_cumulatives,
+  simp [pair_reserve_update_oracle_elapsed_updates_price_cumulatives,
     oraclePrice0CumulativeAfterSync, oraclePrice1CumulativeAfterSync,
     oraclePrice0CumulativeAfterElapsed, oraclePrice1CumulativeAfterElapsed,
     oraclePrice0Increment, oraclePrice1Increment, oraclePrice0, oraclePrice1,
@@ -1350,12 +1356,18 @@ theorem sync_oracle_elapsed_updates_price_cumulatives
     h_time_changed, h_time_changed_raw, h_time_changed_num, h_time_neq_num,
     h_elapsed_branch, h_elapsed_branch_raw, h_elapsed_num]
 
--- tama: discharges=pair_sync_oracle_inactive_elapsed_keeps_price_cumulatives
-theorem sync_oracle_inactive_elapsed_keeps_price_cumulatives
+-- tama: discharges=pair_sync_oracle_elapsed_updates_price_cumulatives
+theorem sync_oracle_elapsed_updates_price_cumulatives
     (s : ContractState) :
-  pair_sync_oracle_inactive_elapsed_keeps_price_cumulatives s := by
+  pair_sync_oracle_elapsed_updates_price_cumulatives s := by
+  exact reserve_update_oracle_elapsed_updates_price_cumulatives s
+
+-- tama: discharges=pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives
+theorem reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives
+    (s : ContractState) :
+  pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s := by
   intro h_time_changed h_inactive
-  simp [pair_sync_oracle_inactive_elapsed_keeps_price_cumulatives,
+  simp [pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives,
     oraclePrice0CumulativeAfterSync, oraclePrice1CumulativeAfterSync,
     oraclePrice0CumulativeAfterElapsed, oraclePrice1CumulativeAfterElapsed,
     oraclePrice0Increment, oraclePrice1Increment, oraclePrice0, oraclePrice1,
@@ -1384,6 +1396,12 @@ theorem sync_oracle_inactive_elapsed_keeps_price_cumulatives
         simpa [reserve0Slot, Verity.Core.Uint256.lt_def] using h_reserve0_raw,
       by
         simpa [reserve1Slot, Verity.Core.Uint256.lt_def] using h_reserve1_raw⟩
+
+-- tama: discharges=pair_sync_oracle_inactive_elapsed_keeps_price_cumulatives
+theorem sync_oracle_inactive_elapsed_keeps_price_cumulatives
+    (s : ContractState) :
+  pair_sync_oracle_inactive_elapsed_keeps_price_cumulatives s := by
+  exact reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
 
 -- tama: discharges=pair_flash_callback_module_gates_nonempty_data
 theorem flash_callback_module_gates_nonempty_data :

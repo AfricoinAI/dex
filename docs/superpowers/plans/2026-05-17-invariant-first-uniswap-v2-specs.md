@@ -220,6 +220,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   remain unchanged. Remaining work is still bridge-oriented: prove the public
   reserve-update entrypoints reuse these arithmetic facts.
 
+  2026-05-17 05:31 PDT checkpoint: lifted the TWAP arithmetic specs into
+  generic reserve-update obligations before the `sync` bridge names. This makes
+  the Pair spec read as contract-level oracle behavior shared by mint, burn,
+  swap, and sync; the still-open work is executable bridge coverage for the
+  mint/burn/swap reserve-update paths.
+
 - [ ] **6. Add flash-swap specs**
 
   Prove callback iff `data` is nonempty, callback revert is atomic, the
