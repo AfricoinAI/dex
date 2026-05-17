@@ -365,6 +365,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   storage, and public specs expose the length, lookup, and array agreement
   facts.
 
+  2026-05-17 04:24 PDT checkpoint: added the successful-create preservation
+  bridge. The reconstruction relation now compares decoded storage words to
+  modeled pair addresses, matching public factory views without a new CREATE2
+  canonical-word axiom. A successful concrete `createPair` run preserves
+  `FactoryWorldMatchesStorage` for the world with the new sorted pair appended.
+
 - [ ] **10. Verify and commit in coherent slices**
 
   After each slice run focused `lake build`. Before claiming completion run
@@ -375,6 +381,15 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   factory concrete reconstruction bridge: `tama check`, whole `lake build
   TamaUniV2.Proof`, `tama build`, `tama test` (26/26), and `tama audit` (0
   issues). The Foundry signature-cache warning remains sandbox-only.
+
+  2026-05-17 04:25 PDT checkpoint: full verification passes for the
+  successful-create correspondence-preservation bridge: `tama check`, whole
+  `lake build TamaUniV2.Proof`, `tama build`, `tama test` (26/26), and `tama
+  audit` (0 issues). The Foundry signature-cache warning remains sandbox-only.
+
+  2026-05-17 04:27 PDT checkpoint: after a proof-lint cleanup, the affected
+  verification still passes: whole `lake build TamaUniV2.Proof`, `tama build`,
+  `tama test` (26/26), and `tama audit` (0 issues).
 
 ## Non-Goals
 

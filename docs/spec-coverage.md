@@ -169,8 +169,12 @@ Factory:
   factory state.
 - Concrete factory reconstruction bridge: a `FactoryWorldMatchesStorage`
   relation now ties a modeled factory world back to real storage. Public specs
-  state that reconstructed worlds agree with `allPairsLength`, both-direction
-  pair mapping lookup, and indexed `allPairs` storage entries.
+  state that reconstructed worlds agree with `allPairsLength`, decoded
+  both-direction pair mapping lookup, and decoded indexed `allPairs` storage
+  entries. A successful concrete `createPair` run now preserves that
+  correspondence after appending the new sorted pair, so the closed-world
+  append-only invariants continue to describe router-visible storage after real
+  factory successes.
 
 ## Current Spec Work
 
@@ -217,10 +221,12 @@ properties, not API-surface properties.
   place, failed-create atomicity is proved, and successful create is bridged
   into the factory-world transition for both the empty base case and arbitrary
   modeled pre-histories with matching count/no-existing-pair correspondence.
-  A first concrete-history reconstruction bridge is now in place for length,
-  pair mappings, reverse mappings, and indexed pair-array entries. Remaining
-  work is to prove that successful concrete `createPair` runs preserve that
-  correspondence relation across appended histories.
+  A concrete-history reconstruction bridge is now in place for length, decoded
+  pair mappings, reverse mappings, and indexed pair-array entries, and
+  successful concrete `createPair` runs preserve that correspondence across one
+  append. Remaining work is to lift this one-step correspondence to longer
+  reconstructed concrete histories and derive concrete lookup stability
+  corollaries from the closed-world same-count/path theorems.
 
 ## Non-Goals
 

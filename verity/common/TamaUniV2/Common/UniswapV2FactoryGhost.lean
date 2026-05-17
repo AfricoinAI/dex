@@ -62,23 +62,27 @@ def FactoryWorldContainsPair
 
 def FactoryWorldEntryStored
     (s : ContractState) (entry : FactoryWorldPair) : Prop :=
-  s.storageMap2 TamaUniV2.UniswapV2Factory.pairForSlot.slot
-      entry.token0 entry.token1 = addressToWord entry.pair ∧
-  s.storageMap2 TamaUniV2.UniswapV2Factory.pairForSlot.slot
-      entry.token1 entry.token0 = addressToWord entry.pair
+  wordToAddress
+      (s.storageMap2 TamaUniV2.UniswapV2Factory.pairForSlot.slot
+        entry.token0 entry.token1) = entry.pair ∧
+  wordToAddress
+      (s.storageMap2 TamaUniV2.UniswapV2Factory.pairForSlot.slot
+        entry.token1 entry.token0) = entry.pair
 
 def FactoryWorldArrayEntryStored
     (s : ContractState) (index : Nat) (entry : FactoryWorldPair) : Prop :=
-  s.storageMapUint TamaUniV2.UniswapV2Factory.allPairsSlot.slot
-    (Core.Uint256.ofNat index) = addressToWord entry.pair
+  wordToAddress
+      (s.storageMapUint TamaUniV2.UniswapV2Factory.allPairsSlot.slot
+        (Core.Uint256.ofNat index)) = entry.pair
 
 /-!
 `FactoryWorldMatchesStorage` is the bridge from public factory storage to the
 closed-world history model. It deliberately says only what the factory itself
 stores: the length slot matches the modeled pair count, every modeled pair has
 both mapping directions written, and every modeled list index is present in the
-public `allPairs` array. It does not assume anything about CREATE2 or pair
-initialization beyond the pair addresses already recorded in the world.
+public `allPairs` array. Pair addresses are compared through the same
+`wordToAddress` decoding used by the public views, so this bridge does not need
+an extra assumption that the CREATE2 ECM returns a canonical address word.
 -/
 def FactoryWorldMatchesStorage
     (s : ContractState) (w : FactoryWorldState) : Prop :=

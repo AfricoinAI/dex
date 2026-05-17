@@ -58,6 +58,108 @@ private theorem addressToWord_reverse_lt_of_not_lt
     omega
   simpa [Verity.Core.Uint256.lt_def] using h_rev
 
+private theorem list_get?_some_lt
+    {α : Type} {xs : List α} {index : Nat} {entry : α} :
+  xs[index]? = some entry →
+    index < xs.length := by
+  revert index
+  induction xs with
+  | nil =>
+      intro index h_get
+      cases index <;> simp at h_get
+  | cons head tail ih =>
+      intro index h_get
+      cases index with
+      | zero =>
+          simp
+      | succ index =>
+          simp at h_get
+          have h_tail := ih h_get
+          simp [h_tail]
+
+private theorem list_get?_append_singleton_cases
+    {α : Type} {xs : List α} {x y : α} {index : Nat} :
+  (xs ++ [x])[index]? = some y →
+    xs[index]? = some y ∨ (index = xs.length ∧ y = x) := by
+  revert index
+  induction xs with
+  | nil =>
+      intro index h_get
+      cases index with
+      | zero =>
+          have h_xy : x = y := by
+            simpa using h_get
+          exact Or.inr ⟨rfl, h_xy.symm⟩
+      | succ index =>
+          simp at h_get
+  | cons head tail ih =>
+      intro index h_get
+      cases index with
+      | zero =>
+          have h_head : head = y := by
+            simpa using h_get
+          exact Or.inl (by simp [h_head])
+      | succ index =>
+          simp at h_get
+          rcases ih h_get with h_old | ⟨h_index, h_y⟩
+          · exact Or.inl (by simp [h_old])
+          · exact Or.inr ⟨by simp [h_index], h_y⟩
+
+private theorem uint256_ofNat_ne_of_lt_val
+    {index : Nat} {u : Uint256}
+    (h_lt : index < u.val) :
+  Core.Uint256.ofNat index ≠ u := by
+  intro h_eq
+  have h_val := congrArg (fun w : Uint256 => w.val) h_eq
+  have h_index_lt_mod : index < Core.Uint256.modulus :=
+    Nat.lt_trans h_lt u.isLt
+  have h_mod : index % Core.Uint256.modulus = index :=
+    Nat.mod_eq_of_lt h_index_lt_mod
+  have h_eq_val : index = u.val := by
+    simpa [h_mod] using h_val
+  omega
+
+private theorem uint256_ofNat_eq_of_eq_val
+    {index : Nat} {u : Uint256}
+    (h_eq_val : index = u.val) :
+  Core.Uint256.ofNat index = u := by
+  apply Core.Uint256.ext
+  have h_index_lt_mod : index < Core.Uint256.modulus := by
+    rw [h_eq_val]
+    exact u.isLt
+  have h_mod : index % Core.Uint256.modulus = index :=
+    Nat.mod_eq_of_lt h_index_lt_mod
+  have h_u_mod : u.val % Core.Uint256.modulus = u.val :=
+    Nat.mod_eq_of_lt u.isLt
+  simp [h_mod, h_eq_val, h_u_mod]
+
+private theorem factoryWorldEntry_not_reverse_pair
+    (entry newEntry : FactoryWorldPair)
+    (h_entry_good : FactoryWorldPairGood entry)
+    (h_new_good : FactoryWorldPairGood newEntry) :
+  entry.token0 ≠ newEntry.token1 ∨
+    entry.token1 ≠ newEntry.token0 := by
+  by_cases h_token0 : entry.token0 = newEntry.token1
+  · right
+    intro h_token1
+    rcases h_entry_good with
+      ⟨_h_entry_distinct, _h_entry_nonzero0, _h_entry_nonzero1,
+        h_entry_sorted, _h_entry_pair⟩
+    rcases h_new_good with
+      ⟨_h_new_distinct, _h_new_nonzero0, _h_new_nonzero1,
+        h_new_sorted, _h_new_pair⟩
+    rw [h_token0, h_token1] at h_entry_sorted
+    have h_entry_sorted_val :
+        (addressToWord newEntry.token1).val <
+          (addressToWord newEntry.token0).val := by
+      simpa [Verity.Core.Uint256.lt_def] using h_entry_sorted
+    have h_new_sorted_val :
+        (addressToWord newEntry.token0).val <
+          (addressToWord newEntry.token1).val := by
+      simpa [Verity.Core.Uint256.lt_def] using h_new_sorted
+    exact False.elim ((Nat.lt_asymm h_new_sorted_val) h_entry_sorted_val)
+  · exact Or.inl h_token0
+
 -- tama: discharges=factory_getPair_spec
 theorem getPair_meets_spec (tokenA tokenB : Address) (s : ContractState) :
   factory_getPair_spec tokenA tokenB ((getPair tokenA tokenB).run s).fst s := by
@@ -523,6 +625,377 @@ theorem concrete_world_allPairs_matches_storage
   factory_concrete_world_allPairs_matches_storage s w index entry := by
   intro h_match h_get
   exact h_match.2.2 index entry h_get
+
+private theorem createPair_success_preserves_pair_lookup_decode_of_ne
+    (tokenA tokenB x y : Address) (s : ContractState) :
+  tokenA ≠ tokenB →
+    tokenA ≠ zeroAddress →
+      tokenB ≠ zeroAddress →
+        s.storageMap2 pairForSlot.slot
+          (factoryToken0 tokenA tokenB) (factoryToken1 tokenA tokenB) = 0 →
+          wordToAddress (factoryCreate2Word tokenA tokenB) ≠ zeroAddress →
+            (s.storage allPairsLengthSlot.slot).val + 1 ≤
+              Verity.Stdlib.Math.MAX_UINT256 →
+              (x ≠ factoryToken0 tokenA tokenB ∨
+                y ≠ factoryToken1 tokenA tokenB) →
+                (x ≠ factoryToken1 tokenA tokenB ∨
+                  y ≠ factoryToken0 tokenA tokenB) →
+                  wordToAddress
+                      (((createPair tokenA tokenB).run s).snd.storageMap2
+                        pairForSlot.slot x y) =
+                    wordToAddress (s.storageMap2 pairForSlot.slot x y) := by
+  intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_absent h_pair_nonzero
+    h_len_ok h_ne_forward h_ne_reverse
+  have h_tokenA_not_zero : ¬ tokenA = (0 : Address) := by
+    simpa using h_tokenA_nonzero
+  have h_tokenB_not_zero : ¬ tokenB = (0 : Address) := by
+    simpa using h_tokenB_nonzero
+  have h_safe_len :
+      Verity.Stdlib.Math.safeAdd (s.storage allPairsLengthSlot.slot) 1 =
+        some (s.storage allPairsLengthSlot.slot + 1) :=
+    Verity.Proofs.Stdlib.Automation.safeAdd_some_val
+      (s.storage allPairsLengthSlot.slot) 1 h_len_ok
+  by_cases h_sort : addressToWord tokenA < addressToWord tokenB
+  · have h_sort_raw :
+        Core.Address.toNat tokenA % Core.Uint256.modulus <
+          Core.Address.toNat tokenB % Core.Uint256.modulus := by
+      simpa [addressToWord] using h_sort
+    have h_absent_branch : s.storageMap2 pairForSlot.slot tokenA tokenB = 0 := by
+      simpa [factoryToken0, factoryToken1, addressToWord, h_sort, h_sort_raw] using h_absent
+    have h_pair_nonzero_branch :
+        wordToAddress (externalCall "uniswapV2PairCreate2" [tokenA, tokenB]) ≠ zeroAddress := by
+      simpa [factoryCreate2Word, factoryToken0, factoryToken1, addressToWord, h_sort, h_sort_raw]
+        using h_pair_nonzero
+    have h_create2_guard :
+        ¬ Core.Address.ofNat
+            ((Contracts.externalCallWords "uniswapV2PairCreate2"
+              [Contracts.ExternalArg.toWord tokenA, Contracts.ExternalArg.toWord tokenB]) : Uint256).val =
+          (0 : Address) := by
+      simpa [wordToAddress] using h_pair_nonzero_branch
+    have h_ne_forward_branch : x ≠ tokenA ∨ y ≠ tokenB := by
+      simpa [factoryToken0, factoryToken1, addressToWord, h_sort, h_sort_raw]
+        using h_ne_forward
+    have h_ne_reverse_branch : x ≠ tokenB ∨ y ≠ tokenA := by
+      simpa [factoryToken0, factoryToken1, addressToWord, h_sort, h_sort_raw]
+        using h_ne_reverse
+    have h_not_forward : ¬ (x = tokenA ∧ y = tokenB) := by
+      intro hxy
+      rcases h_ne_forward_branch with hx | hy
+      · exact hx hxy.1
+      · exact hy hxy.2
+    have h_not_reverse : ¬ (x = tokenB ∧ y = tokenA) := by
+      intro hxy
+      rcases h_ne_reverse_branch with hx | hy
+      · exact hx hxy.1
+      · exact hy hxy.2
+    simp [createPair, UniswapV2FactoryBase.createPair, getMapping2,
+      setMapping2, getStorage, setStorage, getMappingUint, setMappingUint,
+      Verity.require, Contract.run, Verity.bind, Bind.bind, Verity.pure,
+      Pure.pure, Contracts.emit, emitEvent, Verity.Stdlib.Math.requireSomeUint,
+      h_distinct, h_tokenA_nonzero, h_tokenB_nonzero, h_tokenA_not_zero,
+      h_tokenB_not_zero, h_sort, h_sort_raw, h_absent_branch,
+      h_pair_nonzero_branch, h_create2_guard, h_safe_len, h_not_forward,
+      h_not_reverse]
+  · have h_sort_raw :
+        ¬ Core.Address.toNat tokenA % Core.Uint256.modulus <
+          Core.Address.toNat tokenB % Core.Uint256.modulus := by
+      simpa [addressToWord] using h_sort
+    have h_absent_branch : s.storageMap2 pairForSlot.slot tokenB tokenA = 0 := by
+      simpa [factoryToken0, factoryToken1, addressToWord, h_sort, h_sort_raw] using h_absent
+    have h_pair_nonzero_branch :
+        wordToAddress (externalCall "uniswapV2PairCreate2" [tokenB, tokenA]) ≠ zeroAddress := by
+      simpa [factoryCreate2Word, factoryToken0, factoryToken1, addressToWord, h_sort, h_sort_raw]
+        using h_pair_nonzero
+    have h_create2_guard :
+        ¬ Core.Address.ofNat
+            ((Contracts.externalCallWords "uniswapV2PairCreate2"
+              [Contracts.ExternalArg.toWord tokenB, Contracts.ExternalArg.toWord tokenA]) : Uint256).val =
+          (0 : Address) := by
+      simpa [wordToAddress] using h_pair_nonzero_branch
+    have h_ne_forward_branch : x ≠ tokenB ∨ y ≠ tokenA := by
+      simpa [factoryToken0, factoryToken1, addressToWord, h_sort, h_sort_raw]
+        using h_ne_forward
+    have h_ne_reverse_branch : x ≠ tokenA ∨ y ≠ tokenB := by
+      simpa [factoryToken0, factoryToken1, addressToWord, h_sort, h_sort_raw]
+        using h_ne_reverse
+    have h_not_forward : ¬ (x = tokenB ∧ y = tokenA) := by
+      intro hxy
+      rcases h_ne_forward_branch with hx | hy
+      · exact hx hxy.1
+      · exact hy hxy.2
+    have h_not_reverse : ¬ (x = tokenA ∧ y = tokenB) := by
+      intro hxy
+      rcases h_ne_reverse_branch with hx | hy
+      · exact hx hxy.1
+      · exact hy hxy.2
+    simp [createPair, UniswapV2FactoryBase.createPair, getMapping2,
+      setMapping2, getStorage, setStorage, getMappingUint, setMappingUint,
+      Verity.require, Contract.run, Verity.bind, Bind.bind, Verity.pure,
+      Pure.pure, Contracts.emit, emitEvent, Verity.Stdlib.Math.requireSomeUint,
+      h_distinct, h_tokenA_nonzero, h_tokenB_nonzero, h_tokenA_not_zero,
+      h_tokenB_not_zero, h_sort, h_sort_raw, h_absent_branch,
+      h_pair_nonzero_branch, h_create2_guard, h_safe_len, h_not_forward,
+      h_not_reverse]
+
+private theorem createPair_success_preserves_allPairs_index_decode_of_ne
+    (tokenA tokenB : Address) (s : ContractState) (index : Nat) :
+  tokenA ≠ tokenB →
+    tokenA ≠ zeroAddress →
+      tokenB ≠ zeroAddress →
+        s.storageMap2 pairForSlot.slot
+          (factoryToken0 tokenA tokenB) (factoryToken1 tokenA tokenB) = 0 →
+          wordToAddress (factoryCreate2Word tokenA tokenB) ≠ zeroAddress →
+            (s.storage allPairsLengthSlot.slot).val + 1 ≤
+              Verity.Stdlib.Math.MAX_UINT256 →
+              Core.Uint256.ofNat index ≠ s.storage allPairsLengthSlot.slot →
+                wordToAddress
+                    (((createPair tokenA tokenB).run s).snd.storageMapUint
+                      allPairsSlot.slot (Core.Uint256.ofNat index)) =
+                  wordToAddress
+                    (s.storageMapUint allPairsSlot.slot (Core.Uint256.ofNat index)) := by
+  intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_absent h_pair_nonzero
+    h_len_ok h_key_ne
+  have h_tokenA_not_zero : ¬ tokenA = (0 : Address) := by
+    simpa using h_tokenA_nonzero
+  have h_tokenB_not_zero : ¬ tokenB = (0 : Address) := by
+    simpa using h_tokenB_nonzero
+  have h_safe_len :
+      Verity.Stdlib.Math.safeAdd (s.storage allPairsLengthSlot.slot) 1 =
+        some (s.storage allPairsLengthSlot.slot + 1) :=
+    Verity.Proofs.Stdlib.Automation.safeAdd_some_val
+      (s.storage allPairsLengthSlot.slot) 1 h_len_ok
+  by_cases h_sort : addressToWord tokenA < addressToWord tokenB
+  · have h_sort_raw :
+        Core.Address.toNat tokenA % Core.Uint256.modulus <
+          Core.Address.toNat tokenB % Core.Uint256.modulus := by
+      simpa [addressToWord] using h_sort
+    have h_absent_branch : s.storageMap2 pairForSlot.slot tokenA tokenB = 0 := by
+      simpa [factoryToken0, factoryToken1, addressToWord, h_sort, h_sort_raw] using h_absent
+    have h_pair_nonzero_branch :
+        wordToAddress (externalCall "uniswapV2PairCreate2" [tokenA, tokenB]) ≠ zeroAddress := by
+      simpa [factoryCreate2Word, factoryToken0, factoryToken1, addressToWord, h_sort, h_sort_raw]
+        using h_pair_nonzero
+    have h_create2_guard :
+        ¬ Core.Address.ofNat
+            ((Contracts.externalCallWords "uniswapV2PairCreate2"
+              [Contracts.ExternalArg.toWord tokenA, Contracts.ExternalArg.toWord tokenB]) : Uint256).val =
+          (0 : Address) := by
+      simpa [wordToAddress] using h_pair_nonzero_branch
+    simp [createPair, UniswapV2FactoryBase.createPair, getMapping2,
+      setMapping2, getStorage, setStorage, getMappingUint, setMappingUint,
+      Verity.require, Contract.run, Verity.bind, Bind.bind, Verity.pure,
+      Pure.pure, Contracts.emit, emitEvent, Verity.Stdlib.Math.requireSomeUint,
+      h_distinct, h_tokenA_nonzero, h_tokenB_nonzero, h_tokenA_not_zero,
+      h_tokenB_not_zero, h_sort, h_sort_raw, h_absent_branch,
+      h_pair_nonzero_branch, h_create2_guard, h_safe_len, h_key_ne]
+  · have h_sort_raw :
+        ¬ Core.Address.toNat tokenA % Core.Uint256.modulus <
+          Core.Address.toNat tokenB % Core.Uint256.modulus := by
+      simpa [addressToWord] using h_sort
+    have h_absent_branch : s.storageMap2 pairForSlot.slot tokenB tokenA = 0 := by
+      simpa [factoryToken0, factoryToken1, addressToWord, h_sort, h_sort_raw] using h_absent
+    have h_pair_nonzero_branch :
+        wordToAddress (externalCall "uniswapV2PairCreate2" [tokenB, tokenA]) ≠ zeroAddress := by
+      simpa [factoryCreate2Word, factoryToken0, factoryToken1, addressToWord, h_sort, h_sort_raw]
+        using h_pair_nonzero
+    have h_create2_guard :
+        ¬ Core.Address.ofNat
+            ((Contracts.externalCallWords "uniswapV2PairCreate2"
+              [Contracts.ExternalArg.toWord tokenB, Contracts.ExternalArg.toWord tokenA]) : Uint256).val =
+          (0 : Address) := by
+      simpa [wordToAddress] using h_pair_nonzero_branch
+    simp [createPair, UniswapV2FactoryBase.createPair, getMapping2,
+      setMapping2, getStorage, setStorage, getMappingUint, setMappingUint,
+      Verity.require, Contract.run, Verity.bind, Bind.bind, Verity.pure,
+      Pure.pure, Contracts.emit, emitEvent, Verity.Stdlib.Math.requireSomeUint,
+      h_distinct, h_tokenA_nonzero, h_tokenB_nonzero, h_tokenA_not_zero,
+      h_tokenB_not_zero, h_sort, h_sort_raw, h_absent_branch,
+      h_pair_nonzero_branch, h_create2_guard, h_safe_len, h_key_ne]
+
+-- tama: discharges=factory_createPair_success_preserves_concrete_world_match
+theorem createPair_success_preserves_concrete_world_match
+    (tokenA tokenB : Address) (s : ContractState)
+    (before : FactoryWorldState) :
+  factory_createPair_success_preserves_concrete_world_match tokenA tokenB s before := by
+  intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_good h_match h_absent
+    h_absent_world h_pair_nonzero h_len_ok _h_run
+  rcases h_good with ⟨h_entries_good, _h_no_duplicates, h_count_length⟩
+  rcases h_match with ⟨h_count_match, h_entries_match, h_array_match⟩
+  have h_success :=
+    createPair_success_updates_storage_and_emits tokenA tokenB s
+      h_distinct h_tokenA_nonzero h_tokenB_nonzero h_absent
+      h_pair_nonzero h_len_ok
+  rcases h_success with
+    ⟨_h_success_run, h_new_forward, h_new_reverse, h_new_array,
+      h_length, _h_event⟩
+  have h_add_lt :
+      (s.storage allPairsLengthSlot.slot).val + 1 <
+        Core.Uint256.modulus := by
+    rw [← Core.Uint256.max_uint256_succ_eq_modulus]
+    exact Nat.lt_succ_of_le h_len_ok
+  have h_len_after_val :
+      ((s.storage allPairsLengthSlot.slot + 1 : Uint256) : Nat) =
+        (s.storage allPairsLengthSlot.slot).val + 1 := by
+    simpa using
+      (Core.Uint256.add_eq_of_lt
+        (a := s.storage allPairsLengthSlot.slot) (b := (1 : Uint256)) h_add_lt)
+  have h_len_after_val_left :
+      ((1 : Uint256) + s.storage allPairsLengthSlot.slot : Uint256).val =
+        1 + (s.storage allPairsLengthSlot.slot).val := by
+    have h_add_lt_left :
+        (1 : Uint256).val + (s.storage allPairsLengthSlot.slot).val <
+          Core.Uint256.modulus := by
+      simpa [Core.Uint256.val_one, Nat.add_comm] using h_add_lt
+    simpa using
+      (Core.Uint256.add_eq_of_lt
+        (a := (1 : Uint256)) (b := s.storage allPairsLengthSlot.slot)
+        h_add_lt_left)
+  have h_new_good :
+      FactoryWorldPairGood {
+        token0 := factoryToken0 tokenA tokenB
+        token1 := factoryToken1 tokenA tokenB
+        pair := wordToAddress (factoryCreate2Word tokenA tokenB)
+      } := by
+    by_cases h_sort : addressToWord tokenA < addressToWord tokenB
+    · have h_sort_raw :
+          Core.Address.toNat tokenA % Core.Uint256.modulus <
+            Core.Address.toNat tokenB % Core.Uint256.modulus := by
+        simpa [addressToWord] using h_sort
+      simpa [FactoryWorldPairGood, factoryToken0, factoryToken1,
+        factoryCreate2Word, addressToWord, h_sort, h_sort_raw] using
+        (show FactoryWorldPairGood {
+          token0 := tokenA
+          token1 := tokenB
+          pair := wordToAddress
+            (externalCall "uniswapV2PairCreate2" [tokenA, tokenB])
+        } from
+          ⟨h_distinct, h_tokenA_nonzero, h_tokenB_nonzero, h_sort,
+            (by
+              simpa [factoryCreate2Word, factoryToken0, factoryToken1,
+                addressToWord, h_sort, h_sort_raw] using h_pair_nonzero)⟩)
+    · have h_sort_raw :
+          ¬ Core.Address.toNat tokenA % Core.Uint256.modulus <
+            Core.Address.toNat tokenB % Core.Uint256.modulus := by
+        simpa [addressToWord] using h_sort
+      have h_reverse_sort : addressToWord tokenB < addressToWord tokenA :=
+        addressToWord_reverse_lt_of_not_lt h_distinct h_sort
+      have h_distinct_symm : tokenB ≠ tokenA := by
+        exact fun h => h_distinct h.symm
+      simpa [FactoryWorldPairGood, factoryToken0, factoryToken1,
+        factoryCreate2Word, addressToWord, h_sort, h_sort_raw] using
+        (show FactoryWorldPairGood {
+          token0 := tokenB
+          token1 := tokenA
+          pair := wordToAddress
+            (externalCall "uniswapV2PairCreate2" [tokenB, tokenA])
+        } from
+          ⟨h_distinct_symm, h_tokenB_nonzero, h_tokenA_nonzero,
+            h_reverse_sort,
+            (by
+              simpa [factoryCreate2Word, factoryToken0, factoryToken1,
+                addressToWord, h_sort, h_sort_raw] using h_pair_nonzero)⟩)
+  refine ⟨?_, ?_, ?_⟩
+  · rw [h_length]
+    simp [factoryLengthAfter]
+    rw [h_len_after_val_left, ← h_count_match]
+    omega
+  · intro entry h_entry_after
+    rcases List.mem_append.mp h_entry_after with h_entry_old | h_entry_new
+    · rcases h_entries_match entry h_entry_old with
+        ⟨h_old_forward, h_old_reverse⟩
+      have h_entry_good := h_entries_good entry h_entry_old
+      have h_not_forward :
+          entry.token0 ≠ factoryToken0 tokenA tokenB ∨
+            entry.token1 ≠ factoryToken1 tokenA tokenB :=
+        h_absent_world entry h_entry_old
+      have h_not_reverse :
+          entry.token0 ≠ factoryToken1 tokenA tokenB ∨
+            entry.token1 ≠ factoryToken0 tokenA tokenB :=
+        factoryWorldEntry_not_reverse_pair entry
+          {
+            token0 := factoryToken0 tokenA tokenB
+            token1 := factoryToken1 tokenA tokenB
+            pair := wordToAddress (factoryCreate2Word tokenA tokenB)
+          }
+          h_entry_good h_new_good
+      constructor
+      · calc
+          wordToAddress
+              (((createPair tokenA tokenB).run s).snd.storageMap2
+                pairForSlot.slot entry.token0 entry.token1)
+              =
+            wordToAddress (s.storageMap2 pairForSlot.slot entry.token0 entry.token1) :=
+              createPair_success_preserves_pair_lookup_decode_of_ne
+                tokenA tokenB entry.token0 entry.token1 s
+                h_distinct h_tokenA_nonzero h_tokenB_nonzero h_absent
+                h_pair_nonzero h_len_ok h_not_forward h_not_reverse
+          _ = entry.pair := h_old_forward
+      · have h_rev_not_forward :
+            entry.token1 ≠ factoryToken0 tokenA tokenB ∨
+              entry.token0 ≠ factoryToken1 tokenA tokenB := by
+          rcases h_not_reverse with h0 | h1
+          · exact Or.inr h0
+          · exact Or.inl h1
+        have h_rev_not_reverse :
+            entry.token1 ≠ factoryToken1 tokenA tokenB ∨
+              entry.token0 ≠ factoryToken0 tokenA tokenB := by
+          rcases h_not_forward with h0 | h1
+          · exact Or.inr h0
+          · exact Or.inl h1
+        calc
+          wordToAddress
+              (((createPair tokenA tokenB).run s).snd.storageMap2
+                pairForSlot.slot entry.token1 entry.token0)
+              =
+            wordToAddress (s.storageMap2 pairForSlot.slot entry.token1 entry.token0) :=
+              createPair_success_preserves_pair_lookup_decode_of_ne
+                tokenA tokenB entry.token1 entry.token0 s
+                h_distinct h_tokenA_nonzero h_tokenB_nonzero h_absent
+                h_pair_nonzero h_len_ok h_rev_not_forward h_rev_not_reverse
+          _ = entry.pair := h_old_reverse
+    · simp at h_entry_new
+      rcases h_entry_new with h_entry_new
+      rw [h_entry_new]
+      constructor
+      · simpa using congrArg wordToAddress h_new_forward
+      · simpa using congrArg wordToAddress h_new_reverse
+  · intro index entry h_get_after
+    rcases list_get?_append_singleton_cases h_get_after with h_get_old | h_get_new
+    · have h_old_array := h_array_match index entry h_get_old
+      have h_index_lt := list_get?_some_lt h_get_old
+      have h_index_lt_storage :
+          index < (s.storage allPairsLengthSlot.slot).val := by
+        rw [← h_count_match, h_count_length]
+        exact h_index_lt
+      have h_key_ne :
+          Core.Uint256.ofNat index ≠ s.storage allPairsLengthSlot.slot :=
+        uint256_ofNat_ne_of_lt_val h_index_lt_storage
+      calc
+        wordToAddress
+            (((createPair tokenA tokenB).run s).snd.storageMapUint
+              allPairsSlot.slot (Core.Uint256.ofNat index))
+            =
+          wordToAddress
+            (s.storageMapUint allPairsSlot.slot (Core.Uint256.ofNat index)) :=
+            createPair_success_preserves_allPairs_index_decode_of_ne
+              tokenA tokenB s index h_distinct h_tokenA_nonzero
+              h_tokenB_nonzero h_absent h_pair_nonzero h_len_ok h_key_ne
+        _ = entry.pair := h_old_array
+    · rcases h_get_new with ⟨h_index, h_entry⟩
+      subst index
+      subst entry
+      have h_key_eq :
+          Core.Uint256.ofNat before.pairs.length =
+            s.storage allPairsLengthSlot.slot := by
+        apply uint256_ofNat_eq_of_eq_val
+        rw [← h_count_match, h_count_length]
+      change
+        wordToAddress
+          (((createPair tokenA tokenB).run s).snd.storageMapUint
+            allPairsSlot.slot (Core.Uint256.ofNat before.pairs.length)) =
+          wordToAddress (factoryCreate2Word tokenA tokenB)
+      rw [h_key_eq]
+      simpa using congrArg wordToAddress h_new_array
 
 private theorem factoryWorldStep_preserves_good
     (action : FactoryWorldAction)

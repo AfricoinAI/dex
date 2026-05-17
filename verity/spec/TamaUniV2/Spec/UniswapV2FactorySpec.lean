@@ -270,7 +270,9 @@ to real factory storage. This section states that connection in small pieces.
 Given a reconstructed world that matches factory storage, the public length,
 unordered pair mapping, and indexed `allPairs` array all agree with that world.
 These facts let later append-only and uniqueness theorems speak about concrete
-router-visible lookup behavior.
+router-visible lookup behavior. Pair addresses are compared after the same
+`wordToAddress` decoding used by the public views, avoiding any extra CREATE2
+canonical-word assumption.
 -/
 
 def factory_concrete_world_length_matches_storage
@@ -283,15 +285,56 @@ def factory_concrete_world_lookup_matches_storage
     (tokenA tokenB pair : Address) : Prop :=
   FactoryWorldMatchesStorage s w →
     FactoryWorldContainsPair w tokenA tokenB pair →
-      s.storageMap2 pairForSlot.slot tokenA tokenB = addressToWord pair
+      wordToAddress (s.storageMap2 pairForSlot.slot tokenA tokenB) = pair
 
 def factory_concrete_world_allPairs_matches_storage
     (s : ContractState) (w : FactoryWorldState)
     (index : Nat) (entry : FactoryWorldPair) : Prop :=
   FactoryWorldMatchesStorage s w →
     w.pairs[index]? = some entry →
-      s.storageMapUint allPairsSlot.slot (Core.Uint256.ofNat index) =
-        addressToWord entry.pair
+      wordToAddress
+        (s.storageMapUint allPairsSlot.slot (Core.Uint256.ofNat index)) =
+          entry.pair
+
+/--
+A successful concrete `createPair` run preserves the reconstruction bridge.
+If the pre-state factory storage is represented by a good closed-world history,
+then the post-state storage is represented by that history with exactly the new
+sorted pair appended.
+
+This is the factory counterpart to a simulation invariant: after one real
+success, the reader may continue using the finite-history theorems on the
+updated world and know they still describe concrete router-visible storage.
+-/
+def factory_createPair_success_preserves_concrete_world_match
+    (tokenA tokenB : Address) (s : ContractState)
+    (before : FactoryWorldState) : Prop :=
+  let token0Value := factoryToken0 tokenA tokenB
+  let token1Value := factoryToken1 tokenA tokenB
+  let pair := wordToAddress (factoryCreate2Word tokenA tokenB)
+  let after : FactoryWorldState :=
+    { pairs := before.pairs ++ [{
+        token0 := token0Value
+        token1 := token1Value
+        pair := pair
+      }]
+      pairCount := before.pairCount + 1 }
+  tokenA ≠ tokenB →
+    tokenA ≠ zeroAddress →
+      tokenB ≠ zeroAddress →
+        FactoryWorldGood before →
+          FactoryWorldMatchesStorage s before →
+            s.storageMap2 pairForSlot.slot token0Value token1Value = 0 →
+              (∀ entry, entry ∈ before.pairs →
+                entry.token0 ≠ token0Value ∨ entry.token1 ≠ token1Value) →
+                pair ≠ zeroAddress →
+                  (s.storage allPairsLengthSlot.slot).val + 1 ≤
+                    Verity.Stdlib.Math.MAX_UINT256 →
+                    (createPair tokenA tokenB).run s =
+                      ContractResult.success pair ((createPair tokenA tokenB).run s).snd →
+                      FactoryWorldMatchesStorage
+                        ((createPair tokenA tokenB).run s).snd
+                        after
 
 /-!
 ## Closed-World Factory Invariants
