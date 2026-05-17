@@ -89,6 +89,13 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   no spot-value extraction directly by combining unchanged LP supply with the
   existing same-supply theorem.
 
+  2026-05-17 01:54 PDT checkpoint: added the positive-reserve invariant slice.
+  Any reachable pool with positive LP supply now proves positive reserves on
+  both token sides, and finite successful modeled histories from such pools
+  preserve that nondegenerate reserve shape. This makes the spot-price
+  preconditions in the economic layer derivable from reachability plus
+  nonempty supply.
+
 - [x] **3. Strengthen action transitions**
 
   Add concise specs for each action family:

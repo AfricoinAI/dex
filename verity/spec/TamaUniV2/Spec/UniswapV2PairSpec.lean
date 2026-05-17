@@ -1029,6 +1029,31 @@ def pair_closed_world_reachable_positive_supply_path_remains_positive
       PairWorldPath before after →
         0 < after.totalSupply
 
+/-- A reachable pool with LP supply is not allowed to be a degenerate
+one-sided or zero-reserve pool. In Uniswap V2 the first mint deposits both
+tokens, later burns cannot redeem the permanently locked floor, and swaps keep
+outputs below reserves; this invariant packages that story as the precondition
+needed for a meaningful spot price. -/
+def pair_closed_world_reachable_positive_supply_has_positive_reserves
+    (w : PairWorldState) : Prop :=
+  PairWorldReachable w →
+    0 < w.totalSupply →
+      0 < w.reserve0 ∧
+      0 < w.reserve1
+
+/-- The finite-history version of the same nondegeneracy invariant. Starting
+from any reachable nonempty pool, every finite sequence of successful modeled
+actions leaves both reserves positive, so later economic theorems can rely on a
+defined initial and final two-token pool rather than carrying that fact as an
+unexplained side condition. -/
+def pair_closed_world_reachable_positive_supply_path_has_positive_reserves
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        0 < after.reserve0 ∧
+        0 < after.reserve1
+
 /-!
 ### 2. Concrete-State Projections
 

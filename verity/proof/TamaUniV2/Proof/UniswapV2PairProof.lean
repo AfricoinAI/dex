@@ -2710,6 +2710,235 @@ theorem closed_world_burn_preserves_positive_balances
   · rw [h_balance1]
     omega
 
+private theorem pairWorldStep_positive_reserves_preserved
+    {action : PairWorldAction} {before after : PairWorldState} :
+  PairWorldGood before →
+    0 < before.totalSupply →
+      0 < before.reserve0 →
+        0 < before.reserve1 →
+          PairWorldStep action before after →
+            0 < after.reserve0 ∧
+            0 < after.reserve1 := by
+  intro h_good h_supply_pos h_reserve0_pos h_reserve1_pos h_step
+  cases action with
+  | approve ownerAddr spender amount =>
+      simp [PairWorldStep] at h_step
+      subst after
+      exact ⟨h_reserve0_pos, h_reserve1_pos⟩
+  | transfer fromAddr toAddr amount =>
+      simp [PairWorldStep] at h_step
+      subst after
+      exact ⟨h_reserve0_pos, h_reserve1_pos⟩
+  | transferFrom spender fromAddr toAddr amount =>
+      simp [PairWorldStep] at h_step
+      subst after
+      exact ⟨h_reserve0_pos, h_reserve1_pos⟩
+  | donate amount0 amount1 =>
+      simp [PairWorldStep] at h_step
+      rcases h_step with ⟨_h_balance0, _h_balance1, h_reserve0, h_reserve1,
+        _h_supply, _h_locked⟩
+      rw [h_reserve0, h_reserve1]
+      exact ⟨h_reserve0_pos, h_reserve1_pos⟩
+  | mint amount0 amount1 liquidity =>
+      simp [PairWorldStep, PairWorldMintStep] at h_step
+      rcases h_step with ⟨h_amount0_pos, h_amount1_pos, _h_liquidity_pos,
+        h_before_balance0, h_before_balance1, _h_after_balance0,
+        _h_after_balance1, h_after_reserve0, h_after_reserve1,
+        _h_bound0, _h_bound1, _h_supply, _h_locked, _h_ratio⟩
+      constructor
+      · rw [h_after_reserve0, h_before_balance0]
+        omega
+      · rw [h_after_reserve1, h_before_balance1]
+        omega
+  | burn amount0 amount1 liquidity =>
+      have h_good_copy := h_good
+      rcases h_good with ⟨h_back0, h_back1, _h_bound0, _h_bound1,
+        _h_supply_good⟩
+      have h_balance0_pos : 0 < before.balance0 :=
+        Nat.lt_of_lt_of_le h_reserve0_pos h_back0
+      have h_balance1_pos : 0 < before.balance1 :=
+        Nat.lt_of_lt_of_le h_reserve1_pos h_back1
+      have h_balances :=
+        closed_world_burn_preserves_positive_balances
+          amount0 amount1 liquidity before after
+          h_good_copy h_step h_balance0_pos h_balance1_pos
+      simp [PairWorldStep, PairWorldBurnStep] at h_step
+      rcases h_step with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+        _h_supply_pos, _h_amount0, _h_amount1, _h_liquidity,
+        _h_locked_remaining, h_balance0, h_balance1, h_reserve0, h_reserve1,
+        _h_bound0, _h_bound1, _h_supply, _h_locked, _h_ratio0, _h_ratio1⟩
+      constructor
+      · rw [h_reserve0]
+        exact h_balances.1
+      · rw [h_reserve1]
+        exact h_balances.2
+  | swap amount0In amount1In amount0Out amount1Out =>
+      simp [PairWorldStep, PairWorldSwapStep] at h_step
+      rcases h_step with ⟨_h_output, h_liq0, h_liq1, _h_enough0, _h_enough1,
+        _h_input, h_balance0, h_balance1, h_reserve0, h_reserve1,
+        _h_bound0, _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1,
+        _h_adjusted_k, _h_raw_k⟩
+      constructor
+      · rw [h_reserve0, h_balance0]
+        exact Nat.sub_pos_of_lt (by omega)
+      · rw [h_reserve1, h_balance1]
+        exact Nat.sub_pos_of_lt (by omega)
+  | skim =>
+      simp [PairWorldStep, PairWorldSkimStep] at h_step
+      rcases h_step with ⟨_h_balance0, _h_balance1, h_reserve0, h_reserve1,
+        _h_supply, _h_locked⟩
+      rw [h_reserve0, h_reserve1]
+      exact ⟨h_reserve0_pos, h_reserve1_pos⟩
+  | sync =>
+      rcases h_good with ⟨h_back0, h_back1, _h_bound0, _h_bound1,
+        _h_supply_good⟩
+      simp [PairWorldStep, PairWorldSyncStep] at h_step
+      rcases h_step with ⟨_h_bound0, _h_bound1, _h_balance0, _h_balance1,
+        h_reserve0, h_reserve1, _h_supply, _h_locked⟩
+      constructor
+      · rw [h_reserve0]
+        exact Nat.lt_of_lt_of_le h_reserve0_pos h_back0
+      · rw [h_reserve1]
+        exact Nat.lt_of_lt_of_le h_reserve1_pos h_back1
+
+private theorem pairWorldReachable_positive_supply_positive_reserves
+    {w : PairWorldState} :
+  PairWorldReachable w →
+    0 < w.totalSupply →
+      0 < w.reserve0 ∧
+      0 < w.reserve1 := by
+  intro h_reachable
+  induction h_reachable with
+  | init =>
+      intro h_positive
+      simp [PairWorldInitial] at h_positive
+  | step action h_before h_step ih =>
+      intro h_positive_after
+      rename_i before after
+      have h_step_original := h_step
+      cases action with
+      | approve ownerAddr spender amount =>
+          simp [PairWorldStep] at h_step
+          subst after
+          exact ih h_positive_after
+      | transfer fromAddr toAddr amount =>
+          simp [PairWorldStep] at h_step
+          subst after
+          exact ih h_positive_after
+      | transferFrom spender fromAddr toAddr amount =>
+          simp [PairWorldStep] at h_step
+          subst after
+          exact ih h_positive_after
+      | donate amount0 amount1 =>
+          simp [PairWorldStep] at h_step
+          rcases h_step with ⟨_h_balance0, _h_balance1, _h_reserve0,
+            _h_reserve1, h_supply, _h_locked⟩
+          have h_positive_before : 0 < before.totalSupply := by
+            rwa [h_supply] at h_positive_after
+          have h_before_reserves := ih h_positive_before
+          exact pairWorldStep_positive_reserves_preserved
+            (pairWorldReachable_good before h_before)
+            h_positive_before h_before_reserves.1 h_before_reserves.2
+            h_step_original
+      | mint amount0 amount1 liquidity =>
+          simp [PairWorldStep, PairWorldMintStep] at h_step
+          rcases h_step with ⟨h_amount0_pos, h_amount1_pos, _h_liquidity_pos,
+            h_before_balance0, h_before_balance1, _h_after_balance0,
+            _h_after_balance1, h_after_reserve0, h_after_reserve1,
+            _h_bound0, _h_bound1, _h_supply, _h_locked, _h_ratio⟩
+          constructor
+          · rw [h_after_reserve0, h_before_balance0]
+            omega
+          · rw [h_after_reserve1, h_before_balance1]
+            omega
+      | burn amount0 amount1 liquidity =>
+          simp [PairWorldStep, PairWorldBurnStep] at h_step
+          rcases h_step with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+            h_supply_before_pos, _h_amount0, _h_amount1, _h_liquidity,
+            _h_locked_remaining, _h_balance0, _h_balance1, _h_reserve0,
+            _h_reserve1, _h_bound0, _h_bound1, _h_supply, _h_locked,
+            _h_ratio0, _h_ratio1⟩
+          have h_before_reserves := ih h_supply_before_pos
+          exact pairWorldStep_positive_reserves_preserved
+            (pairWorldReachable_good before h_before)
+            h_supply_before_pos h_before_reserves.1 h_before_reserves.2
+            h_step_original
+      | swap amount0In amount1In amount0Out amount1Out =>
+          simp [PairWorldStep, PairWorldSwapStep] at h_step
+          rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0,
+            _h_enough1, _h_input, _h_balance0, _h_balance1, _h_reserve0,
+            _h_reserve1, _h_bound0, _h_bound1, h_supply, _h_locked,
+            _h_fee0, _h_fee1, _h_adjusted_k, _h_raw_k⟩
+          have h_positive_before : 0 < before.totalSupply := by
+            rwa [h_supply] at h_positive_after
+          have h_before_reserves := ih h_positive_before
+          exact pairWorldStep_positive_reserves_preserved
+            (pairWorldReachable_good before h_before)
+            h_positive_before h_before_reserves.1 h_before_reserves.2
+            h_step_original
+      | skim =>
+          simp [PairWorldStep, PairWorldSkimStep] at h_step
+          rcases h_step with ⟨_h_balance0, _h_balance1, _h_reserve0,
+            _h_reserve1, h_supply, _h_locked⟩
+          have h_positive_before : 0 < before.totalSupply := by
+            rwa [h_supply] at h_positive_after
+          have h_before_reserves := ih h_positive_before
+          exact pairWorldStep_positive_reserves_preserved
+            (pairWorldReachable_good before h_before)
+            h_positive_before h_before_reserves.1 h_before_reserves.2
+            h_step_original
+      | sync =>
+          simp [PairWorldStep, PairWorldSyncStep] at h_step
+          rcases h_step with ⟨_h_bound0, _h_bound1, _h_balance0, _h_balance1,
+            _h_reserve0, _h_reserve1, h_supply, _h_locked⟩
+          have h_positive_before : 0 < before.totalSupply := by
+            rwa [h_supply] at h_positive_after
+          have h_before_reserves := ih h_positive_before
+          exact pairWorldStep_positive_reserves_preserved
+            (pairWorldReachable_good before h_before)
+            h_positive_before h_before_reserves.1 h_before_reserves.2
+            h_step_original
+
+private theorem pairWorldPath_positive_reserves_preserved
+    {before after : PairWorldState} :
+  PairWorldGood before →
+    0 < before.totalSupply →
+      0 < before.reserve0 →
+        0 < before.reserve1 →
+          PairWorldPath before after →
+            0 < after.reserve0 ∧
+            0 < after.reserve1 := by
+  intro h_good h_supply_pos h_reserve0_pos h_reserve1_pos h_path
+  induction h_path with
+  | refl =>
+      exact ⟨h_reserve0_pos, h_reserve1_pos⟩
+  | step action h_prefix h_step ih =>
+      have h_good_before := pairWorldPath_preserves_good h_good h_prefix
+      have h_supply_before :=
+        pairWorldPath_positive_supply_preserved h_good h_supply_pos h_prefix
+      have h_reserves_before := ih
+      exact pairWorldStep_positive_reserves_preserved
+        h_good_before h_supply_before
+        h_reserves_before.1 h_reserves_before.2 h_step
+
+-- tama: discharges=pair_closed_world_reachable_positive_supply_has_positive_reserves
+theorem closed_world_reachable_positive_supply_has_positive_reserves
+    (w : PairWorldState) :
+  pair_closed_world_reachable_positive_supply_has_positive_reserves w := by
+  exact pairWorldReachable_positive_supply_positive_reserves
+
+-- tama: discharges=pair_closed_world_reachable_positive_supply_path_has_positive_reserves
+theorem closed_world_reachable_positive_supply_path_has_positive_reserves
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_positive_supply_path_has_positive_reserves
+    before after := by
+  intro h_reachable h_positive h_path
+  have h_before_reserves :=
+    pairWorldReachable_positive_supply_positive_reserves h_reachable h_positive
+  exact pairWorldPath_positive_reserves_preserved
+    (pairWorldReachable_good before h_reachable)
+    h_positive h_before_reserves.1 h_before_reserves.2 h_path
+
 -- tama: discharges=pair_closed_world_donate_preserves_reserves_and_supply
 theorem closed_world_donate_preserves_reserves_and_supply
     (amount0 amount1 : Nat)
