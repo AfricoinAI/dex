@@ -19,7 +19,7 @@ attribute [local simp] decimals totalSupply balanceOf allowance factory token0 t
   «initialize» approve transfer transferFrom mint burn swap skim sync
   factorySlot token0Slot token1Slot reserve0Slot reserve1Slot blockTimestampLastSlot
   totalSupplySlot balancesSlot allowancesSlot price0CumulativeLastSlot price1CumulativeLastSlot
-  unlockedSlot feeDenominator feeAdjustment maxUint112 maxUint256
+  unlockedSlot feeDenominator feeAdjustment maxUint112 maxUint256 q112 uint32Modulus
   UniswapV2PairBase.decimals UniswapV2PairBase.totalSupply
   UniswapV2PairBase.balanceOf UniswapV2PairBase.allowance
   UniswapV2PairBase.factory UniswapV2PairBase.token0 UniswapV2PairBase.token1
@@ -38,11 +38,16 @@ attribute [local simp] decimals totalSupply balanceOf allowance factory token0 t
   UniswapV2PairBase.price1CumulativeLastSlot UniswapV2PairBase.unlockedSlot
   UniswapV2PairBase.feeDenominator UniswapV2PairBase.feeAdjustment
   UniswapV2PairBase.maxUint112 UniswapV2PairBase.maxUint256
+  UniswapV2PairBase.q112 UniswapV2PairBase.uint32Modulus
   TamaUniV2.erc20BalanceOf pairSelf pairToken0 pairToken1 observedBalance0 observedBalance1
   TamaUniV2.pairSafeTransfer TamaUniV2.tracePairTokenSafeTransfer
   TamaUniV2.pairTokenSafeTransferEvent pairTraceContains hasPairSafeTransferTrace
   pairLpApprovalEvent pairLpTransferEvent pairMintEvent pairBurnEvent pairSwapEvent pairSyncEvent
-  mintAmount0 mintAmount1 timestamp32 skimExcess0 skimExcess1
+  mintAmount0 mintAmount1 timestamp32 oracleElapsed oraclePrice0 oraclePrice1
+  oraclePrice0Increment oraclePrice1Increment
+  oraclePrice0CumulativeAfterElapsed oraclePrice1CumulativeAfterElapsed
+  oraclePrice0CumulativeAfterSync oraclePrice1CumulativeAfterSync
+  skimExcess0 skimExcess1
   swapExpected0 swapExpected1 swapAmountIn swapAmount0In swapAmount1In
   swapBalance0Scaled swapBalance1Scaled swapAmount0Fee swapAmount1Fee
   swapBalance0Adjusted swapBalance1Adjusted swapAdjustedProduct swapReserveProductOf
@@ -1084,6 +1089,88 @@ theorem sync_success_run_refines_closed_world
   pair_sync_success_run_refines_closed_world s result := by
   intro _h_run _h_success h_bound0 h_bound1
   exact sync_expected_refines_closed_world s h_bound0 h_bound1
+
+-- tama: discharges=pair_sync_oracle_same_timestamp_keeps_price_cumulatives
+theorem sync_oracle_same_timestamp_keeps_price_cumulatives
+    (s : ContractState) :
+  pair_sync_oracle_same_timestamp_keeps_price_cumulatives s := by
+  intro h_same_timestamp
+  have h_same_raw :
+      Verity.EVM.Uint256.mod s.blockTimestamp uint32Modulus =
+        s.storage 5 := by
+    simpa [timestamp32, blockTimestampLastSlot] using h_same_timestamp
+  have h_same_num :
+      Verity.EVM.Uint256.mod s.blockTimestamp 4294967296 =
+        s.storage 5 := by
+    simpa [uint32Modulus] using h_same_raw
+  have h_same_bne_false :
+      (timestamp32 s != s.storage blockTimestampLastSlot.slot) = false := by
+    simp [timestamp32, blockTimestampLastSlot, uint32Modulus, h_same_num, BEq.beq]
+  simp [pair_sync_oracle_same_timestamp_keeps_price_cumulatives,
+    oraclePrice0CumulativeAfterSync, oraclePrice1CumulativeAfterSync,
+    oraclePrice0CumulativeAfterElapsed, oraclePrice1CumulativeAfterElapsed,
+    oraclePrice0Increment, oraclePrice1Increment, oraclePrice0, oraclePrice1,
+    oracleElapsed, timestamp32, blockTimestampLastSlot,
+    reserve0Slot, reserve1Slot, price0CumulativeLastSlot,
+    price1CumulativeLastSlot, uint32Modulus, q112,
+    h_same_raw, h_same_num, h_same_bne_false]
+
+-- tama: discharges=pair_sync_oracle_elapsed_updates_price_cumulatives
+theorem sync_oracle_elapsed_updates_price_cumulatives
+    (s : ContractState) :
+  pair_sync_oracle_elapsed_updates_price_cumulatives s := by
+  intro h_time_changed h_elapsed h_reserve0 h_reserve1
+  have h_elapsed_branch :
+      oracleElapsed s > 0 ∧
+        s.storage reserve0Slot.slot > 0 ∧
+        s.storage reserve1Slot.slot > 0 :=
+    ⟨h_elapsed, h_reserve0, h_reserve1⟩
+  have h_time_changed_raw :
+      (Verity.EVM.Uint256.mod s.blockTimestamp uint32Modulus !=
+        s.storage 5) = true := by
+    simpa [timestamp32, blockTimestampLastSlot] using h_time_changed
+  have h_time_changed_num :
+      (Verity.EVM.Uint256.mod s.blockTimestamp 4294967296 !=
+        s.storage 5) = true := by
+    simpa [uint32Modulus] using h_time_changed_raw
+  have h_time_neq_num :
+      ¬ Verity.EVM.Uint256.mod s.blockTimestamp 4294967296 =
+        s.storage 5 := by
+    intro h_eq
+    simp [h_eq] at h_time_changed_num
+  have h_elapsed_branch_raw :
+      Verity.EVM.Uint256.mod
+          (Verity.EVM.Uint256.sub
+            (Verity.EVM.Uint256.add
+              (Verity.EVM.Uint256.mod s.blockTimestamp uint32Modulus)
+              uint32Modulus)
+            (s.storage 5))
+          uint32Modulus > 0 ∧
+        s.storage 3 > 0 ∧
+        s.storage 4 > 0 := by
+    exact ⟨by simpa [oracleElapsed, timestamp32, blockTimestampLastSlot] using h_elapsed,
+      by simpa [reserve0Slot] using h_reserve0,
+      by simpa [reserve1Slot] using h_reserve1⟩
+  have h_elapsed_num :
+      0 <
+        (Verity.EVM.Uint256.mod
+          (Verity.EVM.Uint256.sub
+            (Verity.EVM.Uint256.add
+              (Verity.EVM.Uint256.mod s.blockTimestamp 4294967296)
+              4294967296)
+            (s.storage 5))
+          4294967296).val := by
+    simpa [oracleElapsed, timestamp32, blockTimestampLastSlot,
+      uint32Modulus, Verity.Core.Uint256.lt_def] using h_elapsed
+  simp [pair_sync_oracle_elapsed_updates_price_cumulatives,
+    oraclePrice0CumulativeAfterSync, oraclePrice1CumulativeAfterSync,
+    oraclePrice0CumulativeAfterElapsed, oraclePrice1CumulativeAfterElapsed,
+    oraclePrice0Increment, oraclePrice1Increment, oraclePrice0, oraclePrice1,
+    oracleElapsed, timestamp32, blockTimestampLastSlot,
+    reserve0Slot, reserve1Slot, price0CumulativeLastSlot,
+    price1CumulativeLastSlot, uint32Modulus, q112,
+    h_time_changed, h_time_changed_raw, h_time_changed_num, h_time_neq_num,
+    h_elapsed_branch, h_elapsed_branch_raw, h_elapsed_num]
 
 -- tama: discharges=pair_mint_first_expected_refines_closed_world
 theorem mint_first_expected_refines_closed_world (toAddr : Address) (s : ContractState) :

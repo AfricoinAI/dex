@@ -86,6 +86,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   elapsed time is positive and old reserves are nonzero, preserve otherwise, and
   use canonical uint32 timestamp wrap behavior.
 
+  2026-05-16 21:34 PDT checkpoint: Pair now has small public oracle arithmetic
+  specs for the two meaningful reserve-update cases: same-timestamp cumulative
+  immutability, and elapsed fixed-point price-time accumulation with nonzero old
+  reserves. Remaining work is to bridge every concrete public reserve-update
+  path to those arithmetic facts without adding contract helpers.
+
 - [ ] **6. Add flash-swap specs**
 
   Prove callback iff `data` is nonempty, callback revert is atomic, the
@@ -124,5 +130,6 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
 
 - Do not reintroduce formal API parity specs.
 - Do not resurrect old aggregate executable-success plans.
-- Do not make no-elapsed or elapsed branch names part of the public assurance
-  argument; those are proof decomposition details only.
+- Do not add proof-convenience helper functions to the public contract or
+  public ABI. Same-timestamp and elapsed oracle cases are valid public specs
+  when stated as mathematical reserve-update behavior.

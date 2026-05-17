@@ -274,6 +274,61 @@ def pairWorldAfterBurnRun (s : ContractState) : PairWorldState :=
 def timestamp32 (s : ContractState) : Uint256 :=
   Verity.EVM.Uint256.mod s.blockTimestamp uint32Modulus
 
+def oracleElapsed (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.mod
+    (Verity.EVM.Uint256.sub
+      (Verity.EVM.Uint256.add (timestamp32 s) uint32Modulus)
+      (s.storage blockTimestampLastSlot.slot))
+    uint32Modulus
+
+def oraclePrice0 (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.div
+    (Verity.EVM.Uint256.mul (s.storage reserve1Slot.slot) q112)
+    (s.storage reserve0Slot.slot)
+
+def oraclePrice1 (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.div
+    (Verity.EVM.Uint256.mul (s.storage reserve0Slot.slot) q112)
+    (s.storage reserve1Slot.slot)
+
+def oraclePrice0Increment (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.mul (oraclePrice0 s) (oracleElapsed s)
+
+def oraclePrice1Increment (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.mul (oraclePrice1 s) (oracleElapsed s)
+
+def oraclePrice0CumulativeAfterElapsed (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.add
+    (s.storage price0CumulativeLastSlot.slot)
+    (oraclePrice0Increment s)
+
+def oraclePrice1CumulativeAfterElapsed (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.add
+    (s.storage price1CumulativeLastSlot.slot)
+    (oraclePrice1Increment s)
+
+def oraclePrice0CumulativeAfterSync (s : ContractState) : Uint256 :=
+  if (timestamp32 s != s.storage blockTimestampLastSlot.slot) = true then
+    if oracleElapsed s > 0 ∧
+        s.storage reserve0Slot.slot > 0 ∧
+        s.storage reserve1Slot.slot > 0 then
+      oraclePrice0CumulativeAfterElapsed s
+    else
+      s.storage price0CumulativeLastSlot.slot
+  else
+    s.storage price0CumulativeLastSlot.slot
+
+def oraclePrice1CumulativeAfterSync (s : ContractState) : Uint256 :=
+  if (timestamp32 s != s.storage blockTimestampLastSlot.slot) = true then
+    if oracleElapsed s > 0 ∧
+        s.storage reserve0Slot.slot > 0 ∧
+        s.storage reserve1Slot.slot > 0 then
+      oraclePrice1CumulativeAfterElapsed s
+    else
+      s.storage price1CumulativeLastSlot.slot
+  else
+    s.storage price1CumulativeLastSlot.slot
+
 def skimExcess0 (s : ContractState) : Uint256 :=
   Verity.EVM.Uint256.sub (observedBalance0 s) (s.storage reserve0Slot.slot)
 

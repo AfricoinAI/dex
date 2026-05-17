@@ -54,6 +54,11 @@ Pair:
 - `sync` expected-state and success-conditional bridge predicates showing that
   observed balances inside uint112 bounds refine the closed-world sync
   transition when the public run succeeds.
+- TWAP/oracle arithmetic obligations for reserve updates: same-timestamp
+  updates leave cumulative prices unchanged, and elapsed updates with nonzero
+  old reserves add the canonical fixed-point price times elapsed time. The
+  remaining work is to bridge every public reserve-update entrypoint to these
+  oracle arithmetic facts.
 - Closed-world `PairWorldGood` preservation for one step and all finite
   reachable traces, plus finite-path preservation from any good state, reserve
   backing, uint112 reserve bounds, path-wide LP-supply coherence, path-wide
@@ -103,14 +108,15 @@ properties, not API-surface properties.
 - Swap formulas: prove input inference from final balances, exact output
   transfers, fee-adjusted K, raw K nondecrease, lock restoration, events, and
   the closed-world swap transition.
-- TWAP/oracle updates: for every reserve update path, prove cumulative prices
-  increment exactly when elapsed time is positive and old reserves are nonzero,
-  and remain unchanged otherwise.
+- TWAP/oracle updates: extend the current oracle arithmetic obligations to
+  every reserve update path, proving cumulative prices increment exactly when
+  elapsed time is positive and old reserves are nonzero, and remain unchanged
+  otherwise.
 - Flash swaps: prove callback iff `data` is nonempty, callback failure is
   atomic, the lock is held through the callback, and K is checked after callback
   effects.
-- Skim/sync bridge: `sync` still needs public-entrypoint bridge facts for the
-  closed-world transition, uint112 overflow reverts, and TWAP/oracle updates.
+- Skim/sync bridge: `sync` still needs uint112 overflow reverts and a narrow
+  bridge from the public run to the TWAP/oracle arithmetic facts.
 - Ordered revert matrix: cover canonical guard priority for mint, burn, swap,
   skim, sync, and factory, with exact revert payload/state.
 - Sequence-level economics: strengthen the conditional mint/burn/swap bridge

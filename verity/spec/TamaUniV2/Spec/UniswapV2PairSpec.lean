@@ -588,6 +588,38 @@ def pair_sync_success_run_refines_closed_world
             (pairWorldFromConcreteState s)
             (pairWorldAfterSyncRun s)
 
+/-!
+Oracle/TWAP arithmetic for reserve updates.
+
+The pair's cumulative prices are not a separate asset ledger; they are an
+accounting consequence of a reserve update. These obligations pin that rule in
+small pieces. If the 32-bit timestamp has not advanced, the cumulative prices
+are unchanged. If time has advanced and both old reserves are nonzero, each
+cumulative price increases by the canonical Uniswap V2 fixed-point price times
+the elapsed time. The executable `sync` bridge above already ties the public
+entrypoint to the closed-world reserve transition; these claims isolate the
+oracle arithmetic that every reserve-update proof should reuse.
+-/
+
+def pair_sync_oracle_same_timestamp_keeps_price_cumulatives
+    (s : ContractState) : Prop :=
+  timestamp32 s = s.storage blockTimestampLastSlot.slot →
+    oraclePrice0CumulativeAfterSync s =
+      s.storage price0CumulativeLastSlot.slot ∧
+    oraclePrice1CumulativeAfterSync s =
+      s.storage price1CumulativeLastSlot.slot
+
+def pair_sync_oracle_elapsed_updates_price_cumulatives
+    (s : ContractState) : Prop :=
+  (timestamp32 s != s.storage blockTimestampLastSlot.slot) = true →
+    oracleElapsed s > 0 →
+      s.storage reserve0Slot.slot > 0 →
+        s.storage reserve1Slot.slot > 0 →
+          oraclePrice0CumulativeAfterSync s =
+            oraclePrice0CumulativeAfterElapsed s ∧
+          oraclePrice1CumulativeAfterSync s =
+            oraclePrice1CumulativeAfterElapsed s
+
 def pair_mint_first_expected_refines_closed_world
     (toAddr : Address) (s : ContractState) : Prop :=
   let amount0 := mintAmount0 s
