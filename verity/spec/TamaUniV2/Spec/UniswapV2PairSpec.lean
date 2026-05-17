@@ -1321,6 +1321,35 @@ def pair_closed_world_reachable_no_burn_path_never_decreases_supply
     PairWorldPathNoBurn before after →
       before.totalSupply ≤ after.totalSupply
 
+/-- The other direction of LP-supply isolation. A single successful modeled
+action that is not mint cannot create LP supply. Burn may redeem shares and
+ordinary pool operations may leave supply unchanged, but issuance is isolated to
+mint. -/
+def pair_closed_world_non_mint_step_never_increases_supply
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldStep action before after →
+    (∀ amount0 amount1 liquidity,
+      action ≠ PairWorldAction.mint amount0 amount1 liquidity) →
+      after.totalSupply ≤ before.totalSupply
+
+/-- The finite-history version of LP issuance isolation. Along any successful
+modeled history with no mint step, total LP supply cannot increase. This is the
+trace-level statement that new LP claims require mint. -/
+def pair_closed_world_no_mint_path_never_increases_supply
+    (before after : PairWorldState) : Prop :=
+  PairWorldPathNoMint before after →
+    after.totalSupply ≤ before.totalSupply
+
+/-- Reader-facing reachable form: from any reachable pool state, every finite
+successful no-mint history preserves or decreases LP supply. Together with the
+no-burn theorem, this pins LP supply movement to the two liquidity entrypoints:
+mint creates shares and burn redeems them. -/
+def pair_closed_world_reachable_no_mint_path_never_increases_supply
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPathNoMint before after →
+      after.totalSupply ≤ before.totalSupply
+
 def pair_closed_world_approve_preserves_pool
     (ownerAddr spender : Address) (amount : Nat)
     (before after : PairWorldState) : Prop :=

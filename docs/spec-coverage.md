@@ -81,7 +81,8 @@ Pair:
   total LP supply and locked liquidity exactly. The same layer also covers the
   one-step LP-supply firewall for any action other than mint or burn, one-step
   and finite-history supply-direction invariants showing no-burn histories
-  cannot decrease LP supply, path-wide LP-supply coherence,
+  cannot decrease LP supply and no-mint histories cannot increase LP supply,
+  path-wide LP-supply coherence,
   path-wide locked-liquidity coverage,
   share-only action framing, reserve-update projections for
   mint/burn/swap/skim/sync, raw swap-K nondecrease, fee-adjusted K projection
