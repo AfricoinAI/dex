@@ -414,6 +414,19 @@ def factory_closed_world_same_count_path_preserves_pair_list
     before.pairCount = after.pairCount →
       after.pairs = before.pairs
 
+/-- Same-count histories preserve the factory behavior routers actually see.
+If a finite successful factory history leaves pair count unchanged, every
+unordered token lookup is identical before and after the history. This is the
+lookup-level version of "no hidden overwrite, no hidden deletion, no hidden
+reorder." -/
+def factory_closed_world_same_count_path_preserves_all_lookups
+    (before after : FactoryWorldState) : Prop :=
+  FactoryWorldPath before after →
+    before.pairCount = after.pairCount →
+      ∀ tokenA tokenB pair,
+        FactoryWorldContainsPair after tokenA tokenB pair ↔
+          FactoryWorldContainsPair before tokenA tokenB pair
+
 def factory_closed_world_length_matches_created_pairs
     (w : FactoryWorldState) : Prop :=
   FactoryWorldReachable w →

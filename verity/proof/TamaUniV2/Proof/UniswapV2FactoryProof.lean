@@ -836,6 +836,21 @@ theorem closed_world_same_count_path_preserves_pair_list
   rw [h_pairs, h_suffix_nil]
   simp
 
+-- tama: discharges=factory_closed_world_same_count_path_preserves_all_lookups
+theorem closed_world_same_count_path_preserves_all_lookups
+    (before after : FactoryWorldState) :
+  factory_closed_world_same_count_path_preserves_all_lookups before after := by
+  intro h_path h_same_count tokenA tokenB pair
+  have h_pairs :
+      after.pairs = before.pairs :=
+    closed_world_same_count_path_preserves_pair_list before after
+      h_path h_same_count
+  constructor
+  · intro h_contains
+    simpa [FactoryWorldContainsPair, h_pairs] using h_contains
+  · intro h_contains
+    simpa [FactoryWorldContainsPair, h_pairs] using h_contains
+
 -- tama: discharges=factory_closed_world_length_matches_created_pairs
 theorem closed_world_length_matches_created_pairs
     (w : FactoryWorldState) :

@@ -146,9 +146,10 @@ Factory:
   reachable lookup validity for distinct nonzero token pairs and nonzero pair
   addresses, unordered token-pair address uniqueness,
   append-only creation, append-only finite histories, pair-count monotonicity,
-  same-count histories preserving the pair array, preservation of existing
-  pairs, reader-facing reachable lookup stability, pair-count/list length
-  consistency, and path-level preservation from any good factory state.
+  same-count histories preserving the pair array and all unordered lookups,
+  preservation of existing pairs, reader-facing reachable lookup stability,
+  pair-count/list length consistency, and path-level preservation from any good
+  factory state.
 
 ## Current Spec Work
 

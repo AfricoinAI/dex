@@ -303,6 +303,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   overwrite or reorder" a direct spec instead of an inference from append-only
   machinery.
 
+  2026-05-17 02:52 PDT checkpoint: adding the router-facing same-count lookup
+  corollary. If pair count is unchanged across a successful factory history,
+  every unordered token lookup is identical before and after, making the
+  no-hidden-change argument visible at the `getPair` level.
+
 - [ ] **10. Verify and commit in coherent slices**
 
   After each slice run focused `lake build`. Before claiming completion run
