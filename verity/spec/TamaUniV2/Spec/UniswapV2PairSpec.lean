@@ -194,17 +194,20 @@ def pair_sync_revert_keeps_pair_state
 /-!
 ## Local Entry Points
 
-These properties are executable Lean obligations over the source model.
-Entrypoints that read token balances or make callbacks are proved by combining
-pair-local storage facts, explicit external-boundary assumptions, and the
-closed-world economic invariants below.
+This layer is about the pair's local authority and LP-token accounting before
+we talk about AMM economics.
 
-Initialization is one-shot and factory-only. LP-token approvals and transfers
-then follow the usual ERC20-style rules: approve only writes allowance, transfer
-and transferFrom conserve total supply, finite allowances are spent, infinite
-allowances remain infinite, and successful movements emit Transfer/Approval.
+The reader should be able to check three things from this section. First,
+initialization is factory-only and one-shot, so the pair's token identity cannot
+be changed after creation. Second, LP-token approval and transfer behavior is
+ordinary ERC20 accounting: balances move only on transfer, total supply does not
+move, finite allowances are consumed, max allowance is stable, and events are
+present. Third, the result-parameter guard specs give reusable branch facts for
+the exact-run obligations that follow.
 -/
 
+/-- Initialization either rejects non-factory callers, rejects a second
+initialization, or records the two token addresses exactly once. -/
 def pair_initialize_reverts_for_non_factory
     (token0Value token1Value : Address) (s : ContractState)
     (result : ContractResult Unit) : Prop :=
@@ -229,6 +232,8 @@ def pair_initialize_sets_tokens
         result.snd.storageAddr token0Slot.slot = token0Value ∧
         result.snd.storageAddr token1Slot.slot = token1Value
 
+/-- Approval is intentionally narrow: it returns true, writes exactly one
+allowance cell, preserves all LP balances and total supply, and emits Approval. -/
 def pair_approve_succeeds
     (spender : Address) (amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
@@ -254,6 +259,9 @@ def pair_approve_emits_approval
     (result : ContractResult Bool) : Prop :=
   pairTraceContains (pairLpApprovalEvent s.sender spender amount) result.snd.events
 
+/-- Direct LP transfers are conservation statements. They either reject an
+underfunded sender or overflowed recipient, leave self-transfers unchanged, or
+move exactly `amount` between two distinct LP balances while preserving supply. -/
 def pair_transfer_reverts_when_balance_low
     (toAddr : Address) (amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
@@ -303,6 +311,9 @@ def pair_transfer_emits_transfer
           Verity.Stdlib.Math.MAX_UINT256)) →
       pairTraceContains (pairLpTransferEvent s.sender toAddr amount) result.snd.events
 
+/-- Delegated LP transfers add the allowance dimension to the same conservation
+story. The source balance still pays, the recipient still receives exactly the
+amount, finite allowance is spent, and max allowance remains max. -/
 def pair_transferFrom_reverts_when_allowance_low
     (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
@@ -386,6 +397,9 @@ def pair_transferFrom_emits_transfer
             Verity.Stdlib.Math.MAX_UINT256)) →
         pairTraceContains (pairLpTransferEvent fromAddr toAddr amount) result.snd.events
 
+/-- The following adapter specs name common failure branches with an explicit
+result parameter. Exact-run specs below reuse these small facts when the proof
+needs to reduce a concrete entrypoint call. -/
 def pair_mint_reverts_when_locked
     (toAddr : Address) (s : ContractState) (result : ContractResult Uint256) : Prop :=
   s.storage unlockedSlot.slot != 1 →
@@ -428,13 +442,15 @@ def pair_sync_reverts_when_locked
 /-!
 ## Exact Guard Runs
 
-The public obligation mentions the actual entrypoint run result, not a
-separately supplied result value. The older `result`-parameter specs above are
-kept as small reusable adapters.
+This section pins the contract's failure boundaries to exact executable runs.
+Each statement has the same shape: once the hypotheses establish that earlier
+guards have either failed or passed in the intended order, the actual public
+entrypoint returns the canonical revert string and the pre-call state.
 
-These are branch-specific: each spec states that, once earlier guards required
-by its hypotheses have passed, the named guard produces the exact canonical
-revert payload and original-state frame.
+These are intentionally branch facts rather than full function summaries. They
+are useful because guard order is security-relevant: before any ERC20 transfer,
+callback, reserve update, or LP accounting write can become durable, the
+matching public entrypoint must fail with the expected reason and frame.
 -/
 
 def pair_initialize_run_revert_non_factory
@@ -564,6 +580,16 @@ def pair_skim_run_revert_balance1_below_reserve
     observedBalance1 s < s.storage reserve1Slot.slot →
       (skim toAddr).run s =
         ContractResult.revert "UniswapV2: INSUFFICIENT_BALANCE" s
+
+/-!
+## Skim And Sync Bridges
+
+`skim` and `sync` are the smallest reserve-management entrypoints. Skim sends
+only balances above cached reserves and leaves reserves unchanged. Sync accepts
+the observed balances as the new reserves, but only if they fit the uint112
+reserve domain. These bridge specs connect those executable calls to the
+closed-world transition model used by the invariant section.
+-/
 
 def pair_skim_run_success_transfers_excess_and_restores_unlocked
     (toAddr : Address) (s : ContractState) : Prop :=
@@ -699,6 +725,17 @@ def pair_flash_callback_module_gates_nonempty_data : Prop :=
             (Compiler.Yul.YulExpr.call "gt"
               [Compiler.Yul.YulExpr.ident "data_length", Compiler.Yul.YulExpr.lit 0])
             body]
+
+/-!
+## Mint, Burn, And Swap Bridges
+
+The closed-world model below is where the main invariant and economic theorems
+live. These bridge specs are the narrow doorway from executable public calls to
+that model: if a real call succeeds and exposes the expected arithmetic facts,
+then the corresponding `PairWorldStep` is available. The public specs stay
+short on purpose. They do not copy the whole function body; they connect one
+entrypoint to one modeled economic transition.
+-/
 
 def pair_mint_first_expected_refines_closed_world
     (toAddr : Address) (s : ContractState) : Prop :=
