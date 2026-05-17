@@ -2170,6 +2170,90 @@ private theorem pairWorldNoMintPath_never_increases_supply
         (pairWorldNonMintStep_never_increases_supply h_step h_not_mint)
         ih
 
+private theorem pairWorldStep_locked_liquidity_never_decreases
+    {action : PairWorldAction} {before after : PairWorldState} :
+  PairWorldGood before →
+    PairWorldStep action before after →
+      before.lockedLiquidity ≤ after.lockedLiquidity := by
+  intro h_good h_step
+  cases action with
+  | approve ownerAddr spender amount =>
+      simp [PairWorldStep] at h_step
+      subst after
+      rfl
+  | transfer fromAddr toAddr amount =>
+      simp [PairWorldStep] at h_step
+      subst after
+      rfl
+  | transferFrom spender fromAddr toAddr amount =>
+      simp [PairWorldStep] at h_step
+      subst after
+      rfl
+  | donate amount0 amount1 =>
+      simp [PairWorldStep] at h_step
+      rcases h_step with ⟨_h_balance0, _h_balance1, _h_reserve0, _h_reserve1,
+        _h_supply, h_locked⟩
+      rw [h_locked]
+  | mint amount0 amount1 liquidity =>
+      rcases h_good with ⟨_h_back0, _h_back1, _h_bound0, _h_bound1,
+        h_supply_good⟩
+      simp [PairWorldStep, PairWorldMintStep] at h_step
+      rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity,
+        _h_before_balance0, _h_before_balance1, _h_after_balance0,
+        _h_after_balance1, _h_after_reserve0, _h_after_reserve1, _h_bound0,
+        _h_bound1, _h_supply, h_locked, _h_ratio⟩
+      by_cases h_zero : before.totalSupply = 0
+      · have h_locked_before : before.lockedLiquidity = 0 := by
+          rcases h_supply_good with h_empty | h_nonempty
+          · exact h_empty.2
+          · exact False.elim ((Nat.ne_of_gt h_nonempty.1) h_zero)
+        rw [h_locked_before, h_locked, if_pos h_zero]
+        exact Nat.zero_le _
+      · rw [h_locked, if_neg h_zero]
+  | burn amount0 amount1 liquidity =>
+      simp [PairWorldStep, PairWorldBurnStep] at h_step
+      rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity,
+        _h_supply_pos, _h_amount0_le, _h_amount1_le, _h_liquidity_le,
+        _h_locked_remaining, _h_balance0, _h_balance1, _h_reserve0,
+        _h_reserve1, _h_bound0, _h_bound1, _h_supply, h_locked, _h_ratio0,
+        _h_ratio1⟩
+      rw [h_locked]
+  | swap amount0In amount1In amount0Out amount1Out =>
+      simp [PairWorldStep, PairWorldSwapStep] at h_step
+      rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0,
+        _h_enough1, _h_input, _h_balance0, _h_balance1, _h_reserve0,
+        _h_reserve1, _h_bound0, _h_bound1, _h_supply, h_locked, _h_fee0,
+        _h_fee1, _h_adjusted_k, _h_raw_k⟩
+      rw [h_locked]
+  | skim =>
+      simp [PairWorldStep, PairWorldSkimStep] at h_step
+      rcases h_step with ⟨_h_balance0, _h_balance1, _h_reserve0, _h_reserve1,
+        _h_supply, h_locked⟩
+      rw [h_locked]
+  | sync =>
+      simp [PairWorldStep, PairWorldSyncStep] at h_step
+      rcases h_step with ⟨_h_bound0, _h_bound1, _h_balance0, _h_balance1,
+        _h_reserve0, _h_reserve1, _h_supply, h_locked⟩
+      rw [h_locked]
+
+private theorem pairWorldPath_locked_liquidity_never_decreases
+    {before after : PairWorldState} :
+  PairWorldGood before →
+    PairWorldPath before after →
+      before.lockedLiquidity ≤ after.lockedLiquidity := by
+  intro h_good h_path
+  revert h_good
+  induction h_path with
+  | refl =>
+      intro _h_good
+      rfl
+  | step action h_prefix h_step ih =>
+      intro h_good
+      have h_good_before := pairWorldPath_preserves_good h_good h_prefix
+      exact Nat.le_trans
+        (ih h_good)
+        (pairWorldStep_locked_liquidity_never_decreases h_good_before h_step)
+
 private theorem pairWorldNonBurnStep_never_decreases_k
     {action : PairWorldAction} {before after : PairWorldState} :
   PairWorldGood before →
@@ -2699,6 +2783,26 @@ theorem closed_world_reachable_path_minimum_liquidity_lock
   intro h_reachable h_path
   exact (pairWorldPath_preserves_good
     (pairWorldReachable_good before h_reachable) h_path).2.2.2.2
+
+-- tama: discharges=pair_closed_world_step_locked_liquidity_never_decreases
+theorem closed_world_step_locked_liquidity_never_decreases
+    (action : PairWorldAction) (before after : PairWorldState) :
+  pair_closed_world_step_locked_liquidity_never_decreases action before after := by
+  exact pairWorldStep_locked_liquidity_never_decreases
+
+-- tama: discharges=pair_closed_world_path_locked_liquidity_never_decreases
+theorem closed_world_path_locked_liquidity_never_decreases
+    (before after : PairWorldState) :
+  pair_closed_world_path_locked_liquidity_never_decreases before after := by
+  exact pairWorldPath_locked_liquidity_never_decreases
+
+-- tama: discharges=pair_closed_world_reachable_path_locked_liquidity_never_decreases
+theorem closed_world_reachable_path_locked_liquidity_never_decreases
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_path_locked_liquidity_never_decreases before after := by
+  intro h_reachable h_path
+  exact pairWorldPath_locked_liquidity_never_decreases
+    (pairWorldReachable_good before h_reachable) h_path
 
 -- tama: discharges=pair_closed_world_supply_changes_only_on_mint_or_burn
 theorem closed_world_supply_changes_only_on_mint_or_burn

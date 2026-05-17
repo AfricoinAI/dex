@@ -1250,6 +1250,33 @@ def pair_closed_world_reachable_path_minimum_liquidity_lock
           after.lockedLiquidity = minimumLiquidityNat ∧
           minimumLiquidityNat ≤ after.totalSupply)
 
+/-- "Permanent" liquidity is monotone. From a good modeled state, a successful
+single action can establish the locked floor on first mint or preserve the
+current lock, but it cannot reduce the locked amount. -/
+def pair_closed_world_step_locked_liquidity_never_decreases
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep action before after →
+      before.lockedLiquidity ≤ after.lockedLiquidity
+
+/-- The finite-history version of permanent locked liquidity. Starting from a
+good pool model, no successful sequence can unwind the locked floor. -/
+def pair_closed_world_path_locked_liquidity_never_decreases
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldPath before after →
+      before.lockedLiquidity ≤ after.lockedLiquidity
+
+/-- Reader-facing reachable form: in every reachable pool history, the locked
+liquidity amount is monotone. Once the first mint installs
+`MINIMUM_LIQUIDITY`, later mint, burn, swap, skim, sync, donation, and share
+bookkeeping actions cannot reduce it. -/
+def pair_closed_world_reachable_path_locked_liquidity_never_decreases
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPath before after →
+      before.lockedLiquidity ≤ after.lockedLiquidity
+
 def pair_closed_world_supply_changes_only_on_mint_or_burn
     (action : PairWorldAction) (before after : PairWorldState) : Prop :=
   PairWorldStep action before after →

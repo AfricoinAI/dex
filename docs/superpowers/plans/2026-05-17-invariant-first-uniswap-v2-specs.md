@@ -99,6 +99,10 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   supply, and therefore every finite successful no-mint history preserves or
   decreases total LP supply.
 
+  2026-05-17 03:17 PDT checkpoint: adding locked-liquidity monotonicity. From
+  any good/reachable PairWorld state, successful modeled histories cannot
+  reduce the permanently locked liquidity amount.
+
   2026-05-17 01:43 PDT checkpoint: added the reader-facing no-liquidity
   no-extraction corollary. Reachable paths with no mint and no burn now prove
   no spot-value extraction directly by combining unchanged LP supply with the

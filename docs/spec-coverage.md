@@ -78,7 +78,9 @@ Pair:
   remain nonempty, that reachable nonempty pools have positive reserves on both
   token sides and preserve those positive reserves across finite successful
   histories, and that finite histories containing no mint and no burn preserve
-  total LP supply and locked liquidity exactly. The same layer also covers the
+  total LP supply and locked liquidity exactly. Locked liquidity is also proved
+  monotone from good/reachable states: once established, finite successful
+  histories cannot reduce it. The same layer also covers the
   one-step LP-supply firewall for any action other than mint or burn, one-step
   and finite-history supply-direction invariants showing no-burn histories
   cannot decrease LP supply and no-mint histories cannot increase LP supply,
