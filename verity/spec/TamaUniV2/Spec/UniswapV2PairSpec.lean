@@ -1020,11 +1020,27 @@ def pair_closed_world_subsequent_mint_preserves_locked_liquidity
       after.lockedLiquidity = before.lockedLiquidity ∧
       after.totalSupply = before.totalSupply + liquidity
 
+/-- Every valid mint creates positive user liquidity, and the first mint also
+locks `MINIMUM_LIQUIDITY`; either way total LP supply strictly increases. -/
+def pair_closed_world_mint_strictly_increases_supply
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+    before.totalSupply < after.totalSupply
+
 def pair_closed_world_burn_reduces_supply_by_liquidity
     (amount0 amount1 liquidity : Nat)
     (before after : PairWorldState) : Prop :=
   PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
     after.totalSupply = before.totalSupply - liquidity
+
+/-- Burning destroys LP liquidity. The exact reduction is specified separately;
+this consequence says no burn can increase total LP supply. -/
+def pair_closed_world_burn_never_increases_supply
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+    after.totalSupply ≤ before.totalSupply
 
 def pair_closed_world_burn_cannot_redeem_locked_liquidity
     (amount0 amount1 liquidity : Nat)

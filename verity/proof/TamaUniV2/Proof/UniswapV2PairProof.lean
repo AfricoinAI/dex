@@ -2401,6 +2401,25 @@ theorem closed_world_subsequent_mint_preserves_locked_liquidity
   simp [h_totalSupply_ne] at h_supply h_locked
   exact ⟨h_locked, h_supply⟩
 
+-- tama: discharges=pair_closed_world_mint_strictly_increases_supply
+theorem closed_world_mint_strictly_increases_supply
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_mint_strictly_increases_supply
+    amount0 amount1 liquidity before after := by
+  intro h_step
+  simp [PairWorldStep, PairWorldMintStep] at h_step
+  rcases h_step with ⟨_h_amount0, _h_amount1, h_liquidity, _h_before_balance0,
+    _h_before_balance1, _h_after_balance0, _h_after_balance1, _h_after_reserve0,
+    _h_after_reserve1, _h_bound0, _h_bound1, h_supply, _h_locked, _h_ratio⟩
+  by_cases h_first : before.totalSupply = 0
+  · simp [h_first] at h_supply
+    rw [h_supply, h_first]
+    omega
+  · simp [h_first] at h_supply
+    rw [h_supply]
+    omega
+
 -- tama: discharges=pair_closed_world_burn_reduces_supply_by_liquidity
 theorem closed_world_burn_reduces_supply_by_liquidity
     (amount0 amount1 liquidity : Nat)
@@ -2413,6 +2432,20 @@ theorem closed_world_burn_reduces_supply_by_liquidity
     _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0, _h_bound1,
     h_supply, _h_locked, _h_ratio0, _h_ratio1⟩
   exact h_supply
+
+-- tama: discharges=pair_closed_world_burn_never_increases_supply
+theorem closed_world_burn_never_increases_supply
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_burn_never_increases_supply
+    amount0 amount1 liquidity before after := by
+  intro h_step
+  simp [PairWorldStep, PairWorldBurnStep] at h_step
+  rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, _h_locked_remaining,
+    _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0, _h_bound1,
+    h_supply, _h_locked, _h_ratio0, _h_ratio1⟩
+  rw [h_supply]
+  exact Nat.sub_le before.totalSupply liquidity
 
 -- tama: discharges=pair_closed_world_burn_cannot_redeem_locked_liquidity
 theorem closed_world_burn_cannot_redeem_locked_liquidity
