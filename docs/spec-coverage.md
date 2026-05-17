@@ -116,8 +116,9 @@ Factory:
 - Closed-world factory model for finite successful create histories, proving
   sorted nonzero pair entries, sorted-pair uniqueness, symmetric membership,
   unordered token-pair address uniqueness,
-  append-only creation, preservation of existing pairs, pair-count/list length
-  consistency, and path-level preservation from any good factory state.
+  append-only creation, append-only finite histories, preservation of existing
+  pairs, pair-count/list length consistency, and path-level preservation from
+  any good factory state.
 
 ## Current Spec Work
 

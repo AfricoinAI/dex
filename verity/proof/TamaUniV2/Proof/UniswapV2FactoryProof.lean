@@ -579,6 +579,36 @@ private theorem factoryWorldPath_preserves_existing_pair
           rw [h_pairs]
           exact List.mem_append_left _ h_entry
 
+private theorem factoryWorldPath_append_only
+    {before after : FactoryWorldState} :
+  FactoryWorldPath before after →
+    ∃ suffix,
+      after.pairs = before.pairs ++ suffix ∧
+      after.pairCount = before.pairCount + suffix.length := by
+  intro h_path
+  induction h_path with
+  | refl =>
+      refine ⟨[], ?_, ?_⟩
+      · simp
+      · simp
+  | step action h_prefix h_step ih =>
+      cases action with
+      | createPair tokenA tokenB pair =>
+          rcases ih with ⟨suffix, h_pairs_prefix, h_count_prefix⟩
+          simp [FactoryWorldStep, FactoryWorldCreatePairStep] at h_step
+          rcases h_step with ⟨_h_distinct, _h_tokenA_nonzero, _h_tokenB_nonzero,
+            _h_token_order, _h_new_good, _h_absent, h_pairs_step, h_count_step⟩
+          refine ⟨suffix ++ [{
+              token0 := factoryToken0 tokenA tokenB
+              token1 := factoryToken1 tokenA tokenB
+              pair := pair
+            }], ?_, ?_⟩
+          · rw [h_pairs_step, h_pairs_prefix]
+            simp [List.append_assoc]
+          · rw [h_count_step, h_count_prefix]
+            simp
+            omega
+
 -- tama: discharges=factory_closed_world_step_preserves_good
 theorem closed_world_step_preserves_good
     (action : FactoryWorldAction)
@@ -743,6 +773,12 @@ theorem closed_world_path_preserves_existing_pairs
   factory_closed_world_path_preserves_existing_pairs
     existing0 existing1 existingPair before after := by
   exact factoryWorldPath_preserves_existing_pair
+
+-- tama: discharges=factory_closed_world_path_is_append_only
+theorem closed_world_path_is_append_only
+    (before after : FactoryWorldState) :
+  factory_closed_world_path_is_append_only before after := by
+  exact factoryWorldPath_append_only
 
 -- tama: discharges=factory_closed_world_length_matches_created_pairs
 theorem closed_world_length_matches_created_pairs

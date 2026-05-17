@@ -353,6 +353,18 @@ def factory_closed_world_path_preserves_existing_pairs
     FactoryWorldPath before after →
       FactoryWorldContainsPair after existing0 existing1 existingPair
 
+/-- The factory pair array is append-only over every finite successful history.
+There is always some suffix of newly created pairs such that the final array is
+the initial array followed by that suffix, and the public pair count advances by
+exactly the suffix length. This is the global version of "create does not
+overwrite or reorder existing pairs." -/
+def factory_closed_world_path_is_append_only
+    (before after : FactoryWorldState) : Prop :=
+  FactoryWorldPath before after →
+    ∃ suffix,
+      after.pairs = before.pairs ++ suffix ∧
+      after.pairCount = before.pairCount + suffix.length
+
 def factory_closed_world_length_matches_created_pairs
     (w : FactoryWorldState) : Prop :=
   FactoryWorldReachable w →

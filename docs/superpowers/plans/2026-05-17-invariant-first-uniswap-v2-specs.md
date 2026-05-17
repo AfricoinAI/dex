@@ -190,6 +190,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   most one pair address. This is a short consequence of sorted entries plus the
   no-duplicate invariant, but it reads like the router-facing guarantee.
 
+  2026-05-17 00:33 PDT checkpoint: added an append-only finite-history theorem.
+  Any factory path has a suffix of newly created pairs such that the final
+  public pair list equals the initial list followed by that suffix, and pair
+  count increases by exactly the suffix length.
+
 - [ ] **10. Verify and commit in coherent slices**
 
   After each slice run focused `lake build`. Before claiming completion run
