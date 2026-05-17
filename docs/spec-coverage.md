@@ -71,7 +71,9 @@ Pair:
   successful modeled history ends with cached reserves backed by actual token
   balances. Matching reader-facing finite-trace theorems now also state that
   every such history keeps cached reserves inside the uint112 reserve domain and
-  preserves the minimum-liquidity lock shape. The same layer also covers
+  preserves the minimum-liquidity lock shape, that reachable nonempty pools
+  remain nonempty, and that finite histories containing no mint and no burn
+  preserve total LP supply and locked liquidity exactly. The same layer also covers
   path-wide LP-supply coherence, path-wide locked-liquidity coverage,
   share-only action framing, reserve-update projections for
   mint/burn/swap/skim/sync, raw swap-K nondecrease, fee-adjusted K projection

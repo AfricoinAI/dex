@@ -1881,6 +1881,56 @@ private theorem pairWorldPath_of_noBurn
   | step action h_prefix h_step _h_not_burn ih =>
       exact PairWorldPath.step action ih h_step
 
+private theorem pairWorldNoMintBurnPath_preserves_supply
+    {before after : PairWorldState} :
+  PairWorldPathNoMintBurn before after →
+    after.totalSupply = before.totalSupply ∧
+    after.lockedLiquidity = before.lockedLiquidity := by
+  intro h_path
+  induction h_path with
+  | refl =>
+      exact ⟨rfl, rfl⟩
+  | step action h_prefix h_step h_not_mint h_not_burn ih =>
+      cases action with
+      | approve ownerAddr spender amount =>
+          simp [PairWorldStep] at h_step
+          rw [h_step]
+          exact ih
+      | transfer fromAddr toAddr amount =>
+          simp [PairWorldStep] at h_step
+          rw [h_step]
+          exact ih
+      | transferFrom spender fromAddr toAddr amount =>
+          simp [PairWorldStep] at h_step
+          rw [h_step]
+          exact ih
+      | donate amount0 amount1 =>
+          simp [PairWorldStep] at h_step
+          rcases h_step with ⟨_h_balance0, _h_balance1, _h_reserve0,
+            _h_reserve1, h_supply, h_locked⟩
+          exact ⟨h_supply.trans ih.1, h_locked.trans ih.2⟩
+      | mint amount0 amount1 liquidity =>
+          exact False.elim (h_not_mint amount0 amount1 liquidity rfl)
+      | burn amount0 amount1 liquidity =>
+          exact False.elim (h_not_burn amount0 amount1 liquidity rfl)
+      | swap amount0In amount1In amount0Out amount1Out =>
+          simp [PairWorldStep, PairWorldSwapStep] at h_step
+          rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0,
+            _h_enough1, _h_input, _h_balance0, _h_balance1, _h_reserve0,
+            _h_reserve1, _h_bound0, _h_bound1, h_supply, h_locked, _h_fee0,
+            _h_fee1, _h_adjusted_k, _h_raw_k⟩
+          exact ⟨h_supply.trans ih.1, h_locked.trans ih.2⟩
+      | skim =>
+          simp [PairWorldStep, PairWorldSkimStep] at h_step
+          rcases h_step with ⟨_h_balance0, _h_balance1, _h_reserve0,
+            _h_reserve1, h_supply, h_locked⟩
+          exact ⟨h_supply.trans ih.1, h_locked.trans ih.2⟩
+      | sync =>
+          simp [PairWorldStep, PairWorldSyncStep] at h_step
+          rcases h_step with ⟨_h_bound0, _h_bound1, _h_balance0, _h_balance1,
+            _h_reserve0, _h_reserve1, h_supply, h_locked⟩
+          exact ⟨h_supply.trans ih.1, h_locked.trans ih.2⟩
+
 private theorem pairWorldNonBurnStep_never_decreases_k
     {action : PairWorldAction} {before after : PairWorldState} :
   PairWorldGood before →
@@ -2455,6 +2505,19 @@ theorem closed_world_supply_changes_only_on_mint_or_burn
       rcases h_step with ⟨_h_bound0, _h_bound1, _h_balance0, _h_balance1,
         _h_reserve0, _h_reserve1, h_supply, _h_locked⟩
       exact False.elim (h_change h_supply)
+
+-- tama: discharges=pair_closed_world_no_mint_burn_path_preserves_supply
+theorem closed_world_no_mint_burn_path_preserves_supply
+    (before after : PairWorldState) :
+  pair_closed_world_no_mint_burn_path_preserves_supply before after := by
+  exact pairWorldNoMintBurnPath_preserves_supply
+
+-- tama: discharges=pair_closed_world_reachable_no_mint_burn_path_preserves_supply
+theorem closed_world_reachable_no_mint_burn_path_preserves_supply
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_no_mint_burn_path_preserves_supply before after := by
+  intro _h_reachable h_path
+  exact pairWorldNoMintBurnPath_preserves_supply h_path
 
 -- tama: discharges=pair_closed_world_approve_preserves_pool
 theorem closed_world_approve_preserves_pool

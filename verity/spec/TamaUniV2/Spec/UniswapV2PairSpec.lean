@@ -1139,6 +1139,25 @@ def pair_closed_world_supply_changes_only_on_mint_or_burn
       (∃ amount0 amount1 liquidity,
         action = PairWorldAction.burn amount0 amount1 liquidity)
 
+/-- The finite-history version of the LP supply firewall. If a successful
+modeled path contains no mint and no burn, then it cannot change total LP supply
+or the permanently locked liquidity amount. -/
+def pair_closed_world_no_mint_burn_path_preserves_supply
+    (before after : PairWorldState) : Prop :=
+  PairWorldPathNoMintBurn before after →
+    after.totalSupply = before.totalSupply ∧
+    after.lockedLiquidity = before.lockedLiquidity
+
+/-- Reachable-state form of the same supply firewall. Starting from any
+reachable pool, every finite successful history made only of share transfers,
+approvals, donations, swaps, skim, and sync preserves LP supply exactly. -/
+def pair_closed_world_reachable_no_mint_burn_path_preserves_supply
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPathNoMintBurn before after →
+      after.totalSupply = before.totalSupply ∧
+      after.lockedLiquidity = before.lockedLiquidity
+
 def pair_closed_world_approve_preserves_pool
     (ownerAddr spender : Address) (amount : Nat)
     (before after : PairWorldState) : Prop :=

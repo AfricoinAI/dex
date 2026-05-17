@@ -79,6 +79,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   successful modeled history remains nonempty, making the minimum-liquidity
   argument explicit at the trace level.
 
+  2026-05-17 01:38 PDT checkpoint: added the finite-history LP supply
+  firewall. A path containing no mint and no burn preserves total LP supply and
+  locked liquidity exactly, with a reachable reader-facing theorem for the same
+  statement.
+
 - [x] **3. Strengthen action transitions**
 
   Add concise specs for each action family:
