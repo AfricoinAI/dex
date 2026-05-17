@@ -4326,6 +4326,16 @@ theorem closed_world_skim_removes_surplus
     _h_supply, _h_locked⟩
   exact ⟨h_balance0, h_balance1, h_reserve0, h_reserve1⟩
 
+-- tama: discharges=pair_closed_world_skim_eliminates_surplus
+theorem closed_world_skim_eliminates_surplus
+    (before after : PairWorldState) :
+  pair_closed_world_skim_eliminates_surplus before after := by
+  intro h_step
+  have h_remove := closed_world_skim_removes_surplus before after h_step
+  unfold PairWorldSurplus0 PairWorldSurplus1
+  rw [h_remove.1, h_remove.2.1, h_remove.2.2.1, h_remove.2.2.2]
+  exact ⟨Nat.sub_self before.reserve0, Nat.sub_self before.reserve1⟩
+
 -- tama: discharges=pair_closed_world_skim_preserves_liquidity_supply
 theorem closed_world_skim_preserves_liquidity_supply
     (before after : PairWorldState) :
@@ -4362,6 +4372,16 @@ theorem closed_world_sync_sets_reserves_to_balances
   rcases h_step with ⟨_h_bound0, _h_bound1, h_balance0, h_balance1,
     h_reserve0, h_reserve1, _h_supply, _h_locked⟩
   exact ⟨h_reserve0, h_reserve1, h_balance0, h_balance1⟩
+
+-- tama: discharges=pair_closed_world_sync_eliminates_surplus
+theorem closed_world_sync_eliminates_surplus
+    (before after : PairWorldState) :
+  pair_closed_world_sync_eliminates_surplus before after := by
+  intro h_step
+  have h_sync := closed_world_sync_sets_reserves_to_balances before after h_step
+  unfold PairWorldSurplus0 PairWorldSurplus1
+  rw [h_sync.2.2.1, h_sync.1, h_sync.2.2.2, h_sync.2.1]
+  exact ⟨Nat.sub_self before.balance0, Nat.sub_self before.balance1⟩
 
 -- tama: discharges=pair_closed_world_sync_preserves_liquidity_supply
 theorem closed_world_sync_preserves_liquidity_supply

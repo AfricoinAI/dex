@@ -79,6 +79,9 @@ Pair:
 - `sync` expected-state and success-conditional bridge predicates showing that
   observed balances inside uint112 bounds refine the closed-world sync
   transition when the public run succeeds.
+- Closed-world surplus reconciliation now states the direct cleanup consequence
+  for both reserve-management entrypoints: `skim` and `sync` end with no
+  modeled surplus above cached reserves.
 - TWAP/oracle arithmetic obligations for reserve updates are now stated in the
   generic contract-level form first: same-timestamp updates leave cumulative
   prices unchanged, elapsed updates with nonzero old reserves add the canonical

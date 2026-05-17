@@ -2413,6 +2413,15 @@ def pair_closed_world_skim_removes_surplus
     after.reserve0 = before.reserve0 ∧
     after.reserve1 = before.reserve1
 
+/-- After `skim`, there is no remaining modeled surplus above cached reserves.
+The action is allowed to remove an external gift, but it cannot leave behind a
+new skimmable balance created by the pair's own accounting. -/
+def pair_closed_world_skim_eliminates_surplus
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep PairWorldAction.skim before after →
+    PairWorldSurplus0 after = 0 ∧
+    PairWorldSurplus1 after = 0
+
 def pair_closed_world_skim_preserves_good
     (before after : PairWorldState) : Prop :=
   PairWorldGood before →
@@ -2437,6 +2446,15 @@ def pair_closed_world_sync_sets_reserves_to_balances
     after.reserve1 = before.balance1 ∧
     after.balance0 = before.balance0 ∧
     after.balance1 = before.balance1
+
+/-- After `sync`, cached reserves equal modeled token balances, so the pair has
+no remaining unaccounted surplus in the closed-world state. This is why sync is
+reserve reconciliation, not value creation. -/
+def pair_closed_world_sync_eliminates_surplus
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep PairWorldAction.sync before after →
+    PairWorldSurplus0 after = 0 ∧
+    PairWorldSurplus1 after = 0
 
 def pair_closed_world_sync_preserves_good
     (before after : PairWorldState) : Prop :=
