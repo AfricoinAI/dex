@@ -3006,6 +3006,38 @@ theorem closed_world_transferFrom_preserves_pool
   intro h_step
   simpa [PairWorldStep] using h_step
 
+private theorem pairWorldShareBookkeepingPath_preserves_pool_state
+    {before after : PairWorldState} :
+  PairWorldPathShareBookkeeping before after →
+    after.balance0 = before.balance0 ∧
+    after.balance1 = before.balance1 ∧
+    after.reserve0 = before.reserve0 ∧
+    after.reserve1 = before.reserve1 ∧
+    after.totalSupply = before.totalSupply ∧
+    after.lockedLiquidity = before.lockedLiquidity := by
+  intro h_path
+  induction h_path with
+  | refl =>
+      simp
+  | approve ownerAddr spender amount h_prefix h_step ih =>
+      simp [PairWorldStep] at h_step
+      rw [h_step]
+      exact ih
+  | transfer fromAddr toAddr amount h_prefix h_step ih =>
+      simp [PairWorldStep] at h_step
+      rw [h_step]
+      exact ih
+  | transferFrom spender fromAddr toAddr amount h_prefix h_step ih =>
+      simp [PairWorldStep] at h_step
+      rw [h_step]
+      exact ih
+
+-- tama: discharges=pair_closed_world_share_bookkeeping_path_preserves_pool_state
+theorem closed_world_share_bookkeeping_path_preserves_pool_state
+    (before after : PairWorldState) :
+  pair_closed_world_share_bookkeeping_path_preserves_pool_state before after := by
+  exact pairWorldShareBookkeepingPath_preserves_pool_state
+
 -- tama: discharges=pair_closed_world_first_mint_locks_minimum_liquidity
 theorem closed_world_first_mint_locks_minimum_liquidity
     (amount0 amount1 liquidity : Nat)

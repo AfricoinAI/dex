@@ -252,4 +252,27 @@ inductive PairWorldPathNoMintBurn : PairWorldState → PairWorldState → Prop w
         action ≠ PairWorldAction.burn amount0 amount1 liquidity) →
       PairWorldPathNoMintBurn start after
 
+inductive PairWorldPathShareBookkeeping : PairWorldState → PairWorldState → Prop where
+  | refl (w : PairWorldState) : PairWorldPathShareBookkeeping w w
+  | approve
+      {start before after : PairWorldState}
+      (ownerAddr spender : Address) (amount : Nat) :
+      PairWorldPathShareBookkeeping start before →
+      PairWorldStep (PairWorldAction.approve ownerAddr spender amount) before after →
+      PairWorldPathShareBookkeeping start after
+  | transfer
+      {start before after : PairWorldState}
+      (fromAddr toAddr : Address) (amount : Nat) :
+      PairWorldPathShareBookkeeping start before →
+      PairWorldStep (PairWorldAction.transfer fromAddr toAddr amount) before after →
+      PairWorldPathShareBookkeeping start after
+  | transferFrom
+      {start before after : PairWorldState}
+      (spender fromAddr toAddr : Address) (amount : Nat) :
+      PairWorldPathShareBookkeeping start before →
+      PairWorldStep
+        (PairWorldAction.transferFrom spender fromAddr toAddr amount)
+        before after →
+      PairWorldPathShareBookkeeping start after
+
 end TamaUniV2.Common.UniswapV2PairGhost

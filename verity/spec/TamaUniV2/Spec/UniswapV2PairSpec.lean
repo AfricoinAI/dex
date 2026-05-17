@@ -1454,6 +1454,23 @@ def pair_closed_world_transferFrom_preserves_pool
   PairWorldStep (PairWorldAction.transferFrom spender fromAddr toAddr amount) before after →
     after = before
 
+/-- LP token bookkeeping is only bookkeeping. Across any finite sequence made
+solely of approvals, direct LP transfers, and delegated LP transfers, the AMM
+state is unchanged: token balances, cached reserves, total LP supply, and the
+permanently locked liquidity amount all end exactly where they started. This is
+the trace-level version of the ERC20-share claim above, and it is what lets the
+economic sections ignore pure share movements as price- or reserve-changing
+actions. -/
+def pair_closed_world_share_bookkeeping_path_preserves_pool_state
+    (before after : PairWorldState) : Prop :=
+  PairWorldPathShareBookkeeping before after →
+    after.balance0 = before.balance0 ∧
+    after.balance1 = before.balance1 ∧
+    after.reserve0 = before.reserve0 ∧
+    after.reserve1 = before.reserve1 ∧
+    after.totalSupply = before.totalSupply ∧
+    after.lockedLiquidity = before.lockedLiquidity
+
 def pair_closed_world_first_mint_locks_minimum_liquidity
     (amount0 amount1 liquidity : Nat)
     (before after : PairWorldState) : Prop :=
