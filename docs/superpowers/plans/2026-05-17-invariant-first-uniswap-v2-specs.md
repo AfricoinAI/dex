@@ -183,6 +183,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   encodes the canonical `uniswapV2Call` selector, sender, output amounts, and
   recipient target call.
 
+  2026-05-17 02:37 PDT checkpoint: adding the callback failure boundary fact.
+  The ECM-generated body checks the low-level call result, copies returndata,
+  and executes `revert` on failure; this is the Lean-side evidence that callback
+  failure is not swallowed.
+
 - [ ] **7. Complete the ordered revert matrix**
 
   Add exact run-result revert specs for canonical guard priority in mint, burn,

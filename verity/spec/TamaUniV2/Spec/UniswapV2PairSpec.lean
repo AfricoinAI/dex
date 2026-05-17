@@ -787,6 +787,41 @@ def pair_flash_callback_module_encodes_canonical_call : Prop :=
               Compiler.Yul.YulExpr.lit 0,
               Compiler.Yul.YulExpr.lit 0]) ∈ body
 
+/--
+Callback failure must be visible to the pair. The ECM-generated callback body
+records the low-level call result and, when that result is zero, copies the
+callee's returndata and reverts with it. The general EVM/Verity revert frame is
+what makes the state rollback atomic; this spec proves the callback boundary
+actually reaches that revert path instead of silently continuing.
+-/
+def pair_flash_callback_module_bubbles_callback_failure : Prop :=
+  ∀ (ctx : Compiler.ECM.CompilationContext)
+    (target sender amount0Out amount1Out : Compiler.Yul.YulExpr)
+    (stmts : List Compiler.Yul.YulStmt),
+    TamaUniV2.uniswapV2CallbackModule.compile ctx
+        [target, sender, amount0Out, amount1Out] = Except.ok stmts →
+      ∃ body,
+        stmts =
+          [Compiler.Yul.YulStmt.if_
+            (Compiler.Yul.YulExpr.call "gt"
+              [Compiler.Yul.YulExpr.ident "data_length", Compiler.Yul.YulExpr.lit 0])
+            [Compiler.Yul.YulStmt.block body]] ∧
+        Compiler.Yul.YulStmt.if_
+          (Compiler.Yul.YulExpr.call "iszero"
+            [Compiler.Yul.YulExpr.ident "__uv2_cb_success"])
+          [ Compiler.Yul.YulStmt.let_ "__uv2_cb_rds"
+              (Compiler.Yul.YulExpr.call "returndatasize" [])
+          , Compiler.Yul.YulStmt.expr
+              (Compiler.Yul.YulExpr.call "returndatacopy"
+                [Compiler.Yul.YulExpr.lit 0,
+                  Compiler.Yul.YulExpr.lit 0,
+                  Compiler.Yul.YulExpr.ident "__uv2_cb_rds"])
+          , Compiler.Yul.YulStmt.expr
+              (Compiler.Yul.YulExpr.call "revert"
+                [Compiler.Yul.YulExpr.lit 0,
+                  Compiler.Yul.YulExpr.ident "__uv2_cb_rds"])
+          ] ∈ body
+
 /-!
 ## Mint, Burn, And Swap Bridges
 

@@ -1445,6 +1445,15 @@ theorem flash_callback_module_encodes_canonical_call :
   · simp [body]
   · simp [body, totalSize]
 
+-- tama: discharges=pair_flash_callback_module_bubbles_callback_failure
+theorem flash_callback_module_bubbles_callback_failure :
+  pair_flash_callback_module_bubbles_callback_failure := by
+  intro ctx target sender amount0Out amount1Out stmts h_compile
+  dsimp [TamaUniV2.uniswapV2CallbackModule] at h_compile
+  injection h_compile with h_stmts
+  refine ⟨_, h_stmts.symm, ?_⟩
+  simp
+
 -- tama: discharges=pair_mint_first_expected_refines_closed_world
 theorem mint_first_expected_refines_closed_world (toAddr : Address) (s : ContractState) :
   pair_mint_first_expected_refines_closed_world toAddr s := by
