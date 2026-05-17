@@ -4531,6 +4531,23 @@ theorem closed_world_reachable_positive_supply_swap_no_spot_value_extraction
     amount0In amount1In amount0Out amount1Out before after
     h_good h_positive h_reserves.1 h_reserves.2 h_step
 
+-- tama: discharges=pair_closed_world_reachable_positive_supply_swap_no_caller_spot_profit
+theorem closed_world_reachable_positive_supply_swap_no_caller_spot_profit
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState)
+    (callerValueBefore callerValueAfter : Nat) :
+  pair_closed_world_reachable_positive_supply_swap_no_caller_spot_profit
+    amount0In amount1In amount0Out amount1Out before after
+    callerValueBefore callerValueAfter := by
+  intro h_reachable h_positive h_step h_total_value
+  have h_pool_value :
+      PairWorldSpotValueNum before before ≤
+        PairWorldSpotValueNum before after :=
+    closed_world_reachable_positive_supply_swap_no_spot_value_extraction
+      amount0In amount1In amount0Out amount1Out before after
+      h_reachable h_positive h_step
+  omega
+
 -- tama: discharges=pair_closed_world_reachable_same_supply_path_never_decreases_k
 theorem closed_world_reachable_same_supply_path_never_decreases_k
     (before after : PairWorldState) :

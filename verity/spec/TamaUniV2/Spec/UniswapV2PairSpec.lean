@@ -2368,6 +2368,34 @@ def pair_closed_world_reachable_positive_supply_swap_no_spot_value_extraction
         PairWorldSpotValueNum before before ≤
           PairWorldSpotValueNum before after
 
+/--
+Caller-facing one-swap no-profit.
+
+The theorem above is stated from the pool's point of view: after a valid swap,
+the pool's reserves are worth at least as much at the starting spot price. This
+short consequence states the same fact from the caller's wallet perspective.
+If the caller's spot-priced token value plus the pool's spot-priced reserve
+value is only redistributed by the swap, then the caller cannot finish with
+more spot-priced value than they started with.
+
+The equality premise is deliberately explicit. The Pair model proves the pool
+cannot be the source of profit; a separate caller ledger or token-world replay
+must establish that the swap merely redistributes value between that caller and
+the pair.
+-/
+def pair_closed_world_reachable_positive_supply_swap_no_caller_spot_profit
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState)
+    (callerValueBefore callerValueAfter : Nat) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldStep
+          (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+          before after →
+        callerValueBefore + PairWorldSpotValueNum before before =
+          callerValueAfter + PairWorldSpotValueNum before after →
+          callerValueAfter ≤ callerValueBefore
+
 /-!
 ### 7. Sequence-Level Economic Consequences
 
