@@ -519,6 +519,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   consequence directly: a modeled reachable lookup decodes to a nonzero pair
   for two distinct nonzero token addresses.
 
+  2026-05-17 11:53 PDT checkpoint: lifting concrete lookup validity across
+  finite concrete create histories. If real successful `createPair` calls move
+  reconstructed storage from a reachable factory world to a later world, every
+  endpoint lookup in that later world decodes to a nonzero pair for two
+  distinct nonzero tokens.
+
 - [ ] **10. Verify and commit in coherent slices**
 
   After each slice run focused `lake build`. Before claiming completion run

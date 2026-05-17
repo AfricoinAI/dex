@@ -506,6 +506,28 @@ def factory_concrete_create_path_preserves_existing_decoded_lookup
               (sAfter.storageMap2 pairForSlot.slot existing0 existing1) =
             existingPair
 
+/--
+Endpoint lookup validity for concrete create histories. If real successful
+`createPair` calls take reconstructed storage from a reachable factory world to
+a later world, then every unordered lookup contained in that endpoint world
+decodes from storage to a nonzero pair for two distinct nonzero token
+addresses. This is the finite-history version of the concrete lookup theorem
+above.
+-/
+def factory_concrete_create_path_reachable_lookup_is_valid
+    (tokenA tokenB pair : Address)
+    (sBefore sAfter : ContractState)
+    (wBefore wAfter : FactoryWorldState) : Prop :=
+  FactoryWorldReachable wBefore →
+    FactoryWorldMatchesStorage sBefore wBefore →
+      FactoryConcreteCreatePath sBefore wBefore sAfter wAfter →
+        FactoryWorldContainsPair wAfter tokenA tokenB pair →
+          wordToAddress (sAfter.storageMap2 pairForSlot.slot tokenA tokenB) = pair ∧
+          pair ≠ zeroAddress ∧
+          tokenA ≠ tokenB ∧
+          tokenA ≠ zeroAddress ∧
+          tokenB ≠ zeroAddress
+
 def factory_concrete_create_path_preserves_existing_allPairs_entry
     (index : Nat) (entry : FactoryWorldPair)
     (sBefore sAfter : ContractState)

@@ -267,7 +267,9 @@ Factory:
   composes over finite concrete create histories: any successful sequence of
   real `createPair` runs preserves the storage/world correspondence at the
   endpoint, preserves every pre-existing decoded unordered lookup, and
-  preserves every pre-existing indexed `allPairs` entry. Such concrete create
+  preserves every pre-existing indexed `allPairs` entry. Endpoint lookups in
+  reconstructed reachable histories are also proved valid: they decode to
+  nonzero pairs for two distinct nonzero token addresses. Such concrete create
   histories also cannot decrease router-visible `allPairsLength` storage. The
   same concrete-history layer now has the same-length no-hidden-change theorem:
   if public `allPairsLength` is unchanged across a successful concrete create
@@ -343,8 +345,9 @@ the executable bridge from canonical public entrypoints to that story.
   append. Concrete new-lookup installation and existing-lookup preservation are
   now exposed directly. The one-step correspondence has also been lifted to
   longer reconstructed concrete histories, with reader-facing corollaries for
-  stable decoded lookups and stable indexed pair-array entries. Remaining work
-  should return to the Pair bridge/oracle/revert layers unless a new
+  stable decoded lookups, stable indexed pair-array entries, and valid endpoint
+  decoded lookups. Remaining work should return to the Pair bridge/oracle/revert
+  layers unless a new
   factory-specific behavioral gap is identified.
 
 ## Non-Goals

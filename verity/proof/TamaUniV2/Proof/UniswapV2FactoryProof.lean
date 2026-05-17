@@ -1538,6 +1538,25 @@ theorem concrete_reachable_lookup_is_valid
       h_reachable h_contains
   exact ⟨h_lookup, h_valid⟩
 
+-- tama: discharges=factory_concrete_create_path_reachable_lookup_is_valid
+theorem concrete_create_path_reachable_lookup_is_valid
+    (tokenA tokenB pair : Address)
+    (sBefore sAfter : ContractState)
+    (wBefore wAfter : FactoryWorldState) :
+  factory_concrete_create_path_reachable_lookup_is_valid
+    tokenA tokenB pair sBefore sAfter wBefore wAfter := by
+  intro h_reachable h_match h_path h_contains
+  have h_good_before := factoryWorldReachable_good wBefore h_reachable
+  have h_final :=
+    factoryConcreteCreatePath_preserves_match
+      h_good_before h_match h_path
+  have h_world_path :=
+    factoryConcreteCreatePath_refines_world_path h_path
+  have h_reachable_after :=
+    factoryWorldPath_preserves_reachability h_reachable h_world_path
+  exact concrete_reachable_lookup_is_valid sAfter wAfter tokenA tokenB pair
+    h_reachable_after h_final.2 h_contains
+
 -- tama: discharges=factory_closed_world_unordered_pair_address_unique
 theorem closed_world_unordered_pair_address_unique
     (w : FactoryWorldState) (tokenA tokenB pairA pairB : Address) :
