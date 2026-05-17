@@ -373,6 +373,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   also now derives the uint112 observed-balance bounds from exact overflow
   revert facts.
 
+  2026-05-17 16:23 PDT checkpoint: added first-mint and subsequent-mint
+  successful-run bridges that use those derived premises. A reader can now cite
+  a successful real `mint` run as a closed-world mint transition without
+  separately assuming the lock gate or uint112 reserve bounds.
+
 - [x] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when

@@ -2144,6 +2144,29 @@ theorem mint_first_success_run_refines_closed_world
     h_unlocked h_supply_zero h_bound0 h_bound1 h_reserve0 h_reserve1
     h_amount0 h_amount1 h_product h_root
 
+-- tama: discharges=pair_mint_first_success_run_refines_closed_world_from_run
+theorem mint_first_success_run_refines_closed_world_from_run
+    (toAddr : Address) (s : ContractState) :
+  pair_mint_first_success_run_refines_closed_world_from_run toAddr s
+    ((mint toAddr).run s) := by
+  dsimp [pair_mint_first_success_run_refines_closed_world_from_run]
+  intro _h_actual h_success h_supply_zero h_reserve0 h_reserve1
+    h_amount0 h_amount1 h_product h_root
+  have h_success_exists :
+      ∃ liquidity,
+        (mint toAddr).run s =
+          ContractResult.success liquidity ((mint toAddr).run s).snd := by
+    exact ⟨mintFirstLiquidity s, h_success⟩
+  have h_unlocked :=
+    mint_success_run_implies_lock_open toAddr s
+      ((mint toAddr).run s) rfl h_success_exists
+  rcases mint_success_run_implies_balances_fit_uint112 toAddr s
+      ((mint toAddr).run s) rfl h_success_exists with
+    ⟨h_bound0, h_bound1⟩
+  exact mint_first_expected_refines_closed_world toAddr s
+    h_unlocked h_supply_zero h_bound0 h_bound1 h_reserve0 h_reserve1
+    h_amount0 h_amount1 h_product h_root
+
 -- tama: discharges=pair_mint_subsequent_expected_refines_closed_world
 theorem mint_subsequent_expected_refines_closed_world
     (s : ContractState) (liquidity : Uint256) :
@@ -2236,6 +2259,27 @@ theorem mint_subsequent_success_run_refines_closed_world
     toAddr s ((mint toAddr).run s) liquidity := by
   intro _h_run _h_success
   exact mint_subsequent_expected_refines_closed_world s liquidity
+
+-- tama: discharges=pair_mint_subsequent_success_run_refines_closed_world_from_run
+theorem mint_subsequent_success_run_refines_closed_world_from_run
+    (toAddr : Address) (s : ContractState)
+    (liquidity : Uint256) :
+  pair_mint_subsequent_success_run_refines_closed_world_from_run
+    toAddr s ((mint toAddr).run s) liquidity := by
+  dsimp [pair_mint_subsequent_success_run_refines_closed_world_from_run]
+  intro _h_run h_success h_supply_pos h_reserve0_pos h_reserve1_pos
+    h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
+  have h_success_exists :
+      ∃ liquidity',
+        (mint toAddr).run s =
+          ContractResult.success liquidity' ((mint toAddr).run s).snd := by
+    exact ⟨liquidity, h_success⟩
+  rcases mint_success_run_implies_balances_fit_uint112 toAddr s
+      ((mint toAddr).run s) rfl h_success_exists with
+    ⟨h_bound0, h_bound1⟩
+  exact mint_subsequent_expected_refines_closed_world s liquidity
+    h_supply_pos h_reserve0_pos h_reserve1_pos h_bound0 h_bound1
+    h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
 
 -- tama: discharges=pair_burn_expected_refines_closed_world
 theorem burn_expected_refines_closed_world

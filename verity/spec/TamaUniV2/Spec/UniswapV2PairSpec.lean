@@ -1318,6 +1318,30 @@ def pair_mint_first_success_run_refines_closed_world
                             (pairWorldBeforeMintRun s)
                             (pairWorldAfterFirstMintRun s)
 
+/-- This is the reader-facing first-mint bridge from the actual public call.
+Success of `mint` itself proves that the lock gate was open and both observed
+token balances fit the `uint112` reserve domain; the remaining premises are the
+economic facts that identify this run as the initial-liquidity path. -/
+def pair_mint_first_success_run_refines_closed_world_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  let liquidity := mintFirstLiquidity s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      s.storage totalSupplySlot.slot = 0 →
+        s.storage reserve0Slot.slot ≤ observedBalance0 s →
+          s.storage reserve1Slot.slot ≤ observedBalance1 s →
+            amount0 > 0 →
+              amount1 > 0 →
+                (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
+                  mintFirstRoot s > minimumLiquidity →
+                    PairWorldStep
+                      (PairWorldAction.mint amount0.val amount1.val liquidity.val)
+                      (pairWorldBeforeMintRun s)
+                      (pairWorldAfterFirstMintRun s)
+
 /-!
 The remaining bridge specs keep the same shape. Each one is a one-step
 simulation fact: a successful public call, together with the arithmetic facts
@@ -1355,6 +1379,34 @@ def pair_mint_subsequent_success_run_refines_closed_world
   result = (mint toAddr).run s →
     result = ContractResult.success liquidity result.snd →
       pair_mint_subsequent_expected_refines_closed_world s liquidity
+
+/-- The corresponding bridge for later liquidity additions. A successful real
+`mint` run already establishes the execution gates shared by every mint; the
+remaining premises say that supply/reserves are live and that the returned LP
+amount is the canonical minimum of the two pro-rata sides. -/
+def pair_mint_subsequent_success_run_refines_closed_world_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      0 < (s.storage totalSupplySlot.slot).val →
+        s.storage reserve0Slot.slot > 0 →
+          s.storage reserve1Slot.slot > 0 →
+            s.storage reserve0Slot.slot ≤ observedBalance0 s →
+              s.storage reserve1Slot.slot ≤ observedBalance1 s →
+                amount0 > 0 →
+                  amount1 > 0 →
+                    liquidity > 0 →
+                      liquidity.val * (s.storage reserve0Slot.slot).val ≤
+                          amount0.val * (s.storage totalSupplySlot.slot).val →
+                        liquidity.val * (s.storage reserve1Slot.slot).val ≤
+                            amount1.val * (s.storage totalSupplySlot.slot).val →
+                          PairWorldStep
+                            (PairWorldAction.mint amount0.val amount1.val liquidity.val)
+                            (pairWorldBeforeMintRun s)
+                            (pairWorldAfterSubsequentMintRun liquidity s)
 
 def pair_burn_expected_refines_closed_world
     (s : ContractState) : Prop :=
