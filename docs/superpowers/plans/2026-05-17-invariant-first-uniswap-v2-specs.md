@@ -182,6 +182,10 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   bookkeeping, direct donation, and skim cannot secretly rewrite router-visible
   reserves.
 
+  2026-05-17 08:06 PDT checkpoint: lifted reserve-change isolation to finite
+  histories with a ghost-only no-reserve-update path. Any history with no mint,
+  burn, swap, or sync preserves cached reserves exactly.
+
   2026-05-16 22:43 PDT checkpoint: the closed-world burn step was tightened to
   match executable burn success by requiring positive redeemed amounts, positive
   burned liquidity, and positive pre-burn supply. A new token-side lock theorem

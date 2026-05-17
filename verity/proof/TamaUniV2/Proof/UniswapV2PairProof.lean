@@ -3070,6 +3070,54 @@ theorem closed_world_reserve_changes_only_on_reserve_update_actions
   | sync =>
       exact Or.inr (Or.inr (Or.inr rfl))
 
+-- tama: discharges=pair_closed_world_no_reserve_update_path_preserves_reserves
+theorem closed_world_no_reserve_update_path_preserves_reserves
+    (start finish : PairWorldState) :
+  pair_closed_world_no_reserve_update_path_preserves_reserves start finish := by
+  intro h_path
+  induction h_path with
+  | refl =>
+      exact ⟨rfl, rfl⟩
+  | @step mid next action h_prefix h_step
+      h_not_mint h_not_burn h_not_swap h_not_sync ih =>
+      have h_step_reserves :
+          next.reserve0 = mid.reserve0 ∧
+          next.reserve1 = mid.reserve1 := by
+        cases action with
+        | approve ownerAddr spender amount =>
+            simp [PairWorldStep] at h_step
+            subst next
+            exact ⟨rfl, rfl⟩
+        | transfer fromAddr toAddr amount =>
+            simp [PairWorldStep] at h_step
+            subst next
+            exact ⟨rfl, rfl⟩
+        | transferFrom spender fromAddr toAddr amount =>
+            simp [PairWorldStep] at h_step
+            subst next
+            exact ⟨rfl, rfl⟩
+        | donate amount0 amount1 =>
+            simp [PairWorldStep] at h_step
+            rcases h_step with ⟨_h_balance0, _h_balance1, h_reserve0,
+              h_reserve1, _h_supply, _h_locked⟩
+            exact ⟨h_reserve0, h_reserve1⟩
+        | mint amount0 amount1 liquidity =>
+            exact False.elim (h_not_mint amount0 amount1 liquidity rfl)
+        | burn amount0 amount1 liquidity =>
+            exact False.elim (h_not_burn amount0 amount1 liquidity rfl)
+        | swap amount0In amount1In amount0Out amount1Out =>
+            exact False.elim
+              (h_not_swap amount0In amount1In amount0Out amount1Out rfl)
+        | skim =>
+            simp [PairWorldStep, PairWorldSkimStep] at h_step
+            rcases h_step with ⟨_h_balance0, _h_balance1, h_reserve0,
+              h_reserve1, _h_supply, _h_locked⟩
+            exact ⟨h_reserve0, h_reserve1⟩
+        | sync =>
+            exact False.elim (h_not_sync rfl)
+      exact ⟨by rw [h_step_reserves.1, ih.1],
+        by rw [h_step_reserves.2, ih.2]⟩
+
 -- tama: discharges=pair_closed_world_non_liquidity_step_preserves_supply
 theorem closed_world_non_liquidity_step_preserves_supply
     (action : PairWorldAction) (before after : PairWorldState) :

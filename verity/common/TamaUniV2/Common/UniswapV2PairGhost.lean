@@ -262,6 +262,20 @@ inductive PairWorldPathNoMintBurn : PairWorldState → PairWorldState → Prop w
         action ≠ PairWorldAction.burn amount0 amount1 liquidity) →
       PairWorldPathNoMintBurn start after
 
+inductive PairWorldPathNoReserveUpdate : PairWorldState → PairWorldState → Prop where
+  | refl (w : PairWorldState) : PairWorldPathNoReserveUpdate w w
+  | step {start before after : PairWorldState} (action : PairWorldAction) :
+      PairWorldPathNoReserveUpdate start before →
+      PairWorldStep action before after →
+      (∀ amount0 amount1 liquidity,
+        action ≠ PairWorldAction.mint amount0 amount1 liquidity) →
+      (∀ amount0 amount1 liquidity,
+        action ≠ PairWorldAction.burn amount0 amount1 liquidity) →
+      (∀ amount0In amount1In amount0Out amount1Out,
+        action ≠ PairWorldAction.swap amount0In amount1In amount0Out amount1Out) →
+      action ≠ PairWorldAction.sync →
+      PairWorldPathNoReserveUpdate start after
+
 inductive PairWorldPathNoDonation : PairWorldState → PairWorldState → Prop where
   | refl (w : PairWorldState) : PairWorldPathNoDonation w w
   | step {start before after : PairWorldState} (action : PairWorldAction) :

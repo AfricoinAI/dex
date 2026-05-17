@@ -1509,6 +1509,18 @@ def pair_closed_world_reserve_changes_only_on_reserve_update_actions
         action = PairWorldAction.swap amount0In amount1In amount0Out amount1Out) ∨
       action = PairWorldAction.sync
 
+/-- Finite-history reserve isolation. A history made only of LP bookkeeping,
+direct donations, and skim may change LP ownership or token balances, but it
+never changes the cached reserves. This is the path-level form of the
+reserve-change classifier above, and it is the invariant a router-facing reader
+can cite when reasoning that cached price state is stable unless a reserve
+update action actually occurs. -/
+def pair_closed_world_no_reserve_update_path_preserves_reserves
+    (before after : PairWorldState) : Prop :=
+  PairWorldPathNoReserveUpdate before after →
+    after.reserve0 = before.reserve0 ∧
+    after.reserve1 = before.reserve1
+
 /-- The one-step LP-supply firewall. A successful modeled action that is not
 mint and not burn cannot change total LP supply or the permanently locked
 liquidity amount. This is the local fact that the finite-history theorem below
