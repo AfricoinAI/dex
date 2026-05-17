@@ -2543,6 +2543,25 @@ def pair_closed_world_reachable_zero_surplus_no_mint_burn_path_no_token_balance_
             PairWorldBalanceSpotValueNum before before ≤
               PairWorldBalanceSpotValueNum before after
 
+/--
+Common operational caller no-profit. Histories with no mint and no burn preserve
+LP supply, so the caller no-profit theorem above applies without making the
+reader restate the same-supply premise. If a zero-surplus reachable pool goes
+through only non-liquidity actions and caller-plus-pair spot value is merely
+redistributed, the caller cannot finish with more value.
+-/
+def pair_closed_world_reachable_zero_surplus_no_mint_burn_path_no_caller_token_balance_profit
+    (before after : PairWorldState)
+    (callerValueBefore callerValueAfter : Nat) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldSurplus0 before = 0 →
+        PairWorldSurplus1 before = 0 →
+          PairWorldPathNoMintBurn before after →
+            callerValueBefore + PairWorldBalanceSpotValueNum before before =
+              callerValueAfter + PairWorldBalanceSpotValueNum before after →
+              callerValueAfter ≤ callerValueBefore
+
 /-- Non-liquidity histories are the common operational case: swaps, surplus
 management, donations, and LP-token bookkeeping, but no mint and no burn. The
 supply firewall above makes these histories same-supply histories, so the

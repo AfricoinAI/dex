@@ -4745,6 +4745,19 @@ theorem closed_world_reachable_zero_surplus_no_mint_burn_path_no_token_balance_v
     simp [PairWorldSurplusSpotValueNum, h_surplus0, h_surplus1]
   simpa [h_start_surplus_value] using h_bound
 
+-- tama: discharges=pair_closed_world_reachable_zero_surplus_no_mint_burn_path_no_caller_token_balance_profit
+theorem closed_world_reachable_zero_surplus_no_mint_burn_path_no_caller_token_balance_profit
+    (before after : PairWorldState)
+    (callerValueBefore callerValueAfter : Nat) :
+  pair_closed_world_reachable_zero_surplus_no_mint_burn_path_no_caller_token_balance_profit
+    before after callerValueBefore callerValueAfter := by
+  intro h_reachable h_positive h_surplus0 h_surplus1 h_path h_total_value
+  have h_supply := (pairWorldNoMintBurnPath_preserves_supply h_path).1
+  exact closed_world_reachable_zero_surplus_same_supply_path_no_caller_token_balance_profit
+    before after callerValueBefore callerValueAfter
+    h_reachable h_positive h_surplus0 h_surplus1
+    (pairWorldPath_of_noMintBurn h_path) h_supply.symm h_total_value
+
 -- tama: discharges=pair_closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
 theorem closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
     (before after : PairWorldState) :

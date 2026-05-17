@@ -333,8 +333,9 @@ the executable bridge from canonical public entrypoints to that story.
   The caller no-profit theorem is now stated as the explicit external-wallet
   consequence: if caller value plus pair token-balance value is unchanged except
   for redistribution between them, the caller cannot finish with more value.
-  Only add a richer external-wallet model if it tracks real action-level token
-  and LP ownership changes.
+  The common no-mint/no-burn form derives the same caller conclusion without a
+  separate same-supply premise. Only add a richer external-wallet model if it
+  tracks real action-level token and LP ownership changes.
 - Donation surplus: the closed-world model now tracks token-side reserve
   surplus directly. Donations increase surplus exactly, and finite successful
   histories with no donation step cannot create new surplus. The zero-surplus

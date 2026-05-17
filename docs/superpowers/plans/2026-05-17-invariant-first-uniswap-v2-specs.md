@@ -459,6 +459,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   except for redistribution at the initial spot price, then the caller cannot
   finish with more value.
 
+  2026-05-17 14:16 PDT checkpoint: added the common no-mint/no-burn caller
+  no-profit consequence. The LP-supply firewall supplies same-supply, so a
+  zero-surplus history with no liquidity issuance or redemption cannot increase
+  caller spot value when caller-plus-pair value is only redistributed.
+
 - [x] **9. Add factory-world invariants**
 
   Model pair creation as a finite factory trace and prove sorted-token
@@ -598,6 +603,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
 
   2026-05-17 14:07 PDT checkpoint: full verification passes for the caller
   no-profit consequence slice: focused Pair proof, whole `lake build
+  TamaUniV2.Proof`, `tama check`, `tama build`, `tama test` (26/26), `tama
+  audit` (0 issues), and `git diff --check`. Known warnings remain
+  unused-variable lints plus sandbox cache/signature write warnings.
+
+  2026-05-17 14:18 PDT checkpoint: full verification passes for the common
+  no-mint/no-burn caller no-profit slice: focused Pair proof, whole `lake build
   TamaUniV2.Proof`, `tama check`, `tama build`, `tama test` (26/26), `tama
   audit` (0 issues), and `git diff --check`. Known warnings remain
   unused-variable lints plus sandbox cache/signature write warnings.
