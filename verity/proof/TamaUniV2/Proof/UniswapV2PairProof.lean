@@ -4553,4 +4553,19 @@ theorem closed_world_sync_preserves_k_without_surplus
   unfold PairWorldK
   rw [h_sync.1, h_sync.2.1, h_balance0, h_balance1]
 
+-- tama: discharges=pair_closed_world_sync_k_increase_requires_surplus
+theorem closed_world_sync_k_increase_requires_surplus
+    (before after : PairWorldState) :
+  pair_closed_world_sync_k_increase_requires_surplus before after := by
+  intro h_good h_step h_increase
+  by_cases h_surplus0 : PairWorldSurplus0 before = 0
+  · by_cases h_surplus1 : PairWorldSurplus1 before = 0
+    · have h_k :=
+        closed_world_sync_preserves_k_without_surplus
+          before after h_good h_step h_surplus0 h_surplus1
+      rw [h_k] at h_increase
+      omega
+    · exact Or.inr (Nat.pos_of_ne_zero h_surplus1)
+  · exact Or.inl (Nat.pos_of_ne_zero h_surplus0)
+
 end TamaUniV2.Proof.UniswapV2PairProof

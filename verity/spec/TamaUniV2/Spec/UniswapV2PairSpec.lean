@@ -2539,4 +2539,15 @@ def pair_closed_world_sync_preserves_k_without_surplus
         PairWorldSurplus1 before = 0 →
           PairWorldK after = PairWorldK before
 
+/-- `sync` cannot manufacture cached liquidity value. In a good state, if
+syncing balances into reserves increases cached K, then at least one token
+balance was already above the cached reserve before the call. -/
+def pair_closed_world_sync_k_increase_requires_surplus
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep PairWorldAction.sync before after →
+      PairWorldK before < PairWorldK after →
+        0 < PairWorldSurplus0 before ∨
+        0 < PairWorldSurplus1 before
+
 end TamaUniV2.Spec.UniswapV2PairSpec
