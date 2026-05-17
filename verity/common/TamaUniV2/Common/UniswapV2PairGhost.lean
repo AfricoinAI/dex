@@ -307,4 +307,15 @@ inductive PairWorldPathShareBookkeeping : PairWorldState → PairWorldState → 
         before after →
       PairWorldPathShareBookkeeping start after
 
+inductive PairWorldPathReserveManagement : PairWorldState → PairWorldState → Prop where
+  | refl (w : PairWorldState) : PairWorldPathReserveManagement w w
+  | skim {start before after : PairWorldState} :
+      PairWorldPathReserveManagement start before →
+      PairWorldStep PairWorldAction.skim before after →
+      PairWorldPathReserveManagement start after
+  | sync {start before after : PairWorldState} :
+      PairWorldPathReserveManagement start before →
+      PairWorldStep PairWorldAction.sync before after →
+      PairWorldPathReserveManagement start after
+
 end TamaUniV2.Common.UniswapV2PairGhost

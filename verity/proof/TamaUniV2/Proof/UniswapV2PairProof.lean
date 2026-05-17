@@ -4629,6 +4629,89 @@ theorem closed_world_balanced_reserve_management_preserves_pool
     exact closed_world_sync_preserves_balanced_pool
       before after h_good h_step h_surplus0 h_surplus1
 
+private theorem pairWorldReserveManagementPath_preserves_balanced_pool
+    {before after : PairWorldState} :
+  PairWorldGood before →
+    PairWorldSurplus0 before = 0 →
+      PairWorldSurplus1 before = 0 →
+        PairWorldPathReserveManagement before after →
+          after.balance0 = before.balance0 ∧
+          after.balance1 = before.balance1 ∧
+          after.reserve0 = before.reserve0 ∧
+          after.reserve1 = before.reserve1 ∧
+          after.totalSupply = before.totalSupply ∧
+          after.lockedLiquidity = before.lockedLiquidity := by
+  intro h_good h_surplus0 h_surplus1 h_path
+  induction h_path with
+  | refl =>
+      exact ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩
+  | skim h_prefix h_step ih =>
+      rename_i mid final
+      rcases ih with
+        ⟨h_balance0_prefix, h_balance1_prefix, h_reserve0_prefix,
+          h_reserve1_prefix, h_supply_prefix, h_locked_prefix⟩
+      have h_good_prefix : PairWorldGood mid := by
+        simpa [PairWorldGood, PairWorldSupplyGood, h_balance0_prefix,
+          h_balance1_prefix, h_reserve0_prefix, h_reserve1_prefix,
+          h_supply_prefix, h_locked_prefix] using h_good
+      have h_surplus0_prefix : PairWorldSurplus0 mid = 0 := by
+        simpa [PairWorldSurplus0, h_balance0_prefix, h_reserve0_prefix]
+          using h_surplus0
+      have h_surplus1_prefix : PairWorldSurplus1 mid = 0 := by
+        simpa [PairWorldSurplus1, h_balance1_prefix, h_reserve1_prefix]
+          using h_surplus1
+      rcases closed_world_skim_preserves_balanced_pool
+          mid final h_good_prefix h_step h_surplus0_prefix h_surplus1_prefix with
+        ⟨h_balance0_step, h_balance1_step, h_reserve0_step,
+          h_reserve1_step, h_supply_step, h_locked_step⟩
+      constructor
+      · rw [h_balance0_step, h_balance0_prefix]
+      constructor
+      · rw [h_balance1_step, h_balance1_prefix]
+      constructor
+      · rw [h_reserve0_step, h_reserve0_prefix]
+      constructor
+      · rw [h_reserve1_step, h_reserve1_prefix]
+      constructor
+      · rw [h_supply_step, h_supply_prefix]
+      · rw [h_locked_step, h_locked_prefix]
+  | sync h_prefix h_step ih =>
+      rename_i mid final
+      rcases ih with
+        ⟨h_balance0_prefix, h_balance1_prefix, h_reserve0_prefix,
+          h_reserve1_prefix, h_supply_prefix, h_locked_prefix⟩
+      have h_good_prefix : PairWorldGood mid := by
+        simpa [PairWorldGood, PairWorldSupplyGood, h_balance0_prefix,
+          h_balance1_prefix, h_reserve0_prefix, h_reserve1_prefix,
+          h_supply_prefix, h_locked_prefix] using h_good
+      have h_surplus0_prefix : PairWorldSurplus0 mid = 0 := by
+        simpa [PairWorldSurplus0, h_balance0_prefix, h_reserve0_prefix]
+          using h_surplus0
+      have h_surplus1_prefix : PairWorldSurplus1 mid = 0 := by
+        simpa [PairWorldSurplus1, h_balance1_prefix, h_reserve1_prefix]
+          using h_surplus1
+      rcases closed_world_sync_preserves_balanced_pool
+          mid final h_good_prefix h_step h_surplus0_prefix h_surplus1_prefix with
+        ⟨h_balance0_step, h_balance1_step, h_reserve0_step,
+          h_reserve1_step, h_supply_step, h_locked_step⟩
+      constructor
+      · rw [h_balance0_step, h_balance0_prefix]
+      constructor
+      · rw [h_balance1_step, h_balance1_prefix]
+      constructor
+      · rw [h_reserve0_step, h_reserve0_prefix]
+      constructor
+      · rw [h_reserve1_step, h_reserve1_prefix]
+      constructor
+      · rw [h_supply_step, h_supply_prefix]
+      · rw [h_locked_step, h_locked_prefix]
+
+-- tama: discharges=pair_closed_world_balanced_reserve_management_path_preserves_pool
+theorem closed_world_balanced_reserve_management_path_preserves_pool
+    (before after : PairWorldState) :
+  pair_closed_world_balanced_reserve_management_path_preserves_pool before after := by
+  exact pairWorldReserveManagementPath_preserves_balanced_pool
+
 -- tama: discharges=pair_closed_world_sync_k_increase_requires_surplus
 theorem closed_world_sync_k_increase_requires_surplus
     (before after : PairWorldState) :

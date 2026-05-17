@@ -89,10 +89,12 @@ Pair:
   balanced-pool theorem states that zero-surplus sync is also a no-op on token
   balances, cached reserves, LP supply, and locked liquidity. The aggregate
   reserve-management fixed-point theorem packages those two facts: for the
-  reserve-management action family, a good balanced pool is unchanged. The
-  sync/K refinement states that sync preserves cached K exactly when the start
-  state has no surplus, and the converse reader-facing theorem states that any
-  sync-driven K increase requires pre-existing excess token balances.
+  reserve-management action family, a good balanced pool is unchanged, and the
+  finite-history version lifts that fixed point to any path made only of
+  `skim` and `sync`. The sync/K refinement states that sync preserves cached K
+  exactly when the start state has no surplus, and the converse reader-facing
+  theorem states that any sync-driven K increase requires pre-existing excess
+  token balances.
 - TWAP/oracle arithmetic obligations for reserve updates are now stated in the
   generic contract-level form first: same-timestamp updates leave cumulative
   prices unchanged, elapsed updates with nonzero old reserves add the canonical

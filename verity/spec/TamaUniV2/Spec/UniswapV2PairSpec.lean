@@ -2601,6 +2601,24 @@ def pair_closed_world_balanced_reserve_management_preserves_pool
             after.totalSupply = before.totalSupply ∧
             after.lockedLiquidity = before.lockedLiquidity
 
+/-- Finite-history reserve-management fixed point. Starting from a good pool
+with no surplus above cached reserves, any finite history made only of `skim`
+and `sync` preserves the token balances, cached reserves, LP supply, and
+permanent liquidity lock exactly. This is the trace-level version of the
+reserve-management no-op theorem above. -/
+def pair_closed_world_balanced_reserve_management_path_preserves_pool
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldSurplus0 before = 0 →
+      PairWorldSurplus1 before = 0 →
+        PairWorldPathReserveManagement before after →
+          after.balance0 = before.balance0 ∧
+          after.balance1 = before.balance1 ∧
+          after.reserve0 = before.reserve0 ∧
+          after.reserve1 = before.reserve1 ∧
+          after.totalSupply = before.totalSupply ∧
+          after.lockedLiquidity = before.lockedLiquidity
+
 /-- `sync` cannot manufacture cached liquidity value. In a good state, if
 syncing balances into reserves increases cached K, then at least one token
 balance was already above the cached reserve before the call. -/
