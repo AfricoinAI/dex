@@ -213,6 +213,16 @@ theorem safeTransfer_traces_token_transfer
     pairTraceContains, TamaUniV2.pairTokenSafeTransferEvent, Contracts.safeTransfer,
     Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure]
 
+-- tama: discharges=pair_safeTransfer_event_replay_moves_token_balance
+theorem safeTransfer_event_replay_moves_token_balance
+    (token fromAddr toAddr : Address) (amount : Uint256)
+    (pre : PairTokenBalances) :
+  pair_safeTransfer_event_replay_moves_token_balance
+    token fromAddr toAddr amount pre := by
+  simp [pair_safeTransfer_event_replay_moves_token_balance,
+    pairTokenWorldAfterEvent, TamaUniV2.pairTokenSafeTransferEvent,
+    pairTokenWorldAfterTransfer, addressOfNat_toNat_mod_uint256]
+
 private theorem pair_revert_keeps_token_balances {α : Type}
     (pre post : PairTokenBalances) (s : ContractState) (result : ContractResult α) :
   post = pairTokenWorldAfterCall pre s result →

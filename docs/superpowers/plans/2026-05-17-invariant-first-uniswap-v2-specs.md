@@ -244,6 +244,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   transfer trace model, moves exactly the token0/token1 surplus above cached
   reserves from the pair to the recipient.
 
+  2026-05-17 11:16 PDT checkpoint: added the reusable pair-token transfer
+  event replay fact. The trace model now states directly that a recorded
+  safe-transfer event moves exactly the recorded amount between the recorded
+  accounts, which future `burn` and `swap` bridges can cite.
+
   2026-05-17 10:04 PDT checkpoint: added the economic reading of the balanced
   LP-bookkeeping plus `skim`/`sync` path theorem. The public spec now states
   directly that any such history from a clean balanced pool preserves actual

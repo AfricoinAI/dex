@@ -50,6 +50,10 @@ Pair:
   the expected observable value without mutating pair state.
 - Exact `getReserves` success coverage now states the router-facing reserve
   read returns cached reserve0/reserve1/timestamp and frames pair state.
+- Pair-token transfer boundary coverage now proves both sides of the trace
+  model: the pair's safe-transfer wrapper emits a pair-local token-transfer
+  event, and replaying that event moves exactly the recorded token amount
+  between the recorded accounts in the ghost token-balance world.
 - LP ERC20 approve/transfer/transferFrom accounting, allowance, overflow, and
   event specs. The executable LP-bookkeeping layer now also has scalar
   AMM-storage frame facts: approve, transfer, and transferFrom cannot change

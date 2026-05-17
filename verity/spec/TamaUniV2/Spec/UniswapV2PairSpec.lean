@@ -216,6 +216,20 @@ def pair_safeTransfer_traces_token_transfer
   result = ContractResult.success 1 result.snd ∧
   hasPairSafeTransferTrace token s.thisAddress toAddr amount result.snd
 
+/--
+The token-transfer trace model has one job: when a pair-local ERC20 transfer
+event is replayed, it moves exactly that token amount from the pair-side sender
+to the recipient in the ghost token-balance world. Later executable specs for
+`skim`, `burn`, and `swap` can cite this fact instead of re-proving event
+decoding each time.
+-/
+def pair_safeTransfer_event_replay_moves_token_balance
+    (token fromAddr toAddr : Address) (amount : Uint256)
+    (pre : PairTokenBalances) : Prop :=
+  pairTokenWorldAfterEvent pre
+      (TamaUniV2.pairTokenSafeTransferEvent token fromAddr toAddr amount) =
+    pairTokenWorldAfterTransfer pre token fromAddr toAddr amount
+
 /-!
 ## Revert Frames
 
