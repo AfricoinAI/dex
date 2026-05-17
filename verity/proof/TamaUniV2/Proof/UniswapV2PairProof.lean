@@ -3973,6 +3973,56 @@ private theorem pairWorldSpotValue_le_balanceSpotValue
     (Nat.mul_le_mul_right spot.reserve1 h_back0)
     (Nat.mul_le_mul_right spot.reserve0 h_back1)
 
+private theorem pairWorldBalanceSpotValue_eq_spot_plus_surplus
+    {spot pool : PairWorldState} :
+  PairWorldGood pool →
+    PairWorldBalanceSpotValueNum spot pool =
+      PairWorldSpotValueNum spot pool +
+        PairWorldSurplusSpotValueNum spot pool := by
+  intro h_good
+  rcases h_good with ⟨h_back0, h_back1, _h_bound0, _h_bound1, _h_supply⟩
+  have h_balance0 :
+      pool.balance0 = pool.reserve0 + PairWorldSurplus0 pool := by
+    unfold PairWorldSurplus0
+    omega
+  have h_balance1 :
+      pool.balance1 = pool.reserve1 + PairWorldSurplus1 pool := by
+    unfold PairWorldSurplus1
+    omega
+  unfold PairWorldBalanceSpotValueNum PairWorldSpotValueNum
+    PairWorldSurplusSpotValueNum
+  rw [h_balance0, h_balance1]
+  nlinarith
+
+-- tama: discharges=pair_closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_initial_surplus
+theorem closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_initial_surplus
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_initial_surplus
+    before after := by
+  intro h_reachable h_positive h_path h_supply
+  have h_reserve_value :
+      PairWorldSpotValueNum before before ≤
+        PairWorldSpotValueNum before after :=
+    closed_world_reachable_positive_supply_same_supply_path_no_spot_value_extraction
+      before after h_reachable h_positive h_path h_supply
+  have h_after_good :=
+    pairWorldPath_preserves_good
+      (pairWorldReachable_good before h_reachable)
+      h_path
+  have h_spot_to_balance :
+      PairWorldSpotValueNum before before ≤
+        PairWorldBalanceSpotValueNum before after :=
+    Nat.le_trans h_reserve_value
+      (pairWorldSpotValue_le_balanceSpotValue
+        (spot := before) (pool := after) h_after_good)
+  have h_before_eq :=
+    pairWorldBalanceSpotValue_eq_spot_plus_surplus
+      (spot := before) (pool := before)
+      (pairWorldReachable_good before h_reachable)
+  rw [h_before_eq]
+  exact Nat.add_le_add_right h_spot_to_balance
+    (PairWorldSurplusSpotValueNum before before)
+
 -- tama: discharges=pair_closed_world_reachable_balanced_same_supply_path_no_token_balance_value_extraction
 theorem closed_world_reachable_balanced_same_supply_path_no_token_balance_value_extraction
     (before after : PairWorldState) :
@@ -4007,6 +4057,18 @@ theorem closed_world_reachable_balanced_no_mint_burn_path_no_token_balance_value
     (pairWorldNoMintBurnPath_preserves_supply h_path).1
   exact closed_world_reachable_balanced_same_supply_path_no_token_balance_value_extraction
     before after h_reachable h_positive h_balance0 h_balance1
+    (pairWorldPath_of_noMintBurn h_path) h_supply.symm
+
+-- tama: discharges=pair_closed_world_reachable_no_mint_burn_path_token_balance_loss_bounded_by_initial_surplus
+theorem closed_world_reachable_no_mint_burn_path_token_balance_loss_bounded_by_initial_surplus
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_no_mint_burn_path_token_balance_loss_bounded_by_initial_surplus
+    before after := by
+  intro h_reachable h_positive h_path
+  have h_supply :=
+    (pairWorldNoMintBurnPath_preserves_supply h_path).1
+  exact closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_initial_surplus
+    before after h_reachable h_positive
     (pairWorldPath_of_noMintBurn h_path) h_supply.symm
 
 -- tama: discharges=pair_closed_world_reachable_no_mint_burn_path_no_spot_value_extraction

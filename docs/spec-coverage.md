@@ -159,7 +159,10 @@ Pair:
   surplus over cached reserves, same-LP-supply histories cannot reduce the
   pair's token-balance value at the initial spot price. The common no-mint and
   no-burn history shape has the same actual-balance theorem without requiring a
-  separate same-supply premise, because the LP-supply firewall supplies it.
+  separate same-supply premise, because the LP-supply firewall supplies it. The
+  non-balanced case is now explicit too: same-LP-supply histories can reduce
+  actual token-balance value by at most the starting surplus above cached
+  reserves, and no-mint/no-burn histories inherit that bound automatically.
 
 Factory:
 
@@ -244,10 +247,11 @@ the executable bridge from canonical public entrypoints to that story.
   active caller-facing story. Same-LP-supply reachable histories cannot reduce
   pool value at the initial spot price, and LP-normalized K explains why
   mint/burn round trips are covered. The actual token-balance theorem requires
-  a balanced start state, because pre-existing donated surplus is an external
-  gift that `skim` can legitimately remove. Do not add a dummy caller ledger;
-  only add an external-wallet model if it tracks real action-level token and LP
-  ownership changes.
+  either a balanced start state or the newer surplus-bounded form: pre-existing
+  donated surplus is an external gift that `skim` can legitimately remove, but
+  any actual-balance value loss is bounded by that starting surplus. Do not add
+  a dummy caller ledger; only add an external-wallet model if it tracks real
+  action-level token and LP ownership changes.
 - Donation surplus: the closed-world model now tracks token-side reserve
   surplus directly. Donations increase surplus exactly, and finite successful
   histories with no donation step cannot create new surplus. This is the

@@ -1995,6 +1995,25 @@ def pair_closed_world_reachable_same_supply_path_no_token1_denominated_profit
               PairWorldSpotValueNum before before ≤
                 PairWorldSpotValueNum before after
 
+/--
+Actual-balance no-profit with the `skim` exception made explicit. Cached
+reserve value is the AMM's economic invariant, but actual ERC20 balances may
+include donated surplus above reserves. A same-LP-supply history may remove
+that pre-existing surplus with `skim`; what it cannot do is remove more
+token1-denominated value than the initial surplus was worth at the initial
+spot price. This is the non-balanced generalization of the token-balance
+no-extraction theorem below.
+-/
+def pair_closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_initial_surplus
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        before.totalSupply = after.totalSupply →
+          PairWorldBalanceSpotValueNum before before ≤
+            PairWorldBalanceSpotValueNum before after +
+              PairWorldSurplusSpotValueNum before before
+
 /-- The strongest reader-facing same-supply no-extraction statement. For a
 reachable nonempty pool, positive reserves are no longer an extra assumption;
 they follow from the nondegeneracy invariant above. Therefore any finite
@@ -2044,6 +2063,19 @@ def pair_closed_world_reachable_balanced_no_mint_burn_path_no_token_balance_valu
           PairWorldPathNoMintBurn before after →
             PairWorldBalanceSpotValueNum before before ≤
               PairWorldBalanceSpotValueNum before after
+
+/-- Common operational form of the surplus-bounded token-balance theorem. If a
+history contains no mint and no burn, LP supply preservation supplies the
+same-supply premise automatically. Such histories cannot reduce actual
+token-balance value by more than the start state's donated surplus. -/
+def pair_closed_world_reachable_no_mint_burn_path_token_balance_loss_bounded_by_initial_surplus
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPathNoMintBurn before after →
+        PairWorldBalanceSpotValueNum before before ≤
+          PairWorldBalanceSpotValueNum before after +
+            PairWorldSurplusSpotValueNum before before
 
 /-- Non-liquidity histories are the common operational case: swaps, surplus
 management, donations, and LP-token bookkeeping, but no mint and no burn. The
