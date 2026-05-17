@@ -188,6 +188,17 @@ theorem allPairsLength_meets_spec (s : ContractState) :
   factory_allPairsLength_spec ((allPairsLength).run s).fst s := by
   rfl
 
+-- tama: discharges=factory_getPair_run_success_frames_state
+theorem getPair_run_success_frames_state
+    (tokenA tokenB : Address) (s : ContractState) :
+  factory_getPair_run_success_frames_state tokenA tokenB s := by
+  rfl
+
+-- tama: discharges=factory_allPairsLength_run_success_frames_state
+theorem allPairsLength_run_success_frames_state (s : ContractState) :
+  factory_allPairsLength_run_success_frames_state s := by
+  rfl
+
 -- tama: discharges=factory_allPairs_success_spec
 theorem allPairs_meets_spec (index : Uint256) (s : ContractState) :
   factory_allPairs_success_spec index ((allPairs index).run s).fst s := by

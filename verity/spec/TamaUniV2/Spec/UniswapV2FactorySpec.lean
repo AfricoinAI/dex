@@ -57,6 +57,22 @@ def factory_getPair_spec (tokenA tokenB result : Address) (s : ContractState) : 
 def factory_allPairsLength_spec (result : Uint256) (s : ContractState) : Prop :=
   result = s.storage allPairsLengthSlot.slot
 
+/-- `getPair` is an exact read of the decoded bidirectional mapping entry and
+does not mutate factory state. -/
+def factory_getPair_run_success_frames_state
+    (tokenA tokenB : Address) (s : ContractState) : Prop :=
+  (getPair tokenA tokenB).run s =
+    ContractResult.success
+      (wordToAddress (s.storageMap2 pairForSlot.slot tokenA tokenB))
+      s
+
+/-- `allPairsLength` is an exact read of the append-only array length and does
+not mutate factory state. -/
+def factory_allPairsLength_run_success_frames_state
+    (s : ContractState) : Prop :=
+  (allPairsLength).run s =
+    ContractResult.success (s.storage allPairsLengthSlot.slot) s
+
 def factory_allPairs_success_spec (index : Uint256) (result : Address) (s : ContractState) : Prop :=
   index < s.storage allPairsLengthSlot.slot →
     result = wordToAddress (s.storageMapUint allPairsSlot.slot index)
