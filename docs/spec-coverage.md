@@ -94,7 +94,10 @@ Pair:
   cannot decrease LP supply and no-mint histories cannot increase LP supply,
   path-wide LP-supply coherence,
   path-wide locked-liquidity coverage,
-  share-only action framing, reserve-update projections for
+  share-only action framing, finite-history pure-share-bookkeeping invariants
+  showing LP approvals/transfers/transferFroms leave token balances, cached
+  reserves, total LP supply, locked liquidity, cached K, and spot-value
+  measurements unchanged, reserve-update projections for
   mint/burn/swap/skim/sync, canonical fee-adjusted K for swaps plus the
   arithmetic theorem that the fee-adjusted check implies raw cached-K
   nondecrease once reserves equal final balances, positive-input/output and
@@ -192,7 +195,8 @@ Factory:
   composes over finite concrete create histories: any successful sequence of
   real `createPair` runs preserves the storage/world correspondence at the
   endpoint, preserves every pre-existing decoded unordered lookup, and
-  preserves every pre-existing indexed `allPairs` entry.
+  preserves every pre-existing indexed `allPairs` entry. Such concrete create
+  histories also cannot decrease router-visible `allPairsLength` storage.
 
 ## Remaining Spec Work
 
