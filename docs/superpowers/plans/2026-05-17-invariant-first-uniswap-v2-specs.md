@@ -514,6 +514,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   closed-world Factory model. If a factory state is reachable and a finite
   successful create path starts there, the endpoint is reachable too.
 
+  2026-05-17 11:49 PDT checkpoint: adding the concrete reachable lookup
+  validity theorem. Reconstructed factory storage now exposes the router-facing
+  consequence directly: a modeled reachable lookup decodes to a nonzero pair
+  for two distinct nonzero token addresses.
+
 - [ ] **10. Verify and commit in coherent slices**
 
   After each slice run focused `lake build`. Before claiming completion run

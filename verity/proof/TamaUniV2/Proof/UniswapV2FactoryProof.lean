@@ -1524,6 +1524,20 @@ theorem closed_world_reachable_lookup_is_valid
     exact ⟨h_pair_nonzero, (fun h => h_distinct h.symm),
       h_token1_nonzero, h_token0_nonzero⟩
 
+-- tama: discharges=factory_concrete_reachable_lookup_is_valid
+theorem concrete_reachable_lookup_is_valid
+    (s : ContractState) (w : FactoryWorldState)
+    (tokenA tokenB pair : Address) :
+  factory_concrete_reachable_lookup_is_valid s w tokenA tokenB pair := by
+  intro h_reachable h_match h_contains
+  have h_lookup :=
+    concrete_world_lookup_matches_storage s w tokenA tokenB pair
+      h_match h_contains
+  have h_valid :=
+    closed_world_reachable_lookup_is_valid w tokenA tokenB pair
+      h_reachable h_contains
+  exact ⟨h_lookup, h_valid⟩
+
 -- tama: discharges=factory_closed_world_unordered_pair_address_unique
 theorem closed_world_unordered_pair_address_unique
     (w : FactoryWorldState) (tokenA tokenB pairA pairB : Address) :

@@ -325,6 +325,26 @@ def factory_concrete_world_lookup_matches_storage
     FactoryWorldContainsPair w tokenA tokenB pair →
       wordToAddress (s.storageMap2 pairForSlot.slot tokenA tokenB) = pair
 
+/--
+Concrete storage inherits the reachable factory validity invariant. If a
+reconstructed reachable factory history contains an unordered token-pair entry,
+then the decoded mapping slot for that token order returns the modeled pair,
+the pair address is nonzero, and the two token addresses are distinct and
+nonzero. This is the direct storage-facing version of the lookup property a
+router relies on.
+-/
+def factory_concrete_reachable_lookup_is_valid
+    (s : ContractState) (w : FactoryWorldState)
+    (tokenA tokenB pair : Address) : Prop :=
+  FactoryWorldReachable w →
+    FactoryWorldMatchesStorage s w →
+      FactoryWorldContainsPair w tokenA tokenB pair →
+        wordToAddress (s.storageMap2 pairForSlot.slot tokenA tokenB) = pair ∧
+        pair ≠ zeroAddress ∧
+        tokenA ≠ tokenB ∧
+        tokenA ≠ zeroAddress ∧
+        tokenB ≠ zeroAddress
+
 def factory_concrete_world_allPairs_matches_storage
     (s : ContractState) (w : FactoryWorldState)
     (index : Nat) (entry : FactoryWorldPair) : Prop :=

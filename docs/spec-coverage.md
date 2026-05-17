@@ -256,8 +256,10 @@ Factory:
   relation now ties a modeled factory world back to real storage. Public specs
   state that reconstructed worlds agree with `allPairsLength`, decoded
   both-direction pair mapping lookup, and decoded indexed `allPairs` storage
-  entries. A successful concrete `createPair` run now preserves that
-  correspondence after appending the new sorted pair, so the closed-world
+  entries. The concrete lookup layer now also states the reachable validity
+  consequence directly: reconstructed lookups decode to nonzero pairs for two
+  distinct nonzero tokens. A successful concrete `createPair` run now preserves
+  that correspondence after appending the new sorted pair, so the closed-world
   append-only invariants continue to describe router-visible storage after real
   factory successes. Reader-facing concrete consequences now state that
   successful creation installs the decoded new-pair lookup in both token orders
