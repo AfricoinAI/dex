@@ -4700,6 +4700,20 @@ theorem closed_world_reachable_zero_surplus_same_supply_path_no_caller_token_bal
       before after h_reachable h_positive h_surplus0 h_surplus1 h_path h_supply
   omega
 
+-- tama: discharges=pair_closed_world_reachable_same_supply_path_no_caller_spot_profit
+theorem closed_world_reachable_same_supply_path_no_caller_spot_profit
+    (before after : PairWorldState)
+    (callerValueBefore callerValueAfter : Nat) :
+  pair_closed_world_reachable_same_supply_path_no_caller_spot_profit
+    before after callerValueBefore callerValueAfter := by
+  intro h_reachable h_positive h_path h_supply h_total_value
+  have h_pool_value :
+      PairWorldSpotValueNum before before ≤
+        PairWorldSpotValueNum before after :=
+    closed_world_reachable_positive_supply_same_supply_path_no_spot_value_extraction
+      before after h_reachable h_positive h_path h_supply
+  omega
+
 -- tama: discharges=pair_closed_world_reachable_zero_surplus_swap_no_caller_token_balance_profit
 theorem closed_world_reachable_zero_surplus_swap_no_caller_token_balance_profit
     (amount0In amount1In amount0Out amount1Out : Nat)

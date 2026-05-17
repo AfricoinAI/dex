@@ -2686,6 +2686,28 @@ def pair_closed_world_reachable_zero_surplus_same_supply_path_no_caller_token_ba
                 callerValueAfter + PairWorldBalanceSpotValueNum before after →
                 callerValueAfter ≤ callerValueBefore
 
+/--
+Caller no-profit over cached reserve value for arbitrary same-supply histories.
+
+The pool-side theorem says the pair's reserve-denominated value cannot go down
+when LP supply starts and ends at the same value. This short consequence is the
+external-wallet reading of that fact: if the caller's spot-priced value plus
+the pair's reserve-priced value is only redistributed across the history, then
+the caller cannot finish richer. It is stated separately from the token-balance
+version because reserve value is the AMM invariant; actual token-balance value
+needs the zero-surplus premise handled above.
+-/
+def pair_closed_world_reachable_same_supply_path_no_caller_spot_profit
+    (before after : PairWorldState)
+    (callerValueBefore callerValueAfter : Nat) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        before.totalSupply = after.totalSupply →
+          callerValueBefore + PairWorldSpotValueNum before before =
+            callerValueAfter + PairWorldSpotValueNum before after →
+            callerValueAfter ≤ callerValueBefore
+
 /-- The strongest reader-facing same-supply no-extraction statement. For a
 reachable nonempty pool, positive reserves are no longer an extra assumption;
 they follow from the nondegeneracy invariant above. Therefore any finite
