@@ -147,6 +147,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   introduce proof-local adapters for the shared reserve-update and ordered-guard
   prefixes, then expose only short reader-facing obligations.
 
+  2026-05-17 02:57 PDT checkpoint: adding the reader-facing Pair reentrancy
+  invariant by composing existing exact lock-gate proofs. This avoids any new
+  trust surface: when `unlocked != 1`, `mint`, `burn`, `swap`, `skim`, and
+  `sync` all return the exact `LOCKED` revert before side effects.
+
 - [ ] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when

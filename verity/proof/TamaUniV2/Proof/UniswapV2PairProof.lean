@@ -1188,6 +1188,22 @@ theorem sync_run_revert_locked (s : ContractState) :
   simpa [pair_sync_run_revert_locked, pair_sync_reverts_when_locked]
     using sync_reverts_when_locked s
 
+-- tama: discharges=pair_reentrancy_guard_blocks_all_mutating_entrypoints
+theorem reentrancy_guard_blocks_all_mutating_entrypoints
+    (mintTo burnTo skimTo swapTo : Address)
+    (amount0Out amount1Out : Uint256) (data : ByteArray)
+    (s : ContractState) :
+  pair_reentrancy_guard_blocks_all_mutating_entrypoints
+    mintTo burnTo skimTo swapTo amount0Out amount1Out data s := by
+  intro h_locked
+  exact ⟨
+    mint_run_revert_locked mintTo s h_locked,
+    burn_run_revert_locked burnTo s h_locked,
+    swap_run_revert_locked amount0Out amount1Out swapTo data s h_locked,
+    skim_run_revert_locked skimTo s h_locked,
+    sync_run_revert_locked s h_locked
+  ⟩
+
 -- tama: discharges=pair_sync_run_revert_balance0_overflow
 theorem sync_run_revert_balance0_overflow (s : ContractState) :
   pair_sync_run_revert_balance0_overflow s := by

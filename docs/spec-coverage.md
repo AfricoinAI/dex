@@ -45,6 +45,9 @@ Pair:
   insufficient-liquidity and invalid-recipient guards have exact Foundry
   revert-message coverage, but are not public Lean obligations until their
   ordered-prefix proofs are decomposed enough to avoid kernel-depth blowups.
+- A reader-facing Pair reentrancy invariant packages the locked-entrypoint
+  facts directly: if the lock is closed, every state-changing AMM entrypoint
+  reverts with `UniswapV2: LOCKED` before durable side effects.
 - Revert-frame token-balance preservation specs for mint, burn, swap, skim, and
   sync using pair-local transfer traces.
 - Pair-local atomicity specs showing reverted mint, burn, swap, skim, and sync

@@ -638,6 +638,25 @@ def pair_sync_run_revert_locked
     (sync).run s =
       ContractResult.revert "UniswapV2: LOCKED" s
 
+/--
+The Pair lock is a contract-level boundary, not a per-function curiosity. If a
+callback or nested call reaches the pair while the lock is closed, every
+state-changing AMM entrypoint rejects before it can transfer tokens, update
+reserves, or touch LP accounting. This global statement packages the exact
+locked-run facts above into the reentrancy invariant a reader should cite.
+-/
+def pair_reentrancy_guard_blocks_all_mutating_entrypoints
+    (mintTo burnTo skimTo swapTo : Address)
+    (amount0Out amount1Out : Uint256) (data : ByteArray)
+    (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot != 1 →
+    (mint mintTo).run s = ContractResult.revert "UniswapV2: LOCKED" s ∧
+    (burn burnTo).run s = ContractResult.revert "UniswapV2: LOCKED" s ∧
+    (swap amount0Out amount1Out swapTo data).run s =
+      ContractResult.revert "UniswapV2: LOCKED" s ∧
+    (skim skimTo).run s = ContractResult.revert "UniswapV2: LOCKED" s ∧
+    (sync).run s = ContractResult.revert "UniswapV2: LOCKED" s
+
 def pair_sync_run_revert_balance0_overflow
     (s : ContractState) : Prop :=
   s.storage unlockedSlot.slot = 1 →
