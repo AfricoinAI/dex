@@ -113,10 +113,13 @@ Pair:
   histories cannot extract positive spot-value from the pool at the initial
   price. A reachable LP-share theorem now also states the normalized backing
   invariant directly for all finite paths from reachable positive-supply states.
-  A no-liquidity corollary now states the most common operational case directly:
-  reachable histories with no mint and no burn preserve LP supply and therefore
-  cannot extract spot value at the initial price. This allows mint/burn round
-  trips rather than relying only on the older no-burn path theorem.
+  The strongest same-supply no-extraction theorem now needs only reachable
+  positive supply; the positive-reserve invariant supplies the spot-price
+  premises. A no-liquidity corollary states the most common operational case
+  directly: reachable histories with no mint and no burn preserve LP supply and
+  therefore cannot extract spot value at the initial price. This allows
+  mint/burn round trips rather than relying only on the older no-burn path
+  theorem.
 
 Factory:
 

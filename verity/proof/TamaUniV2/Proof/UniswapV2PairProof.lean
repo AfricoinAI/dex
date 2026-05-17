@@ -3295,6 +3295,18 @@ theorem closed_world_reachable_same_supply_path_no_spot_value_extraction
     using closed_world_reachable_same_supply_path_pool_value_never_decreases
       before after
 
+-- tama: discharges=pair_closed_world_reachable_positive_supply_same_supply_path_no_spot_value_extraction
+theorem closed_world_reachable_positive_supply_same_supply_path_no_spot_value_extraction
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_positive_supply_same_supply_path_no_spot_value_extraction
+    before after := by
+  intro h_reachable h_positive h_path h_supply
+  have h_reserves :=
+    pairWorldReachable_positive_supply_positive_reserves h_reachable h_positive
+  exact closed_world_reachable_same_supply_path_no_spot_value_extraction
+    before after h_reachable h_positive h_path h_supply
+    h_reserves.1 h_reserves.2
+
 -- tama: discharges=pair_closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
 theorem closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
     (before after : PairWorldState) :

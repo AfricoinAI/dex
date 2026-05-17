@@ -1626,6 +1626,20 @@ def pair_closed_world_reachable_same_supply_path_no_spot_value_extraction
             PairWorldSpotValueNum before before ≤
               PairWorldSpotValueNum before after
 
+/-- The strongest reader-facing same-supply no-extraction statement. For a
+reachable nonempty pool, positive reserves are no longer an extra assumption;
+they follow from the nondegeneracy invariant above. Therefore any finite
+successful history that returns LP supply to its starting value leaves the pool
+worth at least as much at the initial spot price. -/
+def pair_closed_world_reachable_positive_supply_same_supply_path_no_spot_value_extraction
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        before.totalSupply = after.totalSupply →
+          PairWorldSpotValueNum before before ≤
+            PairWorldSpotValueNum before after
+
 /-- Non-liquidity histories are the common operational case: swaps, surplus
 management, donations, and LP-token bookkeeping, but no mint and no burn. The
 supply firewall above makes these histories same-supply histories, so the

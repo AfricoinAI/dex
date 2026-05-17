@@ -212,6 +212,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   claim directly: same-LP-supply reachable histories cannot extract positive
   spot-value from the pool at the initial price.
 
+  2026-05-17 02:00 PDT checkpoint: strengthened the reader-facing same-supply
+  no-extraction theorem so reachable positive supply is enough. Positive
+  reserve premises are now discharged by the invariant layer, making the
+  economic story read as: nonempty reachable pool, same ending LP supply, no
+  spot-value extraction.
+
 - [x] **9. Add factory-world invariants**
 
   Model pair creation as a finite factory trace and prove sorted-token
