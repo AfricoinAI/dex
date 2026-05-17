@@ -1320,6 +1320,14 @@ theorem sync_oracle_elapsed_updates_price_cumulatives
     h_time_changed, h_time_changed_raw, h_time_changed_num, h_time_neq_num,
     h_elapsed_branch, h_elapsed_branch_raw, h_elapsed_num]
 
+-- tama: discharges=pair_flash_callback_module_gates_nonempty_data
+theorem flash_callback_module_gates_nonempty_data :
+  pair_flash_callback_module_gates_nonempty_data := by
+  intro ctx target sender amount0Out amount1Out stmts h_compile
+  dsimp [TamaUniV2.uniswapV2CallbackModule] at h_compile
+  injection h_compile with h_stmts
+  exact ⟨_, h_stmts.symm⟩
+
 -- tama: discharges=pair_mint_first_expected_refines_closed_world
 theorem mint_first_expected_refines_closed_world (toAddr : Address) (s : ContractState) :
   pair_mint_first_expected_refines_closed_world toAddr s := by
@@ -2731,6 +2739,21 @@ theorem closed_world_swap_has_input_and_output
     h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0,
     _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, _h_adjusted_k, _h_raw_k⟩
   exact ⟨h_output, h_input⟩
+
+-- tama: discharges=pair_closed_world_swap_final_balances_account_for_input_and_output
+theorem closed_world_swap_final_balances_account_for_input_and_output
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_swap_final_balances_account_for_input_and_output
+    amount0In amount1In amount0Out amount1Out before after := by
+  intro h_step
+  simp [PairWorldStep, PairWorldSwapStep] at h_step
+  rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, h_enough0, h_enough1,
+    _h_input, h_balance0, h_balance1, _h_reserve0, _h_reserve1, _h_bound0,
+    _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, _h_adjusted_k, _h_raw_k⟩
+  constructor
+  · rw [h_balance0, Nat.sub_add_cancel h_enough0]
+  · rw [h_balance1, Nat.sub_add_cancel h_enough1]
 
 -- tama: discharges=pair_closed_world_swap_outputs_below_reserves
 theorem closed_world_swap_outputs_below_reserves

@@ -659,6 +659,34 @@ def pair_sync_oracle_elapsed_updates_price_cumulatives
           oraclePrice1CumulativeAfterSync s =
             oraclePrice1CumulativeAfterElapsed s
 
+/-!
+## Flash-Swap Boundary
+
+Flash swaps are verify-after swaps: the pair may optimistically send output,
+optionally call the recipient, then read final token balances and enforce the K
+rule against the balances after any callback-visible repayment. The callback
+itself is an external boundary, so the Lean source model does not pretend to
+execute recipient code. The spec suite therefore separates two facts:
+
+* The compiled callback ECM is gated by nonempty calldata, matching canonical
+  Uniswap V2 flash-swap behavior.
+* The closed-world swap transition below charges the K check against final
+  balances, not against balances before the recipient has a chance to repay.
+-/
+
+def pair_flash_callback_module_gates_nonempty_data : Prop :=
+  ∀ (ctx : Compiler.ECM.CompilationContext)
+    (target sender amount0Out amount1Out : Compiler.Yul.YulExpr)
+    (stmts : List Compiler.Yul.YulStmt),
+    TamaUniV2.uniswapV2CallbackModule.compile ctx
+        [target, sender, amount0Out, amount1Out] = Except.ok stmts →
+      ∃ body,
+        stmts =
+          [Compiler.Yul.YulStmt.if_
+            (Compiler.Yul.YulExpr.call "gt"
+              [Compiler.Yul.YulExpr.ident "data_length", Compiler.Yul.YulExpr.lit 0])
+            body]
+
 def pair_mint_first_expected_refines_closed_world
     (toAddr : Address) (s : ContractState) : Prop :=
   let amount0 := mintAmount0 s
@@ -1234,6 +1262,19 @@ def pair_closed_world_swap_has_input_and_output
       before after →
     (0 < amount0Out ∨ 0 < amount1Out) ∧
     (0 < amount0In ∨ 0 < amount1In)
+
+/-- The final balances used by swap safety are the balances after optimistic
+output and inferred input. This is the closed-world flash-swap accounting rule:
+callback-visible repayment, direct prepayment, and ordinary swaps all reduce to
+the same equation before the fee-adjusted K check is applied. -/
+def pair_closed_world_swap_final_balances_account_for_input_and_output
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    after.balance0 + amount0Out = before.reserve0 + amount0In ∧
+    after.balance1 + amount1Out = before.reserve1 + amount1In
 
 def pair_closed_world_swap_outputs_below_reserves
     (amount0In amount1In amount0Out amount1Out : Nat)

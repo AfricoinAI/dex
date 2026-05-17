@@ -65,10 +65,15 @@ Pair:
   locked-liquidity coverage, minimum-liquidity lock, share-only action framing,
   reserve-update projections for mint/burn/swap/skim/sync, raw swap-K
   nondecrease, fee-adjusted K projection for swaps, positive-input/output and
-  output-below-reserve swap facts, donation reserve/K framing, LP-supply
-  preservation for swap/skim/sync, the action classifier that only mint/burn can
-  change LP total supply, and the K-direction classifier that any one-step raw K
-  decrease from a good state must be a burn.
+  output-below-reserve swap facts, post-output plus inferred-input balance
+  accounting for swaps, donation reserve/K framing, LP-supply preservation for
+  swap/skim/sync, the action classifier that only mint/burn can change LP total
+  supply, and the K-direction classifier that any one-step raw K decrease from a
+  good state must be a burn.
+- Flash-swap callback gating is covered at the ECM compile-template boundary:
+  the generated callback call sits under a `data_length > 0` Yul guard. The
+  remaining callback-failure and in-callback lock semantics are runtime/ECM
+  boundary behaviors unless the callback ECM gains a richer Lean trace model.
 - Mint/burn closed-world supply discipline now explicitly states first-mint
   `MINIMUM_LIQUIDITY` locking, subsequent-mint locked-liquidity preservation,
   every valid mint strictly increasing total supply, exact burn supply
@@ -122,9 +127,11 @@ properties, not API-surface properties.
   every reserve update path, proving cumulative prices increment exactly when
   elapsed time is positive and old reserves are nonzero, and remain unchanged
   otherwise.
-- Flash swaps: prove callback iff `data` is nonempty, callback failure is
-  atomic, the lock is held through the callback, and K is checked after callback
-  effects.
+- Flash swaps: callback gating is now proved at the ECM compile-template
+  boundary, and closed-world swap accounting now states that K is checked
+  against final balances after output plus inferred repayment. Remaining work:
+  model callback failure atomicity and in-callback lock semantics with an
+  explicit Lean trace or keep them as mirrored runtime boundary coverage.
 - Skim/sync bridge: `sync` has uint112 overflow reverts and a closed-world
   transition bridge. The remaining work is a narrow bridge from successful
   reserve-update runs to the TWAP/oracle arithmetic facts.

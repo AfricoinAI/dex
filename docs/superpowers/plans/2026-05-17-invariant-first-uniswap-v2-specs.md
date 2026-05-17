@@ -115,6 +115,13 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   reentrancy lock is held through callback execution, and the K check is applied
   after callback-visible token balance changes.
 
+  2026-05-16 22:50 PDT checkpoint: the callback `data.length > 0` gate is now
+  stated at the ECM compile-template boundary, which is where this behavior
+  currently lives. The closed-world swap model also states the post-output plus
+  inferred-input balance equations used by the K check. Callback failure
+  atomicity and in-callback lock observations still need either an explicit
+  Lean callback trace model or mirrored runtime-boundary coverage.
+
 - [ ] **7. Complete the ordered revert matrix**
 
   Add exact run-result revert specs for canonical guard priority in mint, burn,
