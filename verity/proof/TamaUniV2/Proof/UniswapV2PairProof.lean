@@ -2619,6 +2619,15 @@ theorem closed_world_mint_liquidity_ratio
     _h_after_reserve1, _h_bound0, _h_bound1, _h_supply, _h_locked, h_ratio⟩
   exact h_ratio
 
+-- tama: discharges=pair_closed_world_mint_does_not_dilute_existing_lp_share
+theorem closed_world_mint_does_not_dilute_existing_lp_share
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_mint_does_not_dilute_existing_lp_share
+    amount0 amount1 liquidity before after := by
+  intro h_good h_positive h_step
+  exact pairWorldStep_k_per_supply_never_decreases h_good h_positive h_step
+
 -- tama: discharges=pair_closed_world_burn_preserves_good
 theorem closed_world_burn_preserves_good
     (amount0 amount1 liquidity : Nat)
@@ -2653,6 +2662,15 @@ theorem closed_world_burn_liquidity_ratio
     _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0, _h_bound1,
     _h_supply, _h_locked, h_ratio0, h_ratio1⟩
   exact ⟨h_ratio0, h_ratio1⟩
+
+-- tama: discharges=pair_closed_world_burn_does_not_dilute_remaining_lp_share
+theorem closed_world_burn_does_not_dilute_remaining_lp_share
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_burn_does_not_dilute_remaining_lp_share
+    amount0 amount1 liquidity before after := by
+  intro h_good h_positive h_step
+  exact pairWorldStep_k_per_supply_never_decreases h_good h_positive h_step
 
 -- tama: discharges=pair_closed_world_swap_preserves_good
 theorem closed_world_swap_preserves_good

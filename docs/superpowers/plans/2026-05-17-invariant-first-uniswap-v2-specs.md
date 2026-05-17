@@ -85,6 +85,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   proves a valid burn from a good positive-token state cannot drain either token
   balance to zero.
 
+  2026-05-16 22:46 PDT checkpoint: mint/burn ratio safety is now stated in
+  LP-share terms too. Positive-supply mints cannot dilute existing LPs, and
+  burns cannot over-extract from remaining LPs, because both preserve or improve
+  reserve product per squared LP supply.
+
 - [ ] **4. Bridge real entrypoints to transitions**
 
   Prove successful public `mint`, `burn`, `swap`, `skim`, and `sync` runs imply

@@ -1137,6 +1137,18 @@ def pair_closed_world_mint_liquidity_ratio
       liquidity * before.reserve0 ≤ amount0 * before.totalSupply ∧
       liquidity * before.reserve1 ≤ amount1 * before.totalSupply
 
+/-- Once a pool already has LP supply, a valid mint cannot dilute existing LPs:
+measured as reserve product per squared LP supply, the pool is at least as
+strong after the mint as before it. The first mint is excluded because there
+are no preexisting LP shares to dilute. -/
+def pair_closed_world_mint_does_not_dilute_existing_lp_share
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+        PairWorldKPerSupplyNondecreasing before after
+
 def pair_closed_world_burn_updates_reserves_to_balances
     (amount0 amount1 liquidity : Nat)
     (before after : PairWorldState) : Prop :=
@@ -1157,6 +1169,17 @@ def pair_closed_world_burn_liquidity_ratio
   PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
     amount0 * before.totalSupply ≤ liquidity * before.balance0 ∧
     amount1 * before.totalSupply ≤ liquidity * before.balance1
+
+/-- A burn may lower raw K because assets leave the pool, but it cannot extract
+more than the burned LP share is entitled to. The remaining pool's reserve
+product per squared LP supply is therefore at least as strong after the burn. -/
+def pair_closed_world_burn_does_not_dilute_remaining_lp_share
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+        PairWorldKPerSupplyNondecreasing before after
 
 /-!
 ### 6. Swap Safety

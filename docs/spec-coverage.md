@@ -76,7 +76,10 @@ Pair:
   redeem the locked liquidity floor. The burn ghost transition itself now
   requires positive liquidity, positive pre-burn supply, and positive redeemed
   token amounts, and the token-side lock consequence proves burns from good
-  positive-token states cannot drain either token balance to zero.
+  positive-token states cannot drain either token balance to zero. Mint and
+  burn now also have explicit LP-share safety obligations: existing positive
+  pools cannot be diluted by mints, and burns cannot over-extract from the
+  remaining LPs, because each preserves or improves K per squared LP supply.
 - Same-LP-supply spot-value no-profit projection from reserve-product
   nondecrease. The stronger closed-world LP-normalized K theorem now covers
   arbitrary finite paths from good positive-supply states: each step preserves
