@@ -2783,6 +2783,23 @@ def pair_closed_world_sync_preserves_token_balance_value
     PairWorldBalanceSpotValueNum spot after =
       PairWorldBalanceSpotValueNum spot before
 
+/-- Any action that rewrites the router-visible reserves writes them to the
+actual token balances at the end of that action. This is the shared accounting
+rule behind mint, burn, swap, and sync: cached reserves may change only by
+catching up to the balances the pair actually holds. -/
+def pair_closed_world_reserve_write_sets_reserves_to_balances
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  ((∃ amount0 amount1 liquidity,
+      action = PairWorldAction.mint amount0 amount1 liquidity) ∨
+    (∃ amount0 amount1 liquidity,
+      action = PairWorldAction.burn amount0 amount1 liquidity) ∨
+    (∃ amount0In amount1In amount0Out amount1Out,
+      action = PairWorldAction.swap amount0In amount1In amount0Out amount1Out) ∨
+    action = PairWorldAction.sync) →
+    PairWorldStep action before after →
+      after.reserve0 = after.balance0 ∧
+      after.reserve1 = after.balance1
+
 /-- Passive reconciliation cannot manufacture token-balance value. Skim may
 remove donated surplus, while sync only changes cached reserves; neither action
 can increase the pair's actual token-balance value at the starting spot price.

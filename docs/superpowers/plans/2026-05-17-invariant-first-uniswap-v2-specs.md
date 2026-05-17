@@ -258,6 +258,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   same theorem, so readers can cite reachability directly instead of separately
   proving the good-state invariant.
 
+  2026-05-17 14:39 PDT checkpoint: added the shared reserve-write theorem.
+  Every mint, burn, swap, or sync reserve write sets cached reserves to actual
+  token balances, making the common accounting rule explicit for later bridge
+  and oracle arguments.
+
   2026-05-17 10:49 PDT checkpoint: added executable LP-bookkeeping storage
   frame facts. The actual `approve`, `transfer`, and `transferFrom` runs may
   update LP allowance/balance maps and emit ERC20 events, but they cannot

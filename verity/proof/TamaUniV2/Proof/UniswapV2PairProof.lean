@@ -4992,6 +4992,30 @@ theorem closed_world_sync_preserves_token_balance_value
   simp [pair_closed_world_sync_preserves_token_balance_value,
     PairWorldBalanceSpotValueNum, h_balance0, h_balance1]
 
+-- tama: discharges=pair_closed_world_reserve_write_sets_reserves_to_balances
+theorem closed_world_reserve_write_sets_reserves_to_balances
+    (action : PairWorldAction) (before after : PairWorldState) :
+  pair_closed_world_reserve_write_sets_reserves_to_balances action before after := by
+  intro h_action h_step
+  rcases h_action with h_mint | h_burn | h_swap | h_sync
+  · rcases h_mint with ⟨amount0, amount1, liquidity, h_action⟩
+    subst action
+    exact closed_world_mint_updates_reserves_to_balances
+      amount0 amount1 liquidity before after h_step
+  · rcases h_burn with ⟨amount0, amount1, liquidity, h_action⟩
+    subst action
+    exact closed_world_burn_updates_reserves_to_balances
+      amount0 amount1 liquidity before after h_step
+  · rcases h_swap with ⟨amount0In, amount1In, amount0Out, amount1Out, h_action⟩
+    subst action
+    exact closed_world_swap_updates_reserves_to_balances
+      amount0In amount1In amount0Out amount1Out before after h_step
+  · subst action
+    have h_sync_step := closed_world_sync_sets_reserves_to_balances before after h_step
+    constructor
+    · rw [h_sync_step.1, h_sync_step.2.2.1]
+    · rw [h_sync_step.2.1, h_sync_step.2.2.2]
+
 -- tama: discharges=pair_closed_world_skim_or_sync_token_balance_value_never_increases
 theorem closed_world_skim_or_sync_token_balance_value_never_increases
     (action : PairWorldAction) (before after : PairWorldState) :
