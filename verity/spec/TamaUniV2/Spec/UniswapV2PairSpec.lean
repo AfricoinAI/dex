@@ -263,6 +263,23 @@ def pair_initialize_sets_tokens
         result.snd.storageAddr token0Slot.slot = token0Value ∧
         result.snd.storageAddr token1Slot.slot = token1Value
 
+/-- Exact successful initialization boundary. When the factory calls a fresh
+pair, the actual public `initialize` run succeeds and records the two token
+addresses that define the market. Together with the two exact revert specs, this
+states the complete token-identity lifecycle: the factory can set identity once,
+and nobody can change it after that. -/
+def pair_initialize_run_success_sets_tokens
+    (token0Value token1Value : Address) (s : ContractState) : Prop :=
+  s.sender = s.storageAddr factorySlot.slot →
+    s.storageAddr token0Slot.slot = zeroAddress →
+      s.storageAddr token1Slot.slot = zeroAddress →
+        («initialize» token0Value token1Value).run s =
+          ContractResult.success () ((«initialize» token0Value token1Value).run s).snd ∧
+        ((«initialize» token0Value token1Value).run s).snd.storageAddr
+          token0Slot.slot = token0Value ∧
+        ((«initialize» token0Value token1Value).run s).snd.storageAddr
+          token1Slot.slot = token1Value
+
 /-- Approval is intentionally narrow: it returns true, writes exactly one
 allowance cell, preserves all LP balances and total supply, and emits Approval. -/
 def pair_approve_succeeds

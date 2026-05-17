@@ -52,6 +52,9 @@ Pair:
   insufficient-liquidity and invalid-recipient guards have exact Foundry
   revert-message coverage, but are not public Lean obligations until their
   ordered-prefix proofs are decomposed enough to avoid kernel-depth blowups.
+- Exact successful initialization coverage now states the positive side of the
+  same lifecycle: a factory call into a fresh pair succeeds and records the two
+  token addresses that define the market.
 - A reader-facing Pair reentrancy invariant packages the locked-entrypoint
   facts directly: if the lock is closed, every state-changing AMM entrypoint
   reverts with `UniswapV2: LOCKED` before durable side effects.

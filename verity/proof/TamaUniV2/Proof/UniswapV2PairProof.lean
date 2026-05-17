@@ -283,6 +283,13 @@ theorem initialize_sets_tokens
     Verity.bind, Bind.bind, Verity.pure, Pure.pure,
     h_sender_raw, h_token0_raw, h_token1_raw, h_token_slots_distinct]
 
+-- tama: discharges=pair_initialize_run_success_sets_tokens
+theorem initialize_run_success_sets_tokens
+    (token0Value token1Value : Address) (s : ContractState) :
+  pair_initialize_run_success_sets_tokens token0Value token1Value s := by
+  simpa [pair_initialize_run_success_sets_tokens, pair_initialize_sets_tokens]
+    using initialize_sets_tokens token0Value token1Value s
+
 private theorem approve_properties_after_run
     (spender : Address) (amount : Uint256) (s : ContractState) :
   pair_approve_succeeds spender amount s ((approve spender amount).run s) ∧
