@@ -1521,6 +1521,18 @@ def pair_closed_world_no_reserve_update_path_preserves_reserves
     after.reserve0 = before.reserve0 ∧
     after.reserve1 = before.reserve1
 
+/-- Economic corollary of finite-history reserve isolation. If no mint, burn,
+swap, or sync occurs, the cached reserve product and reserve-denominated spot
+value are unchanged. This deliberately talks about cached reserves rather than
+actual token balances: direct donations and `skim` may change surplus, but they
+do not change the reserve price state. -/
+def pair_closed_world_no_reserve_update_path_preserves_k_and_spot_value
+    (before after : PairWorldState) : Prop :=
+  PairWorldPathNoReserveUpdate before after →
+    PairWorldK after = PairWorldK before ∧
+    PairWorldSpotValueNum before after =
+      PairWorldSpotValueNum before before
+
 /-- The one-step LP-supply firewall. A successful modeled action that is not
 mint and not burn cannot change total LP supply or the permanently locked
 liquidity amount. This is the local fact that the finite-history theorem below

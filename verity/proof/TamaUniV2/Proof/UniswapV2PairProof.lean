@@ -3118,6 +3118,20 @@ theorem closed_world_no_reserve_update_path_preserves_reserves
       exact ⟨by rw [h_step_reserves.1, ih.1],
         by rw [h_step_reserves.2, ih.2]⟩
 
+-- tama: discharges=pair_closed_world_no_reserve_update_path_preserves_k_and_spot_value
+theorem closed_world_no_reserve_update_path_preserves_k_and_spot_value
+    (before after : PairWorldState) :
+  pair_closed_world_no_reserve_update_path_preserves_k_and_spot_value
+    before after := by
+  intro h_path
+  have h_reserves :=
+    closed_world_no_reserve_update_path_preserves_reserves before after h_path
+  constructor
+  · unfold PairWorldK
+    rw [h_reserves.1, h_reserves.2]
+  · unfold PairWorldSpotValueNum
+    rw [h_reserves.1, h_reserves.2]
+
 -- tama: discharges=pair_closed_world_non_liquidity_step_preserves_supply
 theorem closed_world_non_liquidity_step_preserves_supply
     (action : PairWorldAction) (before after : PairWorldState) :

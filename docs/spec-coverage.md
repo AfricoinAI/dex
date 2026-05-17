@@ -120,7 +120,8 @@ Pair:
   measurements unchanged, reserve-update projections for
   mint/burn/swap/skim/sync, the reserve-change classifier proving only
   mint/burn/swap/sync can rewrite cached reserves, the finite-history reserve
-  isolation theorem for histories with no reserve-update action, canonical
+  isolation theorem for histories with no reserve-update action, the matching
+  cached-K and reserve spot-value preservation corollary, canonical
   fee-adjusted K for swaps plus the arithmetic theorem that the fee-adjusted
   check implies raw cached-K
   nondecrease once reserves equal final balances, positive-input/output and
