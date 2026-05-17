@@ -61,6 +61,19 @@ def factory_allPairs_success_spec (index : Uint256) (result : Address) (s : Cont
   index < s.storage allPairsLengthSlot.slot →
     result = wordToAddress (s.storageMapUint allPairsSlot.slot index)
 
+/-- In-bounds enumeration is an exact read. If `index` is below
+`allPairsLength`, the real public `allPairs(index)` run succeeds with the
+decoded storage entry and leaves the factory state unchanged. Together with the
+out-of-bounds exact revert below, this pins the complete router-visible array
+boundary. -/
+def factory_allPairs_run_success_in_bounds
+    (index : Uint256) (s : ContractState) : Prop :=
+  index < s.storage allPairsLengthSlot.slot →
+    (allPairs index).run s =
+      ContractResult.success
+        (wordToAddress (s.storageMapUint allPairsSlot.slot index))
+        s
+
 /-!
 ## Create-Pair Transition
 

@@ -197,6 +197,16 @@ theorem allPairs_meets_spec (index : Uint256) (s : ContractState) :
     Verity.getStorage, Verity.getMappingUint, Verity.require, Contract.run,
     ContractResult.fst, Verity.bind, Bind.bind, Verity.pure, Pure.pure, hval]
 
+-- tama: discharges=factory_allPairs_run_success_in_bounds
+theorem allPairs_run_success_in_bounds (index : Uint256) (s : ContractState) :
+  factory_allPairs_run_success_in_bounds index s := by
+  intro h
+  have hval : index.val < (s.storage allPairsLengthSlot.slot).val := h
+  simp [factory_allPairs_run_success_in_bounds, allPairs,
+    UniswapV2FactoryBase.allPairs, Verity.getStorage, Verity.getMappingUint,
+    Verity.require, Contract.run, Verity.bind, Bind.bind, Verity.pure,
+    Pure.pure, hval]
+
 -- tama: discharges=factory_allPairs_reverts_out_of_bounds
 theorem allPairs_reverts_out_of_bounds (index : Uint256) (s : ContractState) :
   factory_allPairs_reverts_out_of_bounds index s ((allPairs index).run s) := by

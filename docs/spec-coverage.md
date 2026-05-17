@@ -183,6 +183,9 @@ Pair:
 Factory:
 
 - Storage-backed view specs for `getPair`, `allPairs`, and `allPairsLength`.
+- Exact in-bounds `allPairs(index)` success coverage now states that
+  enumeration returns the decoded stored pair and frames factory state; the
+  out-of-bounds exact revert covers the other side of the array boundary.
 - Exact create-pair reverts for identical tokens, zero token, duplicates,
   CREATE2 failure, and length overflow.
 - Failed-create atomicity spec showing reverted `createPair` runs leave pair
