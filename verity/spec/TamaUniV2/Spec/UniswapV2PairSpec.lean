@@ -831,9 +831,11 @@ The logical flow is intentionally compositional:
   mint/burn pro-rata discipline, swap fee-adjusted K and raw-K nondecrease,
   surplus-only skim, sync-to-balance behavior, and LP-supply preservation by
   non-liquidity actions.
-* The same-supply no-profit theorem is the sequence-level consequence: if a
-  finite path begins and ends with the same LP supply and does not decrease K,
-  then the pool state has no positive profit at the initial spot price.
+* LP-normalized K composes across arbitrary finite paths from positive-supply
+  states. If such a path begins and ends with the same LP supply, the
+  normalization cancels, raw K cannot fall, and the final pool has no
+  spot-price profit at the initial price. The older no-burn theorem remains as
+  a simpler corollary for traces without LP redemption.
 
 Properties specified:
 
@@ -843,17 +845,18 @@ Properties specified:
 * LP supply is coherent with the permanently locked minimum liquidity; only
   mint and burn can change that supply.
 * Swaps satisfy the fee-adjusted K check and cannot decrease raw cached K.
-* Any finite path without a burn cannot decrease cached K. Combined with the
-  spot-value lemma, a same-LP-supply no-burn path cannot create value at the
-  initial spot price.
+* Any one-step raw K decrease must be a burn. Across paths, LP-normalized K
+  cannot decrease from a good positive-supply state, and reachable same-supply
+  paths cannot create value at the initial spot price.
 
 Security conclusions:
 
 * The pair cannot report reserves that exceed modeled token backing in any
   closed-world finite trace.
 * Reentrancy-free non-burn traces, including swaps, donations, skims, and syncs,
-  cannot reduce pool K or manufacture spot-price profit for a caller without an
-  external gift.
+  cannot reduce pool K. More generally, same-LP-supply finite traces from
+  reachable positive-supply states cannot manufacture spot-price profit without
+  an external gift.
 * Liquidity creation and redemption are isolated to mint/burn, where the
   separate ratio specs bound LP tokens against pro-rata token movement.
 -/
