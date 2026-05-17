@@ -117,6 +117,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   no burn cannot decrease cached K, making the one-step K classifier visible at
   the history level.
 
+  2026-05-17 02:26 PDT checkpoint: adding the contrapositive finite-history K
+  classifier. If a reachable successful path ends with lower cached K, that
+  endpoint cannot also be reached by a burn-free history, making "K loss
+  requires LP redemption" explicit for readers.
+
   2026-05-16 22:43 PDT checkpoint: the closed-world burn step was tightened to
   match executable burn success by requiring positive redeemed amounts, positive
   burned liquidity, and positive pre-burn supply. A new token-side lock theorem

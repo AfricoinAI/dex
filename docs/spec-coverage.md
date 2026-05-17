@@ -85,7 +85,9 @@ Pair:
   classifier that only mint/burn can change LP total supply, the K-direction
   classifier that any one-step raw K decrease from a good state must be a burn,
   and the reachable finite-trace theorem that any no-burn path cannot decrease
-  cached K.
+  cached K. The contrapositive reader-facing theorem is also stated directly:
+  if a reachable successful path ends with lower cached K, the same endpoint
+  cannot be reached by any burn-free history.
 - Flash-swap callback gating is covered at the ECM compile-template boundary:
   the generated callback call sits under a `data_length > 0` Yul guard. The
   remaining callback-failure and in-callback lock semantics are runtime/ECM

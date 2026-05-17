@@ -3369,6 +3369,17 @@ theorem closed_world_reachable_no_burn_path_never_decreases_k
   exact pairWorldNoBurnPath_never_decreases_k
     (pairWorldReachable_good before h_reachable) h_path
 
+-- tama: discharges=pair_closed_world_reachable_k_decrease_excludes_burn_free_path
+theorem closed_world_reachable_k_decrease_excludes_burn_free_path
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_k_decrease_excludes_burn_free_path before after := by
+  intro h_reachable _h_path h_decrease h_no_burn_path
+  have h_nondec :
+      PairWorldK before ≤ PairWorldK after :=
+    pairWorldNoBurnPath_never_decreases_k
+      (pairWorldReachable_good before h_reachable) h_no_burn_path
+  exact (Nat.not_lt_of_ge h_nondec) h_decrease
+
 -- tama: discharges=pair_closed_world_no_burn_same_supply_path_no_spot_profit
 theorem closed_world_no_burn_same_supply_path_no_spot_profit
     (before after : PairWorldState) :

@@ -1702,6 +1702,20 @@ def pair_closed_world_reachable_no_burn_path_never_decreases_k
     PairWorldPathNoBurn before after →
       PairWorldK before ≤ PairWorldK after
 
+/--
+The contrapositive K classifier, stated the way an auditor usually asks the
+question. Suppose a reachable pool has some successful finite history whose
+endpoint has lower cached K. Then that same endpoint cannot also be reached by a
+burn-free history. In other words, K loss is not a swap/skim/sync/transfer
+phenomenon; it requires LP redemption somewhere in the history.
+-/
+def pair_closed_world_reachable_k_decrease_excludes_burn_free_path
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPath before after →
+      PairWorldK after < PairWorldK before →
+        ¬ PairWorldPathNoBurn before after
+
 def pair_closed_world_no_burn_same_supply_path_no_spot_profit
     (before after : PairWorldState) : Prop :=
   PairWorldGood before →
