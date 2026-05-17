@@ -4893,6 +4893,15 @@ theorem closed_world_skim_removes_exact_surplus_value
       (spot := before) (pool := before) h_good
   rw [h_before_decomp, h_after_value]
 
+-- tama: discharges=pair_closed_world_skim_token_balance_value_never_increases
+theorem closed_world_skim_token_balance_value_never_increases
+    (before after : PairWorldState) :
+  pair_closed_world_skim_token_balance_value_never_increases before after := by
+  intro h_good h_step
+  have h_exact :=
+    closed_world_skim_removes_exact_surplus_value before after h_good h_step
+  omega
+
 -- tama: discharges=pair_closed_world_skim_preserves_balanced_pool
 theorem closed_world_skim_preserves_balanced_pool
     (before after : PairWorldState) :
@@ -4950,6 +4959,39 @@ theorem closed_world_sync_sets_reserves_to_balances
   rcases h_step with ⟨_h_bound0, _h_bound1, h_balance0, h_balance1,
     h_reserve0, h_reserve1, _h_supply, _h_locked⟩
   exact ⟨h_reserve0, h_reserve1, h_balance0, h_balance1⟩
+
+-- tama: discharges=pair_closed_world_sync_preserves_token_balances
+theorem closed_world_sync_preserves_token_balances
+    (before after : PairWorldState) :
+  pair_closed_world_sync_preserves_token_balances before after := by
+  intro h_step
+  have h_sync := closed_world_sync_sets_reserves_to_balances before after h_step
+  exact ⟨h_sync.2.2.1, h_sync.2.2.2⟩
+
+-- tama: discharges=pair_closed_world_sync_preserves_token_balance_value
+theorem closed_world_sync_preserves_token_balance_value
+    (spot before after : PairWorldState) :
+  pair_closed_world_sync_preserves_token_balance_value spot before after := by
+  intro h_step
+  rcases closed_world_sync_preserves_token_balances before after h_step with
+    ⟨h_balance0, h_balance1⟩
+  simp [pair_closed_world_sync_preserves_token_balance_value,
+    PairWorldBalanceSpotValueNum, h_balance0, h_balance1]
+
+-- tama: discharges=pair_closed_world_skim_or_sync_token_balance_value_never_increases
+theorem closed_world_skim_or_sync_token_balance_value_never_increases
+    (action : PairWorldAction) (before after : PairWorldState) :
+  pair_closed_world_skim_or_sync_token_balance_value_never_increases
+    action before after := by
+  intro h_action h_good h_step
+  rcases h_action with h_skim | h_sync
+  · subst action
+    exact closed_world_skim_token_balance_value_never_increases
+      before after h_good h_step
+  · subst action
+    have h_value :=
+      closed_world_sync_preserves_token_balance_value before before after h_step
+    rw [h_value]
 
 -- tama: discharges=pair_closed_world_sync_eliminates_surplus
 theorem closed_world_sync_eliminates_surplus

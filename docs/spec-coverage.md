@@ -94,8 +94,14 @@ Pair:
   for both balance-reconciliation entrypoints: `skim` and `sync` end with no
   modeled surplus above cached reserves. Skim also has an exact value theorem:
   at the initial spot price it removes precisely the pre-existing surplus
-  token-balance value, not accounted reserve value. The balanced-pool theorem
-  states the clean no-surplus case directly: `skim` is a no-op on token
+  token-balance value, not accounted reserve value, plus the direct consequence
+  that skim cannot increase token-balance value at the starting spot price.
+  Sync now states the complementary custody fact directly: it changes cached
+  accounting, not token balances, so every spot-price valuation of actual token
+  balances is unchanged. Together, the passive reconciliation theorem states
+  that either `skim` or `sync` cannot increase actual token-balance value at
+  the starting spot price. The balanced-pool theorem states the clean
+  no-surplus case directly: `skim` is a no-op on token
   balances, cached reserves, LP supply, and locked liquidity. The matching sync
   balanced-pool theorem states that zero-surplus sync is also a no-op on token
   balances, cached reserves, LP supply, and locked liquidity. The aggregate

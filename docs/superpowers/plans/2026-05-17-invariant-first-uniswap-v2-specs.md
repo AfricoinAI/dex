@@ -244,6 +244,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   `skim` and `sync` preserves a good balanced pool's token balances, cached
   reserves, LP supply, and locked liquidity exactly.
 
+  2026-05-17 14:25 PDT checkpoint: added passive reconciliation value facts.
+  `sync` is now stated directly as custody-preserving accounting, and the
+  shared `skim`/`sync` theorem says either action cannot increase actual
+  token-balance value at the starting spot price.
+
   2026-05-17 10:49 PDT checkpoint: added executable LP-bookkeeping storage
   frame facts. The actual `approve`, `transfer`, and `transferFrom` runs may
   update LP allowance/balance maps and emit ERC20 events, but they cannot

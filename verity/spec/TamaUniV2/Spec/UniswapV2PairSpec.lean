@@ -2705,6 +2705,15 @@ def pair_closed_world_skim_removes_exact_surplus_value
         PairWorldBalanceSpotValueNum before after +
         PairWorldSurplusSpotValueNum before before
 
+/-- Since `skim` removes exactly pre-existing surplus, it cannot increase the
+pair's actual token-balance value at the starting spot price. -/
+def pair_closed_world_skim_token_balance_value_never_increases
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep PairWorldAction.skim before after →
+      PairWorldBalanceSpotValueNum before after ≤
+        PairWorldBalanceSpotValueNum before before
+
 /-- If the pool is already balanced, `skim` is a no-op on token balances as
 well as cached accounting. This is the direct statement that skim cannot remove
 accounted liquidity from a reserve-backed pool with no external surplus. -/
@@ -2745,6 +2754,36 @@ def pair_closed_world_sync_sets_reserves_to_balances
     after.reserve1 = before.balance1 ∧
     after.balance0 = before.balance0 ∧
     after.balance1 = before.balance1
+
+/-- `sync` is an accounting update, not a token transfer. It may move the
+cached reserves up to the balances already sitting in the pair, but it cannot
+create, remove, or send either underlying token. -/
+def pair_closed_world_sync_preserves_token_balances
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep PairWorldAction.sync before after →
+    after.balance0 = before.balance0 ∧
+    after.balance1 = before.balance1
+
+/-- Because `sync` does not move tokens, any spot-price valuation of the pair's
+actual token balances is unchanged by sync. This keeps reserve accounting from
+masquerading as economic extraction or profit. -/
+def pair_closed_world_sync_preserves_token_balance_value
+    (spot before after : PairWorldState) : Prop :=
+  PairWorldStep PairWorldAction.sync before after →
+    PairWorldBalanceSpotValueNum spot after =
+      PairWorldBalanceSpotValueNum spot before
+
+/-- Passive reconciliation cannot manufacture token-balance value. Skim may
+remove donated surplus, while sync only changes cached reserves; neither action
+can increase the pair's actual token-balance value at the starting spot price.
+-/
+def pair_closed_world_skim_or_sync_token_balance_value_never_increases
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  (action = PairWorldAction.skim ∨ action = PairWorldAction.sync) →
+    PairWorldGood before →
+      PairWorldStep action before after →
+        PairWorldBalanceSpotValueNum before after ≤
+          PairWorldBalanceSpotValueNum before before
 
 /-- After `sync`, cached reserves equal modeled token balances, so the pair has
 no remaining unaccounted surplus in the closed-world state. This is why sync is
