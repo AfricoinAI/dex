@@ -66,19 +66,23 @@ Pair:
   reserve-update projections for mint/burn/swap/skim/sync, raw swap-K
   nondecrease, fee-adjusted K projection for swaps, positive-input/output and
   output-below-reserve swap facts, donation reserve/K framing, LP-supply
-  preservation for swap/skim/sync, and the action classifier that only mint/burn
-  can change LP total supply.
+  preservation for swap/skim/sync, the action classifier that only mint/burn can
+  change LP total supply, and the K-direction classifier that any one-step raw K
+  decrease from a good state must be a burn.
 - Mint/burn closed-world supply discipline now explicitly states first-mint
   `MINIMUM_LIQUIDITY` locking, subsequent-mint locked-liquidity preservation,
-  exact burn supply reduction, and the fact that burns cannot redeem the locked
-  liquidity floor.
+  every valid mint strictly increasing total supply, exact burn supply
+  reduction, burns never increasing supply, and the fact that burns cannot
+  redeem the locked liquidity floor.
 - Same-LP-supply spot-value no-profit projection from reserve-product
   nondecrease. The stronger closed-world LP-normalized K theorem now covers
   arbitrary finite paths from good positive-supply states: each step preserves
   or improves `K / totalSupply^2`, the fact composes across paths, same-supply
   paths cannot reduce raw K, and same-supply paths cannot reduce the pool's
-  value at the initial spot price. This allows mint/burn round trips rather
-  than relying only on the older no-burn path theorem.
+  value at the initial spot price. The reader-facing reachable theorem now says
+  the same thing directly for any reachable positive-supply same-LP-supply
+  finite path. This allows mint/burn round trips rather than relying only on the
+  older no-burn path theorem.
 
 Factory:
 
@@ -91,8 +95,8 @@ Factory:
   append/length update, nonzero pair boundary, and `PairCreated`.
 - Closed-world factory model for finite successful create histories, proving
   sorted nonzero pair entries, sorted-pair uniqueness, symmetric membership,
-  append-only creation, preservation of existing pairs, and pair-count/list
-  length consistency.
+  append-only creation, preservation of existing pairs, pair-count/list length
+  consistency, and path-level preservation from any good factory state.
 
 ## Current Spec Work
 
@@ -115,17 +119,19 @@ properties, not API-surface properties.
 - Flash swaps: prove callback iff `data` is nonempty, callback failure is
   atomic, the lock is held through the callback, and K is checked after callback
   effects.
-- Skim/sync bridge: `sync` still needs uint112 overflow reverts and a narrow
-  bridge from the public run to the TWAP/oracle arithmetic facts.
+- Skim/sync bridge: `sync` has uint112 overflow reverts and a closed-world
+  transition bridge. The remaining work is a narrow bridge from successful
+  reserve-update runs to the TWAP/oracle arithmetic facts.
 - Ordered revert matrix: cover canonical guard priority for mint, burn, swap,
   skim, sync, and factory, with exact revert payload/state.
 - Sequence-level economics: strengthen the conditional mint/burn/swap bridge
   obligations into direct executable success/accounting proofs where Lean can
   reduce the public entrypoint without kernel-recursion issues. Keep any
   decomposition proof-local; do not add contract helpers.
-- Factory invariants: bridge successful executable `createPair` runs into the
-  factory-world transition and add failed-create atomicity as a global frame
-  property.
+- Factory invariants: the closed-world reachable and path invariants are now in
+  place, and failed-create atomicity is proved. The remaining work is a narrow
+  bridge from successful executable `createPair` runs into the factory-world
+  transition.
 
 ## Non-Goals
 

@@ -63,7 +63,7 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   Remaining work here is to connect lock restoration across all concrete public
   success paths, not just selected entrypoints.
 
-- [ ] **3. Strengthen action transitions**
+- [x] **3. Strengthen action transitions**
 
   Add concise specs for each action family:
 
@@ -72,6 +72,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   - Swap: input inference, fee-adjusted K, raw K nondecrease, and reserve update.
   - Skim: surplus-only transfer and unchanged reserves.
   - Sync: reserves become observed balances subject to uint112 bounds.
+
+  2026-05-16 22:32 PDT checkpoint: the closed-world action family specs now
+  cover mint reserve/K/supply effects, burn reserve/supply/pro-rata effects,
+  swap input/output/K/reserve/supply effects, skim surplus/K/supply effects,
+  sync reserve/K/supply effects, and the one-step K classifier that any raw K
+  decrease from a good state must be a burn.
 
 - [ ] **4. Bridge real entrypoints to transitions**
 
@@ -114,11 +120,24 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   nondecrease and same-LP-supply spot-price no-profit. The full caller-ledger
   theorem for arbitrary mint/burn round trips remains open.
 
-- [ ] **9. Add factory-world invariants**
+  2026-05-16 22:32 PDT checkpoint: reachable same-LP-supply paths from positive
+  reachable states now prove raw K nondecrease and no spot-price profit using
+  LP-normalized K, so mint/burn round trips are covered at the pool-value level.
+  The full caller-ledger theorem remains open if we decide to model external
+  caller holdings directly.
+
+- [x] **9. Add factory-world invariants**
 
   Model pair creation as a finite factory trace and prove sorted-token
   uniqueness, symmetric `getPair`, append/length consistency, nonzero create
   boundary, initialization boundary, `PairCreated`, and failed-create atomicity.
+
+  2026-05-16 22:32 PDT checkpoint: the factory closed-world model now proves
+  one-step, reachable, and arbitrary finite-path preservation from any good
+  state, sorted nonzero entries, sorted-pair uniqueness, symmetric membership,
+  append-only creation, existing-pair preservation, and count/list consistency.
+  Executable `createPair` success and failure storage/event behavior is covered
+  separately by concrete specs.
 
 - [ ] **10. Verify and commit in coherent slices**
 
