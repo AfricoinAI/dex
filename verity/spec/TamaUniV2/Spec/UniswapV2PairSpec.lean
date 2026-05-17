@@ -2636,6 +2636,19 @@ def pair_closed_world_balanced_maintenance_path_preserves_pool
           after.totalSupply = before.totalSupply ∧
           after.lockedLiquidity = before.lockedLiquidity
 
+/-- Cached liquidity is also a passive-maintenance fixed point. The previous
+theorem says the concrete reserve fields are unchanged; this theorem names the
+economic measure built from those fields. It lets later arguments talk about
+unchanged K directly, without making readers unfold the definition of K each
+time they follow a maintenance-only history. -/
+def pair_closed_world_balanced_maintenance_path_preserves_k
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldSurplus0 before = 0 →
+      PairWorldSurplus1 before = 0 →
+        PairWorldPathMaintenance before after →
+          PairWorldK after = PairWorldK before
+
 /-- Clean pools stay clean under passive maintenance. Since LP bookkeeping is
 pool-neutral and balanced `skim`/`sync` have no surplus to reconcile, a path
 made only of those actions cannot create new token balance surplus above cached
