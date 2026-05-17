@@ -376,6 +376,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   decoded new-pair lookup is installed in both token orders and every existing
   reconstructed decoded lookup is preserved.
 
+  2026-05-17 04:39 PDT checkpoint: added the finite-history concrete factory
+  reconstruction bridge. A concrete create path records actual successful
+  `createPair` runs plus modeled append steps, and public specs now prove that
+  any such finite path preserves storage/world correspondence, existing
+  decoded unordered lookups, and existing indexed `allPairs` entries.
+
 - [ ] **10. Verify and commit in coherent slices**
 
   After each slice run focused `lake build`. Before claiming completion run
@@ -400,6 +406,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   factory lookup consequence slice: `tama check`, whole `lake build
   TamaUniV2.Proof`, `tama build`, `tama test` (26/26), and `tama audit` (0
   issues).
+
+  2026-05-17 04:43 PDT checkpoint: full verification passes for the factory
+  finite-history concrete reconstruction slice: `tama check`, whole `lake build
+  TamaUniV2.Proof`, `tama build`, `tama test` (26/26), and `tama audit` (0
+  issues). The Foundry signature-cache warning remains sandbox-only.
 
 ## Non-Goals
 

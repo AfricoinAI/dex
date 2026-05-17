@@ -176,7 +176,11 @@ Factory:
   append-only invariants continue to describe router-visible storage after real
   factory successes. Reader-facing concrete consequences now state that
   successful creation installs the decoded new-pair lookup in both token orders
-  and preserves every existing reconstructed decoded lookup.
+  and preserves every existing reconstructed decoded lookup. The bridge now
+  composes over finite concrete create histories: any successful sequence of
+  real `createPair` runs preserves the storage/world correspondence at the
+  endpoint, preserves every pre-existing decoded unordered lookup, and
+  preserves every pre-existing indexed `allPairs` entry.
 
 ## Current Spec Work
 
@@ -227,9 +231,11 @@ properties, not API-surface properties.
   pair mappings, reverse mappings, and indexed pair-array entries, and
   successful concrete `createPair` runs preserve that correspondence across one
   append. Concrete new-lookup installation and existing-lookup preservation are
-  now exposed directly. Remaining work is to lift this one-step correspondence
-  to longer reconstructed concrete histories and derive any additional concrete
-  lookup stability corollaries from the closed-world same-count/path theorems.
+  now exposed directly. The one-step correspondence has also been lifted to
+  longer reconstructed concrete histories, with reader-facing corollaries for
+  stable decoded lookups and stable indexed pair-array entries. Remaining work
+  should return to the Pair bridge/oracle/revert layers unless a new
+  factory-specific behavioral gap is identified.
 
 ## Non-Goals
 

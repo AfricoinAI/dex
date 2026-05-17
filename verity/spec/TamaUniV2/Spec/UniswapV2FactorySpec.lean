@@ -396,6 +396,56 @@ def factory_createPair_success_preserves_existing_decoded_lookup
                           existingPair
 
 /-!
+## Concrete Factory Histories
+
+The one-step reconstruction bridge is useful because it composes. A finite
+sequence of successful concrete `createPair` calls should keep the closed-world
+factory history aligned with real storage at every endpoint. These specs are
+the global version of that simulation argument.
+
+The first fact says the correspondence itself is invariant across any concrete
+create history. The next two facts project that invariant into the two surfaces
+routers use: unordered `getPair` lookup and indexed `allPairs` enumeration.
+Together they say successful creation may append new pairs, but every old
+router-visible lookup and array entry remains stable for the rest of the
+factory's lifetime.
+-/
+
+def factory_concrete_create_path_preserves_world_match
+    (sBefore sAfter : ContractState)
+    (wBefore wAfter : FactoryWorldState) : Prop :=
+  FactoryWorldGood wBefore →
+    FactoryWorldMatchesStorage sBefore wBefore →
+      FactoryConcreteCreatePath sBefore wBefore sAfter wAfter →
+        FactoryWorldGood wAfter ∧
+        FactoryWorldMatchesStorage sAfter wAfter
+
+def factory_concrete_create_path_preserves_existing_decoded_lookup
+    (existing0 existing1 existingPair : Address)
+    (sBefore sAfter : ContractState)
+    (wBefore wAfter : FactoryWorldState) : Prop :=
+  FactoryWorldGood wBefore →
+    FactoryWorldMatchesStorage sBefore wBefore →
+      FactoryWorldContainsPair wBefore existing0 existing1 existingPair →
+        FactoryConcreteCreatePath sBefore wBefore sAfter wAfter →
+          wordToAddress
+              (sAfter.storageMap2 pairForSlot.slot existing0 existing1) =
+            existingPair
+
+def factory_concrete_create_path_preserves_existing_allPairs_entry
+    (index : Nat) (entry : FactoryWorldPair)
+    (sBefore sAfter : ContractState)
+    (wBefore wAfter : FactoryWorldState) : Prop :=
+  FactoryWorldGood wBefore →
+    FactoryWorldMatchesStorage sBefore wBefore →
+      wBefore.pairs[index]? = some entry →
+        FactoryConcreteCreatePath sBefore wBefore sAfter wAfter →
+          wordToAddress
+              (sAfter.storageMapUint allPairsSlot.slot
+                (Core.Uint256.ofNat index)) =
+            entry.pair
+
+/-!
 ## Closed-World Factory Invariants
 
 The executable success spec above proves one concrete `createPair` run writes

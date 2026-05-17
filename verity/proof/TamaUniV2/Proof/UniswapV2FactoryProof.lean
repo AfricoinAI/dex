@@ -105,6 +105,24 @@ private theorem list_get?_append_singleton_cases
           · exact Or.inl (by simp [h_old])
           · exact Or.inr ⟨by simp [h_index], h_y⟩
 
+private theorem list_get?_append_left_of_some
+    {α : Type} {xs ys : List α} {index : Nat} {entry : α} :
+  xs[index]? = some entry →
+    (xs ++ ys)[index]? = some entry := by
+  revert index
+  induction xs with
+  | nil =>
+      intro index h_get
+      cases index <;> simp at h_get
+  | cons head tail ih =>
+      intro index h_get
+      cases index with
+      | zero =>
+          simpa using h_get
+      | succ index =>
+          simp at h_get ⊢
+          exact ih h_get
+
 private theorem uint256_ofNat_ne_of_lt_val
     {index : Nat} {u : Uint256}
     (h_lt : index < u.val) :
@@ -1188,6 +1206,163 @@ private theorem factoryWorldPath_append_only
           · rw [h_count_step, h_count_prefix]
             simp
             omega
+
+private theorem factoryConcreteCreateStep_preserves_world_match
+    (tokenA tokenB : Address)
+    (sBefore sAfter : ContractState)
+    (wBefore wAfter : FactoryWorldState) :
+  FactoryWorldGood wBefore →
+    FactoryWorldMatchesStorage sBefore wBefore →
+      FactoryConcreteCreateStep tokenA tokenB sBefore sAfter wBefore wAfter →
+        FactoryWorldGood wAfter ∧
+        FactoryWorldMatchesStorage sAfter wAfter := by
+  intro h_good h_match h_concrete
+  dsimp [FactoryConcreteCreateStep] at h_concrete
+  rcases h_concrete with ⟨h_absent, h_len_ok, h_run, h_world_step⟩
+  have h_good_after :
+      FactoryWorldGood wAfter :=
+    factoryWorldStep_preserves_good
+      (FactoryWorldAction.createPair tokenA tokenB
+        (wordToAddress (factoryCreate2Word tokenA tokenB)))
+      wBefore wAfter h_good h_world_step
+  dsimp [FactoryWorldStep, FactoryWorldCreatePairStep] at h_world_step
+  rcases h_world_step with
+    ⟨h_distinct, h_tokenA_nonzero, h_tokenB_nonzero, _h_token_order,
+      h_new_good, h_absent_world, h_pairs, h_count⟩
+  rcases h_new_good with
+    ⟨_h_new_distinct, _h_new_token0_nonzero, _h_new_token1_nonzero,
+      _h_new_sorted, h_pair_nonzero⟩
+  have h_run_success :
+      (createPair tokenA tokenB).run sBefore =
+        ContractResult.success
+          (wordToAddress (factoryCreate2Word tokenA tokenB))
+          sAfter := by
+    simpa [createPair, UniswapV2FactoryBase.createPair, factoryCreate2Word,
+      factoryToken0, factoryToken1, wordToAddress] using h_run
+  have h_run_expected :
+      (createPair tokenA tokenB).run sBefore =
+        ContractResult.success
+          (wordToAddress (factoryCreate2Word tokenA tokenB))
+          ((createPair tokenA tokenB).run sBefore).snd := by
+    rw [h_run_success]
+    simp
+  have h_state_eq :
+      ((createPair tokenA tokenB).run sBefore).snd = sAfter := by
+    rw [h_run_success]
+    simp
+  have h_after_eq :
+      wAfter =
+        { pairs := wBefore.pairs ++ [{
+            token0 := factoryToken0 tokenA tokenB
+            token1 := factoryToken1 tokenA tokenB
+            pair := wordToAddress (factoryCreate2Word tokenA tokenB)
+          }]
+          pairCount := wBefore.pairCount + 1 } := by
+    cases wAfter with
+    | mk pairs pairCount =>
+        simp at h_pairs h_count ⊢
+        exact ⟨h_pairs, h_count⟩
+  have h_match_after :
+      FactoryWorldMatchesStorage
+        ((createPair tokenA tokenB).run sBefore).snd
+        { pairs := wBefore.pairs ++ [{
+            token0 := factoryToken0 tokenA tokenB
+            token1 := factoryToken1 tokenA tokenB
+            pair := wordToAddress (factoryCreate2Word tokenA tokenB)
+          }]
+          pairCount := wBefore.pairCount + 1 } :=
+    createPair_success_preserves_concrete_world_match
+      tokenA tokenB sBefore wBefore
+      h_distinct h_tokenA_nonzero h_tokenB_nonzero h_good h_match
+      h_absent h_absent_world h_pair_nonzero h_len_ok h_run_expected
+  constructor
+  · exact h_good_after
+  · rw [← h_state_eq, h_after_eq]
+    exact h_match_after
+
+private theorem factoryConcreteCreatePath_preserves_match
+    {sBefore sAfter : ContractState}
+    {wBefore wAfter : FactoryWorldState} :
+  FactoryWorldGood wBefore →
+    FactoryWorldMatchesStorage sBefore wBefore →
+      FactoryConcreteCreatePath sBefore wBefore sAfter wAfter →
+        FactoryWorldGood wAfter ∧
+        FactoryWorldMatchesStorage sAfter wAfter := by
+  intro h_good h_match h_path
+  induction h_path with
+  | refl =>
+      exact ⟨h_good, h_match⟩
+  | step tokenA tokenB h_prefix h_step ih =>
+      have h_prefix_result := ih h_good h_match
+      exact factoryConcreteCreateStep_preserves_world_match
+        tokenA tokenB _ _ _ _
+        h_prefix_result.1 h_prefix_result.2 h_step
+
+private theorem factoryConcreteCreatePath_refines_world_path
+    {sBefore sAfter : ContractState}
+    {wBefore wAfter : FactoryWorldState} :
+  FactoryConcreteCreatePath sBefore wBefore sAfter wAfter →
+    FactoryWorldPath wBefore wAfter := by
+  intro h_path
+  induction h_path with
+  | refl =>
+      exact FactoryWorldPath.refl _
+  | step tokenA tokenB _h_prefix h_step ih =>
+      dsimp [FactoryConcreteCreateStep] at h_step
+      rcases h_step with ⟨_h_absent, _h_len_ok, _h_run, h_world_step⟩
+      exact FactoryWorldPath.step
+        (FactoryWorldAction.createPair tokenA tokenB
+          (wordToAddress (factoryCreate2Word tokenA tokenB)))
+        ih h_world_step
+
+-- tama: discharges=factory_concrete_create_path_preserves_world_match
+theorem concrete_create_path_preserves_world_match
+    (sBefore sAfter : ContractState)
+    (wBefore wAfter : FactoryWorldState) :
+  factory_concrete_create_path_preserves_world_match
+    sBefore sAfter wBefore wAfter := by
+  exact factoryConcreteCreatePath_preserves_match
+
+-- tama: discharges=factory_concrete_create_path_preserves_existing_decoded_lookup
+theorem concrete_create_path_preserves_existing_decoded_lookup
+    (existing0 existing1 existingPair : Address)
+    (sBefore sAfter : ContractState)
+    (wBefore wAfter : FactoryWorldState) :
+  factory_concrete_create_path_preserves_existing_decoded_lookup
+    existing0 existing1 existingPair sBefore sAfter wBefore wAfter := by
+  intro h_good h_match h_existing h_path
+  have h_final :=
+    factoryConcreteCreatePath_preserves_match
+      h_good h_match h_path
+  have h_world_path :=
+    factoryConcreteCreatePath_refines_world_path h_path
+  have h_existing_after :=
+    factoryWorldPath_preserves_existing_pair h_existing h_world_path
+  exact concrete_world_lookup_matches_storage
+    sAfter wAfter existing0 existing1 existingPair
+    h_final.2 h_existing_after
+
+-- tama: discharges=factory_concrete_create_path_preserves_existing_allPairs_entry
+theorem concrete_create_path_preserves_existing_allPairs_entry
+    (index : Nat) (entry : FactoryWorldPair)
+    (sBefore sAfter : ContractState)
+    (wBefore wAfter : FactoryWorldState) :
+  factory_concrete_create_path_preserves_existing_allPairs_entry
+    index entry sBefore sAfter wBefore wAfter := by
+  intro h_good h_match h_get h_path
+  have h_final :=
+    factoryConcreteCreatePath_preserves_match
+      h_good h_match h_path
+  have h_world_path :=
+    factoryConcreteCreatePath_refines_world_path h_path
+  rcases factoryWorldPath_append_only h_world_path with
+    ⟨suffix, h_pairs, _h_count⟩
+  have h_get_after :
+      wAfter.pairs[index]? = some entry := by
+    rw [h_pairs]
+    exact list_get?_append_left_of_some h_get
+  exact concrete_world_allPairs_matches_storage
+    sAfter wAfter index entry h_final.2 h_get_after
 
 -- tama: discharges=factory_closed_world_step_preserves_good
 theorem closed_world_step_preserves_good

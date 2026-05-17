@@ -145,4 +145,41 @@ inductive FactoryWorldPath : FactoryWorldState → FactoryWorldState → Prop wh
       FactoryWorldStep action before after →
       FactoryWorldPath start after
 
+/-!
+Concrete create histories are the simulation boundary between executable
+factory storage and the closed-world model above. A step records a successful
+public `createPair` run and the corresponding modeled append action; it does
+not assert the storage/world correspondence that the specs are meant to prove.
+-/
+def FactoryConcreteCreateStep
+    (tokenA tokenB : Address)
+    (sBefore sAfter : ContractState)
+    (wBefore wAfter : FactoryWorldState) : Prop :=
+  let pair := wordToAddress (factoryCreate2Word tokenA tokenB)
+  sBefore.storageMap2
+      TamaUniV2.UniswapV2Factory.pairForSlot.slot
+      (factoryToken0 tokenA tokenB)
+      (factoryToken1 tokenA tokenB) = 0 ∧
+  (sBefore.storage
+      TamaUniV2.UniswapV2Factory.allPairsLengthSlot.slot).val + 1 ≤
+        Verity.Stdlib.Math.MAX_UINT256 ∧
+  (TamaUniV2.UniswapV2Factory.createPair tokenA tokenB).run sBefore =
+    ContractResult.success pair sAfter ∧
+  FactoryWorldStep
+    (FactoryWorldAction.createPair tokenA tokenB pair)
+    wBefore
+    wAfter
+
+inductive FactoryConcreteCreatePath :
+    ContractState → FactoryWorldState → ContractState → FactoryWorldState → Prop where
+  | refl (s : ContractState) (w : FactoryWorldState) :
+      FactoryConcreteCreatePath s w s w
+  | step
+      {sStart sBefore sAfter : ContractState}
+      {wStart wBefore wAfter : FactoryWorldState}
+      (tokenA tokenB : Address) :
+      FactoryConcreteCreatePath sStart wStart sBefore wBefore →
+      FactoryConcreteCreateStep tokenA tokenB sBefore sAfter wBefore wAfter →
+      FactoryConcreteCreatePath sStart wStart sAfter wAfter
+
 end TamaUniV2.Common.UniswapV2FactoryGhost
