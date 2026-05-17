@@ -821,6 +821,21 @@ theorem closed_world_path_pair_count_never_decreases
   rw [h_count]
   omega
 
+-- tama: discharges=factory_closed_world_same_count_path_preserves_pair_list
+theorem closed_world_same_count_path_preserves_pair_list
+    (before after : FactoryWorldState) :
+  factory_closed_world_same_count_path_preserves_pair_list before after := by
+  intro h_path h_same_count
+  rcases factoryWorldPath_append_only h_path with
+    ⟨suffix, h_pairs, h_count⟩
+  have h_suffix_length_zero : suffix.length = 0 := by
+    rw [h_count] at h_same_count
+    omega
+  have h_suffix_nil : suffix = [] := by
+    exact List.length_eq_zero_iff.mp h_suffix_length_zero
+  rw [h_pairs, h_suffix_nil]
+  simp
+
 -- tama: discharges=factory_closed_world_length_matches_created_pairs
 theorem closed_world_length_matches_created_pairs
     (w : FactoryWorldState) :

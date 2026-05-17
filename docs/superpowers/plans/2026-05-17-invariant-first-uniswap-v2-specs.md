@@ -297,6 +297,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   point to a nonzero pair for two distinct nonzero tokens, making the
   router-facing consequence of the sorted-entry invariant explicit.
 
+  2026-05-17 02:42 PDT checkpoint: adding a reader-facing same-count path
+  theorem. Since factory histories are append-only, a history that leaves pair
+  count unchanged must leave the pair array unchanged; this makes "no hidden
+  overwrite or reorder" a direct spec instead of an inference from append-only
+  machinery.
+
 - [ ] **10. Verify and commit in coherent slices**
 
   After each slice run focused `lake build`. Before claiming completion run

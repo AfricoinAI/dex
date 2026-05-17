@@ -404,6 +404,16 @@ def factory_closed_world_path_pair_count_never_decreases
   FactoryWorldPath before after →
     before.pairCount ≤ after.pairCount
 
+/-- The append-only theorem in its audit-facing contrapositive shape. Along a
+finite successful factory history, any change to the pair list must show up as
+a larger pair count. Therefore a path whose pair count is unchanged cannot have
+hidden writes, overwrites, or reordering in the pair array. -/
+def factory_closed_world_same_count_path_preserves_pair_list
+    (before after : FactoryWorldState) : Prop :=
+  FactoryWorldPath before after →
+    before.pairCount = after.pairCount →
+      after.pairs = before.pairs
+
 def factory_closed_world_length_matches_created_pairs
     (w : FactoryWorldState) : Prop :=
   FactoryWorldReachable w →
