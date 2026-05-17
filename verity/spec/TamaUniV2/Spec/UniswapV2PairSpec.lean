@@ -927,6 +927,38 @@ def pair_reentrancy_guard_blocks_all_mutating_entrypoints
     (skim skimTo).run s = ContractResult.revert "UniswapV2: LOCKED" s ∧
     (sync).run s = ContractResult.revert "UniswapV2: LOCKED" s
 
+/-- The success-side reading of the same lock gate for `mint`: if the public
+entrypoint succeeds, the initial lock value must have been open. -/
+def pair_mint_success_run_implies_lock_open
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  result = (mint toAddr).run s →
+    (∃ liquidity, result = ContractResult.success liquidity result.snd) →
+      s.storage unlockedSlot.slot = 1
+
+/-- The success-side reading of the same lock gate for `burn`. -/
+def pair_burn_success_run_implies_lock_open
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) : Prop :=
+  result = (burn toAddr).run s →
+    (∃ amounts, result = ContractResult.success amounts result.snd) →
+      s.storage unlockedSlot.slot = 1
+
+/-- The success-side reading of the same lock gate for `swap`. -/
+def pair_swap_success_run_implies_lock_open
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      s.storage unlockedSlot.slot = 1
+
+/-- The success-side reading of the same lock gate for `skim`. -/
+def pair_skim_success_run_implies_lock_open
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=
+  result = (skim toAddr).run s →
+    result = ContractResult.success () result.snd →
+      s.storage unlockedSlot.slot = 1
+
 def pair_sync_run_revert_balance0_overflow
     (s : ContractState) : Prop :=
   s.storage unlockedSlot.slot = 1 →
@@ -958,6 +990,17 @@ def pair_sync_success_run_refines_closed_world
           PairWorldStep PairWorldAction.sync
             (pairWorldFromConcreteState s)
             (pairWorldAfterSyncRun s)
+
+/-- A successful `mint` call cannot have observed balances outside the reserve
+domain. If either token balance were above `uint112`, the exact mint overflow
+revert specs would force the run to revert instead. -/
+def pair_mint_success_run_implies_balances_fit_uint112
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  result = (mint toAddr).run s →
+    (∃ liquidity, result = ContractResult.success liquidity result.snd) →
+      observedBalance0 s ≤ maxUint112 ∧
+      observedBalance1 s ≤ maxUint112
 
 /-- A successful `sync` call must have passed the reentrancy lock gate. If the
 lock were closed, the exact locked-revert spec would force the run to return

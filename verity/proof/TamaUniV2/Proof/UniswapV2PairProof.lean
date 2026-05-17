@@ -57,6 +57,10 @@ attribute [local simp] decimals totalSupply balanceOf allowance factory token0 t
 private def pairLockedState (s : ContractState) : ContractState :=
   { s with «storage» := fun slotIdx => if slotIdx = 11 then 0 else s.storage slotIdx }
 
+private theorem uint256_bne_true_of_ne {a b : Uint256} (h : a ≠ b) :
+    (a != b) = true := by
+  simpa [bne_iff_ne] using h
+
 private theorem addressOfNat_toNat_mod_uint256 (a : Address) :
     Core.Address.ofNat (Core.Address.toNat a % Core.Uint256.modulus) = a := by
   apply Core.Address.toNat_injective
@@ -1596,6 +1600,58 @@ theorem reentrancy_guard_blocks_all_mutating_entrypoints
     sync_run_revert_locked s h_locked
   ⟩
 
+-- tama: discharges=pair_mint_success_run_implies_lock_open
+theorem mint_success_run_implies_lock_open
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) :
+  pair_mint_success_run_implies_lock_open toAddr s result := by
+  intro h_run h_success
+  rcases h_success with ⟨liquidity, h_success⟩
+  by_contra h_locked
+  have h_revert := mint_run_revert_locked toAddr s (uint256_bne_true_of_ne h_locked)
+  rw [h_run] at h_success
+  rw [h_revert] at h_success
+  cases h_success
+
+-- tama: discharges=pair_burn_success_run_implies_lock_open
+theorem burn_success_run_implies_lock_open
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) :
+  pair_burn_success_run_implies_lock_open toAddr s result := by
+  intro h_run h_success
+  rcases h_success with ⟨amounts, h_success⟩
+  by_contra h_locked
+  have h_revert := burn_run_revert_locked toAddr s (uint256_bne_true_of_ne h_locked)
+  rw [h_run] at h_success
+  rw [h_revert] at h_success
+  cases h_success
+
+-- tama: discharges=pair_swap_success_run_implies_lock_open
+theorem swap_success_run_implies_lock_open
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) (result : ContractResult Unit) :
+  pair_swap_success_run_implies_lock_open
+    amount0Out amount1Out toAddr data s result := by
+  intro h_run h_success
+  by_contra h_locked
+  have h_revert :=
+    swap_run_revert_locked amount0Out amount1Out toAddr data s
+      (uint256_bne_true_of_ne h_locked)
+  rw [h_run] at h_success
+  rw [h_revert] at h_success
+  cases h_success
+
+-- tama: discharges=pair_skim_success_run_implies_lock_open
+theorem skim_success_run_implies_lock_open
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) :
+  pair_skim_success_run_implies_lock_open toAddr s result := by
+  intro h_run h_success
+  by_contra h_locked
+  have h_revert := skim_run_revert_locked toAddr s (uint256_bne_true_of_ne h_locked)
+  rw [h_run] at h_success
+  rw [h_revert] at h_success
+  cases h_success
+
 -- tama: discharges=pair_sync_run_revert_balance0_overflow
 theorem sync_run_revert_balance0_overflow (s : ContractState) :
   pair_sync_run_revert_balance0_overflow s := by
@@ -1660,6 +1716,38 @@ theorem sync_success_run_refines_closed_world
   intro _h_run _h_success h_bound0 h_bound1
   exact sync_expected_refines_closed_world s h_bound0 h_bound1
 
+-- tama: discharges=pair_mint_success_run_implies_balances_fit_uint112
+theorem mint_success_run_implies_balances_fit_uint112
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) :
+  pair_mint_success_run_implies_balances_fit_uint112 toAddr s result := by
+  intro h_run h_success
+  have h_unlocked :=
+    mint_success_run_implies_lock_open toAddr s result h_run h_success
+  constructor
+  · by_contra h_not_bound
+    have h_not_bound_val :
+        ¬ (observedBalance0 s).val ≤ maxUint112.val := by
+      simpa [Verity.Core.Uint256.le_def] using h_not_bound
+    have h_overflow : observedBalance0 s > maxUint112 := by
+      simpa [Verity.Core.Uint256.lt_def] using Nat.lt_of_not_ge h_not_bound_val
+    have h_revert := mint_run_revert_balance0_overflow toAddr s h_unlocked h_overflow
+    rcases h_success with ⟨liquidity, h_success⟩
+    rw [h_run] at h_success
+    rw [h_revert] at h_success
+    cases h_success
+  · by_contra h_not_bound
+    have h_not_bound_val :
+        ¬ (observedBalance1 s).val ≤ maxUint112.val := by
+      simpa [Verity.Core.Uint256.le_def] using h_not_bound
+    have h_overflow : observedBalance1 s > maxUint112 := by
+      simpa [Verity.Core.Uint256.lt_def] using Nat.lt_of_not_ge h_not_bound_val
+    have h_revert := mint_run_revert_balance1_overflow toAddr s h_unlocked h_overflow
+    rcases h_success with ⟨liquidity, h_success⟩
+    rw [h_run] at h_success
+    rw [h_revert] at h_success
+    cases h_success
+
 -- tama: discharges=pair_sync_success_run_implies_lock_open
 theorem sync_success_run_implies_lock_open
     (s : ContractState) (result : ContractResult Unit) :
@@ -1668,7 +1756,7 @@ theorem sync_success_run_implies_lock_open
   by_contra h_locked
   have h_locked_bool :
       (s.storage unlockedSlot.slot != (1 : Uint256)) = true := by
-    simpa [bne_iff_ne] using h_locked
+    exact uint256_bne_true_of_ne h_locked
   have h_revert := sync_run_revert_locked s h_locked_bool
   rw [h_run] at h_success
   rw [h_revert] at h_success

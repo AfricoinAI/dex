@@ -76,6 +76,9 @@ Pair:
 - A reader-facing Pair reentrancy invariant packages the locked-entrypoint
   facts directly: if the lock is closed, every state-changing AMM entrypoint
   reverts with `UniswapV2: LOCKED` before durable side effects.
+- The success-side lock bridge is now explicit for mint, burn, swap, skim, and
+  sync: if any of those public calls succeeds, the initial lock gate must have
+  been open.
 - Revert-frame token-balance preservation specs for mint, burn, swap, skim, and
   sync using pair-local transfer traces.
 - Pair-local atomicity specs showing reverted mint, burn, swap, skim, and sync
@@ -131,14 +134,15 @@ Pair:
   reserve-writing action family now has a success-run bridge into that rule:
   first mint, subsequent mint, burn, swap, and sync all expose
   reserve-to-balance writes plus the generic TWAP cases once their existing
-  concrete arithmetic premises are established. For `sync`, success now derives
-  both the open-lock fact and the uint112 balance bounds directly from exact
-  revert specs, so the closed-world sync transition can be cited without
-  separate lock or reserve-bound assumptions. The shared concrete reserve-write
-  bridge packages the same facts for any mint, burn, swap, or sync transition
-  from a concrete state. Remaining work is deriving more of the arithmetic
-  premises directly from successful mint, burn, and swap runs where that can be
-  done with small adapters.
+  concrete arithmetic premises are established. For `mint`, success now derives
+  the uint112 observed-balance bounds directly from exact overflow reverts. For
+  `sync`, success derives both the open-lock fact and the uint112 balance bounds
+  directly from exact revert specs, so the closed-world sync transition can be
+  cited without separate lock or reserve-bound assumptions. The shared concrete
+  reserve-write bridge packages the same facts for any mint, burn, swap, or
+  sync transition from a concrete state. Remaining work is deriving more of the
+  arithmetic premises directly from successful mint, burn, and swap runs where
+  that can be done with small adapters.
 - Closed-world `PairWorldGood` preservation for one step and all finite
   reachable traces, finite-path preservation from any good state, and
   reachability closure for appending finite successful paths. The

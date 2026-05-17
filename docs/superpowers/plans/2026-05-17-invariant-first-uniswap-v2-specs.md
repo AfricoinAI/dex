@@ -368,6 +368,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   bounds from exact revert facts and therefore refines the closed-world sync
   transition without asking readers to supply those premises separately.
 
+  2026-05-17 16:13 PDT checkpoint: added success-side lock bridges for mint,
+  burn, swap, and skim, matching the existing `sync` bridge. Successful `mint`
+  also now derives the uint112 observed-balance bounds from exact overflow
+  revert facts.
+
 - [x] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when
