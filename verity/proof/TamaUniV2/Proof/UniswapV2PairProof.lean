@@ -2474,6 +2474,23 @@ theorem closed_world_mint_updates_reserves_to_balances
   · rw [h_after_reserve0, h_after_balance0]
   · rw [h_after_reserve1, h_after_balance1]
 
+-- tama: discharges=pair_closed_world_mint_never_decreases_k
+theorem closed_world_mint_never_decreases_k
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_mint_never_decreases_k
+    amount0 amount1 liquidity before after := by
+  intro h_step
+  simp [PairWorldStep, PairWorldMintStep] at h_step
+  rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, h_before_balance0,
+    h_before_balance1, _h_after_balance0, _h_after_balance1, h_after_reserve0,
+    h_after_reserve1, _h_bound0, _h_bound1, _h_supply, _h_locked, _h_ratio⟩
+  unfold PairWorldK
+  rw [h_after_reserve0, h_after_reserve1, h_before_balance0, h_before_balance1]
+  exact Nat.mul_le_mul
+    (Nat.le_add_right before.reserve0 amount0)
+    (Nat.le_add_right before.reserve1 amount1)
+
 -- tama: discharges=pair_closed_world_mint_liquidity_ratio
 theorem closed_world_mint_liquidity_ratio
     (amount0 amount1 liquidity : Nat)

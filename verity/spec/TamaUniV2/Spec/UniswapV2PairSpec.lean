@@ -1073,6 +1073,14 @@ def pair_closed_world_mint_updates_reserves_to_balances
     after.reserve0 = after.balance0 ∧
     after.reserve1 = after.balance1
 
+/-- A valid mint adds token balances and then caches those balances as reserves,
+so minting liquidity cannot make the raw reserve product smaller. -/
+def pair_closed_world_mint_never_decreases_k
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+    PairWorldK before ≤ PairWorldK after
+
 def pair_closed_world_mint_preserves_good
     (amount0 amount1 liquidity : Nat)
     (before after : PairWorldState) : Prop :=
