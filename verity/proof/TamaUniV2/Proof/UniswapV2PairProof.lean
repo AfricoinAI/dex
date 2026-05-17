@@ -5385,6 +5385,15 @@ theorem closed_world_lp_bookkeeping_skim_sync_path_token_balance_value_never_inc
     (pairWorldLpBookkeepingSkimSyncPath_token_balance_value_never_increases_at_spot
       (spot := before) h_good h_path).2
 
+-- tama: discharges=pair_closed_world_reachable_lp_bookkeeping_skim_sync_path_token_balance_value_never_increases
+theorem closed_world_reachable_lp_bookkeeping_skim_sync_path_token_balance_value_never_increases
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_lp_bookkeeping_skim_sync_path_token_balance_value_never_increases
+    before after := by
+  intro h_reachable h_path
+  exact closed_world_lp_bookkeeping_skim_sync_path_token_balance_value_never_increases
+    before after (pairWorldReachable_good before h_reachable) h_path
+
 -- tama: discharges=pair_closed_world_sync_k_increase_requires_surplus
 theorem closed_world_sync_k_increase_requires_surplus
     (before after : PairWorldState) :

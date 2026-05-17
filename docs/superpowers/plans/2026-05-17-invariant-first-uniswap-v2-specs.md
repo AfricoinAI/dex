@@ -254,6 +254,10 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   approval/transfer/transferFrom bookkeeping plus `skim`/`sync` cannot increase
   actual token-balance value at the starting spot price.
 
+  2026-05-17 14:35 PDT checkpoint: added the reachable-state version of the
+  same theorem, so readers can cite reachability directly instead of separately
+  proving the good-state invariant.
+
   2026-05-17 10:49 PDT checkpoint: added executable LP-bookkeeping storage
   frame facts. The actual `approve`, `transfer`, and `transferFrom` runs may
   update LP allowance/balance maps and emit ERC20 events, but they cannot

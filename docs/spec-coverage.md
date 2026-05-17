@@ -101,7 +101,7 @@ Pair:
   balances is unchanged. Together, the passive reconciliation theorem states
   that either `skim` or `sync` cannot increase actual token-balance value at
   the starting spot price, and the finite-history theorem lifts that to any
-  history made only of LP approvals/transfers plus `skim`/`sync`. The
+  reachable history made only of LP approvals/transfers plus `skim`/`sync`. The
   balanced-pool theorem states the clean
   no-surplus case directly: `skim` is a no-op on token
   balances, cached reserves, LP supply, and locked liquidity. The matching sync

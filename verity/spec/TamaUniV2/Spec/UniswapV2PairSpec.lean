@@ -2962,6 +2962,17 @@ def pair_closed_world_lp_bookkeeping_skim_sync_path_token_balance_value_never_in
       PairWorldBalanceSpotValueNum before after ≤
         PairWorldBalanceSpotValueNum before before
 
+/-- Reader-facing version of the same finite-history value bound. Reachability
+supplies the good-state invariant, so the theorem reads directly: any reachable
+pool that only sees LP bookkeeping plus `skim`/`sync` cannot end with more
+actual token-balance value at the starting spot price. -/
+def pair_closed_world_reachable_lp_bookkeeping_skim_sync_path_token_balance_value_never_increases
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPathLpBookkeepingSkimSync before after →
+      PairWorldBalanceSpotValueNum before after ≤
+        PairWorldBalanceSpotValueNum before before
+
 /-- `sync` cannot manufacture cached liquidity value. In a good state, if
 syncing balances into reserves increases cached K, then at least one token
 balance was already above the cached reserve before the call. -/
