@@ -322,6 +322,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   account to the recipient, assuming distinct tokens and a recipient different
   from the pair.
 
+  2026-05-17 14:14 PDT checkpoint: attempted a direct public `sync` success
+  lock-restoration proof and backed it out after Lean hit kernel-depth limits
+  while unfolding the oracle/update tail. The next concrete success-side lock
+  work should first factor the shared reserve-update tail into a proof-local
+  adapter, then expose only the short public property.
+
 - [ ] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when
