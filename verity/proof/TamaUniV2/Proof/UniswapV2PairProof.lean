@@ -62,9 +62,19 @@ theorem decimals_meets_spec (s : ContractState) :
   pair_decimals_spec ((decimals).run s).fst := by
   rfl
 
+-- tama: discharges=pair_decimals_run_success_frames_state
+theorem decimals_run_success_frames_state (s : ContractState) :
+  pair_decimals_run_success_frames_state s := by
+  rfl
+
 -- tama: discharges=pair_totalSupply_spec
 theorem totalSupply_meets_spec (s : ContractState) :
   pair_totalSupply_spec ((totalSupply).run s).fst s := by
+  rfl
+
+-- tama: discharges=pair_totalSupply_run_success_frames_state
+theorem totalSupply_run_success_frames_state (s : ContractState) :
+  pair_totalSupply_run_success_frames_state s := by
   rfl
 
 -- tama: discharges=pair_balanceOf_spec
@@ -72,9 +82,20 @@ theorem balanceOf_meets_spec (account : Address) (s : ContractState) :
   pair_balanceOf_spec account ((balanceOf account).run s).fst s := by
   rfl
 
+-- tama: discharges=pair_balanceOf_run_success_frames_state
+theorem balanceOf_run_success_frames_state (account : Address) (s : ContractState) :
+  pair_balanceOf_run_success_frames_state account s := by
+  rfl
+
 -- tama: discharges=pair_allowance_spec
 theorem allowance_meets_spec (owner spender : Address) (s : ContractState) :
   pair_allowance_spec owner spender ((allowance owner spender).run s).fst s := by
+  rfl
+
+-- tama: discharges=pair_allowance_run_success_frames_state
+theorem allowance_run_success_frames_state
+    (owner spender : Address) (s : ContractState) :
+  pair_allowance_run_success_frames_state owner spender s := by
   rfl
 
 -- tama: discharges=pair_factory_spec
@@ -83,11 +104,23 @@ theorem factory_meets_spec (s : ContractState) :
   simp [pair_factory_spec, factory, Verity.getStorageAddr, Contract.run,
     ContractResult.fst, Verity.bind, Bind.bind, Verity.pure, Pure.pure]
 
+-- tama: discharges=pair_factory_run_success_frames_state
+theorem factory_run_success_frames_state (s : ContractState) :
+  pair_factory_run_success_frames_state s := by
+  simp [pair_factory_run_success_frames_state, factory, Verity.getStorageAddr,
+    Contract.run, Verity.bind, Bind.bind, Verity.pure, Pure.pure]
+
 -- tama: discharges=pair_token0_spec
 theorem token0_meets_spec (s : ContractState) :
   pair_token0_spec ((token0).run s).fst s := by
   simp [pair_token0_spec, token0, Verity.getStorageAddr, Contract.run,
     ContractResult.fst, Verity.bind, Bind.bind, Verity.pure, Pure.pure]
+
+-- tama: discharges=pair_token0_run_success_frames_state
+theorem token0_run_success_frames_state (s : ContractState) :
+  pair_token0_run_success_frames_state s := by
+  simp [pair_token0_run_success_frames_state, token0, Verity.getStorageAddr,
+    Contract.run, Verity.bind, Bind.bind, Verity.pure, Pure.pure]
 
 -- tama: discharges=pair_token1_spec
 theorem token1_meets_spec (s : ContractState) :
@@ -95,9 +128,20 @@ theorem token1_meets_spec (s : ContractState) :
   simp [pair_token1_spec, token1, Verity.getStorageAddr, Contract.run,
     ContractResult.fst, Verity.bind, Bind.bind, Verity.pure, Pure.pure]
 
+-- tama: discharges=pair_token1_run_success_frames_state
+theorem token1_run_success_frames_state (s : ContractState) :
+  pair_token1_run_success_frames_state s := by
+  simp [pair_token1_run_success_frames_state, token1, Verity.getStorageAddr,
+    Contract.run, Verity.bind, Bind.bind, Verity.pure, Pure.pure]
+
 -- tama: discharges=pair_minimumLiquidity_spec
 theorem minimumLiquidity_meets_spec (s : ContractState) :
   pair_minimumLiquidity_spec ((MINIMUM_LIQUIDITY).run s).fst := by
+  rfl
+
+-- tama: discharges=pair_minimumLiquidity_run_success_frames_state
+theorem minimumLiquidity_run_success_frames_state (s : ContractState) :
+  pair_minimumLiquidity_run_success_frames_state s := by
   rfl
 
 -- tama: discharges=pair_getReserves_spec
@@ -119,14 +163,29 @@ theorem price0CumulativeLast_meets_spec (s : ContractState) :
   pair_price0CumulativeLast_spec ((price0CumulativeLast).run s).fst s := by
   rfl
 
+-- tama: discharges=pair_price0CumulativeLast_run_success_frames_state
+theorem price0CumulativeLast_run_success_frames_state (s : ContractState) :
+  pair_price0CumulativeLast_run_success_frames_state s := by
+  rfl
+
 -- tama: discharges=pair_price1CumulativeLast_spec
 theorem price1CumulativeLast_meets_spec (s : ContractState) :
   pair_price1CumulativeLast_spec ((price1CumulativeLast).run s).fst s := by
   rfl
 
+-- tama: discharges=pair_price1CumulativeLast_run_success_frames_state
+theorem price1CumulativeLast_run_success_frames_state (s : ContractState) :
+  pair_price1CumulativeLast_run_success_frames_state s := by
+  rfl
+
 -- tama: discharges=pair_kLast_spec
 theorem kLast_meets_spec (s : ContractState) :
   pair_kLast_spec ((kLast).run s).fst := by
+  rfl
+
+-- tama: discharges=pair_kLast_run_success_frames_state
+theorem kLast_run_success_frames_state (s : ContractState) :
+  pair_kLast_run_success_frames_state s := by
   rfl
 
 -- tama: discharges=pair_safeTransfer_traces_token_transfer
