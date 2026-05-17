@@ -1471,6 +1471,19 @@ def pair_closed_world_share_bookkeeping_path_preserves_pool_state
     after.totalSupply = before.totalSupply ∧
     after.lockedLiquidity = before.lockedLiquidity
 
+/-- Economic corollary of the share-bookkeeping invariant. If a history only
+moves LP approvals or LP balances between accounts, then it cannot change the
+pool's cached K, reserve-denominated spot value, or actual-token-balance spot
+value. Pure ownership bookkeeping is therefore not an AMM profit path. -/
+def pair_closed_world_share_bookkeeping_path_preserves_k_and_value
+    (before after : PairWorldState) : Prop :=
+  PairWorldPathShareBookkeeping before after →
+    PairWorldK after = PairWorldK before ∧
+    PairWorldSpotValueNum before after =
+      PairWorldSpotValueNum before before ∧
+    PairWorldBalanceSpotValueNum before after =
+      PairWorldBalanceSpotValueNum before before
+
 def pair_closed_world_first_mint_locks_minimum_liquidity
     (amount0 amount1 liquidity : Nat)
     (before after : PairWorldState) : Prop :=

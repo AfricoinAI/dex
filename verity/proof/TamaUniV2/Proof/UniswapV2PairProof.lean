@@ -3038,6 +3038,17 @@ theorem closed_world_share_bookkeeping_path_preserves_pool_state
   pair_closed_world_share_bookkeeping_path_preserves_pool_state before after := by
   exact pairWorldShareBookkeepingPath_preserves_pool_state
 
+-- tama: discharges=pair_closed_world_share_bookkeeping_path_preserves_k_and_value
+theorem closed_world_share_bookkeeping_path_preserves_k_and_value
+    (before after : PairWorldState) :
+  pair_closed_world_share_bookkeeping_path_preserves_k_and_value before after := by
+  intro h_path
+  rcases pairWorldShareBookkeepingPath_preserves_pool_state h_path with
+    ⟨h_balance0, h_balance1, h_reserve0, h_reserve1, _h_supply, _h_locked⟩
+  simp [pair_closed_world_share_bookkeeping_path_preserves_k_and_value,
+    PairWorldK, PairWorldSpotValueNum, PairWorldBalanceSpotValueNum,
+    h_balance0, h_balance1, h_reserve0, h_reserve1]
+
 -- tama: discharges=pair_closed_world_first_mint_locks_minimum_liquidity
 theorem closed_world_first_mint_locks_minimum_liquidity
     (amount0 amount1 liquidity : Nat)
