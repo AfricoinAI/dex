@@ -318,4 +318,35 @@ inductive PairWorldPathReserveManagement : PairWorldState → PairWorldState →
       PairWorldStep PairWorldAction.sync before after →
       PairWorldPathReserveManagement start after
 
+inductive PairWorldPathMaintenance : PairWorldState → PairWorldState → Prop where
+  | refl (w : PairWorldState) : PairWorldPathMaintenance w w
+  | approve
+      {start before after : PairWorldState}
+      (ownerAddr spender : Address) (amount : Nat) :
+      PairWorldPathMaintenance start before →
+      PairWorldStep (PairWorldAction.approve ownerAddr spender amount) before after →
+      PairWorldPathMaintenance start after
+  | transfer
+      {start before after : PairWorldState}
+      (fromAddr toAddr : Address) (amount : Nat) :
+      PairWorldPathMaintenance start before →
+      PairWorldStep (PairWorldAction.transfer fromAddr toAddr amount) before after →
+      PairWorldPathMaintenance start after
+  | transferFrom
+      {start before after : PairWorldState}
+      (spender fromAddr toAddr : Address) (amount : Nat) :
+      PairWorldPathMaintenance start before →
+      PairWorldStep
+        (PairWorldAction.transferFrom spender fromAddr toAddr amount)
+        before after →
+      PairWorldPathMaintenance start after
+  | skim {start before after : PairWorldState} :
+      PairWorldPathMaintenance start before →
+      PairWorldStep PairWorldAction.skim before after →
+      PairWorldPathMaintenance start after
+  | sync {start before after : PairWorldState} :
+      PairWorldPathMaintenance start before →
+      PairWorldStep PairWorldAction.sync before after →
+      PairWorldPathMaintenance start after
+
 end TamaUniV2.Common.UniswapV2PairGhost

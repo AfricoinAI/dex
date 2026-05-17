@@ -2619,6 +2619,23 @@ def pair_closed_world_balanced_reserve_management_path_preserves_pool
           after.totalSupply = before.totalSupply ∧
           after.lockedLiquidity = before.lockedLiquidity
 
+/-- Passive maintenance fixed point. LP share bookkeeping does not touch pool
+assets, and balanced reserve-management calls have no surplus to reconcile.
+Therefore any finite path made only of `approve`, `transfer`, `transferFrom`,
+`skim`, and `sync` preserves a good balanced pool exactly. -/
+def pair_closed_world_balanced_maintenance_path_preserves_pool
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldSurplus0 before = 0 →
+      PairWorldSurplus1 before = 0 →
+        PairWorldPathMaintenance before after →
+          after.balance0 = before.balance0 ∧
+          after.balance1 = before.balance1 ∧
+          after.reserve0 = before.reserve0 ∧
+          after.reserve1 = before.reserve1 ∧
+          after.totalSupply = before.totalSupply ∧
+          after.lockedLiquidity = before.lockedLiquidity
+
 /-- `sync` cannot manufacture cached liquidity value. In a good state, if
 syncing balances into reserves increases cached K, then at least one token
 balance was already above the cached reserve before the call. -/
