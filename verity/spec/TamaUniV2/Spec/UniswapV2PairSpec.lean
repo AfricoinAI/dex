@@ -2014,6 +2014,28 @@ def pair_closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_i
             PairWorldBalanceSpotValueNum before after +
               PairWorldSurplusSpotValueNum before before
 
+/-- Zero-surplus actual-balance no-extraction, stated in invariant language.
+
+The bounded theorem above says any actual-token-balance loss must come out of
+surplus that was already sitting above cached reserves at the start. This is
+the clean corollary a maintainer wants to read: if there is no such starting
+surplus on either token side, then a same-LP-supply finite history cannot make
+the pair's actual ERC20 token balances worth less at the initial spot price.
+
+Donations may still appear later in the history; they are external gifts. The
+claim is that the pair mechanics cannot turn a zero-surplus starting point into
+net extraction when LP supply returns to its starting value. -/
+def pair_closed_world_reachable_zero_surplus_same_supply_path_no_token_balance_value_extraction
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldSurplus0 before = 0 →
+        PairWorldSurplus1 before = 0 →
+          PairWorldPath before after →
+            before.totalSupply = after.totalSupply →
+              PairWorldBalanceSpotValueNum before before ≤
+                PairWorldBalanceSpotValueNum before after
+
 /-- The strongest reader-facing same-supply no-extraction statement. For a
 reachable nonempty pool, positive reserves are no longer an extra assumption;
 they follow from the nondegeneracy invariant above. Therefore any finite
@@ -2076,6 +2098,22 @@ def pair_closed_world_reachable_no_mint_burn_path_token_balance_loss_bounded_by_
         PairWorldBalanceSpotValueNum before before ≤
           PairWorldBalanceSpotValueNum before after +
             PairWorldSurplusSpotValueNum before before
+
+/-- Common operational zero-surplus no-extraction theorem. Histories with no
+mint and no burn preserve LP supply by the supply firewall, so the same
+actual-balance no-extraction conclusion applies without restating a same-supply
+premise. This is the most direct closed-world expression of "ordinary pair
+operation cannot profitably drain actual token balances from a clean starting
+state." -/
+def pair_closed_world_reachable_zero_surplus_no_mint_burn_path_no_token_balance_value_extraction
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldSurplus0 before = 0 →
+        PairWorldSurplus1 before = 0 →
+          PairWorldPathNoMintBurn before after →
+            PairWorldBalanceSpotValueNum before before ≤
+              PairWorldBalanceSpotValueNum before after
 
 /-- Non-liquidity histories are the common operational case: swaps, surplus
 management, donations, and LP-token bookkeeping, but no mint and no burn. The

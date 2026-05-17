@@ -4023,6 +4023,20 @@ theorem closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_in
   exact Nat.add_le_add_right h_spot_to_balance
     (PairWorldSurplusSpotValueNum before before)
 
+-- tama: discharges=pair_closed_world_reachable_zero_surplus_same_supply_path_no_token_balance_value_extraction
+theorem closed_world_reachable_zero_surplus_same_supply_path_no_token_balance_value_extraction
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_zero_surplus_same_supply_path_no_token_balance_value_extraction
+    before after := by
+  intro h_reachable h_positive h_surplus0 h_surplus1 h_path h_supply
+  have h_bound :=
+    closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_initial_surplus
+      before after h_reachable h_positive h_path h_supply
+  have h_start_surplus_value :
+      PairWorldSurplusSpotValueNum before before = 0 := by
+    simp [PairWorldSurplusSpotValueNum, h_surplus0, h_surplus1]
+  simpa [h_start_surplus_value] using h_bound
+
 -- tama: discharges=pair_closed_world_reachable_balanced_same_supply_path_no_token_balance_value_extraction
 theorem closed_world_reachable_balanced_same_supply_path_no_token_balance_value_extraction
     (before after : PairWorldState) :
@@ -4070,6 +4084,20 @@ theorem closed_world_reachable_no_mint_burn_path_token_balance_loss_bounded_by_i
   exact closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_initial_surplus
     before after h_reachable h_positive
     (pairWorldPath_of_noMintBurn h_path) h_supply.symm
+
+-- tama: discharges=pair_closed_world_reachable_zero_surplus_no_mint_burn_path_no_token_balance_value_extraction
+theorem closed_world_reachable_zero_surplus_no_mint_burn_path_no_token_balance_value_extraction
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_zero_surplus_no_mint_burn_path_no_token_balance_value_extraction
+    before after := by
+  intro h_reachable h_positive h_surplus0 h_surplus1 h_path
+  have h_bound :=
+    closed_world_reachable_no_mint_burn_path_token_balance_loss_bounded_by_initial_surplus
+      before after h_reachable h_positive h_path
+  have h_start_surplus_value :
+      PairWorldSurplusSpotValueNum before before = 0 := by
+    simp [PairWorldSurplusSpotValueNum, h_surplus0, h_surplus1]
+  simpa [h_start_surplus_value] using h_bound
 
 -- tama: discharges=pair_closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
 theorem closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
