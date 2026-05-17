@@ -84,6 +84,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   locked liquidity exactly, with a reachable reader-facing theorem for the same
   statement.
 
+  2026-05-17 01:43 PDT checkpoint: added the reader-facing no-liquidity
+  no-extraction corollary. Reachable paths with no mint and no burn now prove
+  no spot-value extraction directly by combining unchanged LP supply with the
+  existing same-supply theorem.
+
 - [x] **3. Strengthen action transitions**
 
   Add concise specs for each action family:

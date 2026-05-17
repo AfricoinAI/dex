@@ -1881,6 +1881,17 @@ private theorem pairWorldPath_of_noBurn
   | step action h_prefix h_step _h_not_burn ih =>
       exact PairWorldPath.step action ih h_step
 
+private theorem pairWorldPath_of_noMintBurn
+    {before after : PairWorldState} :
+  PairWorldPathNoMintBurn before after →
+    PairWorldPath before after := by
+  intro h_path
+  induction h_path with
+  | refl =>
+      exact PairWorldPath.refl before
+  | step action h_prefix h_step _h_not_mint _h_not_burn ih =>
+      exact PairWorldPath.step action ih h_step
+
 private theorem pairWorldNoMintBurnPath_preserves_supply
     {before after : PairWorldState} :
   PairWorldPathNoMintBurn before after →
@@ -3054,6 +3065,18 @@ theorem closed_world_reachable_same_supply_path_no_spot_value_extraction
   simpa [pair_closed_world_reachable_same_supply_path_no_spot_value_extraction]
     using closed_world_reachable_same_supply_path_pool_value_never_decreases
       before after
+
+-- tama: discharges=pair_closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
+theorem closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
+    before after := by
+  intro h_reachable h_positive h_path h_reserve0 h_reserve1
+  have h_supply :=
+    (pairWorldNoMintBurnPath_preserves_supply h_path).1
+  exact closed_world_reachable_same_supply_path_no_spot_value_extraction
+    before after h_reachable h_positive
+    (pairWorldPath_of_noMintBurn h_path) h_supply.symm h_reserve0 h_reserve1
 
 -- tama: discharges=pair_closed_world_non_burn_step_never_decreases_k
 theorem closed_world_non_burn_step_never_decreases_k

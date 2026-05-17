@@ -1597,9 +1597,23 @@ def pair_closed_world_reachable_same_supply_path_no_spot_value_extraction
       PairWorldPath before after →
         before.totalSupply = after.totalSupply →
           0 < before.reserve0 →
-            0 < before.reserve1 →
-              PairWorldSpotValueNum before before ≤
-                PairWorldSpotValueNum before after
+          0 < before.reserve1 →
+            PairWorldSpotValueNum before before ≤
+              PairWorldSpotValueNum before after
+
+/-- Non-liquidity histories are the common operational case: swaps, surplus
+management, donations, and LP-token bookkeeping, but no mint and no burn. The
+supply firewall above makes these histories same-supply histories, so the
+same no-extraction conclusion applies directly. -/
+def pair_closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPathNoMintBurn before after →
+        0 < before.reserve0 →
+          0 < before.reserve1 →
+            PairWorldSpotValueNum before before ≤
+              PairWorldSpotValueNum before after
 
 def pair_closed_world_non_burn_step_never_decreases_k
     (action : PairWorldAction) (before after : PairWorldState) : Prop :=
