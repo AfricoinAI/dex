@@ -113,6 +113,36 @@ def factory_createPair_success_updates_storage_and_emits
                 (factoryPairCreatedEvent token0Value token1Value pair lengthAfter)
                 ((createPair tokenA tokenB).run s).snd.events
 
+/--
+The first successful `createPair` run is the executable base case for the
+closed-world factory model. When the concrete guards pass from an empty public
+pair array, the run creates exactly the one modeled sorted pair entry that the
+finite-trace invariants start from.
+-/
+def factory_createPair_first_success_refines_closed_world
+    (tokenA tokenB : Address) (s : ContractState) : Prop :=
+  let token0Value := factoryToken0 tokenA tokenB
+  let token1Value := factoryToken1 tokenA tokenB
+  let pair := wordToAddress (factoryCreate2Word tokenA tokenB)
+  tokenA ≠ tokenB →
+    tokenA ≠ zeroAddress →
+      tokenB ≠ zeroAddress →
+        s.storage allPairsLengthSlot.slot = 0 →
+          s.storageMap2 pairForSlot.slot token0Value token1Value = 0 →
+            pair ≠ zeroAddress →
+              (s.storage allPairsLengthSlot.slot).val + 1 ≤ Verity.Stdlib.Math.MAX_UINT256 →
+                (createPair tokenA tokenB).run s =
+                  ContractResult.success pair ((createPair tokenA tokenB).run s).snd →
+                  FactoryWorldStep
+                    (FactoryWorldAction.createPair tokenA tokenB pair)
+                    FactoryWorldInitial
+                    { pairs := [{
+                        token0 := token0Value
+                        token1 := token1Value
+                        pair := pair
+                      }]
+                      pairCount := 1 }
+
 /-!
 ## Exact Guard Runs
 

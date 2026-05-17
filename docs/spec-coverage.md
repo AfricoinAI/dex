@@ -108,6 +108,9 @@ Factory:
   mappings, pair array, length, and events unchanged.
 - Create-pair success spec for sorted tokens, bidirectional mapping writes,
   append/length update, nonzero pair boundary, and `PairCreated`.
+- Executable first-create bridge showing a successful `createPair` run from an
+  empty public pair array instantiates the closed-world factory create
+  transition.
 - Closed-world factory model for finite successful create histories, proving
   sorted nonzero pair entries, sorted-pair uniqueness, symmetric membership,
   append-only creation, preservation of existing pairs, pair-count/list length
@@ -150,9 +153,9 @@ properties, not API-surface properties.
   reduce the public entrypoint without kernel-recursion issues. Keep any
   decomposition proof-local; do not add contract helpers.
 - Factory invariants: the closed-world reachable and path invariants are now in
-  place, and failed-create atomicity is proved. The remaining work is a narrow
-  bridge from successful executable `createPair` runs into the factory-world
-  transition.
+  place, failed-create atomicity is proved, and first successful create is
+  bridged into the factory-world transition. The remaining work is a general
+  correspondence relation for arbitrary nonempty concrete factory histories.
 
 ## Non-Goals
 

@@ -163,6 +163,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   Executable `createPair` success and failure storage/event behavior is covered
   separately by concrete specs.
 
+  2026-05-16 23:28 PDT checkpoint: factory now has an executable first-create
+  bridge: a successful `createPair` run from an empty public pair array
+  instantiates the closed-world factory create transition. The remaining bridge
+  work is a general concrete-history correspondence for nonempty factories.
+
 - [ ] **10. Verify and commit in coherent slices**
 
   After each slice run focused `lake build`. Before claiming completion run
