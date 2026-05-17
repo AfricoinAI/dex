@@ -148,7 +148,9 @@ Pair:
   path theorem. A token-balance version now connects the reserve theorem back
   to actual ERC20 balances: from a reachable balanced start state with no
   surplus over cached reserves, same-LP-supply histories cannot reduce the
-  pair's token-balance value at the initial spot price.
+  pair's token-balance value at the initial spot price. The common no-mint and
+  no-burn history shape has the same actual-balance theorem without requiring a
+  separate same-supply premise, because the LP-supply firewall supplies it.
 
 Factory:
 

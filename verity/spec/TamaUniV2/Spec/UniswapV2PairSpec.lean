@@ -1908,6 +1908,21 @@ def pair_closed_world_reachable_balanced_same_supply_path_no_token_balance_value
               PairWorldBalanceSpotValueNum before before ≤
                 PairWorldBalanceSpotValueNum before after
 
+/-- Common operational form of actual token-balance no-extraction. If the
+history contains no mint and no burn, the LP-supply firewall proves the
+same-supply premise automatically. Starting from a balanced pool, ordinary LP
+bookkeeping, donations, swaps, skim, and sync cannot reduce the pair's actual
+token-balance value at the initial spot price. -/
+def pair_closed_world_reachable_balanced_no_mint_burn_path_no_token_balance_value_extraction
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      before.balance0 = before.reserve0 →
+        before.balance1 = before.reserve1 →
+          PairWorldPathNoMintBurn before after →
+            PairWorldBalanceSpotValueNum before before ≤
+              PairWorldBalanceSpotValueNum before after
+
 /-- Non-liquidity histories are the common operational case: swaps, surplus
 management, donations, and LP-token bookkeeping, but no mint and no burn. The
 supply firewall above makes these histories same-supply histories, so the

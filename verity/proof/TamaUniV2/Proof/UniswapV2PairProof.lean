@@ -3794,6 +3794,18 @@ theorem closed_world_reachable_balanced_same_supply_path_no_token_balance_value_
   rw [h_initial_value]
   exact Nat.le_trans h_reserve_value h_final_reserve_to_balance
 
+-- tama: discharges=pair_closed_world_reachable_balanced_no_mint_burn_path_no_token_balance_value_extraction
+theorem closed_world_reachable_balanced_no_mint_burn_path_no_token_balance_value_extraction
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_balanced_no_mint_burn_path_no_token_balance_value_extraction
+    before after := by
+  intro h_reachable h_positive h_balance0 h_balance1 h_path
+  have h_supply :=
+    (pairWorldNoMintBurnPath_preserves_supply h_path).1
+  exact closed_world_reachable_balanced_same_supply_path_no_token_balance_value_extraction
+    before after h_reachable h_positive h_balance0 h_balance1
+    (pairWorldPath_of_noMintBurn h_path) h_supply.symm
+
 -- tama: discharges=pair_closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
 theorem closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
     (before after : PairWorldState) :

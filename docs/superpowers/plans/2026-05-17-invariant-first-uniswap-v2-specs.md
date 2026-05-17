@@ -316,6 +316,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   balanced start state with no surplus over cached reserves; donated surplus is
   an external gift and can be removed by `skim`.
 
+  2026-05-17 05:20 PDT checkpoint: adding the common no-mint/no-burn corollary
+  for actual token balances. The LP-supply firewall supplies same-supply, so
+  the statement reads directly as balanced start plus no liquidity issuance or
+  redemption implies no token-balance value extraction.
+
 - [x] **9. Add factory-world invariants**
 
   Model pair creation as a finite factory trace and prove sorted-token
