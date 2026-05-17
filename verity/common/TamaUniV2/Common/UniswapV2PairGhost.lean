@@ -49,6 +49,10 @@ def requiredK (reserve0 reserve1 : Nat) : Nat :=
 def PairWorldK (w : PairWorldState) : Nat :=
   w.reserve0 * w.reserve1
 
+def PairWorldKPerSupplyNondecreasing (before after : PairWorldState) : Prop :=
+  PairWorldK before * after.totalSupply * after.totalSupply ≤
+    PairWorldK after * before.totalSupply * before.totalSupply
+
 def PairWorldSpotValueNum (spot pool : PairWorldState) : Nat :=
   pool.reserve0 * spot.reserve1 + pool.reserve1 * spot.reserve0
 

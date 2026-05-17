@@ -5,6 +5,7 @@ namespace TamaUniV2.Proof.UniswapV2PairProof
 
 set_option linter.unusedSimpArgs false
 set_option maxRecDepth 2000000
+set_option maxHeartbeats 2000000
 
 open Verity
 open Verity.EVM.Uint256
@@ -1425,6 +1426,268 @@ private theorem pairWorldNoBurnPath_never_decreases_k
         (pairWorldNonBurnStep_never_decreases_k
           h_good_before h_step h_not_burn)
 
+private theorem pairWorldStep_positive_supply_preserved
+    {action : PairWorldAction} {before after : PairWorldState} :
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldStep action before after →
+        0 < after.totalSupply := by
+  intro h_good h_positive h_step
+  cases action with
+  | approve ownerAddr spender amount =>
+      simp [PairWorldStep] at h_step
+      subst after
+      exact h_positive
+  | transfer fromAddr toAddr amount =>
+      simp [PairWorldStep] at h_step
+      subst after
+      exact h_positive
+  | transferFrom spender fromAddr toAddr amount =>
+      simp [PairWorldStep] at h_step
+      subst after
+      exact h_positive
+  | donate amount0 amount1 =>
+      simp [PairWorldStep] at h_step
+      rcases h_step with ⟨_h_balance0, _h_balance1, _h_reserve0, _h_reserve1,
+        h_supply, _h_locked⟩
+      rw [h_supply]
+      exact h_positive
+  | mint amount0 amount1 liquidity =>
+      simp [PairWorldStep, PairWorldMintStep] at h_step
+      rcases h_step with ⟨_h_amount0, _h_amount1, h_liquidity, _h_before_balance0,
+        _h_before_balance1, _h_after_balance0, _h_after_balance1, _h_after_reserve0,
+        _h_after_reserve1, _h_bound0, _h_bound1, h_supply, _h_locked, _h_ratio⟩
+      by_cases h_zero : before.totalSupply = 0
+      · exact False.elim (Nat.ne_of_gt h_positive h_zero)
+      · rw [h_supply]
+        simp [h_zero]
+        omega
+  | burn amount0 amount1 liquidity =>
+      rcases h_good with ⟨_h_back0, _h_back1, _h_bound0, _h_bound1, h_supply_good⟩
+      simp [PairWorldStep, PairWorldBurnStep] at h_step
+      rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, h_locked_remaining,
+        _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0, _h_bound1,
+        h_supply, _h_locked, _h_ratio0, _h_ratio1⟩
+      rcases h_supply_good with h_empty | h_nonempty
+      · exact False.elim (Nat.ne_of_gt h_positive h_empty.1)
+      · rcases h_nonempty with ⟨_h_supply_pos, h_locked, _h_min⟩
+        rw [h_supply]
+        rw [h_locked] at h_locked_remaining
+        simp [minimumLiquidityNat] at h_locked_remaining
+        omega
+  | swap amount0In amount1In amount0Out amount1Out =>
+      simp [PairWorldStep, PairWorldSwapStep] at h_step
+      rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0, _h_enough1,
+        _h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1,
+        _h_bound0, _h_bound1, h_supply, _h_locked, _h_fee0, _h_fee1,
+        _h_adjusted_k, _h_raw_k⟩
+      rw [h_supply]
+      exact h_positive
+  | skim =>
+      simp [PairWorldStep, PairWorldSkimStep] at h_step
+      rcases h_step with ⟨_h_balance0, _h_balance1, _h_reserve0, _h_reserve1,
+        h_supply, _h_locked⟩
+      rw [h_supply]
+      exact h_positive
+  | sync =>
+      simp [PairWorldStep, PairWorldSyncStep] at h_step
+      rcases h_step with ⟨_h_bound0, _h_bound1, _h_balance0, _h_balance1,
+        _h_reserve0, _h_reserve1, h_supply, _h_locked⟩
+      rw [h_supply]
+      exact h_positive
+
+private theorem pairWorldPath_positive_supply_preserved
+    {before after : PairWorldState} :
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        0 < after.totalSupply := by
+  intro h_good h_positive h_path
+  induction h_path with
+  | refl =>
+      exact h_positive
+  | step action h_prefix h_step ih =>
+      have h_good_before := pairWorldPath_preserves_good h_good h_prefix
+      exact pairWorldStep_positive_supply_preserved h_good_before ih h_step
+
+private theorem pairWorldStep_k_per_supply_never_decreases
+    {action : PairWorldAction} {before after : PairWorldState} :
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldStep action before after →
+        PairWorldKPerSupplyNondecreasing before after := by
+  intro h_good h_positive h_step
+  cases action with
+  | approve ownerAddr spender amount =>
+      simp [PairWorldStep] at h_step
+      subst after
+      unfold PairWorldKPerSupplyNondecreasing
+      rfl
+  | transfer fromAddr toAddr amount =>
+      simp [PairWorldStep] at h_step
+      subst after
+      unfold PairWorldKPerSupplyNondecreasing
+      rfl
+  | transferFrom spender fromAddr toAddr amount =>
+      simp [PairWorldStep] at h_step
+      subst after
+      unfold PairWorldKPerSupplyNondecreasing
+      rfl
+  | donate amount0 amount1 =>
+      simp [PairWorldStep] at h_step
+      rcases h_step with ⟨_h_balance0, _h_balance1, h_reserve0, h_reserve1,
+        h_supply, _h_locked⟩
+      unfold PairWorldKPerSupplyNondecreasing PairWorldK
+      rw [h_reserve0, h_reserve1, h_supply]
+  | mint amount0 amount1 liquidity =>
+      simp [PairWorldStep, PairWorldMintStep] at h_step
+      rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, h_before_balance0,
+        h_before_balance1, h_after_balance0, h_after_balance1, h_after_reserve0,
+        h_after_reserve1, _h_bound0, _h_bound1, h_supply, _h_locked, h_ratio⟩
+      by_cases h_zero : before.totalSupply = 0
+      · exact False.elim (Nat.ne_of_gt h_positive h_zero)
+      · rcases h_ratio with h_first | h_ratio
+        · exact False.elim (h_zero h_first)
+        · have h_supply' :
+              after.totalSupply = before.totalSupply + liquidity := by
+            simpa [h_zero] using h_supply
+          have h_reserve0' :
+              after.reserve0 = before.reserve0 + amount0 := by
+            rw [h_after_reserve0, h_before_balance0]
+          have h_reserve1' :
+              after.reserve1 = before.reserve1 + amount1 := by
+            rw [h_after_reserve1, h_before_balance1]
+          have h0 :
+              before.reserve0 * after.totalSupply ≤
+                after.reserve0 * before.totalSupply := by
+            rw [h_supply', h_reserve0']
+            nlinarith [h_ratio.1]
+          have h1 :
+              before.reserve1 * after.totalSupply ≤
+                after.reserve1 * before.totalSupply := by
+            rw [h_supply', h_reserve1']
+            nlinarith [h_ratio.2]
+          have h_mul := Nat.mul_le_mul h0 h1
+          unfold PairWorldKPerSupplyNondecreasing PairWorldK
+          nlinarith [h_mul]
+  | burn amount0 amount1 liquidity =>
+      rcases h_good with ⟨h_back0, h_back1, _h_bound0, _h_bound1, _h_supply_good⟩
+      simp [PairWorldStep, PairWorldBurnStep] at h_step
+      rcases h_step with ⟨h_amount0, h_amount1, h_liquidity, _h_locked_remaining,
+        h_balance0, h_balance1, h_reserve0, h_reserve1, _h_bound0, _h_bound1,
+        h_supply, _h_locked, h_ratio0, h_ratio1⟩
+      have h_after0 :
+          after.reserve0 = before.balance0 - amount0 := by
+        rw [h_reserve0, h_balance0]
+      have h_after1 :
+          after.reserve1 = before.balance1 - amount1 := by
+        rw [h_reserve1, h_balance1]
+      have h0_balance :
+          before.balance0 * (before.totalSupply - liquidity) ≤
+            (before.balance0 - amount0) * before.totalSupply := by
+        rw [Nat.mul_sub_left_distrib, Nat.mul_sub_right_distrib]
+        simpa [Nat.mul_comm, Nat.mul_left_comm, Nat.mul_assoc] using
+          Nat.sub_le_sub_left h_ratio0 (before.balance0 * before.totalSupply)
+      have h1_balance :
+          before.balance1 * (before.totalSupply - liquidity) ≤
+            (before.balance1 - amount1) * before.totalSupply := by
+        rw [Nat.mul_sub_left_distrib, Nat.mul_sub_right_distrib]
+        simpa [Nat.mul_comm, Nat.mul_left_comm, Nat.mul_assoc] using
+          Nat.sub_le_sub_left h_ratio1 (before.balance1 * before.totalSupply)
+      have h0 :
+          before.reserve0 * after.totalSupply ≤
+            after.reserve0 * before.totalSupply := by
+        rw [h_supply, h_after0]
+        exact Nat.le_trans (Nat.mul_le_mul_right _ h_back0) h0_balance
+      have h1 :
+          before.reserve1 * after.totalSupply ≤
+            after.reserve1 * before.totalSupply := by
+        rw [h_supply, h_after1]
+        exact Nat.le_trans (Nat.mul_le_mul_right _ h_back1) h1_balance
+      have h_mul := Nat.mul_le_mul h0 h1
+      unfold PairWorldKPerSupplyNondecreasing PairWorldK
+      nlinarith [h_mul]
+  | swap amount0In amount1In amount0Out amount1Out =>
+      simp [PairWorldStep, PairWorldSwapStep] at h_step
+      rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0, _h_enough1,
+        _h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1,
+        _h_bound0, _h_bound1, h_supply, _h_locked, _h_fee0, _h_fee1,
+        _h_adjusted_k, h_raw_k⟩
+      unfold PairWorldKPerSupplyNondecreasing
+      rw [h_supply]
+      exact Nat.mul_le_mul_right before.totalSupply
+        (Nat.mul_le_mul_right before.totalSupply h_raw_k)
+  | skim =>
+      simp [PairWorldStep, PairWorldSkimStep] at h_step
+      rcases h_step with ⟨_h_balance0, _h_balance1, h_reserve0, h_reserve1,
+        h_supply, _h_locked⟩
+      unfold PairWorldKPerSupplyNondecreasing PairWorldK
+      rw [h_reserve0, h_reserve1, h_supply]
+  | sync =>
+      rcases h_good with ⟨h_back0, h_back1, _h_bound0, _h_bound1,
+        _h_supply_good⟩
+      simp [PairWorldStep, PairWorldSyncStep] at h_step
+      rcases h_step with ⟨_h_bound0, _h_bound1, _h_balance0, _h_balance1,
+        h_reserve0, h_reserve1, h_supply, _h_locked⟩
+      have h_k : PairWorldK before ≤ PairWorldK after := by
+        unfold PairWorldK
+        rw [h_reserve0, h_reserve1]
+        exact Nat.mul_le_mul h_back0 h_back1
+      unfold PairWorldKPerSupplyNondecreasing
+      rw [h_supply]
+      exact Nat.mul_le_mul_right before.totalSupply
+        (Nat.mul_le_mul_right before.totalSupply h_k)
+
+private theorem pairWorldPath_k_per_supply_never_decreases
+    {before after : PairWorldState} :
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        PairWorldKPerSupplyNondecreasing before after := by
+  intro h_good h_positive h_path
+  revert h_good h_positive
+  induction h_path with
+  | refl =>
+      intro h_good h_positive
+      unfold PairWorldKPerSupplyNondecreasing
+      rfl
+  | step action h_prefix h_step ih =>
+      rename_i mid last
+      intro h_good h_positive
+      have h_good_mid := pairWorldPath_preserves_good h_good h_prefix
+      have h_positive_mid :=
+        pairWorldPath_positive_supply_preserved h_good h_positive h_prefix
+      have h_prefix_scaled := ih h_good h_positive
+      have h_step_scaled :=
+        pairWorldStep_k_per_supply_never_decreases
+          h_good_mid h_positive_mid h_step
+      have h_mid_sq_pos := Nat.mul_pos h_positive_mid h_positive_mid
+      have h_prefix_mul :=
+        Nat.mul_le_mul_right (last.totalSupply * last.totalSupply) h_prefix_scaled
+      have h_step_mul :=
+        Nat.mul_le_mul_right (before.totalSupply * before.totalSupply) h_step_scaled
+      unfold PairWorldKPerSupplyNondecreasing at *
+      nlinarith [h_prefix_mul, h_step_mul, h_mid_sq_pos]
+
+private theorem pairWorldSameSupplyPath_never_decreases_k
+    {before after : PairWorldState} :
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        before.totalSupply = after.totalSupply →
+          PairWorldK before ≤ PairWorldK after := by
+  intro h_good h_positive h_path h_supply
+  have h_scaled :=
+    pairWorldPath_k_per_supply_never_decreases h_good h_positive h_path
+  unfold PairWorldKPerSupplyNondecreasing at h_scaled
+  rw [← h_supply] at h_scaled
+  have h_scaled' :
+      PairWorldK before * (before.totalSupply * before.totalSupply) ≤
+        PairWorldK after * (before.totalSupply * before.totalSupply) := by
+    simpa [Nat.mul_assoc] using h_scaled
+  exact Nat.le_of_mul_le_mul_right h_scaled'
+    (Nat.mul_pos h_positive h_positive)
+
 -- tama: discharges=pair_closed_world_step_preserves_good
 theorem closed_world_step_preserves_good
     (action : PairWorldAction) (before after : PairWorldState) :
@@ -1864,6 +2127,24 @@ theorem closed_world_swap_preserves_liquidity_supply
     _h_bound1, h_supply, h_locked, _h_fee0, _h_fee1, _h_adjusted_k, _h_raw_k⟩
   exact ⟨h_supply, h_locked⟩
 
+-- tama: discharges=pair_closed_world_step_k_per_supply_never_decreases
+theorem closed_world_step_k_per_supply_never_decreases
+    (action : PairWorldAction) (before after : PairWorldState) :
+  pair_closed_world_step_k_per_supply_never_decreases action before after := by
+  exact pairWorldStep_k_per_supply_never_decreases
+
+-- tama: discharges=pair_closed_world_path_k_per_supply_never_decreases
+theorem closed_world_path_k_per_supply_never_decreases
+    (before after : PairWorldState) :
+  pair_closed_world_path_k_per_supply_never_decreases before after := by
+  exact pairWorldPath_k_per_supply_never_decreases
+
+-- tama: discharges=pair_closed_world_same_supply_path_never_decreases_k
+theorem closed_world_same_supply_path_never_decreases_k
+    (before after : PairWorldState) :
+  pair_closed_world_same_supply_path_never_decreases_k before after := by
+  exact pairWorldSameSupplyPath_never_decreases_k
+
 -- tama: discharges=pair_closed_world_same_supply_path_no_spot_profit
 theorem closed_world_same_supply_path_no_spot_profit
     (before after : PairWorldState) :
@@ -1911,6 +2192,17 @@ theorem closed_world_same_supply_path_no_spot_profit
   have hlt_sq : (c * b + d * a) ^ 2 < (2 * (a * b)) ^ 2 := by
     nlinarith [hlt, hsum_nonneg, htarget_pos]
   nlinarith [hamgm, hkscaled, hlt_sq]
+
+-- tama: discharges=pair_closed_world_positive_supply_same_supply_path_no_spot_profit
+theorem closed_world_positive_supply_same_supply_path_no_spot_profit
+    (before after : PairWorldState) :
+  pair_closed_world_positive_supply_same_supply_path_no_spot_profit before after := by
+  intro h_good h_positive h_path h_supply h_reserve0 h_reserve1
+  have h_k :
+      PairWorldK before ≤ PairWorldK after :=
+    pairWorldSameSupplyPath_never_decreases_k h_good h_positive h_path h_supply
+  exact closed_world_same_supply_path_no_spot_profit before after
+    h_path h_good h_supply h_reserve0 h_reserve1 h_k
 
 -- tama: discharges=pair_closed_world_non_burn_step_never_decreases_k
 theorem closed_world_non_burn_step_never_decreases_k

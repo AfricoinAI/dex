@@ -1007,8 +1007,56 @@ histories, K never decreases. If such a history also begins and ends with the
 same LP supply, then the pool's final reserves are worth at least the initial
 pool value at the initial spot price. In a closed world with no external gift to
 the caller, that is exactly the condition needed to rule out spot-price profit.
+
+The stronger LP-normalized theorem removes the no-burn restriction. Mint and
+burn may change raw K, but valid pro-rata mint/burn transitions cannot decrease
+`K / totalSupply^2` while LP supply is positive. Therefore any finite path that
+starts and ends with the same positive LP supply cannot reduce K, even if it
+contains mint/burn round trips.
+
+The specs below are intentionally layered. First, one valid action cannot reduce
+LP-normalized K. Second, the same fact composes across arbitrary finite paths.
+Third, if the path starts and ends with the same positive LP supply, the
+normalization cancels and raw K itself cannot fall. Finally, the usual
+constant-product geometry converts that K fact into a spot-value no-profit
+statement.
 -/
 
+/- One valid closed-world transition cannot dilute existing LP shares: measured
+as reserve product per squared LP supply, the pool is at least as strong after
+the step as before it. -/
+def pair_closed_world_step_k_per_supply_never_decreases
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldStep action before after →
+        PairWorldKPerSupplyNondecreasing before after
+
+/- The one-step dilution bound composes over every finite path. This is the
+main sequence invariant: no combination of transfers, donations, mint, burn,
+swap, skim, or sync can reduce LP-normalized K from a good positive-supply
+state. -/
+def pair_closed_world_path_k_per_supply_never_decreases
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        PairWorldKPerSupplyNondecreasing before after
+
+/- If a finite path returns to the same LP supply, LP normalization cancels.
+The pool's raw reserve product therefore cannot be lower than where it began. -/
+def pair_closed_world_same_supply_path_never_decreases_k
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        before.totalSupply = after.totalSupply →
+          PairWorldK before ≤ PairWorldK after
+
+/- Constant-product arithmetic: once raw K is known not to fall, the final
+reserves cannot be worth less than the initial reserves at the initial spot
+price. This lemma is kept parameterized by the K fact so other sequence
+arguments can reuse the geometric conversion directly. -/
 def pair_closed_world_same_supply_path_no_spot_profit
     (before after : PairWorldState) : Prop :=
   PairWorldPath before after →
@@ -1017,6 +1065,21 @@ def pair_closed_world_same_supply_path_no_spot_profit
         0 < before.reserve0 →
           0 < before.reserve1 →
             PairWorldK before ≤ PairWorldK after →
+              PairWorldNoSpotProfit before after
+
+/- The complete same-supply no-profit theorem for the closed-world pool model:
+from any good positive-supply state with nonzero reserves, every finite path
+that ends with the same LP supply has no spot-price profit. This version allows
+mint/burn round trips because it relies on LP-normalized K rather than the older
+no-burn K theorem. -/
+def pair_closed_world_positive_supply_same_supply_path_no_spot_profit
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        before.totalSupply = after.totalSupply →
+          0 < before.reserve0 →
+            0 < before.reserve1 →
               PairWorldNoSpotProfit before after
 
 def pair_closed_world_non_burn_step_never_decreases_k

@@ -65,10 +65,12 @@ Pair:
   exact burn supply reduction, and the fact that burns cannot redeem the locked
   liquidity floor.
 - Same-LP-supply spot-value no-profit projection from reserve-product
-  nondecrease, plus a stronger closed-world no-burn path theorem: any same-LP
-  supply path with no burn cannot reduce K or create spot-price value. This is
-  not yet the stronger caller-ledger no-profit theorem for arbitrary
-  mint/burn round trips.
+  nondecrease. The stronger closed-world LP-normalized K theorem now covers
+  arbitrary finite paths from good positive-supply states: each step preserves
+  or improves `K / totalSupply^2`, the fact composes across paths, same-supply
+  paths cannot reduce raw K, and same-supply paths cannot reduce the pool's
+  value at the initial spot price. This allows mint/burn round trips rather
+  than relying only on the older no-burn path theorem.
 
 Factory:
 
@@ -108,10 +110,9 @@ properties, not API-surface properties.
   closed-world transition, uint112 overflow reverts, and TWAP/oracle updates.
 - Ordered revert matrix: cover canonical guard priority for mint, burn, swap,
   skim, sync, and factory, with exact revert payload/state.
-- Sequence-level economics: strengthen the current spot-value/no-burn
-  projection into a caller-ledger no-profit invariant for finite
-  same-LP-supply call sequences that may include mint/burn round trips,
-  excluding exogenous gifts to the caller.
+- Sequence-level economics: continue bridging executable mint, burn, and swap
+  success runs into the closed-world transitions so the LP-normalized K and
+  same-supply no-profit theorem applies directly to public entrypoint traces.
 - Factory invariants: bridge successful executable `createPair` runs into the
   factory-world transition and add failed-create atomicity as a global frame
   property.
