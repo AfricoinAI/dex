@@ -2349,6 +2349,24 @@ def pair_closed_world_swap_final_balances_account_for_input_and_output
     after.balance0 + amount0Out = before.reserve0 + amount0In ∧
     after.balance1 + amount1Out = before.reserve1 + amount1In
 
+/-- Flash-swap safety depends on the order of the economic check. The K
+inequality is not charged against the balances immediately after optimistic
+output; it is charged against the final balances after direct input or callback
+repayment has arrived. This theorem packages that relationship: the same final
+balances that account for output and inferred input are the balances used by
+the fee-adjusted K check. -/
+def pair_closed_world_swap_k_uses_final_balances
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    after.balance0 + amount0Out = before.reserve0 + amount0In ∧
+    after.balance1 + amount1Out = before.reserve1 + amount1In ∧
+    feeAdjustedBalance after.balance0 amount0In *
+        feeAdjustedBalance after.balance1 amount1In ≥
+      requiredK before.reserve0 before.reserve1
+
 def pair_closed_world_swap_outputs_below_reserves
     (amount0In amount1In amount0Out amount1Out : Nat)
     (before after : PairWorldState) : Prop :=

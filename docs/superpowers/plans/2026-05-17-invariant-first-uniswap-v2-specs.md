@@ -421,6 +421,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   and executes `revert` on failure; this is the Lean-side evidence that callback
   failure is not swallowed.
 
+  2026-05-17 16:02 PDT checkpoint: added the compact flash-swap K theorem.
+  The closed-world swap section now states directly that the fee-adjusted K
+  check uses the final post-output, post-repayment balances, and those same
+  balances account for inferred input.
+
 - [ ] **7. Complete the ordered revert matrix**
 
   Add exact run-result revert specs for canonical guard priority in mint, burn,
