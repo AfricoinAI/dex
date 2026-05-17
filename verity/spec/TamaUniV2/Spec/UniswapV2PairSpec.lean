@@ -1292,6 +1292,35 @@ def pair_closed_world_reachable_no_mint_burn_path_preserves_supply
       after.totalSupply = before.totalSupply ∧
       after.lockedLiquidity = before.lockedLiquidity
 
+/-- The directional LP-supply firewall. A single successful modeled action that
+is not burn cannot destroy LP supply. Mint may create new shares and ordinary
+pool operations may leave supply unchanged, but redemption is the only direction
+that can move supply downward. -/
+def pair_closed_world_non_burn_step_never_decreases_supply
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldStep action before after →
+    (∀ amount0 amount1 liquidity,
+      action ≠ PairWorldAction.burn amount0 amount1 liquidity) →
+      before.totalSupply ≤ after.totalSupply
+
+/-- The finite-history version of the same supply direction fact. Along any
+successful modeled history with no burn step, total LP supply cannot decrease.
+This is the trace-level statement that "LP redemption requires burn." -/
+def pair_closed_world_no_burn_path_never_decreases_supply
+    (before after : PairWorldState) : Prop :=
+  PairWorldPathNoBurn before after →
+    before.totalSupply ≤ after.totalSupply
+
+/-- Reader-facing reachable form: from any reachable pool state, every finite
+successful no-burn history preserves or increases LP supply. This pairs with
+the no-burn K theorem below: without LP redemption, neither supply nor cached K
+can move in the extraction direction. -/
+def pair_closed_world_reachable_no_burn_path_never_decreases_supply
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPathNoBurn before after →
+      before.totalSupply ≤ after.totalSupply
+
 def pair_closed_world_approve_preserves_pool
     (ownerAddr spender : Address) (amount : Nat)
     (before after : PairWorldState) : Prop :=

@@ -89,6 +89,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   mint or burn preserves total LP supply and the permanently locked liquidity
   amount.
 
+  2026-05-17 03:09 PDT checkpoint: adding the directional no-burn supply
+  invariant. Any successful modeled action other than burn cannot decrease LP
+  supply, and therefore every finite successful no-burn history preserves or
+  increases total LP supply.
+
   2026-05-17 01:43 PDT checkpoint: added the reader-facing no-liquidity
   no-extraction corollary. Reachable paths with no mint and no burn now prove
   no spot-value extraction directly by combining unchanged LP supply with the
