@@ -188,6 +188,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   finite-history no-profit theorem through a one-step path, rather than
   unfolding the public swap entrypoint.
 
+  2026-05-17 12:31 PDT checkpoint: added the reachable nonempty-pool form of
+  the same one-swap theorem. Reachability supplies the good-state and
+  positive-reserve premises, so the public statement reads directly: a valid
+  swap from a reachable nonempty pool cannot reduce pool value at the starting
+  spot price.
+
   2026-05-17 07:59 PDT checkpoint: added the reserve-change classifier. Cached
   reserves can change only through mint, burn, swap, or sync; share
   bookkeeping, direct donation, and skim cannot secretly rewrite router-visible

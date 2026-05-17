@@ -4478,6 +4478,23 @@ theorem closed_world_swap_no_spot_value_extraction
   simpa [pair_closed_world_swap_no_spot_value_extraction, h_start,
     PairWorldNoSpotProfit] using h_no_profit
 
+-- tama: discharges=pair_closed_world_reachable_positive_supply_swap_no_spot_value_extraction
+theorem closed_world_reachable_positive_supply_swap_no_spot_value_extraction
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_positive_supply_swap_no_spot_value_extraction
+    amount0In amount1In amount0Out amount1Out before after := by
+  intro h_reachable h_positive h_step
+  have h_good : PairWorldGood before :=
+    pairWorldReachable_good before h_reachable
+  have h_reserves :
+      0 < before.reserve0 ∧ 0 < before.reserve1 :=
+    pairWorldReachable_positive_supply_positive_reserves
+      h_reachable h_positive
+  exact closed_world_swap_no_spot_value_extraction
+    amount0In amount1In amount0Out amount1Out before after
+    h_good h_positive h_reserves.1 h_reserves.2 h_step
+
 -- tama: discharges=pair_closed_world_reachable_same_supply_path_never_decreases_k
 theorem closed_world_reachable_same_supply_path_never_decreases_k
     (before after : PairWorldState) :

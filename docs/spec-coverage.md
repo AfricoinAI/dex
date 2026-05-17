@@ -154,9 +154,9 @@ Pair:
   fee-adjusted K for swaps plus the arithmetic theorem that the fee-adjusted
   check implies raw cached-K
   nondecrease once reserves equal final balances, positive-input/output and
-  output-below-reserve swap facts, and the one-swap economic consequence that a
+  output-below-reserve swap facts, the one-swap economic consequence that a
   valid swap from a good live pool cannot reduce pool value at the starting spot
-  price,
+  price, and the reader-facing reachable form of that same swap theorem,
   post-output plus inferred-input balance accounting for swaps, donation
   reserve/K framing, exact donation-created reserve surplus, finite-history
   no-donation surplus isolation, zero-surplus preservation for no-donation

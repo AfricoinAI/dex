@@ -2143,6 +2143,21 @@ def pair_closed_world_swap_no_spot_value_extraction
             PairWorldSpotValueNum before before ≤
               PairWorldSpotValueNum before after
 
+/-- Reachable one-swap no-extraction. This is the same economic claim in the
+form a reader usually wants to cite: if the pool is reachable and nonempty, the
+invariant layer already supplies the good-state and positive-reserve facts, so
+a valid swap cannot reduce pool value at the starting spot price. -/
+def pair_closed_world_reachable_positive_supply_swap_no_spot_value_extraction
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldStep
+          (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+          before after →
+        PairWorldSpotValueNum before before ≤
+          PairWorldSpotValueNum before after
+
 /-!
 ### 7. Sequence-Level Economic Consequences
 
