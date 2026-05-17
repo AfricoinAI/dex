@@ -369,6 +369,42 @@ private theorem factoryWorldReachable_good
   | step action h_before h_step ih =>
       exact factoryWorldStep_preserves_good action _ _ ih h_step
 
+private theorem factoryWorldPath_preserves_good
+    {before after : FactoryWorldState} :
+  FactoryWorldGood before →
+    FactoryWorldPath before after →
+      FactoryWorldGood after := by
+  intro h_good h_path
+  revert h_good
+  induction h_path with
+  | refl =>
+      intro h_good
+      exact h_good
+  | step action h_prefix h_step ih =>
+      intro h_good
+      exact factoryWorldStep_preserves_good action _ _ (ih h_good) h_step
+
+private theorem factoryWorldPath_preserves_existing_pair
+    {before after : FactoryWorldState}
+    {existing0 existing1 existingPair : Address} :
+  FactoryWorldContainsPair before existing0 existing1 existingPair →
+    FactoryWorldPath before after →
+      FactoryWorldContainsPair after existing0 existing1 existingPair := by
+  intro h_existing h_path
+  induction h_path with
+  | refl =>
+      exact h_existing
+  | step action h_prefix h_step ih =>
+      cases action with
+      | createPair tokenA tokenB pair =>
+          rcases ih with ⟨entry, h_entry, h_tokens, h_pair⟩
+          simp [FactoryWorldStep, FactoryWorldCreatePairStep] at h_step
+          rcases h_step with ⟨_h_distinct, _h_tokenA_nonzero, _h_tokenB_nonzero,
+            _h_token_order, _h_new_good, _h_absent, h_pairs, _h_count⟩
+          refine ⟨entry, ?_, h_tokens, h_pair⟩
+          rw [h_pairs]
+          exact List.mem_append_left _ h_entry
+
 -- tama: discharges=factory_closed_world_step_preserves_good
 theorem closed_world_step_preserves_good
     (action : FactoryWorldAction)
@@ -381,6 +417,12 @@ theorem closed_world_reachable_good
     (w : FactoryWorldState) :
   factory_closed_world_reachable_good w := by
   exact factoryWorldReachable_good w
+
+-- tama: discharges=factory_closed_world_path_preserves_good
+theorem closed_world_path_preserves_good
+    (before after : FactoryWorldState) :
+  factory_closed_world_path_preserves_good before after := by
+  exact factoryWorldPath_preserves_good
 
 -- tama: discharges=factory_closed_world_created_pairs_are_sorted_and_nonzero
 theorem closed_world_created_pairs_are_sorted_and_nonzero
@@ -465,11 +507,26 @@ theorem closed_world_create_preserves_existing_pairs
   rw [h_pairs]
   exact List.mem_append_left _ h_entry
 
+-- tama: discharges=factory_closed_world_path_preserves_existing_pairs
+theorem closed_world_path_preserves_existing_pairs
+    (existing0 existing1 existingPair : Address)
+    (before after : FactoryWorldState) :
+  factory_closed_world_path_preserves_existing_pairs
+    existing0 existing1 existingPair before after := by
+  exact factoryWorldPath_preserves_existing_pair
+
 -- tama: discharges=factory_closed_world_length_matches_created_pairs
 theorem closed_world_length_matches_created_pairs
     (w : FactoryWorldState) :
   factory_closed_world_length_matches_created_pairs w := by
   intro h_reachable
   exact (factoryWorldReachable_good w h_reachable).2.2
+
+-- tama: discharges=factory_closed_world_path_length_matches_created_pairs
+theorem closed_world_path_length_matches_created_pairs
+    (before after : FactoryWorldState) :
+  factory_closed_world_path_length_matches_created_pairs before after := by
+  intro h_good h_path
+  exact (factoryWorldPath_preserves_good h_good h_path).2.2
 
 end TamaUniV2.Proof.UniswapV2FactoryProof

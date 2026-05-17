@@ -204,6 +204,9 @@ The intended reader story is:
 * Lookup is symmetric because the model records unordered membership.
 * The public array length is exactly the number of created pairs in the modeled
   history.
+* The path-level specs lift those one-step facts to any finite suffix from a
+  good factory state: created pairs remain present, the list remains coherent,
+  and length keeps matching the number of created pairs.
 
 Together with the executable create/revert specs, these are the global factory
 facts that users and routers depend on: deterministic uniqueness, no hidden
@@ -221,6 +224,12 @@ def factory_closed_world_reachable_good
     (w : FactoryWorldState) : Prop :=
   FactoryWorldReachable w →
     FactoryWorldGood w
+
+def factory_closed_world_path_preserves_good
+    (before after : FactoryWorldState) : Prop :=
+  FactoryWorldGood before →
+    FactoryWorldPath before after →
+      FactoryWorldGood after
 
 def factory_closed_world_created_pairs_are_sorted_and_nonzero
     (w : FactoryWorldState) : Prop :=
@@ -259,9 +268,22 @@ def factory_closed_world_create_preserves_existing_pairs
     FactoryWorldCreatePairStep tokenA tokenB pair before after →
       FactoryWorldContainsPair after existing0 existing1 existingPair
 
+def factory_closed_world_path_preserves_existing_pairs
+    (existing0 existing1 existingPair : Address)
+    (before after : FactoryWorldState) : Prop :=
+  FactoryWorldContainsPair before existing0 existing1 existingPair →
+    FactoryWorldPath before after →
+      FactoryWorldContainsPair after existing0 existing1 existingPair
+
 def factory_closed_world_length_matches_created_pairs
     (w : FactoryWorldState) : Prop :=
   FactoryWorldReachable w →
     w.pairCount = w.pairs.length
+
+def factory_closed_world_path_length_matches_created_pairs
+    (before after : FactoryWorldState) : Prop :=
+  FactoryWorldGood before →
+    FactoryWorldPath before after →
+      after.pairCount = after.pairs.length
 
 end TamaUniV2.Spec.UniswapV2FactorySpec
