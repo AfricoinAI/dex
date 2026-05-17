@@ -314,6 +314,17 @@ def factory_closed_world_lookup_symmetric
     FactoryWorldContainsPair w tokenA tokenB pair →
       FactoryWorldContainsPair w tokenB tokenA pair
 
+/-- The user-facing uniqueness theorem for factory lookup. In any reachable
+factory history, an unordered token pair can name at most one pair address. This
+is the closed-world version of the property routers rely on when they use
+`getPair(tokenA, tokenB)` and `getPair(tokenB, tokenA)` interchangeably. -/
+def factory_closed_world_unordered_pair_address_unique
+    (w : FactoryWorldState) (tokenA tokenB pairA pairB : Address) : Prop :=
+  FactoryWorldReachable w →
+    FactoryWorldContainsPair w tokenA tokenB pairA →
+      FactoryWorldContainsPair w tokenA tokenB pairB →
+        pairA = pairB
+
 def factory_closed_world_create_appends_one_pair
     (tokenA tokenB pair : Address)
     (before after : FactoryWorldState) : Prop :=

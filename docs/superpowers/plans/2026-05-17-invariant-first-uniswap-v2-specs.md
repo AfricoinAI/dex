@@ -185,6 +185,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   whose history contains no existing sorted pair. The remaining work is richer
   reconstruction of that modeled history from concrete `allPairs` storage.
 
+  2026-05-17 00:28 PDT checkpoint: added a reader-facing unordered uniqueness
+  theorem: in any reachable factory history, `tokenA/tokenB` can resolve to at
+  most one pair address. This is a short consequence of sorted entries plus the
+  no-duplicate invariant, but it reads like the router-facing guarantee.
+
 - [ ] **10. Verify and commit in coherent slices**
 
   After each slice run focused `lake build`. Before claiming completion run

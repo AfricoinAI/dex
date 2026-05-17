@@ -623,6 +623,61 @@ theorem closed_world_lookup_symmetric
   · exact Or.inr h_forward
   · exact Or.inl h_reverse
 
+-- tama: discharges=factory_closed_world_unordered_pair_address_unique
+theorem closed_world_unordered_pair_address_unique
+    (w : FactoryWorldState) (tokenA tokenB pairA pairB : Address) :
+  factory_closed_world_unordered_pair_address_unique w tokenA tokenB pairA pairB := by
+  intro h_reachable h_contains_a h_contains_b
+  rcases h_contains_a with ⟨entryA, h_entry_a, h_tokens_a, h_pair_a⟩
+  rcases h_contains_b with ⟨entryB, h_entry_b, h_tokens_b, h_pair_b⟩
+  have h_good := factoryWorldReachable_good w h_reachable
+  have h_no_duplicates := h_good.2.1
+  have h_entry_a_good := h_good.1 entryA h_entry_a
+  have h_entry_b_good := h_good.1 entryB h_entry_b
+  have h_same_tokens :
+      entryA.token0 = entryB.token0 ∧ entryA.token1 = entryB.token1 := by
+    rcases h_tokens_a with h_a_forward | h_a_reverse
+    · rcases h_tokens_b with h_b_forward | h_b_reverse
+      · exact ⟨h_a_forward.1.trans h_b_forward.1.symm,
+          h_a_forward.2.trans h_b_forward.2.symm⟩
+      · rcases h_entry_a_good with
+          ⟨_ha_distinct, _ha_nonzero0, _ha_nonzero1, h_a_order, _ha_pair⟩
+        rcases h_entry_b_good with
+          ⟨_hb_distinct, _hb_nonzero0, _hb_nonzero1, h_b_order, _hb_pair⟩
+        rw [h_a_forward.1, h_a_forward.2] at h_a_order
+        rw [h_b_reverse.1, h_b_reverse.2] at h_b_order
+        have h_a_order_val :
+            (addressToWord tokenA).val < (addressToWord tokenB).val := by
+          simpa [Verity.Core.Uint256.lt_def] using h_a_order
+        have h_b_order_val :
+            (addressToWord tokenB).val < (addressToWord tokenA).val := by
+          simpa [Verity.Core.Uint256.lt_def] using h_b_order
+        exact False.elim ((Nat.lt_asymm h_a_order_val) h_b_order_val)
+    · rcases h_tokens_b with h_b_forward | h_b_reverse
+      · rcases h_entry_a_good with
+          ⟨_ha_distinct, _ha_nonzero0, _ha_nonzero1, h_a_order, _ha_pair⟩
+        rcases h_entry_b_good with
+          ⟨_hb_distinct, _hb_nonzero0, _hb_nonzero1, h_b_order, _hb_pair⟩
+        rw [h_a_reverse.1, h_a_reverse.2] at h_a_order
+        rw [h_b_forward.1, h_b_forward.2] at h_b_order
+        have h_a_order_val :
+            (addressToWord tokenB).val < (addressToWord tokenA).val := by
+          simpa [Verity.Core.Uint256.lt_def] using h_a_order
+        have h_b_order_val :
+            (addressToWord tokenA).val < (addressToWord tokenB).val := by
+          simpa [Verity.Core.Uint256.lt_def] using h_b_order
+        exact False.elim ((Nat.lt_asymm h_a_order_val) h_b_order_val)
+      · exact ⟨h_a_reverse.1.trans h_b_reverse.1.symm,
+          h_a_reverse.2.trans h_b_reverse.2.symm⟩
+  have h_entry_eq :
+      entryA = entryB :=
+    h_no_duplicates entryA entryB h_entry_a h_entry_b
+      h_same_tokens.1 h_same_tokens.2
+  calc
+    pairA = entryA.pair := h_pair_a.symm
+    _ = entryB.pair := by rw [h_entry_eq]
+    _ = pairB := h_pair_b
+
 -- tama: discharges=factory_closed_world_create_appends_one_pair
 theorem closed_world_create_appends_one_pair
     (tokenA tokenB pair : Address)
