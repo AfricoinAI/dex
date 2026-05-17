@@ -1575,6 +1575,16 @@ def pair_closed_world_no_burn_path_never_decreases_k
     PairWorldPathNoBurn before after →
       PairWorldK before ≤ PairWorldK after
 
+/-- The path-level K classifier in reader-facing form. From any reachable pool
+state, a finite successful history with no burn step cannot reduce cached K.
+Equivalently, any finite-history K decrease must include liquidity redemption
+somewhere in the path. -/
+def pair_closed_world_reachable_no_burn_path_never_decreases_k
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPathNoBurn before after →
+      PairWorldK before ≤ PairWorldK after
+
 def pair_closed_world_no_burn_same_supply_path_no_spot_profit
     (before after : PairWorldState) : Prop :=
   PairWorldGood before →

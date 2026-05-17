@@ -78,8 +78,10 @@ Pair:
   for swaps, positive-input/output and output-below-reserve swap facts,
   post-output plus inferred-input balance accounting for swaps, donation
   reserve/K framing, LP-supply preservation for swap/skim/sync, the action
-  classifier that only mint/burn can change LP total supply, and the K-direction
-  classifier that any one-step raw K decrease from a good state must be a burn.
+  classifier that only mint/burn can change LP total supply, the K-direction
+  classifier that any one-step raw K decrease from a good state must be a burn,
+  and the reachable finite-trace theorem that any no-burn path cannot decrease
+  cached K.
 - Flash-swap callback gating is covered at the ECM compile-template boundary:
   the generated callback call sits under a `data_length > 0` Yul guard. The
   remaining callback-failure and in-callback lock semantics are runtime/ECM

@@ -3014,6 +3014,14 @@ theorem closed_world_no_burn_path_never_decreases_k
   pair_closed_world_no_burn_path_never_decreases_k before after := by
   exact pairWorldNoBurnPath_never_decreases_k
 
+-- tama: discharges=pair_closed_world_reachable_no_burn_path_never_decreases_k
+theorem closed_world_reachable_no_burn_path_never_decreases_k
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_no_burn_path_never_decreases_k before after := by
+  intro h_reachable h_path
+  exact pairWorldNoBurnPath_never_decreases_k
+    (pairWorldReachable_good before h_reachable) h_path
+
 -- tama: discharges=pair_closed_world_no_burn_same_supply_path_no_spot_profit
 theorem closed_world_no_burn_same_supply_path_no_spot_profit
     (before after : PairWorldState) :
