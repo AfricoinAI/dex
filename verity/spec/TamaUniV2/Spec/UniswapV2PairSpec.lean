@@ -902,6 +902,34 @@ def pair_skim_run_success_refines_closed_world
               (pairWorldAfterSkimRun s)
         | ContractResult.revert _ _ => False
 
+def pair_skim_success_run_implies_balances_back_reserves
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=
+  result = (skim toAddr).run s →
+    result = ContractResult.success () result.snd →
+      s.storage reserve0Slot.slot ≤ observedBalance0 s ∧
+      s.storage reserve1Slot.slot ≤ observedBalance1 s
+
+/-- A successful public `skim` call restores the pair lock before returning.
+The balance premises are not assumptions here; they are derived from the exact
+under-reserve revert facts. -/
+def pair_skim_success_run_restores_unlocked_from_run
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=
+  result = (skim toAddr).run s →
+    result = ContractResult.success () result.snd →
+      result.snd.storage unlockedSlot.slot = 1
+
+/-- Reader-facing executable `skim` bridge. Success of the real entrypoint
+implies the lock gate passed and the pair held at least its cached reserves, so
+the run is exactly the closed-world skim transition used by the invariant
+section. -/
+def pair_skim_success_run_refines_closed_world_from_run
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=
+  result = (skim toAddr).run s →
+    result = ContractResult.success () result.snd →
+      PairWorldStep PairWorldAction.skim
+        (pairWorldFromConcreteState s)
+        (pairWorldAfterSkimRun s)
+
 def pair_sync_run_revert_locked
     (s : ContractState) : Prop :=
   s.storage unlockedSlot.slot != 1 →

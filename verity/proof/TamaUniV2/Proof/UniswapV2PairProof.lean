@@ -1652,6 +1652,65 @@ theorem skim_success_run_implies_lock_open
   rw [h_revert] at h_success
   cases h_success
 
+-- tama: discharges=pair_skim_success_run_implies_balances_back_reserves
+theorem skim_success_run_implies_balances_back_reserves
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) :
+  pair_skim_success_run_implies_balances_back_reserves toAddr s result := by
+  intro h_run h_success
+  have h_unlocked := skim_success_run_implies_lock_open toAddr s result h_run h_success
+  constructor
+  · by_contra h_not_bound
+    have h_not_bound_val :
+        ¬ (s.storage reserve0Slot.slot).val ≤ (observedBalance0 s).val := by
+      simpa [Verity.Core.Uint256.le_def] using h_not_bound
+    have h_under : observedBalance0 s < s.storage reserve0Slot.slot := by
+      simpa [Verity.Core.Uint256.lt_def] using Nat.lt_of_not_ge h_not_bound_val
+    have h_revert := skim_run_revert_balance0_below_reserve toAddr s h_unlocked h_under
+    rw [h_run] at h_success
+    rw [h_revert] at h_success
+    cases h_success
+  · by_contra h_not_bound
+    have h_not_bound_val :
+        ¬ (s.storage reserve1Slot.slot).val ≤ (observedBalance1 s).val := by
+      simpa [Verity.Core.Uint256.le_def] using h_not_bound
+    have h_under : observedBalance1 s < s.storage reserve1Slot.slot := by
+      simpa [Verity.Core.Uint256.lt_def] using Nat.lt_of_not_ge h_not_bound_val
+    have h_revert := skim_run_revert_balance1_below_reserve toAddr s h_unlocked h_under
+    rw [h_run] at h_success
+    rw [h_revert] at h_success
+    cases h_success
+
+-- tama: discharges=pair_skim_success_run_restores_unlocked_from_run
+theorem skim_success_run_restores_unlocked_from_run
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) :
+  pair_skim_success_run_restores_unlocked_from_run toAddr s result := by
+  intro h_run h_success
+  have h_unlocked := skim_success_run_implies_lock_open toAddr s result h_run h_success
+  rcases skim_success_run_implies_balances_back_reserves
+      toAddr s result h_run h_success with
+    ⟨h_balance0, h_balance1⟩
+  have h_skim :=
+    skim_run_success_transfers_excess_and_restores_unlocked
+      toAddr s h_unlocked h_balance0 h_balance1
+  rcases h_skim with ⟨_h_actual, _h_reserve0, _h_reserve1, h_restored,
+    _h_transfer0, _h_transfer1⟩
+  rw [h_run]
+  exact h_restored
+
+-- tama: discharges=pair_skim_success_run_refines_closed_world_from_run
+theorem skim_success_run_refines_closed_world_from_run
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) :
+  pair_skim_success_run_refines_closed_world_from_run toAddr s result := by
+  intro h_run h_success
+  have h_unlocked := skim_success_run_implies_lock_open toAddr s result h_run h_success
+  rcases skim_success_run_implies_balances_back_reserves
+      toAddr s result h_run h_success with
+    ⟨h_balance0, h_balance1⟩
+  have h_step := skim_run_success_refines_closed_world toAddr s
+    h_unlocked h_balance0 h_balance1
+  rw [← h_run, h_success] at h_step
+  exact h_step
+
 -- tama: discharges=pair_sync_run_revert_balance0_overflow
 theorem sync_run_revert_balance0_overflow (s : ContractState) :
   pair_sync_run_revert_balance0_overflow s := by

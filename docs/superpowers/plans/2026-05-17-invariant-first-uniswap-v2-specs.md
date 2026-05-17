@@ -393,6 +393,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   reproducing the known kernel-depth failure. Future ordered swap reverts need
   a proof-local ordered-prefix adapter before public obligations are added.
 
+  2026-05-17 16:45 PDT checkpoint: added successful-run `skim` bridges. Success
+  now derives the reserve-backing premises from exact under-reserve reverts,
+  proves final lock restoration, and connects the run to the closed-world skim
+  transition without extra reader-supplied execution premises.
+
 - [x] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when
