@@ -128,6 +128,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   swap, skim, sync, and factory. Revert specs should prove the exact payload and
   original-state frame.
 
+  2026-05-16 23:08 PDT checkpoint: swap now has a public Lean spec/proof and
+  exact Foundry mirror for the zero-output guard after the lock gate.
+  Insufficient-liquidity and invalid-recipient checks have exact Foundry
+  revert-message coverage, but their public Lean obligations are deferred until
+  the ordered-prefix proof is decomposed without monolithic swap unfolding.
+
 - [ ] **8. Add sequence-level economic safety**
 
   Strengthen the closed-world model with a caller ledger so any finite sequence

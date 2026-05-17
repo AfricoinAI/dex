@@ -40,7 +40,11 @@ Pair:
 - LP ERC20 approve/transfer/transferFrom accounting, allowance, overflow, and
   event specs.
 - Exact run-result reverts for initialization, LP transfer guards, locked
-  mutating entrypoints, and skim under-reserve guards.
+  mutating entrypoints, and skim under-reserve guards. The swap zero-output
+  pre-interaction guard is now a public Lean spec and proof. The later
+  insufficient-liquidity and invalid-recipient guards have exact Foundry
+  revert-message coverage, but are not public Lean obligations until their
+  ordered-prefix proofs are decomposed enough to avoid kernel-depth blowups.
 - Revert-frame token-balance preservation specs for mint, burn, swap, skim, and
   sync using pair-local transfer traces.
 - Pair-local atomicity specs showing reverted mint, burn, swap, skim, and sync
@@ -137,6 +141,10 @@ properties, not API-surface properties.
   reserve-update runs to the TWAP/oracle arithmetic facts.
 - Ordered revert matrix: cover canonical guard priority for mint, burn, swap,
   skim, sync, and factory, with exact revert payload/state.
+  Swap now has a public Lean proof for the zero-output guard after the lock
+  gate. Insufficient-liquidity and invalid-recipient runtime checks are exact in
+  Foundry, but still need proof-local ordered-prefix Lean proofs before they
+  should be reintroduced as public obligations.
 - Sequence-level economics: strengthen the conditional mint/burn/swap bridge
   obligations into direct executable success/accounting proofs where Lean can
   reduce the public entrypoint without kernel-recursion issues. Keep any

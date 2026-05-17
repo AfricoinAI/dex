@@ -1103,6 +1103,20 @@ theorem swap_run_revert_locked
   simpa [pair_swap_run_revert_locked, pair_swap_reverts_when_locked]
     using swap_reverts_when_locked amount0Out amount1Out toAddr data s
 
+-- tama: discharges=pair_swap_run_revert_zero_output
+theorem swap_run_revert_zero_output
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) :
+  pair_swap_run_revert_zero_output amount0Out amount1Out toAddr data s := by
+  intro h_unlocked h_amount0 h_amount1
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_unlocked
+  subst amount0Out
+  subst amount1Out
+  simp [pair_swap_run_revert_zero_output, swap, unlockedSlot, getStorage,
+    Verity.blockTimestamp, Verity.require, Contract.run, Verity.bind, Bind.bind,
+    h_unlocked_raw]
+
 -- tama: discharges=pair_skim_run_revert_locked
 theorem skim_run_revert_locked (toAddr : Address) (s : ContractState) :
   pair_skim_run_revert_locked toAddr s := by

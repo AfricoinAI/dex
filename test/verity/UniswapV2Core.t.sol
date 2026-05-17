@@ -402,17 +402,18 @@ contract UniswapV2CoreTest is Test {
         pair.swap(0, 906, address(this), "");
     }
 
+    // tama: mirrors=pair_swap_run_revert_zero_output
     function testFuzzSwapRevertGuards() public {
         seed(10_000, 10_000);
 
-        vm.expectRevert();
+        vm.expectRevert(bytes("UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT"));
         pair.swap(0, 0, address(this), "");
 
-        vm.expectRevert();
+        vm.expectRevert(bytes("UniswapV2: INSUFFICIENT_LIQUIDITY"));
         pair.swap(10_000, 0, address(this), "");
 
         address token0Addr = pair.token0();
-        vm.expectRevert();
+        vm.expectRevert(bytes("UniswapV2: INVALID_TO"));
         pair.swap(1, 0, token0Addr, "");
 
         vm.expectRevert();

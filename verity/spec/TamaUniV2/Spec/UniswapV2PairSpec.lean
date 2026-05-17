@@ -532,6 +532,19 @@ def pair_swap_run_revert_locked
     (swap amount0Out amount1Out toAddr data).run s =
       ContractResult.revert "UniswapV2: LOCKED" s
 
+/--
+Before the pair can send optimistic output or cross the flash-callback boundary,
+the swap must request at least one nonzero output amount.
+-/
+def pair_swap_run_revert_zero_output
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    amount0Out = 0 →
+      amount1Out = 0 →
+        (swap amount0Out amount1Out toAddr data).run s =
+          ContractResult.revert "UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT" s
+
 def pair_skim_run_revert_locked
     (toAddr : Address) (s : ContractState) : Prop :=
   s.storage unlockedSlot.slot != 1 →
