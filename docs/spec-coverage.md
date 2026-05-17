@@ -250,7 +250,8 @@ Factory:
   same-count histories preserving the pair array and all unordered lookups,
   preservation of existing pairs, reader-facing reachable lookup stability,
   pair-count/list length consistency, and path-level preservation from any good
-  factory state.
+  factory state, plus trace closure when a finite path is appended to an
+  already reachable factory state.
 - Concrete factory reconstruction bridge: a `FactoryWorldMatchesStorage`
   relation now ties a modeled factory world back to real storage. Public specs
   state that reconstructed worlds agree with `allPairsLength`, decoded

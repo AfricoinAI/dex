@@ -1177,6 +1177,18 @@ private theorem factoryWorldPath_preserves_good
       intro h_good
       exact factoryWorldStep_preserves_good action _ _ (ih h_good) h_step
 
+private theorem factoryWorldPath_preserves_reachability
+    {before after : FactoryWorldState} :
+  FactoryWorldReachable before →
+    FactoryWorldPath before after →
+      FactoryWorldReachable after := by
+  intro h_reachable h_path
+  induction h_path with
+  | refl =>
+      exact h_reachable
+  | step action h_prefix h_step ih =>
+      exact FactoryWorldReachable.step action ih h_step
+
 private theorem factoryWorldPath_preserves_existing_pair
     {before after : FactoryWorldState}
     {existing0 existing1 existingPair : Address} :
@@ -1452,6 +1464,12 @@ theorem closed_world_reachable_good
     (w : FactoryWorldState) :
   factory_closed_world_reachable_good w := by
   exact factoryWorldReachable_good w
+
+-- tama: discharges=factory_closed_world_path_preserves_reachability
+theorem closed_world_path_preserves_reachability
+    (before after : FactoryWorldState) :
+  factory_closed_world_path_preserves_reachability before after := by
+  exact factoryWorldPath_preserves_reachability
 
 -- tama: discharges=factory_closed_world_path_preserves_good
 theorem closed_world_path_preserves_good

@@ -520,9 +520,9 @@ def factory_concrete_same_length_create_path_preserves_world
 /-!
 ## Closed-World Factory Invariants
 
-The executable success spec above proves one concrete `createPair` run writes
-the right local storage. The closed-world specs below lift that single-step idea
-to arbitrary finite histories of successful creates.
+The concrete `createPair` specs above prove one real call writes the right local
+storage. The closed-world specs below lift that single-step idea to arbitrary
+finite histories of successful creates.
 
 The intended reader story is:
 
@@ -552,6 +552,16 @@ def factory_closed_world_reachable_good
     (w : FactoryWorldState) : Prop :=
   FactoryWorldReachable w →
     FactoryWorldGood w
+
+/-- Reachability is closed under finite successful factory histories. Once a
+factory state is reachable, appending any modeled sequence of successful
+creates still ends in a reachable state. This is the trace-closure fact that
+lets later invariants talk about suffixes of already-live factories. -/
+def factory_closed_world_path_preserves_reachability
+    (before after : FactoryWorldState) : Prop :=
+  FactoryWorldReachable before →
+    FactoryWorldPath before after →
+      FactoryWorldReachable after
 
 def factory_closed_world_path_preserves_good
     (before after : FactoryWorldState) : Prop :=

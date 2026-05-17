@@ -510,6 +510,10 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   `createPair` calls leaves public `allPairsLength` storage unchanged, then
   the reconstructed factory world is unchanged.
 
+  2026-05-17 11:45 PDT checkpoint: added explicit trace closure for the
+  closed-world Factory model. If a factory state is reachable and a finite
+  successful create path starts there, the endpoint is reachable too.
+
 - [ ] **10. Verify and commit in coherent slices**
 
   After each slice run focused `lake build`. Before claiming completion run
