@@ -223,6 +223,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   public pair list equals the initial list followed by that suffix, and pair
   count increases by exactly the suffix length.
 
+  2026-05-17 00:55 PDT checkpoint: added a reader-facing reachable lookup
+  stability theorem. Once a reachable factory state contains an unordered token
+  pair lookup, every later finite successful create history preserves that same
+  lookup.
+
 - [ ] **10. Verify and commit in coherent slices**
 
   After each slice run focused `lake build`. Before claiming completion run

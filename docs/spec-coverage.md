@@ -129,8 +129,8 @@ Factory:
   sorted nonzero pair entries, sorted-pair uniqueness, symmetric membership,
   unordered token-pair address uniqueness,
   append-only creation, append-only finite histories, preservation of existing
-  pairs, pair-count/list length consistency, and path-level preservation from
-  any good factory state.
+  pairs, reader-facing reachable lookup stability, pair-count/list length
+  consistency, and path-level preservation from any good factory state.
 
 ## Current Spec Work
 

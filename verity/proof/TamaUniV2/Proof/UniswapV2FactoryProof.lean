@@ -774,6 +774,15 @@ theorem closed_world_path_preserves_existing_pairs
     existing0 existing1 existingPair before after := by
   exact factoryWorldPath_preserves_existing_pair
 
+-- tama: discharges=factory_closed_world_reachable_path_preserves_pair_lookup
+theorem closed_world_reachable_path_preserves_pair_lookup
+    (existing0 existing1 existingPair : Address)
+    (before after : FactoryWorldState) :
+  factory_closed_world_reachable_path_preserves_pair_lookup
+    existing0 existing1 existingPair before after := by
+  intro _h_reachable h_existing h_path
+  exact factoryWorldPath_preserves_existing_pair h_existing h_path
+
 -- tama: discharges=factory_closed_world_path_is_append_only
 theorem closed_world_path_is_append_only
     (before after : FactoryWorldState) :

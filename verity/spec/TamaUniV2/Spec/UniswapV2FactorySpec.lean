@@ -353,6 +353,18 @@ def factory_closed_world_path_preserves_existing_pairs
     FactoryWorldPath before after →
       FactoryWorldContainsPair after existing0 existing1 existingPair
 
+/-- Router-facing lookup stability over histories. Once an unordered token pair
+has a pair address in a reachable factory state, any later finite successful
+create history still contains that same lookup. Pair creation can append new
+pairs, but it cannot erase or overwrite old ones. -/
+def factory_closed_world_reachable_path_preserves_pair_lookup
+    (existing0 existing1 existingPair : Address)
+    (before after : FactoryWorldState) : Prop :=
+  FactoryWorldReachable before →
+    FactoryWorldContainsPair before existing0 existing1 existingPair →
+      FactoryWorldPath before after →
+        FactoryWorldContainsPair after existing0 existing1 existingPair
+
 /-- The factory pair array is append-only over every finite successful history.
 There is always some suffix of newly created pairs such that the final array is
 the initial array followed by that suffix, and the public pair count advances by
