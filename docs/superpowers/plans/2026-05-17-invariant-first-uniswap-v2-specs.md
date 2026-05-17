@@ -182,6 +182,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   fee-adjusted K guard only, and every raw-K invariant proof derives raw K from
   that guard plus the reserve-to-final-balance equations.
 
+  2026-05-17 12:20 PDT checkpoint: added the one-swap no-extraction theorem.
+  From a good live pool with a defined spot price, a valid swap cannot leave the
+  pool worth less at the starting spot price. The proof reuses the existing
+  finite-history no-profit theorem through a one-step path, rather than
+  unfolding the public swap entrypoint.
+
   2026-05-17 07:59 PDT checkpoint: added the reserve-change classifier. Cached
   reserves can change only through mint, burn, swap, or sync; share
   bookkeeping, direct donation, and skim cannot secretly rewrite router-visible
@@ -307,7 +313,7 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
 
   2026-05-16 21:34 PDT checkpoint: Pair now has small public oracle arithmetic
   specs for the two meaningful reserve-update cases: same-timestamp cumulative
-  immutability, and elapsed fixed-point price-time accumulation with nonzero old
+  immutability, and elapsed UQ112x112 price-time accumulation with nonzero old
   reserves. Remaining work is to bridge every concrete public reserve-update
   path to those arithmetic facts without adding contract helpers.
 

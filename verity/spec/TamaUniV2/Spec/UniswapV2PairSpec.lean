@@ -937,9 +937,9 @@ The pair's cumulative prices are not a separate asset ledger; they are an
 accounting consequence of a reserve update. These obligations pin that rule in
 small pieces. If the 32-bit timestamp has not advanced, the cumulative prices
 are unchanged. If time has advanced and both old reserves are nonzero, each
-cumulative price increases by the canonical Uniswap V2 fixed-point price times
-the elapsed time. If the timestamp branch is entered but elapsed time or either
-old reserve is zero, cumulatives stay unchanged.
+cumulative price increases by the canonical Uniswap V2 UQ112x112 encoded price
+times the elapsed time. If the timestamp branch is entered but elapsed time or
+either old reserve is zero, cumulatives stay unchanged.
 
 The arithmetic is contract-level reserve-update behavior, shared by mint, burn,
 swap, and sync. The formulas are factored outside the contract source so the
@@ -962,7 +962,7 @@ def pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives
       s.storage price1CumulativeLastSlot.slot
 
 /-- When a reserve update crosses into a later 32-bit timestamp and both old
-reserves are nonzero, the pair adds exactly the canonical fixed-point
+reserves are nonzero, the pair adds exactly the canonical UQ112x112 encoded
 `reserve1 / reserve0` and `reserve0 / reserve1` prices multiplied by elapsed
 time. -/
 def pair_reserve_update_oracle_elapsed_updates_price_cumulatives
@@ -2124,6 +2124,24 @@ def pair_closed_world_swap_preserves_liquidity_supply
       before after →
     after.totalSupply = before.totalSupply ∧
     after.lockedLiquidity = before.lockedLiquidity
+
+/-- A valid swap cannot be a pool-value extraction at the starting spot price.
+The pair may exchange token0 for token1 or token1 for token0, but from a good
+live pool with a defined spot price the final reserves are worth at least the
+starting reserves at that same price. This is the one-swap form of the
+sequence-level no-profit theorem below. -/
+def pair_closed_world_swap_no_spot_value_extraction
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    0 < before.totalSupply →
+      0 < before.reserve0 →
+        0 < before.reserve1 →
+          PairWorldStep
+              (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+              before after →
+            PairWorldSpotValueNum before before ≤
+              PairWorldSpotValueNum before after
 
 /-!
 ### 7. Sequence-Level Economic Consequences

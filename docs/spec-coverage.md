@@ -115,7 +115,7 @@ Pair:
 - TWAP/oracle arithmetic obligations for reserve updates are now stated in the
   generic contract-level form first: same-timestamp updates leave cumulative
   prices unchanged, elapsed updates with nonzero old reserves add the canonical
-  fixed-point price times elapsed time, and elapsed branches with zero elapsed
+  UQ112x112 encoded price times elapsed time, and elapsed branches with zero elapsed
   time or a zero old reserve leave cumulative prices unchanged. `sync` keeps
   direct bridge obligations as the smallest public reserve-update entrypoint.
   The remaining work is to bridge mint, burn, and swap reserve-update paths to
@@ -154,7 +154,9 @@ Pair:
   fee-adjusted K for swaps plus the arithmetic theorem that the fee-adjusted
   check implies raw cached-K
   nondecrease once reserves equal final balances, positive-input/output and
-  output-below-reserve swap facts,
+  output-below-reserve swap facts, and the one-swap economic consequence that a
+  valid swap from a good live pool cannot reduce pool value at the starting spot
+  price,
   post-output plus inferred-input balance accounting for swaps, donation
   reserve/K framing, exact donation-created reserve surplus, finite-history
   no-donation surplus isolation, zero-surplus preservation for no-donation

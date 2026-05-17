@@ -4449,6 +4449,35 @@ theorem closed_world_positive_supply_same_supply_path_no_spot_profit
   exact closed_world_same_supply_path_no_spot_profit before after
     h_path h_good h_supply h_reserve0 h_reserve1 h_k
 
+-- tama: discharges=pair_closed_world_swap_no_spot_value_extraction
+theorem closed_world_swap_no_spot_value_extraction
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_swap_no_spot_value_extraction
+    amount0In amount1In amount0Out amount1Out before after := by
+  intro h_good h_positive h_reserve0 h_reserve1 h_step
+  have h_path : PairWorldPath before after :=
+    PairWorldPath.step
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      (PairWorldPath.refl before) h_step
+  have h_supply : before.totalSupply = after.totalSupply := by
+    have h_swap :
+        after.totalSupply = before.totalSupply ∧
+          after.lockedLiquidity = before.lockedLiquidity :=
+      closed_world_swap_preserves_liquidity_supply
+        amount0In amount1In amount0Out amount1Out before after h_step
+    exact h_swap.1.symm
+  have h_no_profit :
+      PairWorldNoSpotProfit before after :=
+    closed_world_positive_supply_same_supply_path_no_spot_profit before after
+      h_good h_positive h_path h_supply h_reserve0 h_reserve1
+  have h_start :
+      PairWorldSpotValueNum before before = 2 * PairWorldK before := by
+    unfold PairWorldSpotValueNum PairWorldK
+    ring
+  simpa [pair_closed_world_swap_no_spot_value_extraction, h_start,
+    PairWorldNoSpotProfit] using h_no_profit
+
 -- tama: discharges=pair_closed_world_reachable_same_supply_path_never_decreases_k
 theorem closed_world_reachable_same_supply_path_never_decreases_k
     (before after : PairWorldState) :
