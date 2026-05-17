@@ -69,9 +69,11 @@ Pair:
   reader-facing reachable-path reserve-backing theorem now states the central
   safety invariant directly: from any reachable pool state, every finite
   successful modeled history ends with cached reserves backed by actual token
-  balances. The same layer also covers uint112 reserve bounds, path-wide
-  LP-supply coherence, path-wide locked-liquidity coverage, minimum-liquidity
-  lock, share-only action framing, reserve-update projections for
+  balances. Matching reader-facing finite-trace theorems now also state that
+  every such history keeps cached reserves inside the uint112 reserve domain and
+  preserves the minimum-liquidity lock shape. The same layer also covers
+  path-wide LP-supply coherence, path-wide locked-liquidity coverage,
+  share-only action framing, reserve-update projections for
   mint/burn/swap/skim/sync, raw swap-K nondecrease, fee-adjusted K projection
   for swaps, positive-input/output and output-below-reserve swap facts,
   post-output plus inferred-input balance accounting for swaps, donation

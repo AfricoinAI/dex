@@ -2336,6 +2336,16 @@ theorem closed_world_reachable_path_reserves_backed
     ⟨h_back0, h_back1, _h_bound0, _h_bound1, _h_supply⟩
   exact ⟨h_back0, h_back1⟩
 
+-- tama: discharges=pair_closed_world_reachable_path_reserves_fit_uint112
+theorem closed_world_reachable_path_reserves_fit_uint112
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_path_reserves_fit_uint112 before after := by
+  intro h_reachable h_path
+  rcases pairWorldPath_preserves_good
+      (pairWorldReachable_good before h_reachable) h_path with
+    ⟨_h_back0, _h_back1, h_bound0, h_bound1, _h_supply⟩
+  exact ⟨h_bound0, h_bound1⟩
+
 -- tama: discharges=pair_closed_world_reachable_reserves_fit_uint112
 theorem closed_world_reachable_reserves_fit_uint112
     (w : PairWorldState) :
@@ -2384,6 +2394,14 @@ theorem closed_world_locked_liquidity_never_exceeds_supply
   · rcases h_nonempty with ⟨_h_positive, h_locked, h_min⟩
     rw [h_locked]
     exact h_min
+
+-- tama: discharges=pair_closed_world_reachable_path_minimum_liquidity_lock
+theorem closed_world_reachable_path_minimum_liquidity_lock
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_path_minimum_liquidity_lock before after := by
+  intro h_reachable h_path
+  exact (pairWorldPath_preserves_good
+    (pairWorldReachable_good before h_reachable) h_path).2.2.2.2
 
 -- tama: discharges=pair_closed_world_supply_changes_only_on_mint_or_burn
 theorem closed_world_supply_changes_only_on_mint_or_burn

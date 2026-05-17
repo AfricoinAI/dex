@@ -1059,6 +1059,16 @@ def pair_closed_world_reachable_path_reserves_backed
       after.reserve0 ≤ after.balance0 ∧
       after.reserve1 ≤ after.balance1
 
+/-- The reserve-domain invariant in the same finite-history form: a reachable
+pool can never reach a successful modeled state whose cached reserves exceed
+Uniswap V2's `uint112` reserve domain. -/
+def pair_closed_world_reachable_path_reserves_fit_uint112
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPath before after →
+      after.reserve0 ≤ maxUint112Nat ∧
+      after.reserve1 ≤ maxUint112Nat
+
 def pair_closed_world_reachable_reserves_fit_uint112
     (w : PairWorldState) : Prop :=
   PairWorldReachable w →
@@ -1092,6 +1102,19 @@ def pair_closed_world_locked_liquidity_never_exceeds_supply
     (w : PairWorldState) : Prop :=
   PairWorldReachable w →
     w.lockedLiquidity ≤ w.totalSupply
+
+/-- The minimum-liquidity lock as a trace invariant. Starting from any reachable
+pool and following any finite successful modeled history, the final state is
+either still empty with no locked liquidity or has the canonical permanently
+locked `MINIMUM_LIQUIDITY` amount covered by total LP supply. -/
+def pair_closed_world_reachable_path_minimum_liquidity_lock
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPath before after →
+      (after.totalSupply = 0 ∧ after.lockedLiquidity = 0) ∨
+        (0 < after.totalSupply ∧
+          after.lockedLiquidity = minimumLiquidityNat ∧
+          minimumLiquidityNat ≤ after.totalSupply)
 
 def pair_closed_world_supply_changes_only_on_mint_or_burn
     (action : PairWorldAction) (before after : PairWorldState) : Prop :=

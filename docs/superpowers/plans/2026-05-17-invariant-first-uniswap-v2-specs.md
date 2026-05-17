@@ -68,6 +68,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   form: starting from any reachable pool state, every finite successful modeled
   history ends with cached reserves no larger than the pair's token balances.
 
+  2026-05-17 00:45 PDT checkpoint: added the matching reader-facing
+  reachable-path uint112 and minimum-liquidity-lock invariants. The invariant
+  layer now has direct finite-trace statements for reserve backing, reserve
+  bounds, and locked LP supply, rather than requiring readers to mentally
+  compose reachability with good-state preservation.
+
 - [x] **3. Strengthen action transitions**
 
   Add concise specs for each action family:
