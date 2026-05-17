@@ -74,6 +74,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   bounds, and locked LP supply, rather than requiring readers to mentally
   compose reachability with good-state preservation.
 
+  2026-05-17 01:25 PDT checkpoint: added the reader-facing reachable
+  positive-supply invariant. From any reachable nonempty pool, every finite
+  successful modeled history remains nonempty, making the minimum-liquidity
+  argument explicit at the trace level.
+
 - [x] **3. Strengthen action transitions**
 
   Add concise specs for each action family:

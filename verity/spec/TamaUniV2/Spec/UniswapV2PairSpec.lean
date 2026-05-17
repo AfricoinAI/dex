@@ -31,6 +31,10 @@ The file is organized as an assurance argument:
    transitions.
 6. Closed-world trace specs prove invariant and economic consequences for every
    finite sequence of successful modeled actions.
+
+The public theorem names are intentionally redundant with this prose. A reader
+should be able to skim the section comments, then read each `def` as the
+one-line formal version of that paragraph's claim.
 -/
 
 /-!
@@ -674,9 +678,9 @@ accounting consequence of a reserve update. These obligations pin that rule in
 small pieces. If the 32-bit timestamp has not advanced, the cumulative prices
 are unchanged. If time has advanced and both old reserves are nonzero, each
 cumulative price increases by the canonical Uniswap V2 fixed-point price times
-the elapsed time. The executable `sync` bridge above already ties the public
-entrypoint to the closed-world reserve transition; these claims isolate the
-oracle arithmetic that every reserve-update proof should reuse.
+the elapsed time. The `sync` transition bridge above ties the public entrypoint
+to the closed-world reserve transition; these claims isolate the oracle
+arithmetic that every reserve-update proof should reuse.
 -/
 
 def pair_sync_oracle_same_timestamp_keeps_price_cumulatives
@@ -1011,6 +1015,16 @@ every finite successful path from returning total supply to zero. -/
 def pair_closed_world_positive_supply_path_remains_positive
     (before after : PairWorldState) : Prop :=
   PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        0 < after.totalSupply
+
+/-- Reachability packages the good-state precondition above. In the form users
+care about, any nonempty reachable pool remains nonempty after any finite
+successful modeled history. -/
+def pair_closed_world_reachable_positive_supply_path_remains_positive
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
     0 < before.totalSupply →
       PairWorldPath before after →
         0 < after.totalSupply
@@ -1414,6 +1428,25 @@ Third, if the path starts and ends with the same positive LP supply, the
 normalization cancels and raw K itself cannot fall. Finally, the usual
 constant-product geometry converts that K fact into a spot-value no-profit
 statement.
+
+Properties specified:
+* Every valid action preserves or improves reserve product per squared LP supply
+  once the pool is nonempty.
+* Every finite successful history from a reachable nonempty pool preserves that
+  LP-normalized backing.
+* If a finite history returns to the same LP supply, the final pool value at the
+  initial spot price is at least the starting value.
+* A raw K decrease is classified as liquidity redemption: without a burn step,
+  K cannot decrease.
+
+Security conclusions:
+* Swap-only and no-burn histories cannot drain the pool by weakening K.
+* Mint/burn round trips do not create a hidden extraction path, because the
+  LP-normalized invariant survives the round trip and same supply cancels the
+  normalization.
+* The no-profit theorem is pool-side and closed-world: profit would have to
+  appear as missing spot value from the pool unless it comes from an external
+  gift outside the model.
 -/
 
 /- One valid closed-world transition cannot dilute existing LP shares: measured
@@ -1601,6 +1634,17 @@ def pair_closed_world_no_burn_same_supply_path_no_spot_profit
 observed token balances as reserves, subject to uint112 bounds. Neither action
 can mint or burn LP supply, and neither can decrease K when started from a
 reserve-backed state.
+
+Properties specified:
+* Skim can remove excess balances, but it cannot change cached reserves.
+* Sync can change cached reserves, but only to the observed balances and only
+  inside the uint112 reserve domain.
+* Both actions preserve LP supply and the permanently locked liquidity amount.
+
+Security conclusions:
+* Surplus removal cannot rewrite the pool's price state.
+* Reserve synchronization cannot manufacture LP tokens or weaken K from a good
+  state; it only makes cached reserves catch up to backed balances.
 -/
 
 def pair_closed_world_skim_removes_surplus

@@ -2294,6 +2294,14 @@ theorem closed_world_positive_supply_path_remains_positive
   intro h_good h_positive h_path
   exact pairWorldPath_positive_supply_preserved h_good h_positive h_path
 
+-- tama: discharges=pair_closed_world_reachable_positive_supply_path_remains_positive
+theorem closed_world_reachable_positive_supply_path_remains_positive
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_positive_supply_path_remains_positive before after := by
+  intro h_reachable h_positive h_path
+  exact pairWorldPath_positive_supply_preserved
+    (pairWorldReachable_good before h_reachable) h_positive h_path
+
 -- tama: discharges=pair_concrete_state_reserves_backed
 theorem concrete_state_reserves_backed (s : ContractState) :
   pair_concrete_state_reserves_backed s := by
