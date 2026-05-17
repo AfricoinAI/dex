@@ -51,7 +51,9 @@ Pair:
 - Exact `getReserves` success coverage now states the router-facing reserve
   read returns cached reserve0/reserve1/timestamp and frames pair state.
 - LP ERC20 approve/transfer/transferFrom accounting, allowance, overflow, and
-  event specs.
+  event specs. The executable LP-bookkeeping layer now also has scalar
+  AMM-storage frame facts: approve, transfer, and transferFrom cannot change
+  reserves, cumulative prices, total supply, token identities, or the lock.
 - Exact run-result reverts for initialization, LP transfer guards, locked
   mutating entrypoints, and skim under-reserve guards. The swap zero-output
   pre-interaction guard is now a public Lean spec and proof. The later

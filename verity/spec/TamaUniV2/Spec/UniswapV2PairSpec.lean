@@ -409,6 +409,14 @@ def pair_approve_keeps_total_supply
     (result : ContractResult Bool) : Prop :=
   result.snd.storage totalSupplySlot.slot = s.storage totalSupplySlot.slot
 
+/-- Approval is LP-claim bookkeeping only. It may write an allowance map cell,
+but it cannot change scalar AMM storage: reserves, TWAP accumulators, LP supply,
+token identities, or the reentrancy lock. -/
+def pair_approve_keeps_pool_storage
+    (spender : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  result.snd.storage = s.storage
+
 def pair_approve_emits_approval
     (spender : Address) (amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
@@ -455,6 +463,15 @@ def pair_transfer_keeps_total_supply
     (toAddr : Address) (amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result.snd.storage totalSupplySlot.slot = s.storage totalSupplySlot.slot
+
+/-- Direct LP transfers may move LP balances, but they cannot change scalar AMM
+storage. This is the executable counterpart of the model-level fact that share
+bookkeeping does not touch reserves, prices, supply, token identities, or the
+lock. -/
+def pair_transfer_keeps_pool_storage
+    (toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  result.snd.storage = s.storage
 
 def pair_transfer_emits_transfer
     (toAddr : Address) (amount : Uint256) (s : ContractState)
@@ -517,6 +534,14 @@ def pair_transferFrom_keeps_total_supply
     (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result.snd.storage totalSupplySlot.slot = s.storage totalSupplySlot.slot
+
+/-- Delegated LP transfers have the same AMM-storage frame as direct transfers.
+They may update balances and finite allowance, but no scalar pool accounting
+slot can move. -/
+def pair_transferFrom_keeps_pool_storage
+    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) : Prop :=
+  result.snd.storage = s.storage
 
 def pair_transferFrom_keeps_infinite_allowance
     (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState)

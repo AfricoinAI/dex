@@ -417,6 +417,15 @@ theorem approve_keeps_total_supply (spender : Address) (amount : Uint256) (s : C
   pair_approve_keeps_total_supply spender amount s ((approve spender amount).run s) :=
   (approve_properties_after_run spender amount s).2.2.2.1
 
+-- tama: discharges=pair_approve_keeps_pool_storage
+theorem approve_keeps_pool_storage
+    (spender : Address) (amount : Uint256) (s : ContractState) :
+  pair_approve_keeps_pool_storage spender amount s ((approve spender amount).run s) := by
+  unfold pair_approve_keeps_pool_storage
+  funext slotIdx
+  simp [approve, allowancesSlot, msgSender, setMapping2, Contract.run,
+    ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure]
+
 -- tama: discharges=pair_approve_emits_approval
 theorem approve_emits_approval (spender : Address) (amount : Uint256) (s : ContractState) :
   pair_approve_emits_approval spender amount s ((approve spender amount).run s) :=
@@ -559,6 +568,31 @@ theorem transfer_keeps_total_supply
     (toAddr : Address) (amount : Uint256) (s : ContractState) :
   pair_transfer_keeps_total_supply toAddr amount s ((transfer toAddr amount).run s) :=
   (transfer_properties_after_run toAddr amount s).2.2.2.2.1
+
+-- tama: discharges=pair_transfer_keeps_pool_storage
+theorem transfer_keeps_pool_storage
+    (toAddr : Address) (amount : Uint256) (s : ContractState) :
+  pair_transfer_keeps_pool_storage toAddr amount s ((transfer toAddr amount).run s) := by
+  unfold pair_transfer_keeps_pool_storage
+  funext slotIdx
+  by_cases h_balance : amount.val ≤ (s.storageMap 9 s.sender).val
+  · by_cases h_same : s.sender = toAddr
+    · subst h_same
+      simp [transfer, balancesSlot, msgSender, getMapping, Contract.run,
+        ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+        Verity.require, h_balance]
+    · by_cases h_overflow :
+        Verity.Stdlib.Math.MAX_UINT256 < (s.storageMap 9 toAddr).val + amount.val
+      · simp [transfer, balancesSlot, msgSender, getMapping, setMapping,
+          Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Verity.pure,
+          Pure.pure, Verity.require, Verity.Stdlib.Math.requireSomeUint,
+          Verity.Stdlib.Math.safeAdd, h_balance, h_same, h_overflow]
+      · simp [transfer, balancesSlot, msgSender, getMapping, setMapping,
+          Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Verity.pure,
+          Pure.pure, Verity.require, Verity.Stdlib.Math.requireSomeUint,
+          Verity.Stdlib.Math.safeAdd, h_balance, h_same, h_overflow]
+  · simp [transfer, balancesSlot, msgSender, getMapping, Contract.run,
+      ContractResult.snd, Verity.bind, Bind.bind, Verity.require, h_balance]
 
 -- tama: discharges=pair_transfer_emits_transfer
 theorem transfer_emits_transfer
@@ -894,6 +928,64 @@ theorem transferFrom_keeps_total_supply
   pair_transferFrom_keeps_total_supply fromAddr toAddr amount s
     ((transferFrom fromAddr toAddr amount).run s) :=
   (transferFrom_properties_after_run fromAddr toAddr amount s).2.2.2.2.2.1
+
+-- tama: discharges=pair_transferFrom_keeps_pool_storage
+theorem transferFrom_keeps_pool_storage
+    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState) :
+  pair_transferFrom_keeps_pool_storage fromAddr toAddr amount s
+    ((transferFrom fromAddr toAddr amount).run s) := by
+  unfold pair_transferFrom_keeps_pool_storage
+  funext slotIdx
+  by_cases h_allowance : amount.val ≤ (s.storageMap2 10 fromAddr s.sender).val
+  · by_cases h_balance : amount.val ≤ (s.storageMap 9 fromAddr).val
+    · by_cases h_same : fromAddr = toAddr
+      · subst h_same
+        by_cases h_max :
+            s.storageMap2 10 fromAddr s.sender =
+              maxUint256
+        · simp [Verity.Stdlib.Math.MAX_UINT256, Verity.Core.MAX_UINT256] at h_max
+          have h_allowance_max : amount.val ≤ (sub 0 1 : Uint256).val := by
+            simpa [h_max] using h_allowance
+          simp [transferFrom, allowancesSlot, balancesSlot, msgSender,
+            getMapping2, getMapping, setMapping2, Contract.run,
+            ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+            Verity.require, h_allowance, h_allowance_max, h_balance, h_max]
+        · simp [Verity.Stdlib.Math.MAX_UINT256, Verity.Core.MAX_UINT256] at h_max
+          simp [transferFrom, allowancesSlot, balancesSlot, msgSender,
+            getMapping2, getMapping, setMapping2, Contract.run,
+            ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+            Verity.require, h_allowance, h_balance, h_max]
+      · by_cases h_overflow :
+          Verity.Stdlib.Math.MAX_UINT256 < (s.storageMap 9 toAddr).val + amount.val
+        · simp [transferFrom, allowancesSlot, balancesSlot, msgSender,
+            getMapping2, getMapping, setMapping, Contract.run, ContractResult.snd,
+            Verity.bind, Bind.bind, Pure.pure, Verity.pure, Verity.require,
+            Verity.Stdlib.Math.requireSomeUint, Verity.Stdlib.Math.safeAdd,
+            h_allowance, h_balance, h_same, h_overflow]
+        · by_cases h_max :
+            s.storageMap2 10 fromAddr s.sender =
+              maxUint256
+          · simp [Verity.Stdlib.Math.MAX_UINT256, Verity.Core.MAX_UINT256] at h_max
+            have h_allowance_max : amount.val ≤ (sub 0 1 : Uint256).val := by
+              simpa [h_max] using h_allowance
+            simp [transferFrom, allowancesSlot, balancesSlot, msgSender,
+              getMapping2, getMapping, setMapping, setMapping2, Contract.run,
+              ContractResult.snd, Verity.bind, Bind.bind, Pure.pure, Verity.pure,
+              Verity.require, Verity.Stdlib.Math.requireSomeUint,
+              Verity.Stdlib.Math.safeAdd, h_allowance, h_allowance_max,
+              h_balance, h_same, h_overflow, h_max]
+          · simp [Verity.Stdlib.Math.MAX_UINT256, Verity.Core.MAX_UINT256] at h_max
+            simp [transferFrom, allowancesSlot, balancesSlot, msgSender,
+              getMapping2, getMapping, setMapping, setMapping2, Contract.run,
+              ContractResult.snd, Verity.bind, Bind.bind, Pure.pure, Verity.pure,
+              Verity.require, Verity.Stdlib.Math.requireSomeUint,
+              Verity.Stdlib.Math.safeAdd, h_allowance, h_balance, h_same,
+              h_overflow, h_max]
+    · simp [transferFrom, allowancesSlot, balancesSlot, msgSender, getMapping2,
+        getMapping, Contract.run, ContractResult.snd, Verity.bind, Bind.bind,
+        Verity.require, h_allowance, h_balance]
+  · simp [transferFrom, allowancesSlot, msgSender, getMapping2, Contract.run,
+      ContractResult.snd, Verity.bind, Bind.bind, Verity.require, h_allowance]
 
 -- tama: discharges=pair_transferFrom_keeps_infinite_allowance
 theorem transferFrom_keeps_infinite_allowance

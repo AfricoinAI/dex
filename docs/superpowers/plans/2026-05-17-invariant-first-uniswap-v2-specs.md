@@ -227,6 +227,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   `skim` and `sync` preserves a good balanced pool's token balances, cached
   reserves, LP supply, and locked liquidity exactly.
 
+  2026-05-17 10:49 PDT checkpoint: added executable LP-bookkeeping storage
+  frame facts. The actual `approve`, `transfer`, and `transferFrom` runs may
+  update LP allowance/balance maps and emit ERC20 events, but they cannot
+  change scalar AMM storage such as reserves, price accumulators, total supply,
+  token identities, or lock state.
+
   2026-05-17 10:04 PDT checkpoint: added the economic reading of the balanced
   LP-bookkeeping plus `skim`/`sync` path theorem. The public spec now states
   directly that any such history from a clean balanced pool preserves actual
