@@ -239,9 +239,12 @@ Pair:
   pair's token-balance value at the initial spot price. The common no-mint and
   no-burn history shape has the same actual-balance theorem without requiring a
   separate same-supply premise, because the LP-supply firewall supplies it. The
-  non-balanced case is now explicit too: same-LP-supply histories can reduce
-  actual token-balance value by at most the starting surplus above cached
-  reserves, and no-mint/no-burn histories inherit that bound automatically.
+  reserve-value caller theorem has the same common-case corollary for
+  no-mint/no-burn histories, so ordinary non-liquidity operation exposes a
+  direct caller no-profit statement. The non-balanced case is now explicit too:
+  same-LP-supply histories can reduce actual token-balance value by at most the
+  starting surplus above cached reserves, and no-mint/no-burn histories inherit
+  that bound automatically.
   The reader-facing zero-surplus corollaries spell out the clean operational
   conclusion directly: from a reachable nonempty state with no donated surplus
   above reserves, same-LP-supply histories, and in particular histories with no

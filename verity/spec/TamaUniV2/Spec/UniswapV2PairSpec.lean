@@ -2806,6 +2806,26 @@ def pair_closed_world_reachable_zero_surplus_no_mint_burn_path_no_caller_token_b
               callerValueAfter + PairWorldBalanceSpotValueNum before after →
               callerValueAfter ≤ callerValueBefore
 
+/--
+Common operational caller no-profit over cached reserve value.
+
+Most live pair activity that is not liquidity provision or redemption leaves LP
+supply unchanged. This theorem exposes that common case directly: for any
+reachable nonempty pool, a history with no mint and no burn cannot make a caller
+richer at the initial spot price if caller-plus-pool reserve value is merely
+redistributed. It is the reserve-value counterpart to the zero-surplus
+token-balance theorem above.
+-/
+def pair_closed_world_reachable_no_mint_burn_path_no_caller_spot_profit
+    (before after : PairWorldState)
+    (callerValueBefore callerValueAfter : Nat) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPathNoMintBurn before after →
+        callerValueBefore + PairWorldSpotValueNum before before =
+          callerValueAfter + PairWorldSpotValueNum before after →
+          callerValueAfter ≤ callerValueBefore
+
 /-- Non-liquidity histories are the common operational case: swaps, surplus
 management, donations, and LP-token bookkeeping, but no mint and no burn. The
 supply firewall above makes these histories same-supply histories, so the
