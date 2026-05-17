@@ -1631,6 +1631,20 @@ def pair_closed_world_reachable_zero_surplus_no_donation_path_preserves_zero_sur
           PairWorldSurplus0 after = 0 ∧
           PairWorldSurplus1 after = 0
 
+/-- Clean-start endpoint balance. The previous theorem says no-donation
+histories preserve zero `balance - reserve` surplus. Combined with the
+reachable-state reserve-backing invariant, that means the endpoint is balanced
+in the direct accounting sense: modeled ERC20 token balances equal cached
+reserves on both sides. -/
+def pair_closed_world_reachable_zero_surplus_no_donation_path_ends_balanced
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldSurplus0 before = 0 →
+      PairWorldSurplus1 before = 0 →
+        PairWorldPathNoDonation before after →
+          after.balance0 = after.reserve0 ∧
+          after.balance1 = after.reserve1
+
 /-!
 ### 5. Liquidity Creation And Redemption
 

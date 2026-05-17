@@ -3610,6 +3610,23 @@ theorem closed_world_reachable_zero_surplus_no_donation_path_preserves_zero_surp
       before after h_reachable h_path
   omega
 
+-- tama: discharges=pair_closed_world_reachable_zero_surplus_no_donation_path_ends_balanced
+theorem closed_world_reachable_zero_surplus_no_donation_path_ends_balanced
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_zero_surplus_no_donation_path_ends_balanced
+    before after := by
+  intro h_reachable h_surplus0 h_surplus1 h_path
+  have h_zero :=
+    closed_world_reachable_zero_surplus_no_donation_path_preserves_zero_surplus
+      before after h_reachable h_surplus0 h_surplus1 h_path
+  have h_after_good :=
+    pairWorldPath_preserves_good
+      (pairWorldReachable_good before h_reachable)
+      (pairWorldPath_of_noDonation h_path)
+  rcases h_after_good with ⟨h_back0, h_back1, _h_bound0, _h_bound1, _h_supply⟩
+  unfold PairWorldSurplus0 PairWorldSurplus1 at h_zero
+  omega
+
 -- tama: discharges=pair_closed_world_mint_preserves_good
 theorem closed_world_mint_preserves_good
     (amount0 amount1 liquidity : Nat)
