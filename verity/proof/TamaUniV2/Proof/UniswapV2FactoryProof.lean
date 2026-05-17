@@ -273,6 +273,81 @@ theorem createPair_first_success_refines_closed_world
       h_tokenA_nonzero, h_tokenB_nonzero, h_tokenA_not_zero, h_tokenB_not_zero,
       h_distinct_symm, h_pair_nonzero, h_pair_nonzero_branch, h_create2_guard]
 
+-- tama: discharges=factory_createPair_success_refines_closed_world
+theorem createPair_success_refines_closed_world
+    (tokenA tokenB : Address) (s : ContractState)
+    (before : FactoryWorldState) :
+  factory_createPair_success_refines_closed_world tokenA tokenB s before := by
+  intro h_distinct h_tokenA_nonzero h_tokenB_nonzero _h_good _h_count
+    _h_absent h_absent_world h_pair_nonzero _h_len_ok _h_run
+  have h_tokenA_not_zero : ¬ tokenA = (0 : Address) := by
+    simpa using h_tokenA_nonzero
+  have h_tokenB_not_zero : ¬ tokenB = (0 : Address) := by
+    simpa using h_tokenB_nonzero
+  by_cases h_sort : addressToWord tokenA < addressToWord tokenB
+  · have h_sort_raw :
+        Core.Address.toNat tokenA % Core.Uint256.modulus <
+          Core.Address.toNat tokenB % Core.Uint256.modulus := by
+      simpa [addressToWord] using h_sort
+    have h_pair_nonzero_branch :
+        wordToAddress (externalCall "uniswapV2PairCreate2" [tokenA, tokenB]) ≠ zeroAddress := by
+      simpa [factoryCreate2Word, factoryToken0, factoryToken1, addressToWord,
+        h_sort, h_sort_raw] using h_pair_nonzero
+    have h_create2_guard :
+        ¬ Core.Address.ofNat
+            ((Contracts.externalCallWords "uniswapV2PairCreate2"
+              [Contracts.ExternalArg.toWord tokenA, Contracts.ExternalArg.toWord tokenB]) : Uint256).val =
+          (0 : Address) := by
+      simpa [wordToAddress] using h_pair_nonzero_branch
+    have h_absent_world_branch :
+        ∀ entry, entry ∈ before.pairs →
+          entry.token0 ≠ tokenA ∨ entry.token1 ≠ tokenB := by
+      simpa [factoryToken0, factoryToken1, addressToWord, h_sort, h_sort_raw]
+        using h_absent_world
+    simp [factory_createPair_success_refines_closed_world,
+      FactoryWorldStep, FactoryWorldCreatePairStep, FactoryWorldInitial,
+      FactoryWorldPairGood, factoryToken0, factoryToken1, addressToWord,
+      h_sort, h_sort_raw, h_distinct, h_tokenA_nonzero, h_tokenB_nonzero,
+      h_tokenA_not_zero, h_tokenB_not_zero, h_pair_nonzero,
+      h_pair_nonzero_branch, h_create2_guard, h_absent_world,
+      h_absent_world_branch]
+    exact h_absent_world_branch
+  · have h_sort_raw :
+        ¬ Core.Address.toNat tokenA % Core.Uint256.modulus <
+          Core.Address.toNat tokenB % Core.Uint256.modulus := by
+      simpa [addressToWord] using h_sort
+    have h_reverse_sort : addressToWord tokenB < addressToWord tokenA :=
+      addressToWord_reverse_lt_of_not_lt h_distinct h_sort
+    have h_reverse_sort_raw :
+        Core.Address.toNat tokenB % Core.Uint256.modulus <
+          Core.Address.toNat tokenA % Core.Uint256.modulus := by
+      simpa [addressToWord] using h_reverse_sort
+    have h_distinct_symm : tokenB ≠ tokenA := by
+      exact fun h => h_distinct h.symm
+    have h_pair_nonzero_branch :
+        wordToAddress (externalCall "uniswapV2PairCreate2" [tokenB, tokenA]) ≠ zeroAddress := by
+      simpa [factoryCreate2Word, factoryToken0, factoryToken1, addressToWord,
+        h_sort, h_sort_raw] using h_pair_nonzero
+    have h_create2_guard :
+        ¬ Core.Address.ofNat
+            ((Contracts.externalCallWords "uniswapV2PairCreate2"
+              [Contracts.ExternalArg.toWord tokenB, Contracts.ExternalArg.toWord tokenA]) : Uint256).val =
+          (0 : Address) := by
+      simpa [wordToAddress] using h_pair_nonzero_branch
+    have h_absent_world_branch :
+        ∀ entry, entry ∈ before.pairs →
+          entry.token0 ≠ tokenB ∨ entry.token1 ≠ tokenA := by
+      simpa [factoryToken0, factoryToken1, addressToWord, h_sort, h_sort_raw]
+        using h_absent_world
+    simp [factory_createPair_success_refines_closed_world,
+      FactoryWorldStep, FactoryWorldCreatePairStep, FactoryWorldInitial,
+      FactoryWorldPairGood, factoryToken0, factoryToken1, addressToWord,
+      h_sort, h_sort_raw, h_reverse_sort, h_reverse_sort_raw, h_distinct,
+      h_tokenA_nonzero, h_tokenB_nonzero, h_tokenA_not_zero, h_tokenB_not_zero,
+      h_distinct_symm, h_pair_nonzero, h_pair_nonzero_branch, h_create2_guard,
+      h_absent_world, h_absent_world_branch]
+    exact h_absent_world_branch
+
 -- tama: discharges=factory_allPairs_run_revert_out_of_bounds
 theorem allPairs_run_revert_out_of_bounds (index : Uint256) (s : ContractState) :
   factory_allPairs_run_revert_out_of_bounds index s := by

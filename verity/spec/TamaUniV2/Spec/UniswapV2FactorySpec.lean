@@ -143,6 +143,43 @@ def factory_createPair_first_success_refines_closed_world
                       }]
                       pairCount := 1 }
 
+/--
+The general success bridge adds the correspondence needed for nonempty factory
+histories. If a modeled factory state has the same public pair count as the
+concrete pre-state and contains no entry for the sorted token pair, then a
+successful executable `createPair` run instantiates the closed-world create
+transition by appending exactly that sorted pair entry.
+-/
+def factory_createPair_success_refines_closed_world
+    (tokenA tokenB : Address) (s : ContractState)
+    (before : FactoryWorldState) : Prop :=
+  let token0Value := factoryToken0 tokenA tokenB
+  let token1Value := factoryToken1 tokenA tokenB
+  let pair := wordToAddress (factoryCreate2Word tokenA tokenB)
+  let after : FactoryWorldState :=
+    { pairs := before.pairs ++ [{
+        token0 := token0Value
+        token1 := token1Value
+        pair := pair
+      }]
+      pairCount := before.pairCount + 1 }
+  tokenA ≠ tokenB →
+    tokenA ≠ zeroAddress →
+      tokenB ≠ zeroAddress →
+        FactoryWorldGood before →
+          before.pairCount = (s.storage allPairsLengthSlot.slot).val →
+            s.storageMap2 pairForSlot.slot token0Value token1Value = 0 →
+              (∀ entry, entry ∈ before.pairs →
+                entry.token0 ≠ token0Value ∨ entry.token1 ≠ token1Value) →
+                pair ≠ zeroAddress →
+                  (s.storage allPairsLengthSlot.slot).val + 1 ≤ Verity.Stdlib.Math.MAX_UINT256 →
+                    (createPair tokenA tokenB).run s =
+                      ContractResult.success pair ((createPair tokenA tokenB).run s).snd →
+                      FactoryWorldStep
+                        (FactoryWorldAction.createPair tokenA tokenB pair)
+                        before
+                        after
+
 /-!
 ## Exact Guard Runs
 

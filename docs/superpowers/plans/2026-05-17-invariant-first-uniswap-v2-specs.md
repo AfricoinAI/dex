@@ -168,6 +168,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   instantiates the closed-world factory create transition. The remaining bridge
   work is a general concrete-history correspondence for nonempty factories.
 
+  2026-05-16 23:33 PDT checkpoint: the bridge is generalized to arbitrary
+  modeled factory histories whose pair count matches the concrete state and
+  whose history contains no existing sorted pair. The remaining work is richer
+  reconstruction of that modeled history from concrete `allPairs` storage.
+
 - [ ] **10. Verify and commit in coherent slices**
 
   After each slice run focused `lake build`. Before claiming completion run
