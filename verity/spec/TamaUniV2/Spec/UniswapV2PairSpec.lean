@@ -1544,6 +1544,33 @@ def pair_mint_first_success_run_uses_oracle_rule
                             pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
                             pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
 
+/-- Reader-facing first-mint reserve/oracle bridge. A successful public `mint`
+run supplies the execution gates; the remaining premises identify the run as
+the first-liquidity case, and the conclusion exposes the shared reserve-write
+and TWAP rules. -/
+def pair_mint_first_success_run_uses_oracle_rule_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  let liquidity := mintFirstLiquidity s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      s.storage totalSupplySlot.slot = 0 →
+        s.storage reserve0Slot.slot ≤ observedBalance0 s →
+          s.storage reserve1Slot.slot ≤ observedBalance1 s →
+            amount0 > 0 →
+              amount1 > 0 →
+                (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
+                  mintFirstRoot s > minimumLiquidity →
+                    (pairWorldAfterFirstMintRun s).reserve0 =
+                        (pairWorldAfterFirstMintRun s).balance0 ∧
+                      (pairWorldAfterFirstMintRun s).reserve1 =
+                        (pairWorldAfterFirstMintRun s).balance1 ∧
+                      pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives s ∧
+                      pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
+                      pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
+
 def pair_mint_subsequent_success_run_uses_oracle_rule
     (toAddr : Address) (s : ContractState)
     (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
@@ -1572,6 +1599,37 @@ def pair_mint_subsequent_success_run_uses_oracle_rule
                                 pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives s ∧
                                 pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
                                 pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
+
+/-- Reader-facing reserve/oracle bridge for later mints. Successful execution
+provides the shared mint gates; the remaining premises are just the live-pool
+and pro-rata facts needed to identify the concrete run as a valid later
+liquidity addition. -/
+def pair_mint_subsequent_success_run_uses_oracle_rule_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      0 < (s.storage totalSupplySlot.slot).val →
+        s.storage reserve0Slot.slot > 0 →
+          s.storage reserve1Slot.slot > 0 →
+            s.storage reserve0Slot.slot ≤ observedBalance0 s →
+              s.storage reserve1Slot.slot ≤ observedBalance1 s →
+                amount0 > 0 →
+                  amount1 > 0 →
+                    liquidity > 0 →
+                      liquidity.val * (s.storage reserve0Slot.slot).val ≤
+                          amount0.val * (s.storage totalSupplySlot.slot).val →
+                        liquidity.val * (s.storage reserve1Slot.slot).val ≤
+                            amount1.val * (s.storage totalSupplySlot.slot).val →
+                          (pairWorldAfterSubsequentMintRun liquidity s).reserve0 =
+                              (pairWorldAfterSubsequentMintRun liquidity s).balance0 ∧
+                            (pairWorldAfterSubsequentMintRun liquidity s).reserve1 =
+                              (pairWorldAfterSubsequentMintRun liquidity s).balance1 ∧
+                            pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives s ∧
+                            pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
+                            pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
 
 def pair_burn_success_run_uses_oracle_rule
     (toAddr : Address) (s : ContractState)

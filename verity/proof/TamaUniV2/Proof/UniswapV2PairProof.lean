@@ -5423,6 +5423,42 @@ theorem mint_first_success_run_uses_oracle_rule
       (mintAmount0 s).val (mintAmount1 s).val (mintFirstLiquidity s).val)
     (pairWorldBeforeMintRun s) (pairWorldAfterFirstMintRun s) s h_action h_step
 
+-- tama: discharges=pair_mint_first_success_run_uses_oracle_rule_from_run
+theorem mint_first_success_run_uses_oracle_rule_from_run
+    (toAddr : Address) (s : ContractState) :
+  pair_mint_first_success_run_uses_oracle_rule_from_run toAddr s
+    ((mint toAddr).run s) := by
+  dsimp [pair_mint_first_success_run_uses_oracle_rule_from_run]
+  intro _h_run h_success h_supply_zero h_reserve0 h_reserve1
+    h_amount0 h_amount1 h_product h_root
+  have h_step :=
+    mint_first_success_run_refines_closed_world_from_run toAddr s
+      rfl h_success h_supply_zero h_reserve0 h_reserve1
+      h_amount0 h_amount1 h_product h_root
+  have h_action :
+      ((∃ amount0 amount1 liquidity,
+          PairWorldAction.mint
+              (mintAmount0 s).val (mintAmount1 s).val (mintFirstLiquidity s).val =
+            PairWorldAction.mint amount0 amount1 liquidity) ∨
+        (∃ amount0 amount1 liquidity,
+          PairWorldAction.mint
+              (mintAmount0 s).val (mintAmount1 s).val (mintFirstLiquidity s).val =
+            PairWorldAction.burn amount0 amount1 liquidity) ∨
+        (∃ amount0In amount1In amount0Out amount1Out,
+          PairWorldAction.mint
+              (mintAmount0 s).val (mintAmount1 s).val (mintFirstLiquidity s).val =
+            PairWorldAction.swap amount0In amount1In amount0Out amount1Out) ∨
+        PairWorldAction.mint
+            (mintAmount0 s).val (mintAmount1 s).val (mintFirstLiquidity s).val =
+          PairWorldAction.sync) := by
+    left
+    exact ⟨(mintAmount0 s).val, (mintAmount1 s).val,
+      (mintFirstLiquidity s).val, rfl⟩
+  exact reserve_write_step_uses_oracle_rule
+    (PairWorldAction.mint
+      (mintAmount0 s).val (mintAmount1 s).val (mintFirstLiquidity s).val)
+    (pairWorldBeforeMintRun s) (pairWorldAfterFirstMintRun s) s h_action h_step
+
 -- tama: discharges=pair_mint_subsequent_success_run_uses_oracle_rule
 theorem mint_subsequent_success_run_uses_oracle_rule
     (toAddr : Address) (s : ContractState) (liquidity : Uint256) :
@@ -5436,6 +5472,42 @@ theorem mint_subsequent_success_run_uses_oracle_rule
       toAddr s liquidity rfl h_success h_supply_pos h_reserve0_pos
       h_reserve1_pos h_bound0 h_bound1 h_reserve0 h_reserve1 h_amount0
       h_amount1 h_liquidity h_ratio0 h_ratio1
+  have h_action :
+      ((∃ amount0 amount1 liquidity',
+          PairWorldAction.mint
+              (mintAmount0 s).val (mintAmount1 s).val liquidity.val =
+            PairWorldAction.mint amount0 amount1 liquidity') ∨
+        (∃ amount0 amount1 liquidity',
+          PairWorldAction.mint
+              (mintAmount0 s).val (mintAmount1 s).val liquidity.val =
+            PairWorldAction.burn amount0 amount1 liquidity') ∨
+        (∃ amount0In amount1In amount0Out amount1Out,
+          PairWorldAction.mint
+              (mintAmount0 s).val (mintAmount1 s).val liquidity.val =
+            PairWorldAction.swap amount0In amount1In amount0Out amount1Out) ∨
+        PairWorldAction.mint
+            (mintAmount0 s).val (mintAmount1 s).val liquidity.val =
+          PairWorldAction.sync) := by
+    left
+    exact ⟨(mintAmount0 s).val, (mintAmount1 s).val, liquidity.val, rfl⟩
+  exact reserve_write_step_uses_oracle_rule
+    (PairWorldAction.mint
+      (mintAmount0 s).val (mintAmount1 s).val liquidity.val)
+    (pairWorldBeforeMintRun s) (pairWorldAfterSubsequentMintRun liquidity s)
+    s h_action h_step
+
+-- tama: discharges=pair_mint_subsequent_success_run_uses_oracle_rule_from_run
+theorem mint_subsequent_success_run_uses_oracle_rule_from_run
+    (toAddr : Address) (s : ContractState) (liquidity : Uint256) :
+  pair_mint_subsequent_success_run_uses_oracle_rule_from_run
+    toAddr s ((mint toAddr).run s) liquidity := by
+  intro _h_run h_success h_supply_pos h_reserve0_pos h_reserve1_pos
+    h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
+  have h_step :=
+    mint_subsequent_success_run_refines_closed_world_from_run
+      toAddr s liquidity rfl h_success h_supply_pos h_reserve0_pos
+      h_reserve1_pos h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity
+      h_ratio0 h_ratio1
   have h_action :
       ((∃ amount0 amount1 liquidity',
           PairWorldAction.mint

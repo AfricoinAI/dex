@@ -378,6 +378,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   a successful real `mint` run as a closed-world mint transition without
   separately assuming the lock gate or uint112 reserve bounds.
 
+  2026-05-17 16:28 PDT checkpoint: extended that successful-run bridge to
+  first/subsequent mint reserve-write and oracle facts. The mint TWAP bridge
+  now exposes only the economic arithmetic premises; successful execution
+  supplies the shared gates.
+
 - [x] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when
