@@ -1072,6 +1072,52 @@ theorem sync_run_revert_locked (s : ContractState) :
   simpa [pair_sync_run_revert_locked, pair_sync_reverts_when_locked]
     using sync_reverts_when_locked s
 
+-- tama: discharges=pair_sync_run_revert_balance0_overflow
+theorem sync_run_revert_balance0_overflow (s : ContractState) :
+  pair_sync_run_revert_balance0_overflow s := by
+  intro h_unlocked h_overflow
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_unlocked
+  have h_require_false :
+      ¬ ((observedBalance0 s).val ≤ maxUint112.val ∧
+        (observedBalance1 s).val ≤ maxUint112.val) := by
+    intro h
+    exact (Nat.not_le_of_gt (by simpa [Verity.Core.Uint256.lt_def] using h_overflow)) h.1
+  have h_require_false_raw := h_require_false
+  dsimp [observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run,
+    ContractResult.fst, Verity.pure, Pure.pure] at h_require_false_raw
+  simp [pair_sync_run_revert_balance0_overflow, sync, UniswapV2PairBase.sync,
+    unlockedSlot, token0Slot, token1Slot, maxUint112, UniswapV2PairBase.maxUint112,
+    getStorage, getStorageAddr, setStorage, Verity.blockTimestamp,
+    Verity.contractAddress, Contracts.balanceOf, Verity.require, Contract.run,
+    Verity.bind, Bind.bind, Verity.pure, Pure.pure, observedBalance0,
+    observedBalance1, pairToken0, pairToken1, pairSelf, TamaUniV2.erc20BalanceOf,
+    h_unlocked_raw, h_require_false_raw]
+
+-- tama: discharges=pair_sync_run_revert_balance1_overflow
+theorem sync_run_revert_balance1_overflow (s : ContractState) :
+  pair_sync_run_revert_balance1_overflow s := by
+  intro h_unlocked h_overflow
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_unlocked
+  have h_require_false :
+      ¬ ((observedBalance0 s).val ≤ maxUint112.val ∧
+        (observedBalance1 s).val ≤ maxUint112.val) := by
+    intro h
+    exact (Nat.not_le_of_gt (by simpa [Verity.Core.Uint256.lt_def] using h_overflow)) h.2
+  have h_require_false_raw := h_require_false
+  dsimp [observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run,
+    ContractResult.fst, Verity.pure, Pure.pure] at h_require_false_raw
+  simp [pair_sync_run_revert_balance1_overflow, sync, UniswapV2PairBase.sync,
+    unlockedSlot, token0Slot, token1Slot, maxUint112, UniswapV2PairBase.maxUint112,
+    getStorage, getStorageAddr, setStorage, Verity.blockTimestamp,
+    Verity.contractAddress, Contracts.balanceOf, Verity.require, Contract.run,
+    Verity.bind, Bind.bind, Verity.pure, Pure.pure, observedBalance0,
+    observedBalance1, pairToken0, pairToken1, pairSelf, TamaUniV2.erc20BalanceOf,
+    h_unlocked_raw, h_require_false_raw]
+
 -- tama: discharges=pair_sync_expected_refines_closed_world
 theorem sync_expected_refines_closed_world (s : ContractState) :
   pair_sync_expected_refines_closed_world s := by

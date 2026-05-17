@@ -570,6 +570,20 @@ def pair_sync_run_revert_locked
     (sync).run s =
       ContractResult.revert "UniswapV2: LOCKED" s
 
+def pair_sync_run_revert_balance0_overflow
+    (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    observedBalance0 s > maxUint112 →
+      (sync).run s =
+        ContractResult.revert "UniswapV2: OVERFLOW" s
+
+def pair_sync_run_revert_balance1_overflow
+    (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    observedBalance1 s > maxUint112 →
+      (sync).run s =
+        ContractResult.revert "UniswapV2: OVERFLOW" s
+
 def pair_sync_expected_refines_closed_world
     (s : ContractState) : Prop :=
   observedBalance0 s ≤ maxUint112 →
