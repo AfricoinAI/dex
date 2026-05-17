@@ -2714,6 +2714,16 @@ def pair_closed_world_skim_token_balance_value_never_increases
       PairWorldBalanceSpotValueNum before after ≤
         PairWorldBalanceSpotValueNum before before
 
+/-- The same skim value bound holds for any external valuation spot. Skim moves
+balances down to cached reserves, so in every nonnegative reserve-denominated
+valuation it can only leave actual token-balance value unchanged or lower. -/
+def pair_closed_world_skim_token_balance_value_never_increases_at_spot
+    (spot before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep PairWorldAction.skim before after →
+      PairWorldBalanceSpotValueNum spot after ≤
+        PairWorldBalanceSpotValueNum spot before
+
 /-- If the pool is already balanced, `skim` is a no-op on token balances as
 well as cached accounting. This is the direct statement that skim cannot remove
 accounted liquidity from a reserve-backed pool with no external surplus. -/
@@ -2784,6 +2794,18 @@ def pair_closed_world_skim_or_sync_token_balance_value_never_increases
       PairWorldStep action before after →
         PairWorldBalanceSpotValueNum before after ≤
           PairWorldBalanceSpotValueNum before before
+
+/-- The one-step passive-reconciliation value bound is independent of which
+spot price is used to measure token balances. This lets finite-history proofs
+keep valuing every later step at the original starting price. -/
+def pair_closed_world_skim_or_sync_token_balance_value_never_increases_at_spot
+    (spot : PairWorldState) (action : PairWorldAction)
+    (before after : PairWorldState) : Prop :=
+  (action = PairWorldAction.skim ∨ action = PairWorldAction.sync) →
+    PairWorldGood before →
+      PairWorldStep action before after →
+        PairWorldBalanceSpotValueNum spot after ≤
+          PairWorldBalanceSpotValueNum spot before
 
 /-- After `sync`, cached reserves equal modeled token balances, so the pair has
 no remaining unaccounted surplus in the closed-world state. This is why sync is
@@ -2929,6 +2951,16 @@ def pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_token_bal
         PairWorldPathLpBookkeepingSkimSync before after →
           PairWorldBalanceSpotValueNum before after =
             PairWorldBalanceSpotValueNum before before
+
+/-- Without the zero-surplus assumption, LP bookkeeping plus `skim`/`sync` may
+remove donated excess via skim, but it still cannot increase the pair's actual
+token-balance value at the starting spot price. -/
+def pair_closed_world_lp_bookkeeping_skim_sync_path_token_balance_value_never_increases
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldPathLpBookkeepingSkimSync before after →
+      PairWorldBalanceSpotValueNum before after ≤
+        PairWorldBalanceSpotValueNum before before
 
 /-- `sync` cannot manufacture cached liquidity value. In a good state, if
 syncing balances into reserves increases cached K, then at least one token

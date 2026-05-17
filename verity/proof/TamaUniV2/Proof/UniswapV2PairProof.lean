@@ -4902,6 +4902,20 @@ theorem closed_world_skim_token_balance_value_never_increases
     closed_world_skim_removes_exact_surplus_value before after h_good h_step
   omega
 
+-- tama: discharges=pair_closed_world_skim_token_balance_value_never_increases_at_spot
+theorem closed_world_skim_token_balance_value_never_increases_at_spot
+    (spot before after : PairWorldState) :
+  pair_closed_world_skim_token_balance_value_never_increases_at_spot
+    spot before after := by
+  intro h_good h_step
+  rcases h_good with ⟨h_back0, h_back1, _h_bound0, _h_bound1, _h_supply⟩
+  have h_remove := closed_world_skim_removes_surplus before after h_step
+  unfold PairWorldBalanceSpotValueNum
+  rw [h_remove.1, h_remove.2.1]
+  exact Nat.add_le_add
+    (Nat.mul_le_mul_right spot.reserve1 h_back0)
+    (Nat.mul_le_mul_right spot.reserve0 h_back1)
+
 -- tama: discharges=pair_closed_world_skim_preserves_balanced_pool
 theorem closed_world_skim_preserves_balanced_pool
     (before after : PairWorldState) :
@@ -4991,6 +5005,22 @@ theorem closed_world_skim_or_sync_token_balance_value_never_increases
   · subst action
     have h_value :=
       closed_world_sync_preserves_token_balance_value before before after h_step
+    rw [h_value]
+
+-- tama: discharges=pair_closed_world_skim_or_sync_token_balance_value_never_increases_at_spot
+theorem closed_world_skim_or_sync_token_balance_value_never_increases_at_spot
+    (spot : PairWorldState) (action : PairWorldAction)
+    (before after : PairWorldState) :
+  pair_closed_world_skim_or_sync_token_balance_value_never_increases_at_spot
+    spot action before after := by
+  intro h_action h_good h_step
+  rcases h_action with h_skim | h_sync
+  · subst action
+    exact closed_world_skim_token_balance_value_never_increases_at_spot
+      spot before after h_good h_step
+  · subst action
+    have h_value :=
+      closed_world_sync_preserves_token_balance_value spot before after h_step
     rw [h_value]
 
 -- tama: discharges=pair_closed_world_sync_eliminates_surplus
@@ -5298,6 +5328,62 @@ theorem closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_token_bala
       h_good h_surplus0 h_surplus1 h_path with
     ⟨h_balance0, h_balance1, _h_reserve0, _h_reserve1, _h_supply, _h_locked⟩
   simp [PairWorldBalanceSpotValueNum, h_balance0, h_balance1]
+
+private theorem pairWorldLpBookkeepingSkimSyncPath_token_balance_value_never_increases_at_spot
+    {spot before after : PairWorldState} :
+  PairWorldGood before →
+    PairWorldPathLpBookkeepingSkimSync before after →
+      PairWorldGood after ∧
+      PairWorldBalanceSpotValueNum spot after ≤
+        PairWorldBalanceSpotValueNum spot before := by
+  intro h_good h_path
+  induction h_path with
+  | refl =>
+      exact ⟨h_good, le_rfl⟩
+  | approve ownerAddr spender amount h_prefix h_step ih =>
+      rename_i mid final
+      have h_eq : final = mid := by
+        simpa [PairWorldStep] using h_step
+      subst final
+      exact ih
+  | transfer fromAddr toAddr amount h_prefix h_step ih =>
+      rename_i mid final
+      have h_eq : final = mid := by
+        simpa [PairWorldStep] using h_step
+      subst final
+      exact ih
+  | transferFrom spender fromAddr toAddr amount h_prefix h_step ih =>
+      rename_i mid final
+      have h_eq : final = mid := by
+        simpa [PairWorldStep] using h_step
+      subst final
+      exact ih
+  | skim h_prefix h_step ih =>
+      rename_i mid final
+      rcases ih with ⟨h_good_mid, h_value_prefix⟩
+      have h_step_value :=
+        closed_world_skim_or_sync_token_balance_value_never_increases_at_spot
+          spot PairWorldAction.skim mid final (Or.inl rfl) h_good_mid h_step
+      exact ⟨pairWorldStep_preserves_good h_good_mid h_step,
+        Nat.le_trans h_step_value h_value_prefix⟩
+  | sync h_prefix h_step ih =>
+      rename_i mid final
+      rcases ih with ⟨h_good_mid, h_value_prefix⟩
+      have h_step_value :=
+        closed_world_skim_or_sync_token_balance_value_never_increases_at_spot
+          spot PairWorldAction.sync mid final (Or.inr rfl) h_good_mid h_step
+      exact ⟨pairWorldStep_preserves_good h_good_mid h_step,
+        Nat.le_trans h_step_value h_value_prefix⟩
+
+-- tama: discharges=pair_closed_world_lp_bookkeeping_skim_sync_path_token_balance_value_never_increases
+theorem closed_world_lp_bookkeeping_skim_sync_path_token_balance_value_never_increases
+    (before after : PairWorldState) :
+  pair_closed_world_lp_bookkeeping_skim_sync_path_token_balance_value_never_increases
+    before after := by
+  intro h_good h_path
+  exact
+    (pairWorldLpBookkeepingSkimSyncPath_token_balance_value_never_increases_at_spot
+      (spot := before) h_good h_path).2
 
 -- tama: discharges=pair_closed_world_sync_k_increase_requires_surplus
 theorem closed_world_sync_k_increase_requires_surplus

@@ -249,6 +249,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   shared `skim`/`sync` theorem says either action cannot increase actual
   token-balance value at the starting spot price.
 
+  2026-05-17 14:30 PDT checkpoint: lifted passive reconciliation value
+  nonincrease to finite histories. A path made only of LP
+  approval/transfer/transferFrom bookkeeping plus `skim`/`sync` cannot increase
+  actual token-balance value at the starting spot price.
+
   2026-05-17 10:49 PDT checkpoint: added executable LP-bookkeeping storage
   frame facts. The actual `approve`, `transfer`, and `transferFrom` runs may
   update LP allowance/balance maps and emit ERC20 events, but they cannot
