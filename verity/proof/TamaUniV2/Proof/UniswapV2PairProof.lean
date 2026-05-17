@@ -4467,6 +4467,22 @@ theorem closed_world_skim_eliminates_surplus
   rw [h_remove.1, h_remove.2.1, h_remove.2.2.1, h_remove.2.2.2]
   exact ⟨Nat.sub_self before.reserve0, Nat.sub_self before.reserve1⟩
 
+-- tama: discharges=pair_closed_world_skim_removes_exact_surplus_value
+theorem closed_world_skim_removes_exact_surplus_value
+    (before after : PairWorldState) :
+  pair_closed_world_skim_removes_exact_surplus_value before after := by
+  intro h_good h_step
+  have h_remove := closed_world_skim_removes_surplus before after h_step
+  have h_after_value :
+      PairWorldBalanceSpotValueNum before after =
+        PairWorldSpotValueNum before before := by
+    unfold PairWorldBalanceSpotValueNum PairWorldSpotValueNum
+    rw [h_remove.1, h_remove.2.1]
+  have h_before_decomp :=
+    pairWorldBalanceSpotValue_eq_spot_plus_surplus
+      (spot := before) (pool := before) h_good
+  rw [h_before_decomp, h_after_value]
+
 -- tama: discharges=pair_closed_world_skim_preserves_liquidity_supply
 theorem closed_world_skim_preserves_liquidity_supply
     (before after : PairWorldState) :

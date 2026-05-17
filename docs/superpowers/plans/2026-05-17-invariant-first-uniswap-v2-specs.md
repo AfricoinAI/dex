@@ -201,6 +201,10 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   surplus above reserves, complementing the zero-surplus theorem that sync
   preserves K exactly.
 
+  2026-05-17 08:40 PDT checkpoint: adding the companion skim surplus-value
+  theorem. At the initial spot price, skim removes exactly pre-existing surplus
+  token-balance value and leaves accounted reserve value untouched.
+
   2026-05-16 22:43 PDT checkpoint: the closed-world burn step was tightened to
   match executable burn success by requiring positive redeemed amounts, positive
   burned liquidity, and positive pre-burn supply. A new token-side lock theorem

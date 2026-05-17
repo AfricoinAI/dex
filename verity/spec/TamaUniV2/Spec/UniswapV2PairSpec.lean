@@ -2476,6 +2476,17 @@ def pair_closed_world_skim_eliminates_surplus
     PairWorldSurplus0 after = 0 ∧
     PairWorldSurplus1 after = 0
 
+/-- At the initial spot price, `skim` removes exactly the token-balance value
+that was already surplus above cached reserves. This separates legitimate
+surplus cleanup from extraction of accounted reserve value. -/
+def pair_closed_world_skim_removes_exact_surplus_value
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep PairWorldAction.skim before after →
+      PairWorldBalanceSpotValueNum before before =
+        PairWorldBalanceSpotValueNum before after +
+        PairWorldSurplusSpotValueNum before before
+
 def pair_closed_world_skim_preserves_good
     (before after : PairWorldState) : Prop :=
   PairWorldGood before →
