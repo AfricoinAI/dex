@@ -2763,6 +2763,24 @@ theorem closed_world_non_burn_step_never_decreases_k
   pair_closed_world_non_burn_step_never_decreases_k action before after := by
   exact pairWorldNonBurnStep_never_decreases_k
 
+-- tama: discharges=pair_closed_world_k_decrease_requires_burn
+theorem closed_world_k_decrease_requires_burn
+    (action : PairWorldAction) (before after : PairWorldState) :
+  pair_closed_world_k_decrease_requires_burn action before after := by
+  intro h_good h_step h_decrease
+  by_cases h_burn :
+      ∃ amount0 amount1 liquidity,
+        action = PairWorldAction.burn amount0 amount1 liquidity
+  · exact h_burn
+  · have h_not_burn :
+        ∀ amount0 amount1 liquidity,
+          action ≠ PairWorldAction.burn amount0 amount1 liquidity := by
+      intro amount0 amount1 liquidity h_eq
+      exact h_burn ⟨amount0, amount1, liquidity, h_eq⟩
+    have h_nondec :=
+      pairWorldNonBurnStep_never_decreases_k h_good h_step h_not_burn
+    exact False.elim ((Nat.not_lt_of_ge h_nondec) h_decrease)
+
 -- tama: discharges=pair_closed_world_no_burn_path_never_decreases_k
 theorem closed_world_no_burn_path_never_decreases_k
     (before after : PairWorldState) :

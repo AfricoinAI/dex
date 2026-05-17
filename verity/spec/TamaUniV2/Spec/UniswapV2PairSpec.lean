@@ -1332,6 +1332,18 @@ def pair_closed_world_non_burn_step_never_decreases_k
         action ≠ PairWorldAction.burn amount0 amount1 liquidity) →
         PairWorldK before ≤ PairWorldK after
 
+/- Raw K may rise because of swaps, donations, or reserve synchronization, and
+it may fall when LP shares are intentionally redeemed. This classifier states
+the security-critical direction: if K falls across one valid step from a good
+state, the step must have been a burn. -/
+def pair_closed_world_k_decrease_requires_burn
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep action before after →
+      PairWorldK after < PairWorldK before →
+        ∃ amount0 amount1 liquidity,
+          action = PairWorldAction.burn amount0 amount1 liquidity
+
 def pair_closed_world_no_burn_path_never_decreases_k
     (before after : PairWorldState) : Prop :=
   PairWorldGood before →
