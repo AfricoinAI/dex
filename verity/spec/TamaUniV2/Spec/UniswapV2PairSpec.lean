@@ -494,6 +494,31 @@ def pair_mint_run_revert_locked
     (mint toAddr).run s =
       ContractResult.revert "UniswapV2: LOCKED" s
 
+/--
+Mint is allowed to turn observed ERC20 balances into cached reserves only while
+those balances fit in the canonical `uint112` reserve domain. This is the first
+economic guard after the reentrancy gate and balance reads, so an out-of-range
+token0 balance must revert before any liquidity formula can run.
+-/
+def pair_mint_run_revert_balance0_overflow
+    (toAddr : Address) (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    observedBalance0 s > maxUint112 →
+      (mint toAddr).run s =
+        ContractResult.revert "UniswapV2: OVERFLOW" s
+
+/--
+The same reserve-domain guard applies symmetrically to token1. Together these
+two obligations make the public `mint` boundary agree with the closed-world
+invariant that every cached reserve always remains inside `uint112`.
+-/
+def pair_mint_run_revert_balance1_overflow
+    (toAddr : Address) (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    observedBalance1 s > maxUint112 →
+      (mint toAddr).run s =
+        ContractResult.revert "UniswapV2: OVERFLOW" s
+
 def pair_burn_run_revert_locked
     (toAddr : Address) (s : ContractState) : Prop :=
   s.storage unlockedSlot.slot != 1 →
