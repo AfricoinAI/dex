@@ -183,10 +183,12 @@ Pair:
   the strict locked-share consequence that the first LP cannot own the entire
   supply, every valid mint strictly increasing total supply, exact burn supply
   reduction, burns never increasing supply, and the fact that burns cannot
-  redeem the locked liquidity floor. The burn ghost transition itself now
-  requires positive liquidity, positive pre-burn supply, and positive redeemed
-  token amounts, and the token-side lock consequence proves burns from good
-  positive-token states cannot drain either token balance to zero. Mint and
+  redeem the locked liquidity floor. The reachable burn no-drain theorem states
+  directly that a valid burn from a reachable nonempty pool cannot empty either
+  token side. The burn ghost transition itself now requires positive liquidity,
+  positive pre-burn supply, and positive redeemed token amounts, and the
+  token-side lock consequence proves burns from good positive-token states
+  cannot drain either token balance to zero. Mint and
   burn now also have explicit LP-share safety obligations: existing positive
   pools cannot be diluted by mints, and burns cannot over-extract from the
   remaining LPs, because each preserves or improves K per squared LP supply.

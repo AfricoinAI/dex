@@ -1838,6 +1838,19 @@ def pair_closed_world_burn_preserves_positive_balances
           0 < after.balance0 ∧
           0 < after.balance1
 
+/-- Reachable burn no-drain theorem. In the form a maintainer should cite, a
+valid burn from any reachable nonempty pool cannot empty either token side. The
+reachable invariant supplies the pre-burn positive balances; the burn theorem
+uses the locked minimum liquidity to show some token backing must remain. -/
+def pair_closed_world_reachable_positive_supply_burn_preserves_positive_balances
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+        0 < after.balance0 ∧
+        0 < after.balance1
+
 /-!
 ### 4. Token Inflow Without Accounting
 

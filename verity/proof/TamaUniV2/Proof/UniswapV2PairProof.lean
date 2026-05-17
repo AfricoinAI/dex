@@ -3983,6 +3983,23 @@ theorem closed_world_reachable_positive_supply_path_has_positive_token_balances
   exact ⟨Nat.lt_of_lt_of_le h_reserves.1 h_back0,
     Nat.lt_of_lt_of_le h_reserves.2 h_back1⟩
 
+-- tama: discharges=pair_closed_world_reachable_positive_supply_burn_preserves_positive_balances
+theorem closed_world_reachable_positive_supply_burn_preserves_positive_balances
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_positive_supply_burn_preserves_positive_balances
+    amount0 amount1 liquidity before after := by
+  intro h_reachable h_positive h_step
+  have h_good : PairWorldGood before :=
+    pairWorldReachable_good before h_reachable
+  have h_before_balances :
+      0 < before.balance0 ∧ 0 < before.balance1 :=
+    closed_world_reachable_positive_supply_path_has_positive_token_balances
+      before before h_reachable h_positive (PairWorldPath.refl before)
+  exact closed_world_burn_preserves_positive_balances
+    amount0 amount1 liquidity before after
+    h_good h_step h_before_balances.1 h_before_balances.2
+
 -- tama: discharges=pair_closed_world_donate_preserves_reserves_and_supply
 theorem closed_world_donate_preserves_reserves_and_supply
     (amount0 amount1 : Nat)

@@ -287,6 +287,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   proves a valid burn from a good positive-token state cannot drain either token
   balance to zero.
 
+  2026-05-17 12:38 PDT checkpoint: added the reachable form of the burn
+  no-drain theorem. From any reachable nonempty pool, a valid burn cannot empty
+  either token side; reachability supplies the good-state and pre-burn token
+  balance premises.
+
   2026-05-16 22:46 PDT checkpoint: mint/burn ratio safety is now stated in
   LP-share terms too. Positive-supply mints cannot dilute existing LPs, and
   burns cannot over-extract from remaining LPs, because both preserve or improve
