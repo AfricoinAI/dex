@@ -1131,6 +1131,11 @@ theorem mint_first_expected_refines_closed_world (toAddr : Address) (s : Contrac
       simpa [mintAmount0, observedBalance0, pairToken0, pairSelf,
         TamaUniV2.erc20BalanceOf, Contracts.balanceOf, reserve0Slot, Contract.run,
         ContractResult.fst, Verity.pure, Pure.pure] using h_sub
+    change (observedBalance0 s).val =
+      (s.storage reserve0Slot.slot).val +
+        (Verity.EVM.Uint256.sub
+          ((Contracts.balanceOf (s.storageAddr 1) s.thisAddress).run s).fst
+          (s.storage 3)).val
     rw [h_sub_raw]
     omega
   constructor
@@ -1148,6 +1153,11 @@ theorem mint_first_expected_refines_closed_world (toAddr : Address) (s : Contrac
       simpa [mintAmount1, observedBalance1, pairToken1, pairSelf,
         TamaUniV2.erc20BalanceOf, Contracts.balanceOf, reserve1Slot, Contract.run,
         ContractResult.fst, Verity.pure, Pure.pure] using h_sub
+    change (observedBalance1 s).val =
+      (s.storage reserve1Slot.slot).val +
+        (Verity.EVM.Uint256.sub
+          ((Contracts.balanceOf (s.storageAddr 2) s.thisAddress).run s).fst
+          (s.storage 4)).val
     rw [h_sub_raw]
     omega
   constructor
@@ -1198,6 +1208,240 @@ theorem mint_first_success_run_refines_closed_world
   exact mint_first_expected_refines_closed_world toAddr s
     h_unlocked h_supply_zero h_bound0 h_bound1 h_reserve0 h_reserve1
     h_amount0 h_amount1 h_product h_root
+
+-- tama: discharges=pair_mint_subsequent_expected_refines_closed_world
+theorem mint_subsequent_expected_refines_closed_world
+    (s : ContractState) (liquidity : Uint256) :
+  pair_mint_subsequent_expected_refines_closed_world s liquidity := by
+  dsimp [pair_mint_subsequent_expected_refines_closed_world]
+  intro h_supply_pos h_reserve0_pos h_reserve1_pos h_bound0 h_bound1
+    h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
+  have h_supply_ne :
+      ¬ (s.storage totalSupplySlot.slot).val = 0 :=
+    Nat.ne_of_gt h_supply_pos
+  have h_supply_ne_raw : ¬ (s.storage 8).val = 0 := by
+    simpa [totalSupplySlot] using h_supply_ne
+  unfold PairWorldStep PairWorldMintStep pairWorldBeforeMintRun
+    pairWorldAfterSubsequentMintRun
+  constructor
+  · simpa [mintAmount0] using h_amount0
+  constructor
+  · simpa [mintAmount1] using h_amount1
+  constructor
+  · simpa using h_liquidity
+  constructor
+  · have h_sub :
+        (mintAmount0 s).val =
+          (observedBalance0 s).val - (s.storage reserve0Slot.slot).val := by
+      simpa [mintAmount0] using
+        (Verity.Core.Uint256.sub_eq_of_le
+          (a := observedBalance0 s) (b := s.storage reserve0Slot.slot) h_reserve0)
+    have h_sub_raw :
+        (Verity.EVM.Uint256.sub
+            ((Contracts.balanceOf (s.storageAddr 1) s.thisAddress).run s).fst
+            (s.storage 3)).val =
+          (observedBalance0 s).val - (s.storage reserve0Slot.slot).val := by
+      simpa [mintAmount0, observedBalance0, pairToken0, pairSelf,
+        TamaUniV2.erc20BalanceOf, Contracts.balanceOf, reserve0Slot, Contract.run,
+        ContractResult.fst, Verity.pure, Pure.pure] using h_sub
+    change (observedBalance0 s).val =
+      (s.storage reserve0Slot.slot).val +
+        (Verity.EVM.Uint256.sub
+          ((Contracts.balanceOf (s.storageAddr 1) s.thisAddress).run s).fst
+          (s.storage 3)).val
+    rw [h_sub_raw]
+    omega
+  constructor
+  · have h_sub :
+        (mintAmount1 s).val =
+          (observedBalance1 s).val - (s.storage reserve1Slot.slot).val := by
+      simpa [mintAmount1] using
+        (Verity.Core.Uint256.sub_eq_of_le
+          (a := observedBalance1 s) (b := s.storage reserve1Slot.slot) h_reserve1)
+    have h_sub_raw :
+        (Verity.EVM.Uint256.sub
+            ((Contracts.balanceOf (s.storageAddr 2) s.thisAddress).run s).fst
+            (s.storage 4)).val =
+          (observedBalance1 s).val - (s.storage reserve1Slot.slot).val := by
+      simpa [mintAmount1, observedBalance1, pairToken1, pairSelf,
+        TamaUniV2.erc20BalanceOf, Contracts.balanceOf, reserve1Slot, Contract.run,
+        ContractResult.fst, Verity.pure, Pure.pure] using h_sub
+    change (observedBalance1 s).val =
+      (s.storage reserve1Slot.slot).val +
+        (Verity.EVM.Uint256.sub
+          ((Contracts.balanceOf (s.storageAddr 2) s.thisAddress).run s).fst
+          (s.storage 4)).val
+    rw [h_sub_raw]
+    omega
+  constructor
+  · rfl
+  constructor
+  · rfl
+  constructor
+  · rfl
+  constructor
+  · rfl
+  constructor
+  · simpa [maxUint112Nat, maxUint112, UniswapV2PairBase.maxUint112] using
+      h_bound0
+  constructor
+  · simpa [maxUint112Nat, maxUint112, UniswapV2PairBase.maxUint112] using
+      h_bound1
+  constructor
+  · simp [pairWorldLockedLiquidity, totalSupplySlot, h_supply_ne_raw]
+  constructor
+  · simp [pairWorldLockedLiquidity, totalSupplySlot, h_supply_ne_raw]
+  · exact Or.inr ⟨h_ratio0, h_ratio1⟩
+
+-- tama: discharges=pair_mint_subsequent_success_run_refines_closed_world
+theorem mint_subsequent_success_run_refines_closed_world
+    (toAddr : Address) (s : ContractState)
+    (liquidity : Uint256) :
+  pair_mint_subsequent_success_run_refines_closed_world
+    toAddr s ((mint toAddr).run s) liquidity := by
+  intro _h_run _h_success
+  exact mint_subsequent_expected_refines_closed_world s liquidity
+
+-- tama: discharges=pair_burn_expected_refines_closed_world
+theorem burn_expected_refines_closed_world
+    (s : ContractState) :
+  pair_burn_expected_refines_closed_world s := by
+  dsimp [pair_burn_expected_refines_closed_world]
+  intro h_liquidity_pos h_supply_pos h_liquidity_le h_locked_remaining
+    h_amount0 h_amount1 h_amount0_le h_amount1_le h_bound0 h_bound1
+    h_ratio0 h_ratio1
+  have h_supply_ne : ¬ (burnSupply s).val = 0 :=
+    Nat.ne_of_gt h_supply_pos
+  have h_supply_ne_raw : ¬ (s.storage 8).val = 0 := by
+    simpa [burnSupply, totalSupplySlot] using h_supply_ne
+  have h_balance0_after :
+      (burnBalance0After s).val =
+        (observedBalance0 s).val - (burnAmount0 s).val := by
+    simpa [burnBalance0After] using
+      (Verity.Core.Uint256.sub_eq_of_le
+        (a := observedBalance0 s) (b := burnAmount0 s) h_amount0_le)
+  have h_balance1_after :
+      (burnBalance1After s).val =
+        (observedBalance1 s).val - (burnAmount1 s).val := by
+    simpa [burnBalance1After] using
+      (Verity.Core.Uint256.sub_eq_of_le
+        (a := observedBalance1 s) (b := burnAmount1 s) h_amount1_le)
+  have h_supply_after :
+      (Verity.EVM.Uint256.sub (burnSupply s) (burnLiquidity s)).val =
+        (burnSupply s).val - (burnLiquidity s).val := by
+    simpa using
+      (Verity.Core.Uint256.sub_eq_of_le
+        (a := burnSupply s) (b := burnLiquidity s) h_liquidity_le)
+  unfold PairWorldStep PairWorldBurnStep pairWorldFromConcreteState
+    pairWorldAfterBurnRun pairWorldLockedLiquidity
+  constructor
+  · simpa using h_amount0_le
+  constructor
+  · simpa using h_amount1_le
+  constructor
+  · exact h_liquidity_le
+  constructor
+  · simp [h_supply_ne]
+    simpa [burnSupply, pairWorldLockedLiquidity, totalSupplySlot, h_supply_ne_raw]
+      using h_locked_remaining
+  constructor
+  · exact h_balance0_after
+  constructor
+  · exact h_balance1_after
+  constructor
+  · rfl
+  constructor
+  · rfl
+  constructor
+  · simpa [maxUint112Nat, maxUint112, UniswapV2PairBase.maxUint112] using
+      h_bound0
+  constructor
+  · simpa [maxUint112Nat, maxUint112, UniswapV2PairBase.maxUint112] using
+      h_bound1
+  constructor
+  · exact h_supply_after
+  constructor
+  · rfl
+  constructor
+  · exact h_ratio0
+  · exact h_ratio1
+
+-- tama: discharges=pair_burn_success_run_refines_closed_world
+theorem burn_success_run_refines_closed_world
+    (toAddr : Address) (s : ContractState) :
+  pair_burn_success_run_refines_closed_world toAddr s ((burn toAddr).run s) := by
+  intro _h_run _h_success
+  exact burn_expected_refines_closed_world s
+
+-- tama: discharges=pair_swap_expected_refines_closed_world
+theorem swap_expected_refines_closed_world
+    (amount0Out amount1Out balance0Now balance1Now : Uint256)
+    (s : ContractState) :
+  pair_swap_expected_refines_closed_world
+    amount0Out amount1Out balance0Now balance1Now s := by
+  dsimp [pair_swap_expected_refines_closed_world]
+  intro h_output h_liq0 h_liq1 h_input h_balance0 h_balance1 h_bound0 h_bound1
+    h_fee0 h_fee1 h_adjusted_k h_raw_k
+  unfold PairWorldStep PairWorldSwapStep pairWorldFromConcreteState
+    pairWorldAfterSwapRun
+  constructor
+  · exact h_output
+  constructor
+  · simpa using h_liq0
+  constructor
+  · simpa using h_liq1
+  constructor
+  · have h_liq0_nat : amount0Out.val < (s.storage reserve0Slot.slot).val := by
+      simpa using h_liq0
+    exact Nat.le_trans (Nat.le_of_lt h_liq0_nat)
+      (Nat.le_add_right
+        (s.storage reserve0Slot.slot).val
+        (swapAmount0In amount0Out balance0Now s).val)
+  constructor
+  · have h_liq1_nat : amount1Out.val < (s.storage reserve1Slot.slot).val := by
+      simpa using h_liq1
+    exact Nat.le_trans (Nat.le_of_lt h_liq1_nat)
+      (Nat.le_add_right
+        (s.storage reserve1Slot.slot).val
+        (swapAmount1In amount1Out balance1Now s).val)
+  constructor
+  · exact h_input
+  constructor
+  · exact h_balance0
+  constructor
+  · exact h_balance1
+  constructor
+  · rfl
+  constructor
+  · rfl
+  constructor
+  · simpa [maxUint112Nat, maxUint112, UniswapV2PairBase.maxUint112] using
+      h_bound0
+  constructor
+  · simpa [maxUint112Nat, maxUint112, UniswapV2PairBase.maxUint112] using
+      h_bound1
+  constructor
+  · rfl
+  constructor
+  · rfl
+  constructor
+  · exact h_fee0
+  constructor
+  · exact h_fee1
+  constructor
+  · exact h_adjusted_k
+  · exact h_raw_k
+
+-- tama: discharges=pair_swap_success_run_refines_closed_world
+theorem swap_success_run_refines_closed_world
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState) :
+  pair_swap_success_run_refines_closed_world
+    amount0Out amount1Out toAddr data balance0Now balance1Now s
+    ((swap amount0Out amount1Out toAddr data).run s) := by
+  intro _h_run _h_success
+  exact swap_expected_refines_closed_world
+    amount0Out amount1Out balance0Now balance1Now s
 
 private theorem pairWorldStep_preserves_good
     {action : PairWorldAction} {before after : PairWorldState} :

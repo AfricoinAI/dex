@@ -632,6 +632,117 @@ def pair_mint_first_success_run_refines_closed_world
                             (pairWorldAfterFirstMintRun s)
 
 /-!
+The remaining bridge specs are deliberately small. They do not restate the full
+function bodies. They say that once the arithmetic facts exposed by a successful
+public call are available, the concrete formulas refine the closed-world action
+used by the invariant section below.
+-/
+
+def pair_mint_subsequent_expected_refines_closed_world
+    (s : ContractState) (liquidity : Uint256) : Prop :=
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  0 < (s.storage totalSupplySlot.slot).val →
+    s.storage reserve0Slot.slot > 0 →
+      s.storage reserve1Slot.slot > 0 →
+        observedBalance0 s ≤ maxUint112 →
+          observedBalance1 s ≤ maxUint112 →
+            s.storage reserve0Slot.slot ≤ observedBalance0 s →
+              s.storage reserve1Slot.slot ≤ observedBalance1 s →
+                amount0 > 0 →
+                  amount1 > 0 →
+                    liquidity > 0 →
+                      liquidity.val * (s.storage reserve0Slot.slot).val ≤
+                          amount0.val * (s.storage totalSupplySlot.slot).val →
+                        liquidity.val * (s.storage reserve1Slot.slot).val ≤
+                            amount1.val * (s.storage totalSupplySlot.slot).val →
+                          PairWorldStep
+                            (PairWorldAction.mint amount0.val amount1.val liquidity.val)
+                            (pairWorldBeforeMintRun s)
+                            (pairWorldAfterSubsequentMintRun liquidity s)
+
+def pair_mint_subsequent_success_run_refines_closed_world
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      pair_mint_subsequent_expected_refines_closed_world s liquidity
+
+def pair_burn_expected_refines_closed_world
+    (s : ContractState) : Prop :=
+  let liquidity := burnLiquidity s
+  let amount0 := burnAmount0 s
+  let amount1 := burnAmount1 s
+  0 < liquidity.val →
+    0 < (burnSupply s).val →
+      liquidity.val ≤ (burnSupply s).val →
+        minimumLiquidityNat ≤ (burnSupply s).val - liquidity.val →
+          amount0 > 0 →
+            amount1 > 0 →
+              amount0 ≤ observedBalance0 s →
+                amount1 ≤ observedBalance1 s →
+                  burnBalance0After s ≤ maxUint112 →
+                    burnBalance1After s ≤ maxUint112 →
+                      amount0.val * (burnSupply s).val ≤
+                          liquidity.val * (observedBalance0 s).val →
+                        amount1.val * (burnSupply s).val ≤
+                            liquidity.val * (observedBalance1 s).val →
+                          PairWorldStep
+                            (PairWorldAction.burn amount0.val amount1.val liquidity.val)
+                            (pairWorldFromConcreteState s)
+                            (pairWorldAfterBurnRun s)
+
+def pair_burn_success_run_refines_closed_world
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) : Prop :=
+  result = (burn toAddr).run s →
+    result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
+      pair_burn_expected_refines_closed_world s
+
+def pair_swap_expected_refines_closed_world
+    (amount0Out amount1Out balance0Now balance1Now : Uint256)
+    (s : ContractState) : Prop :=
+  let amount0In := swapAmount0In amount0Out balance0Now s
+  let amount1In := swapAmount1In amount1Out balance1Now s
+  (amount0Out > 0 ∨ amount1Out > 0) →
+    amount0Out < s.storage reserve0Slot.slot →
+      amount1Out < s.storage reserve1Slot.slot →
+        (amount0In > 0 ∨ amount1In > 0) →
+          balance0Now.val =
+              (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
+            balance1Now.val =
+                (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
+              balance0Now ≤ maxUint112 →
+                balance1Now ≤ maxUint112 →
+                  amount0In.val * feeAdjustmentNat ≤
+                      balance0Now.val * feeDenominatorNat →
+                    amount1In.val * feeAdjustmentNat ≤
+                        balance1Now.val * feeDenominatorNat →
+                      feeAdjustedBalance balance0Now.val amount0In.val *
+                          feeAdjustedBalance balance1Now.val amount1In.val ≥
+                        requiredK
+                          (s.storage reserve0Slot.slot).val
+                          (s.storage reserve1Slot.slot).val →
+                        (s.storage reserve0Slot.slot).val *
+                            (s.storage reserve1Slot.slot).val ≤
+                          balance0Now.val * balance1Now.val →
+                          PairWorldStep
+                            (PairWorldAction.swap
+                              amount0In.val amount1In.val
+                              amount0Out.val amount1Out.val)
+                            (pairWorldFromConcreteState s)
+                            (pairWorldAfterSwapRun balance0Now balance1Now s)
+
+def pair_swap_success_run_refines_closed_world
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      pair_swap_expected_refines_closed_world
+        amount0Out amount1Out balance0Now balance1Now s
+
+/-!
 ## Closed-World Economic Invariants
 
 These specs mirror Tamago's ERC4626 trace-wide style. They quantify over every

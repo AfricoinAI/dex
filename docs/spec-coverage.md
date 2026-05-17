@@ -47,7 +47,10 @@ Pair:
   runs leave storage, LP accounting maps, and event logs unchanged.
 - `skim` success spec for exact surplus transfer traces, unchanged reserves,
   restored lock, and refinement to the closed-world skim transition.
-- First-mint closed-world bridge predicates for the expected state.
+- Mint/burn/swap closed-world bridge predicates for expected concrete states:
+  first mint, subsequent mint, burn, and swap all refine the corresponding
+  PairWorld transition once the concrete amount, liquidity, post-callback
+  balance, and K facts are available.
 - `sync` expected-state and success-conditional bridge predicates showing that
   observed balances inside uint112 bounds refine the closed-world sync
   transition when the public run succeeds.
@@ -110,9 +113,10 @@ properties, not API-surface properties.
   closed-world transition, uint112 overflow reverts, and TWAP/oracle updates.
 - Ordered revert matrix: cover canonical guard priority for mint, burn, swap,
   skim, sync, and factory, with exact revert payload/state.
-- Sequence-level economics: continue bridging executable mint, burn, and swap
-  success runs into the closed-world transitions so the LP-normalized K and
-  same-supply no-profit theorem applies directly to public entrypoint traces.
+- Sequence-level economics: strengthen the conditional mint/burn/swap bridge
+  obligations into direct executable success/accounting proofs where Lean can
+  reduce the public entrypoint without kernel-recursion issues. Keep any
+  decomposition proof-local; do not add contract helpers.
 - Factory invariants: bridge successful executable `createPair` runs into the
   factory-world transition and add failed-create atomicity as a global frame
   property.

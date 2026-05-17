@@ -186,6 +186,16 @@ def mintFirstZeroBalanceAfter (toAddr : Address) (amount0 amount1 : Uint256)
   else
     minimumLiquidity
 
+def pairWorldAfterSubsequentMintRun
+    (liquidity : Uint256) (s : ContractState) : PairWorldState :=
+  { balance0 := (observedBalance0 s).val
+    balance1 := (observedBalance1 s).val
+    reserve0 := (observedBalance0 s).val
+    reserve1 := (observedBalance1 s).val
+    totalSupply := (s.storage totalSupplySlot.slot).val + liquidity.val
+    lockedLiquidity :=
+      if (s.storage totalSupplySlot.slot).val = 0 then 0 else minimumLiquidityNat }
+
 def burnLiquidity (s : ContractState) : Uint256 :=
   s.storageMap balancesSlot.slot (pairSelf s)
 
@@ -203,6 +213,12 @@ def burnAmount0 (s : ContractState) : Uint256 :=
 
 def burnAmount1 (s : ContractState) : Uint256 :=
   Verity.EVM.Uint256.div (burnAmount1Product s) (burnSupply s)
+
+def burnBalance0After (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.sub (observedBalance0 s) (burnAmount0 s)
+
+def burnBalance1After (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.sub (observedBalance1 s) (burnAmount1 s)
 
 def pairWorldLockedLiquidity (supply : Uint256) : Nat :=
   if supply.val = 0 then 0 else minimumLiquidityNat
@@ -247,6 +263,14 @@ def pairWorldAfterSyncRun (s : ContractState) : PairWorldState :=
     totalSupply := (s.storage totalSupplySlot.slot).val
     lockedLiquidity := pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) }
 
+def pairWorldAfterBurnRun (s : ContractState) : PairWorldState :=
+  { balance0 := (burnBalance0After s).val
+    balance1 := (burnBalance1After s).val
+    reserve0 := (burnBalance0After s).val
+    reserve1 := (burnBalance1After s).val
+    totalSupply := (Verity.EVM.Uint256.sub (burnSupply s) (burnLiquidity s)).val
+    lockedLiquidity := pairWorldLockedLiquidity (burnSupply s) }
+
 def timestamp32 (s : ContractState) : Uint256 :=
   Verity.EVM.Uint256.mod s.blockTimestamp uint32Modulus
 
@@ -275,6 +299,15 @@ def swapAmount0In (amount0Out : Uint256) (balance0Now : Uint256) (s : ContractSt
 def swapAmount1In (amount1Out : Uint256) (balance1Now : Uint256) (s : ContractState) :
     Uint256 :=
   swapAmountIn balance1Now (swapExpected1 amount1Out s)
+
+def pairWorldAfterSwapRun
+    (balance0Now balance1Now : Uint256) (s : ContractState) : PairWorldState :=
+  { balance0 := balance0Now.val
+    balance1 := balance1Now.val
+    reserve0 := balance0Now.val
+    reserve1 := balance1Now.val
+    totalSupply := (s.storage totalSupplySlot.slot).val
+    lockedLiquidity := pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) }
 
 def swapBalance0Scaled (balance0Now : Uint256) : Uint256 :=
   Verity.EVM.Uint256.mul balance0Now feeDenominator
