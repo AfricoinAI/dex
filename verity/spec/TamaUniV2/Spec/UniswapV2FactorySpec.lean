@@ -13,7 +13,16 @@ open TamaUniV2.Common.UniswapV2FactoryGhost
 /-!
 Behavior specs for the fee-off Uniswap v2 factory.
 
-The factory assurance argument is:
+The factory spec is intentionally smaller than the Pair spec because the
+factory's security job is narrower: it must create at most one pair for each
+unordered token pair, make that pair discoverable in either token order, and
+never rewrite earlier pair records. Correctness is the sorted append/write
+behavior of a successful `createPair`; security is duplicate prevention and
+state atomicity on failure; completeness is the finite-history guarantee that
+all router-visible lookup and enumeration surfaces keep those properties
+forever.
+
+The assurance argument is:
 
 1. Views expose the pair mapping and append-only pair array.
 2. `createPair` rejects invalid input before crossing CREATE2.

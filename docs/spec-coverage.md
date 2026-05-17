@@ -15,6 +15,10 @@ current route.
 - Spec files should read as assurance arguments. Each section should say why
   the following facts matter, how they compose with the previous section, and
   what security conclusion they support.
+- The Lean spec files should be readable without opening the proof files first:
+  section comments should introduce the informal claim, each `def` should be
+  the short formal version of that claim, and later sections should explicitly
+  explain how earlier claims compose into trace-wide safety.
 - Executable run lemmas are bridge/proof plumbing. They are useful only when
   they connect a real entrypoint run to a small invariant or transition fact.
 - Do not modify the contract API or source shape to satisfy a proof. Specs and

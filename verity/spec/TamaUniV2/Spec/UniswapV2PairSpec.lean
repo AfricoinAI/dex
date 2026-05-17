@@ -20,7 +20,18 @@ external-token movement is connected to concrete execution through pair-local
 ghost transfer traces. The remaining assumptions stay at actual external
 boundaries such as ERC20 calls, callbacks, and CREATE2 deployment.
 
-The file is organized as an assurance argument:
+The file is organized as an assurance argument rather than a checklist. The
+reader should be able to answer three questions as the sections progress:
+
+* Correctness: do public calls and views agree with the intended Uniswap V2
+  fee-off accounting rules?
+* Security: can any finite sequence of successful calls violate reserve backing,
+  bypass the lock, weaken K except through proportional LP redemption, or create
+  spot-price profit?
+* Completeness: do the specs cover the behaviors users rely on at the Pair
+  boundary without specifying proof-only helpers or unsupported APIs?
+
+The argument proceeds in layers:
 
 1. Identify the contract state that outside users can observe: reserves,
    cumulative prices, token addresses, LP balances, allowances, and the fee-off
@@ -44,6 +55,9 @@ Read from top to bottom, the argument is: the executable boundary admits only
 well-framed failures and well-shaped successful transitions; the transition
 model preserves the invariants; therefore every finite closed-world history of
 the fee-off pair preserves the safety and economic properties users rely on.
+This is also the rule for future additions: add a short proposition when it
+closes a visible correctness or security step in that argument, not merely
+because a proof helper exists.
 
 The public theorem names are intentionally redundant with this prose. A reader
 should be able to skim the section comments, then read each `def` as the
@@ -717,11 +731,12 @@ cumulative price increases by the canonical Uniswap V2 fixed-point price times
 the elapsed time. If the timestamp branch is entered but elapsed time or either
 old reserve is zero, cumulatives stay unchanged.
 
-The arithmetic is contract-level reserve-update behavior. The concrete helper
-names still say `Sync` because `sync` is the smallest public entrypoint that
-exposes the reserve update directly, but the first three specs below are stated
-as generic reserve-update obligations. The `sync`-named obligations are kept as
-the public-entrypoint bridge for the simple case.
+The arithmetic is contract-level reserve-update behavior, shared by mint, burn,
+swap, and sync. The formulas are factored outside the contract source so the
+spec can discuss the rule directly without adding public or internal Pair
+functions for proof convenience. The first three specs state the generic rule;
+the `sync`-named obligations keep the simplest public-entrypoint bridge visible
+until the mint/burn/swap reserve-update paths are connected to the same facts.
 -/
 
 /-- Reserve updates in the same 32-bit timestamp window do not move the TWAP
@@ -896,6 +911,12 @@ that model: if a real call succeeds and exposes the expected arithmetic facts,
 then the corresponding `PairWorldStep` is available. The public specs stay
 short on purpose. They do not copy the whole function body; they connect one
 entrypoint to one modeled economic transition.
+
+These are simulation links, not substitutes for the invariant section. A bridge
+only says "this successful run is one of the modeled actions." The reason that
+action is safe comes later, where the model proves reserve backing, K behavior,
+LP-share discipline, and no-profit consequences across arbitrary finite
+histories.
 -/
 
 def pair_mint_first_expected_refines_closed_world
@@ -942,10 +963,11 @@ def pair_mint_first_success_run_refines_closed_world
                             (pairWorldAfterFirstMintRun s)
 
 /-!
-The remaining bridge specs are deliberately small. They do not restate the full
-function bodies. They say that once the arithmetic facts exposed by a successful
-public call are available, the concrete formulas refine the closed-world action
-used by the invariant section below.
+The remaining bridge specs keep the same shape. Each one is a one-step
+simulation fact: a successful public call, together with the arithmetic facts
+that the executable path computes, corresponds to the appropriate ghost action.
+The economic content remains in the short invariants below, where those actions
+are composed over paths.
 -/
 
 def pair_mint_subsequent_expected_refines_closed_world
