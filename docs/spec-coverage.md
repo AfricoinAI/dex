@@ -324,15 +324,17 @@ the executable bridge from canonical public entrypoints to that story.
   has now failed for both `sync` lock restoration and burn
   insufficient-liquidity because it expands into later oracle/transfer tails;
   the next Lean route should factor those prefixes privately first.
-- Sequence-level economics: the closed-world no-extraction theorem is now the
-  active caller-facing story. Same-LP-supply reachable histories cannot reduce
+- Sequence-level economics: same-LP-supply reachable histories cannot reduce
   pool value at the initial spot price, and LP-normalized K explains why
   mint/burn round trips are covered. The actual token-balance theorem requires
-  either a balanced/zero-surplus start state or the newer surplus-bounded form:
+  either a balanced/zero-surplus start state or the surplus-bounded form:
   pre-existing donated surplus is an external gift that `skim` can legitimately
-  remove, but any actual-balance value loss is bounded by that starting
-  surplus. Do not add a dummy caller ledger; only add an external-wallet model
-  if it tracks real action-level token and LP ownership changes.
+  remove, but any actual-balance value loss is bounded by that starting surplus.
+  The caller no-profit theorem is now stated as the explicit external-wallet
+  consequence: if caller value plus pair token-balance value is unchanged except
+  for redistribution between them, the caller cannot finish with more value.
+  Only add a richer external-wallet model if it tracks real action-level token
+  and LP ownership changes.
 - Donation surplus: the closed-world model now tracks token-side reserve
   surplus directly. Donations increase surplus exactly, and finite successful
   histories with no donation step cannot create new surplus. The zero-surplus
