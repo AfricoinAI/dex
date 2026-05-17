@@ -371,6 +371,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   canonical-word axiom. A successful concrete `createPair` run preserves
   `FactoryWorldMatchesStorage` for the world with the new sorted pair appended.
 
+  2026-05-17 04:30 PDT checkpoint: added concrete lookup consequences from the
+  bridge. Successful `createPair` now has reader-facing specs proving the
+  decoded new-pair lookup is installed in both token orders and every existing
+  reconstructed decoded lookup is preserved.
+
 - [ ] **10. Verify and commit in coherent slices**
 
   After each slice run focused `lake build`. Before claiming completion run
@@ -390,6 +395,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   2026-05-17 04:27 PDT checkpoint: after a proof-lint cleanup, the affected
   verification still passes: whole `lake build TamaUniV2.Proof`, `tama build`,
   `tama test` (26/26), and `tama audit` (0 issues).
+
+  2026-05-17 04:31 PDT checkpoint: full verification passes for the concrete
+  factory lookup consequence slice: `tama check`, whole `lake build
+  TamaUniV2.Proof`, `tama build`, `tama test` (26/26), and `tama audit` (0
+  issues).
 
 ## Non-Goals
 

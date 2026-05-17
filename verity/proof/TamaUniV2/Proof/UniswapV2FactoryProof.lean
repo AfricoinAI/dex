@@ -997,6 +997,78 @@ theorem createPair_success_preserves_concrete_world_match
       rw [h_key_eq]
       simpa using congrArg wordToAddress h_new_array
 
+-- tama: discharges=factory_createPair_success_adds_decoded_lookup
+theorem createPair_success_adds_decoded_lookup
+    (tokenA tokenB : Address) (s : ContractState) :
+  factory_createPair_success_adds_decoded_lookup tokenA tokenB s := by
+  intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_absent
+    h_pair_nonzero h_len_ok _h_run
+  have h_success :=
+    createPair_success_updates_storage_and_emits tokenA tokenB s
+      h_distinct h_tokenA_nonzero h_tokenB_nonzero h_absent
+      h_pair_nonzero h_len_ok
+  rcases h_success with
+    ⟨_h_success_run, h_new_forward, h_new_reverse, _h_new_array,
+      _h_length, _h_event⟩
+  by_cases h_sort : addressToWord tokenA < addressToWord tokenB
+  · have h_sort_raw :
+        Core.Address.toNat tokenA % Core.Uint256.modulus <
+          Core.Address.toNat tokenB % Core.Uint256.modulus := by
+      simpa [addressToWord] using h_sort
+    constructor
+    · simpa [factoryToken0, factoryToken1, factoryCreate2Word,
+        addressToWord, h_sort, h_sort_raw] using
+        congrArg wordToAddress h_new_forward
+    · simpa [factoryToken0, factoryToken1, factoryCreate2Word,
+        addressToWord, h_sort, h_sort_raw] using
+        congrArg wordToAddress h_new_reverse
+  · have h_sort_raw :
+        ¬ Core.Address.toNat tokenA % Core.Uint256.modulus <
+          Core.Address.toNat tokenB % Core.Uint256.modulus := by
+      simpa [addressToWord] using h_sort
+    constructor
+    · simpa [factoryToken0, factoryToken1, factoryCreate2Word,
+        addressToWord, h_sort, h_sort_raw] using
+        congrArg wordToAddress h_new_reverse
+    · simpa [factoryToken0, factoryToken1, factoryCreate2Word,
+        addressToWord, h_sort, h_sort_raw] using
+        congrArg wordToAddress h_new_forward
+
+-- tama: discharges=factory_createPair_success_preserves_existing_decoded_lookup
+theorem createPair_success_preserves_existing_decoded_lookup
+    (tokenA tokenB existing0 existing1 existingPair : Address)
+    (s : ContractState) (before : FactoryWorldState) :
+  factory_createPair_success_preserves_existing_decoded_lookup
+    tokenA tokenB existing0 existing1 existingPair s before := by
+  intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_good h_match
+    h_existing h_absent h_absent_world h_pair_nonzero h_len_ok h_run
+  let token0Value := factoryToken0 tokenA tokenB
+  let token1Value := factoryToken1 tokenA tokenB
+  let pair := wordToAddress (factoryCreate2Word tokenA tokenB)
+  let after : FactoryWorldState :=
+    { pairs := before.pairs ++ [{
+        token0 := token0Value
+        token1 := token1Value
+        pair := pair
+      }]
+      pairCount := before.pairCount + 1 }
+  have h_preserved_match :
+      FactoryWorldMatchesStorage ((createPair tokenA tokenB).run s).snd after := by
+    simpa [after, token0Value, token1Value, pair] using
+      createPair_success_preserves_concrete_world_match tokenA tokenB s before
+        h_distinct h_tokenA_nonzero h_tokenB_nonzero h_good h_match
+        h_absent h_absent_world h_pair_nonzero h_len_ok h_run
+  have h_existing_after :
+      FactoryWorldContainsPair after existing0 existing1 existingPair := by
+    rcases h_existing with ⟨entry, h_entry, h_tokens, h_pair⟩
+    refine ⟨entry, ?_, h_tokens, h_pair⟩
+    simp [after]
+    exact Or.inl h_entry
+  exact concrete_world_lookup_matches_storage
+    ((createPair tokenA tokenB).run s).snd after
+    existing0 existing1 existingPair
+    h_preserved_match h_existing_after
+
 private theorem factoryWorldStep_preserves_good
     (action : FactoryWorldAction)
     (before after : FactoryWorldState) :

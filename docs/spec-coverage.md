@@ -174,7 +174,9 @@ Factory:
   entries. A successful concrete `createPair` run now preserves that
   correspondence after appending the new sorted pair, so the closed-world
   append-only invariants continue to describe router-visible storage after real
-  factory successes.
+  factory successes. Reader-facing concrete consequences now state that
+  successful creation installs the decoded new-pair lookup in both token orders
+  and preserves every existing reconstructed decoded lookup.
 
 ## Current Spec Work
 
@@ -224,9 +226,10 @@ properties, not API-surface properties.
   A concrete-history reconstruction bridge is now in place for length, decoded
   pair mappings, reverse mappings, and indexed pair-array entries, and
   successful concrete `createPair` runs preserve that correspondence across one
-  append. Remaining work is to lift this one-step correspondence to longer
-  reconstructed concrete histories and derive concrete lookup stability
-  corollaries from the closed-world same-count/path theorems.
+  append. Concrete new-lookup installation and existing-lookup preservation are
+  now exposed directly. Remaining work is to lift this one-step correspondence
+  to longer reconstructed concrete histories and derive any additional concrete
+  lookup stability corollaries from the closed-world same-count/path theorems.
 
 ## Non-Goals
 
