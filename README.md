@@ -1,5 +1,13 @@
 # Tama UniswapV2
 
+Active spec guidance:
+
+- `docs/spec-coverage.md` is the current coverage strategy.
+- `docs/superpowers/plans/2026-05-17-invariant-first-uniswap-v2-specs.md` is the
+  current forward plan.
+- `docs/agent-progress.md` is append-only historical context; use it for
+  checkpoints and failed-route lessons, not as the source of the current plan.
+
 Run:
 
 ```sh

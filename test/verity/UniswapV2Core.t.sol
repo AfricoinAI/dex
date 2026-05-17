@@ -402,7 +402,6 @@ contract UniswapV2CoreTest is Test {
         pair.swap(0, 906, address(this), "");
     }
 
-    // tama: mirrors=pair_swap_reverts_for_insufficient_output
     function testFuzzSwapRevertGuards() public {
         seed(10_000, 10_000);
 

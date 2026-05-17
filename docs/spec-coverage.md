@@ -1,67 +1,115 @@
-# Uniswap V2 Spec Coverage Target
+# Spec Coverage Strategy
 
-This project targets Certora-style coverage for the supported Uniswap V2 core
-surface: every public method should have executable success postconditions,
-ordered revert obligations, event/trace obligations, and cross-call invariants.
-The spec structure should follow Tamago's ERC4626 pattern: keep helper models
-outside `verity/spec`, prove executable call postconditions first, use trace
-events to connect external-token movement to concrete runs, and then connect
-those run-level facts to trace-wide closed-world economic invariants.
+This is the active spec guidance. Historical proof attempts live in
+`docs/agent-progress.md`; do not treat old plan files or old log entries as the
+current route.
 
-Intentionally out of scope versus canonical Uniswap V2 core:
+## Principles
 
-- Protocol-fee minting and `feeTo` / `feeToSetter`.
-- LP token `name`, `symbol`, and `permit`.
+- API parity is not a formal spec category. Keep the supported canonical ABI as
+  a build/review constraint, but do not add obligations whose only claim is that
+  a function exists or does not exist.
+- Public specs should be short security and correctness properties: accounting,
+  reserve backing, guarded reverts, oracle updates, reentrancy, K preservation,
+  and sequence-level economic safety.
+- Executable run lemmas are bridge/proof plumbing. They are useful only when
+  they connect a real entrypoint run to a small invariant or transition fact.
+- Do not modify the contract API or source shape to satisfy a proof. Specs and
+  proofs serve the contract.
+- Do not add axioms or trust surfaces for internal logic. Trust belongs only at
+  actual external boundaries such as ERC20 calls, flash callbacks, and CREATE2.
 
-## Pair
+## Canonical References
 
-| Area | Current coverage | Gap to full coverage |
-| --- | --- | --- |
-| Views | Direct storage/value specs for `decimals`, supply, balances, allowances, factory/tokens, reserves, cumulatives, `kLast == 0`. | None for supported view surface. |
-| LP ERC20 | Executable approve/transfer/transferFrom success and revert specs for balances, allowances, max allowance, overflow cases, and first-class LP Approval/Transfer event obligations. | Add revert-frame/no-event specs for failed LP ERC20 paths if needed by the final ordered revert matrix. |
-| Reentrancy guard | Exact run-result reverts for locked `mint`, `burn`, `swap`, `skim`, and `sync`; `skim` success proves `unlocked` restoration. | Add success invariant that unlocked is restored to `1` after every successful `mint`, `burn`, `swap`, and `sync`. |
-| Mint | Closed-world invariant covers reserve backing and minimum-liquidity lock. Event helper constructors exist. | Add executable first-mint and subsequent-mint postconditions: sqrt/pro-rata liquidity, supply/balance updates, reserve/TWAP update, events, and ordered reverts for overflow, insufficient amount, insufficient liquidity, supply overflow, and recipient balance overflow. |
-| Burn | Closed-world invariant covers reserve backing after burn. Event helper constructors exist. | Add executable burn postconditions: pro-rata token amounts, LP balance burn, totalSupply decrease, token transfer traces, reserve/TWAP update, events, and ordered reverts. |
-| Swap | Closed-world invariant covers reserve updates and fee-adjusted K. Exact run-result covers locked and zero-output guards. Event helper constructors exist. | Add executable swap postconditions for liquidity, invalid `to`, callback path, amount-in derivation, K check, overflow guards, reserve/TWAP update, token transfer traces, and events. |
-| Skim | Closed-world invariant covers surplus removal; executable reverts cover locked and balance-below-reserve; executable success proves exact surplus transfer traces, unchanged reserves, and lock restoration. | Add optional event/revert-frame refinements if needed by the final matrix. |
-| Sync/TWAP | Closed-world invariant covers reserves set to balances; executable overflow/locked reverts exist. | Add executable success spec for reserve update, timestamp wrap, and cumulative-price formula. |
+Behavioral coverage should be checked against:
 
-## Factory
+- Pair source: https://github.com/Uniswap/v2-core/blob/master/contracts/UniswapV2Pair.sol
+- Pair tests: https://github.com/Uniswap/v2-core/blob/master/test/UniswapV2Pair.spec.ts
+- Factory source: https://github.com/Uniswap/v2-core/blob/master/contracts/UniswapV2Factory.sol
+- Factory tests: https://github.com/Uniswap/v2-core/blob/master/test/UniswapV2Factory.spec.ts
 
-| Area | Current coverage | Gap to full coverage |
-| --- | --- | --- |
-| Views | Direct storage/value specs for `getPair`, `allPairs`, and `allPairsLength`; out-of-bounds exact revert. | None for supported view surface. |
-| Create pair guards | Exact run-result reverts for identical, zero, duplicate, CREATE2 zero-address failure, and pair-count overflow. | Add revert-frame/event absence refinements if needed by the final ordered matrix. |
-| Create pair success | Executable success spec proves sorted-token path, nonzero CREATE2 result boundary, bidirectional mapping writes, `allPairs` append, length increment, and `PairCreated` event. | Add a trace/event boundary for the pair initialize call if the final factory coverage requires observing that ECM explicitly. |
+The project intentionally keeps the fee-off subset and omits factory admin,
+protocol-fee minting, LP `name`, LP `symbol`, and `permit`.
 
-## Global Invariants
+## Current Implemented Coverage
 
-- Reserves stay within `uint112`.
-- Successful mint/burn/swap/sync leave reserves equal to modeled pair token balances.
-- Fee-adjusted swap invariant is preserved.
-- Nonzero LP supply permanently includes locked `MINIMUM_LIQUIDITY`.
-- `kLast()` is always `0` for the fee-off-only target.
-- Pair token addresses remain immutable after initialization.
-- Factory pair mapping is symmetric and no duplicate sorted pair can be created.
+Pair:
 
-## Tamago Patterns To Preserve
+- Storage-backed view specs for LP balances, allowances, reserves, cumulative
+  prices, factory, tokens, `MINIMUM_LIQUIDITY`, decimals, and fee-off `kLast`.
+- LP ERC20 approve/transfer/transferFrom accounting, allowance, overflow, and
+  event specs.
+- Exact run-result reverts for initialization, LP transfer guards, locked
+  mutating entrypoints, and skim under-reserve guards.
+- Revert-frame token-balance preservation specs for mint, burn, swap, skim, and
+  sync using pair-local transfer traces.
+- Pair-local atomicity specs showing reverted mint, burn, swap, skim, and sync
+  runs leave storage, LP accounting maps, and event logs unchanged.
+- `skim` success spec for exact surplus transfer traces, unchanged reserves,
+  restored lock, and refinement to the closed-world skim transition.
+- First-mint closed-world bridge predicates for the expected state.
+- Closed-world `PairWorldGood` preservation for one step and all finite
+  reachable traces, plus finite-path preservation from any good state, reserve
+  backing, uint112 reserve bounds,
+  minimum-liquidity lock, reserve-update projections for mint/burn/swap/skim/sync,
+  raw swap-K nondecrease, fee-adjusted K projection for swaps, donation
+  reserve/K framing, LP-supply preservation for swap/skim/sync, and the
+  action classifier that only mint/burn can change LP total supply.
+- Same-LP-supply spot-value no-profit projection from reserve-product
+  nondecrease, plus a stronger closed-world no-burn path theorem: any same-LP
+  supply path with no burn cannot reduce K or create spot-price value. This is
+  not yet the stronger caller-ledger no-profit theorem for arbitrary
+  mint/burn round trips.
 
-- Helper definitions belong in `verity/common`, not public spec modules, unless
-  they are intended to be Tama obligations.
-- Each mutating entrypoint needs small executable specs over the actual
-  `(entrypoint ...).run s`: success result, concrete storage deltas, event
-  shape, and revert-frame behavior.
-- External ERC20/token effects should be modeled with local trace events emitted
-  only after the ECM/helper succeeds. Specs should check the exact token,
-  sender, receiver, and amount so an omitted or misrouted external call fails.
-- Closed-world invariants should quantify over finite reachable traces, but
-  each action family should be backed by executable postconditions for the real
-  entrypoint path before relying on the ghost transition economically.
-- Include adversarial sequence properties, not only one-step invariants. For
-  Uniswap V2 that means donation/mint/burn/swap sequences, skim/sync after
-  donations, flash-swap callback paths, and round-trip no-free-profit checks.
-- For library math, consume Tamago's proved properties where available. Do not
-  duplicate sqrt proofs or add assumptions for local convenience.
+Factory:
 
-Foundry tests should mirror these public obligations at bytecode level, but they
-do not replace the Lean specs.
+- Storage-backed view specs for `getPair`, `allPairs`, and `allPairsLength`.
+- Exact create-pair reverts for identical tokens, zero token, duplicates,
+  CREATE2 failure, and length overflow.
+- Failed-create atomicity spec showing reverted `createPair` runs leave pair
+  mappings, pair array, length, and events unchanged.
+- Create-pair success spec for sorted tokens, bidirectional mapping writes,
+  append/length update, nonzero pair boundary, and `PairCreated`.
+- Closed-world factory model for finite successful create histories, proving
+  sorted nonzero pair entries, sorted-pair uniqueness, symmetric membership,
+  append-only creation, preservation of existing pairs, and pair-count/list
+  length consistency.
+
+## Current Spec Work
+
+These are the current standards for the next Lean work. They are behavioral
+properties, not API-surface properties.
+
+- Mint formulas: prove first mint locks `MINIMUM_LIQUIDITY`, subsequent mints
+  mint no more than the minimum pro-rata share, and successful `mint` runs imply
+  the corresponding closed-world mint transition.
+- Burn formulas: prove burns redeem no more than pro-rata token balances,
+  update reserves to post-transfer balances, restore the lock, emit the expected
+  events, and imply the closed-world burn transition.
+- Swap formulas: prove input inference from final balances, exact output
+  transfers, fee-adjusted K, raw K nondecrease, lock restoration, events, and
+  the closed-world swap transition.
+- TWAP/oracle updates: for every reserve update path, prove cumulative prices
+  increment exactly when elapsed time is positive and old reserves are nonzero,
+  and remain unchanged otherwise.
+- Flash swaps: prove callback iff `data` is nonempty, callback failure is
+  atomic, the lock is held through the callback, and K is checked after callback
+  effects.
+- Skim/sync bridge: `sync` still needs public-entrypoint bridge facts for the
+  closed-world transition, uint112 overflow reverts, and TWAP/oracle updates.
+- Ordered revert matrix: cover canonical guard priority for mint, burn, swap,
+  skim, sync, and factory, with exact revert payload/state.
+- Sequence-level economics: strengthen the current spot-value/no-burn
+  projection into a caller-ledger no-profit invariant for finite
+  same-LP-supply call sequences that may include mint/burn round trips,
+  excluding exogenous gifts to the caller.
+- Factory invariants: bridge successful executable `createPair` runs into the
+  factory-world transition and add failed-create atomicity as a global frame
+  property.
+
+## Non-Goals
+
+- No formal API parity specs.
+- No public or contract-level helper functions added only for proof convenience.
+- No aggregate public specs that restate an entire function body field-by-field.
+- No local sqrt proof duplication; use Tamago's installed sqrt facts.

@@ -1,5 +1,6 @@
 import TamaUniV2.UniswapV2Factory
 import TamaUniV2.Common.UniswapV2FactoryConcrete
+import TamaUniV2.Common.UniswapV2FactoryGhost
 
 namespace TamaUniV2.Spec.UniswapV2FactorySpec
 
@@ -7,8 +8,33 @@ open Verity
 open Verity.EVM.Uint256
 open TamaUniV2.UniswapV2Factory
 open TamaUniV2.Common.UniswapV2FactoryConcrete
+open TamaUniV2.Common.UniswapV2FactoryGhost
 
-/-! Specs for the Uniswap v2 factory storage-facing ABI. -/
+/-!
+Behavior specs for the fee-off Uniswap v2 factory.
+
+The factory assurance argument is:
+
+1. Views expose the pair mapping and append-only pair array.
+2. `createPair` rejects invalid input before crossing CREATE2.
+3. A successful create stores both mapping directions, appends exactly one pair,
+   increments length exactly once, and emits `PairCreated`.
+4. Closed-world factory specs express the global consequence: every reachable
+   factory state has symmetric pair lookup, unique sorted pairs, and array
+   length equal to the number of created pairs.
+
+The actual CREATE2 deployment and pair initialization are external boundaries;
+the specs only assume those calls at that boundary and prove factory-local
+storage behavior directly.
+-/
+
+/-!
+## Views
+
+These specs tie each public view to the storage location it is supposed to read.
+`getPair` is a bidirectional mapping once creation succeeds; `allPairs` is
+defined only below the current length.
+-/
 
 def factory_getPair_spec (tokenA tokenB result : Address) (s : ContractState) : Prop :=
   result = wordToAddress (s.storageMap2 pairForSlot.slot tokenA tokenB)
@@ -21,11 +47,16 @@ def factory_allPairs_success_spec (index : Uint256) (result : Address) (s : Cont
     result = wordToAddress (s.storageMapUint allPairsSlot.slot index)
 
 /-!
-Local factory state-transition obligations.
+## Create-Pair Transition
 
 Successful pair creation crosses the CREATE2 and pair-initialize boundaries.
 Factory-local storage and ordering behavior should still be specified directly;
 only the external deployment/call effects belong at those boundaries.
+
+The success spec is intentionally compact: once all guards pass and CREATE2
+returns a nonzero pair, the post-state has the sorted and reverse mapping
+entries, the new pair is appended at the old length, the length increments by
+one, and the canonical event is present.
 -/
 
 def factory_allPairs_reverts_out_of_bounds
@@ -82,7 +113,13 @@ def factory_createPair_success_updates_storage_and_emits
                 (factoryPairCreatedEvent token0Value token1Value pair lengthAfter)
                 ((createPair tokenA tokenB).run s).snd.events
 
-/-! Exact run-result revert specs for factory guards. -/
+/-!
+## Exact Guard Runs
+
+These specs state canonical guard priority as exact executable run results.
+Each branch supplies hypotheses that earlier guards have passed, so a proof of
+the spec fixes both the revert payload and original-state frame for that guard.
+-/
 
 def factory_allPairs_run_revert_out_of_bounds
     (index : Uint256) (s : ContractState) : Prop :=
@@ -138,5 +175,93 @@ def factory_createPair_run_revert_pair_count_overflow
             (s.storage allPairsLengthSlot.slot).val + 1 > Verity.Stdlib.Math.MAX_UINT256 →
               (createPair tokenA tokenB).run s =
                 ContractResult.revert "UniswapV2: PAIR_COUNT_OVERFLOW" s
+
+def factory_createPair_revert_keeps_factory_state
+    (tokenA tokenB : Address) (s : ContractState)
+    (result : ContractResult Address) : Prop :=
+  result = (createPair tokenA tokenB).run s →
+    (∃ reason, result = ContractResult.revert reason s) →
+      result.snd.storageMap2 pairForSlot.slot =
+        s.storageMap2 pairForSlot.slot ∧
+      result.snd.storageMapUint allPairsSlot.slot =
+        s.storageMapUint allPairsSlot.slot ∧
+      result.snd.storage allPairsLengthSlot.slot =
+        s.storage allPairsLengthSlot.slot ∧
+      result.snd.events = s.events
+
+/-!
+## Closed-World Factory Invariants
+
+The executable success spec above proves one concrete `createPair` run writes
+the right local storage. The closed-world specs below lift that single-step idea
+to arbitrary finite histories of successful creates.
+
+The intended reader story is:
+
+* Every successful create appends one sorted `(token0, token1, pair)` entry.
+* The sorted token pair is unique, so the factory cannot create two pairs for
+  the same unordered token pair.
+* Lookup is symmetric because the model records unordered membership.
+* The public array length is exactly the number of created pairs in the modeled
+  history.
+
+Together with the executable create/revert specs, these are the global factory
+facts that users and routers depend on: deterministic uniqueness, no hidden
+overwrite, and append-only enumeration.
+-/
+
+def factory_closed_world_step_preserves_good
+    (action : FactoryWorldAction)
+    (before after : FactoryWorldState) : Prop :=
+  FactoryWorldGood before →
+    FactoryWorldStep action before after →
+      FactoryWorldGood after
+
+def factory_closed_world_reachable_good
+    (w : FactoryWorldState) : Prop :=
+  FactoryWorldReachable w →
+    FactoryWorldGood w
+
+def factory_closed_world_created_pairs_are_sorted_and_nonzero
+    (w : FactoryWorldState) : Prop :=
+  FactoryWorldReachable w →
+    ∀ entry, entry ∈ w.pairs → FactoryWorldPairGood entry
+
+def factory_closed_world_sorted_pair_unique
+    (w : FactoryWorldState) : Prop :=
+  FactoryWorldReachable w →
+    FactoryWorldNoDuplicateSortedPairs w.pairs
+
+def factory_closed_world_lookup_symmetric
+    (w : FactoryWorldState) (tokenA tokenB pair : Address) : Prop :=
+  FactoryWorldReachable w →
+    FactoryWorldContainsPair w tokenA tokenB pair →
+      FactoryWorldContainsPair w tokenB tokenA pair
+
+def factory_closed_world_create_appends_one_pair
+    (tokenA tokenB pair : Address)
+    (before after : FactoryWorldState) : Prop :=
+  FactoryWorldCreatePairStep tokenA tokenB pair before after →
+    after.pairs.length = before.pairs.length + 1 ∧
+    after.pairCount = before.pairCount + 1
+
+def factory_closed_world_create_adds_symmetric_lookup
+    (tokenA tokenB pair : Address)
+    (before after : FactoryWorldState) : Prop :=
+  FactoryWorldCreatePairStep tokenA tokenB pair before after →
+    FactoryWorldContainsPair after tokenA tokenB pair ∧
+    FactoryWorldContainsPair after tokenB tokenA pair
+
+def factory_closed_world_create_preserves_existing_pairs
+    (tokenA tokenB pair existing0 existing1 existingPair : Address)
+    (before after : FactoryWorldState) : Prop :=
+  FactoryWorldContainsPair before existing0 existing1 existingPair →
+    FactoryWorldCreatePairStep tokenA tokenB pair before after →
+      FactoryWorldContainsPair after existing0 existing1 existingPair
+
+def factory_closed_world_length_matches_created_pairs
+    (w : FactoryWorldState) : Prop :=
+  FactoryWorldReachable w →
+    w.pairCount = w.pairs.length
 
 end TamaUniV2.Spec.UniswapV2FactorySpec

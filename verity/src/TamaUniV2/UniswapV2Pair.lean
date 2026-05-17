@@ -313,13 +313,12 @@ verity_contract UniswapV2PairBase where
     let amount1 := sub balance1Now reserve1Value
     require (amount0 > 0 && amount1 > 0) "UniswapV2: INSUFFICIENT_AMOUNT"
     let supply ← getStorage totalSupplySlot
-    let mut liquidity := 0
     if supply == 0 then
       let product := mul amount0 amount1
       require (amount0 == 0 || div product amount0 == amount1) "UniswapV2: MINT_OVERFLOW"
       let root ← FixedPointMathLibBase.sqrt product
       require (root > minimumLiquidity) "UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED"
-      liquidity := sub root minimumLiquidity
+      let liquidity := sub root minimumLiquidity
       setStorage totalSupplySlot root
       setMapping balancesSlot zeroAddress minimumLiquidity
       emit "Transfer" [addressToWord zeroAddress, addressToWord zeroAddress, minimumLiquidity]
@@ -327,6 +326,29 @@ verity_contract UniswapV2PairBase where
       let newToBalance ← requireSomeUint (safeAdd toBalance liquidity) "UniswapV2: BALANCE_OVERFLOW"
       setMapping balancesSlot toAddr newToBalance
       emit "Transfer" [addressToWord zeroAddress, addressToWord toAddr, liquidity]
+      let currentTimestamp ← Verity.blockTimestamp
+      let timestamp32 := mod currentTimestamp uint32Modulus
+      let previousTimestamp ← getStorage blockTimestampLastSlot
+      if timestamp32 != previousTimestamp then
+        let elapsed := mod (sub (add timestamp32 uint32Modulus) previousTimestamp) uint32Modulus
+        if elapsed > 0 && reserve0Value > 0 && reserve1Value > 0 then
+          let price0 := div (mul reserve1Value q112) reserve0Value
+          let price1 := div (mul reserve0Value q112) reserve1Value
+          let price0Last ← getStorage price0CumulativeLastSlot
+          let price1Last ← getStorage price1CumulativeLastSlot
+          setStorage price0CumulativeLastSlot (add price0Last (mul price0 elapsed))
+          setStorage price1CumulativeLastSlot (add price1Last (mul price1 elapsed))
+        else
+          pure ()
+      else
+        pure ()
+      setStorage reserve0Slot balance0Now
+      setStorage reserve1Slot balance1Now
+      setStorage blockTimestampLastSlot timestamp32
+      emit "Sync" [balance0Now, balance1Now]
+      emit "Mint" [addressToWord sender, amount0, amount1]
+      setStorage unlockedSlot 1
+      return liquidity
     else
       require (reserve0Value > 0 && reserve1Value > 0) "UniswapV2: INSUFFICIENT_LIQUIDITY"
       let liq0Product := mul amount0 supply
@@ -335,7 +357,7 @@ verity_contract UniswapV2PairBase where
       require (amount1 == 0 || div liq1Product amount1 == supply) "UniswapV2: MINT_OVERFLOW"
       let liq0 := div liq0Product reserve0Value
       let liq1 := div liq1Product reserve1Value
-      liquidity := min liq0 liq1
+      let liquidity := min liq0 liq1
       require (liquidity > 0) "UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED"
       let newSupply ← requireSomeUint (safeAdd supply liquidity) "UniswapV2: SUPPLY_OVERFLOW"
       let toBalance ← getMapping balancesSlot toAddr
@@ -343,34 +365,36 @@ verity_contract UniswapV2PairBase where
       setStorage totalSupplySlot newSupply
       setMapping balancesSlot toAddr newToBalance
       emit "Transfer" [addressToWord zeroAddress, addressToWord toAddr, liquidity]
-    let currentTimestamp ← Verity.blockTimestamp
-    let timestamp32 := mod currentTimestamp uint32Modulus
-    let previousTimestamp ← getStorage blockTimestampLastSlot
-    let mut elapsed := 0
-    if timestamp32 >= previousTimestamp then
-      elapsed := sub timestamp32 previousTimestamp
-    else
-      elapsed := add (sub uint32Modulus previousTimestamp) timestamp32
-    if elapsed > 0 && reserve0Value > 0 && reserve1Value > 0 then
-      let price0 := div (mul reserve1Value q112) reserve0Value
-      let price1 := div (mul reserve0Value q112) reserve1Value
-      let price0Last ← getStorage price0CumulativeLastSlot
-      let price1Last ← getStorage price1CumulativeLastSlot
-      setStorage price0CumulativeLastSlot (add price0Last (mul price0 elapsed))
-      setStorage price1CumulativeLastSlot (add price1Last (mul price1 elapsed))
-    else
-      pure ()
-    setStorage reserve0Slot balance0Now
-    setStorage reserve1Slot balance1Now
-    setStorage blockTimestampLastSlot timestamp32
-    emit "Sync" [balance0Now, balance1Now]
-    emit "Mint" [addressToWord sender, amount0, amount1]
-    setStorage unlockedSlot 1
-    return liquidity
+      let currentTimestamp ← Verity.blockTimestamp
+      let timestamp32 := mod currentTimestamp uint32Modulus
+      let previousTimestamp ← getStorage blockTimestampLastSlot
+      if timestamp32 != previousTimestamp then
+        let elapsed := mod (sub (add timestamp32 uint32Modulus) previousTimestamp) uint32Modulus
+        if elapsed > 0 && reserve0Value > 0 && reserve1Value > 0 then
+          let price0 := div (mul reserve1Value q112) reserve0Value
+          let price1 := div (mul reserve0Value q112) reserve1Value
+          let price0Last ← getStorage price0CumulativeLastSlot
+          let price1Last ← getStorage price1CumulativeLastSlot
+          setStorage price0CumulativeLastSlot (add price0Last (mul price0 elapsed))
+          setStorage price1CumulativeLastSlot (add price1Last (mul price1 elapsed))
+        else
+          pure ()
+      else
+        pure ()
+      setStorage reserve0Slot balance0Now
+      setStorage reserve1Slot balance1Now
+      setStorage blockTimestampLastSlot timestamp32
+      emit "Sync" [balance0Now, balance1Now]
+      emit "Mint" [addressToWord sender, amount0, amount1]
+      setStorage unlockedSlot 1
+      return liquidity
 
   function allow_post_interaction_writes burn (toAddr : Address) : Tuple [Uint256, Uint256] := do
     let lockValue ← getStorage unlockedSlot
     require (lockValue == 1) "UniswapV2: LOCKED"
+    let currentTimestamp ← Verity.blockTimestamp
+    let timestamp32 := mod currentTimestamp uint32Modulus
+    let previousTimestamp ← getStorage blockTimestampLastSlot
     setStorage unlockedSlot 0
     let sender ← msgSender
     let token0Value ← getStorageAddr token0Slot
@@ -388,6 +412,8 @@ verity_contract UniswapV2PairBase where
     let amount0 := div amount0Product supply
     let amount1 := div amount1Product supply
     require (amount0 > 0 && amount1 > 0) "UniswapV2: INSUFFICIENT_LIQUIDITY_BURNED"
+    let reserve0Value ← getStorage reserve0Slot
+    let reserve1Value ← getStorage reserve1Slot
     setMapping balancesSlot selfAddr 0
     setStorage totalSupplySlot (sub supply liquidity)
     emit "Transfer" [addressToWord selfAddr, addressToWord zeroAddress, liquidity]
@@ -398,23 +424,17 @@ verity_contract UniswapV2PairBase where
     require (balance0After <= maxUint112 && balance1After <= maxUint112) "UniswapV2: OVERFLOW"
     unsafe "restore free memory pointer before native events after ERC20 transfer ECMs" do
       mstore 64 128
-    let reserve0Value ← getStorage reserve0Slot
-    let reserve1Value ← getStorage reserve1Slot
-    let currentTimestamp ← Verity.blockTimestamp
-    let timestamp32 := mod currentTimestamp uint32Modulus
-    let previousTimestamp ← getStorage blockTimestampLastSlot
-    let mut elapsed := 0
-    if timestamp32 >= previousTimestamp then
-      elapsed := sub timestamp32 previousTimestamp
-    else
-      elapsed := add (sub uint32Modulus previousTimestamp) timestamp32
-    if elapsed > 0 && reserve0Value > 0 && reserve1Value > 0 then
-      let price0 := div (mul reserve1Value q112) reserve0Value
-      let price1 := div (mul reserve0Value q112) reserve1Value
-      let price0Last ← getStorage price0CumulativeLastSlot
-      let price1Last ← getStorage price1CumulativeLastSlot
-      setStorage price0CumulativeLastSlot (add price0Last (mul price0 elapsed))
-      setStorage price1CumulativeLastSlot (add price1Last (mul price1 elapsed))
+    if timestamp32 != previousTimestamp then
+      let elapsed := mod (sub (add timestamp32 uint32Modulus) previousTimestamp) uint32Modulus
+      if elapsed > 0 && reserve0Value > 0 && reserve1Value > 0 then
+        let price0 := div (mul reserve1Value q112) reserve0Value
+        let price1 := div (mul reserve0Value q112) reserve1Value
+        let price0Last ← getStorage price0CumulativeLastSlot
+        let price1Last ← getStorage price1CumulativeLastSlot
+        setStorage price0CumulativeLastSlot (add price0Last (mul price0 elapsed))
+        setStorage price1CumulativeLastSlot (add price1Last (mul price1 elapsed))
+      else
+        pure ()
     else
       pure ()
     setStorage reserve0Slot balance0After
@@ -428,8 +448,11 @@ verity_contract UniswapV2PairBase where
   function allow_post_interaction_writes swap (amount0Out : Uint256, amount1Out : Uint256, toAddr : Address, data : Bytes) : Unit := do
     let lockValue ← getStorage unlockedSlot
     require (lockValue == 1) "UniswapV2: LOCKED"
-    setStorage unlockedSlot 0
+    let currentTimestamp ← Verity.blockTimestamp
+    let timestamp32 := mod currentTimestamp uint32Modulus
+    let previousTimestamp ← getStorage blockTimestampLastSlot
     require (amount0Out > 0 || amount1Out > 0) "UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT"
+    setStorage unlockedSlot 0
     let reserve0Value ← getStorage reserve0Slot
     let reserve1Value ← getStorage reserve1Slot
     require (amount0Out < reserve0Value && amount1Out < reserve1Value) "UniswapV2: INSUFFICIENT_LIQUIDITY"
@@ -483,28 +506,24 @@ verity_contract UniswapV2PairBase where
     require (reserveProduct == 0 || div requiredProduct reserveProduct == scaleProduct) "UniswapV2: K_OVERFLOW"
     require (adjustedProduct >= requiredProduct) "UniswapV2: K"
     require (balance0Now <= maxUint112 && balance1Now <= maxUint112) "UniswapV2: OVERFLOW"
-    let currentTimestamp ← Verity.blockTimestamp
-    let timestamp32 := mod currentTimestamp uint32Modulus
-    let previousTimestamp ← getStorage blockTimestampLastSlot
-    let mut elapsed := 0
-    if timestamp32 >= previousTimestamp then
-      elapsed := sub timestamp32 previousTimestamp
-    else
-      elapsed := add (sub uint32Modulus previousTimestamp) timestamp32
-    if elapsed > 0 && reserve0Value > 0 && reserve1Value > 0 then
-      let price0 := div (mul reserve1Value q112) reserve0Value
-      let price1 := div (mul reserve0Value q112) reserve1Value
-      let price0Last ← getStorage price0CumulativeLastSlot
-      let price1Last ← getStorage price1CumulativeLastSlot
-      setStorage price0CumulativeLastSlot (add price0Last (mul price0 elapsed))
-      setStorage price1CumulativeLastSlot (add price1Last (mul price1 elapsed))
+    unsafe "restore free memory pointer before native events after callback/transfer ECMs" do
+      mstore 64 128
+    if timestamp32 != previousTimestamp then
+      let elapsed := mod (sub (add timestamp32 uint32Modulus) previousTimestamp) uint32Modulus
+      if elapsed > 0 && reserve0Value > 0 && reserve1Value > 0 then
+        let price0 := div (mul reserve1Value q112) reserve0Value
+        let price1 := div (mul reserve0Value q112) reserve1Value
+        let price0Last ← getStorage price0CumulativeLastSlot
+        let price1Last ← getStorage price1CumulativeLastSlot
+        setStorage price0CumulativeLastSlot (add price0Last (mul price0 elapsed))
+        setStorage price1CumulativeLastSlot (add price1Last (mul price1 elapsed))
+      else
+        pure ()
     else
       pure ()
     setStorage reserve0Slot balance0Now
     setStorage reserve1Slot balance1Now
     setStorage blockTimestampLastSlot timestamp32
-    unsafe "restore free memory pointer before native events after callback/transfer ECMs" do
-      mstore 64 128
     emit "Sync" [balance0Now, balance1Now]
     emit "Swap" [
       addressToWord sender,
@@ -535,6 +554,9 @@ verity_contract UniswapV2PairBase where
   function allow_post_interaction_writes sync () : Unit := do
     let lockValue ← getStorage unlockedSlot
     require (lockValue == 1) "UniswapV2: LOCKED"
+    let currentTimestamp ← Verity.blockTimestamp
+    let timestamp32 := mod currentTimestamp uint32Modulus
+    let previousTimestamp ← getStorage blockTimestampLastSlot
     setStorage unlockedSlot 0
     let token0Value ← getStorageAddr token0Slot
     let token1Value ← getStorageAddr token1Slot
@@ -544,21 +566,17 @@ verity_contract UniswapV2PairBase where
     require (balance0Now <= maxUint112 && balance1Now <= maxUint112) "UniswapV2: OVERFLOW"
     let reserve0Value ← getStorage reserve0Slot
     let reserve1Value ← getStorage reserve1Slot
-    let currentTimestamp ← Verity.blockTimestamp
-    let timestamp32 := mod currentTimestamp uint32Modulus
-    let previousTimestamp ← getStorage blockTimestampLastSlot
-    let mut elapsed := 0
-    if timestamp32 >= previousTimestamp then
-      elapsed := sub timestamp32 previousTimestamp
-    else
-      elapsed := add (sub uint32Modulus previousTimestamp) timestamp32
-    if elapsed > 0 && reserve0Value > 0 && reserve1Value > 0 then
-      let price0 := div (mul reserve1Value q112) reserve0Value
-      let price1 := div (mul reserve0Value q112) reserve1Value
-      let price0Last ← getStorage price0CumulativeLastSlot
-      let price1Last ← getStorage price1CumulativeLastSlot
-      setStorage price0CumulativeLastSlot (add price0Last (mul price0 elapsed))
-      setStorage price1CumulativeLastSlot (add price1Last (mul price1 elapsed))
+    if timestamp32 != previousTimestamp then
+      let elapsed := mod (sub (add timestamp32 uint32Modulus) previousTimestamp) uint32Modulus
+      if elapsed > 0 && reserve0Value > 0 && reserve1Value > 0 then
+        let price0 := div (mul reserve1Value q112) reserve0Value
+        let price1 := div (mul reserve0Value q112) reserve1Value
+        let price0Last ← getStorage price0CumulativeLastSlot
+        let price1Last ← getStorage price1CumulativeLastSlot
+        setStorage price0CumulativeLastSlot (add price0Last (mul price0 elapsed))
+        setStorage price1CumulativeLastSlot (add price1Last (mul price1 elapsed))
+      else
+        pure ()
     else
       pure ()
     setStorage reserve0Slot balance0Now
@@ -615,7 +633,6 @@ abbrev sync := UniswapV2PairBase.sync
 def spec : CompilationModel :=
   { UniswapV2PairBase.spec with
     name := "UniswapV2Pair"
-    functions := UniswapV2PairBase.spec.functions.filter (fun fn => fn.name != "sqrt")
     events := [
       Tamago.Common.Events.transfer,
       Tamago.Common.Events.approval,

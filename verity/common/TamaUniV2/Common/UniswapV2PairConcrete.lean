@@ -32,6 +32,9 @@ def observedBalance0 (s : ContractState) : Uint256 :=
 def observedBalance1 (s : ContractState) : Uint256 :=
   ((TamaUniV2.erc20BalanceOf (pairToken1 s) (pairSelf s)).run s).fst
 
+def pairObservedTokenBalance (token owner : Address) (s : ContractState) : Uint256 :=
+  ((TamaUniV2.erc20BalanceOf token owner).run s).fst
+
 def pairTraceContains (event : Event) (events : List Event) : Prop :=
   event ∈ events
 
@@ -86,6 +89,53 @@ def hasPairSafeTransferTrace
     (TamaUniV2.pairTokenSafeTransferEvent token fromAddr toAddr amount)
     s.events
 
+abbrev PairTokenBalances := Address → Address → Uint256
+
+def pairTokenBalancesUnchanged (pre post : PairTokenBalances) : Prop :=
+  ∀ token account, post token account = pre token account
+
+def pairTokenWorldAfterTransfer
+    (pre : PairTokenBalances) (token fromAddr toAddr : Address) (amount : Uint256) :
+    PairTokenBalances :=
+  fun tokenValue account =>
+    if tokenValue = token then
+      if fromAddr = toAddr then
+        pre tokenValue account
+      else if account = fromAddr then
+        Verity.EVM.Uint256.sub (pre tokenValue account) amount
+      else if account = toAddr then
+        pre tokenValue account + amount
+      else
+        pre tokenValue account
+    else
+      pre tokenValue account
+
+def pairTokenWorldAfterEvent (pre : PairTokenBalances) (event : Event) :
+    PairTokenBalances :=
+  match event.name, event.args, event.indexedArgs with
+  | "UniswapV2PairTokenSafeTransfer", [tokenWord, fromWord, toWord, amount], [] =>
+      pairTokenWorldAfterTransfer pre
+        (wordToAddress tokenWord) (wordToAddress fromWord) (wordToAddress toWord) amount
+  | _, _, _ => pre
+
+def pairTokenWorldAfterEvents : PairTokenBalances → List Event → PairTokenBalances
+  | pre, [] => pre
+  | pre, event :: events =>
+      pairTokenWorldAfterEvents (pairTokenWorldAfterEvent pre event) events
+
+def emittedPairEventsAfterCall {α : Type}
+    (s : ContractState) (result : ContractResult α) : List Event :=
+  result.snd.events.drop s.events.length
+
+def pairTokenWorldAfterCall {α : Type}
+    (pre : PairTokenBalances) (s : ContractState) (result : ContractResult α) :
+    PairTokenBalances :=
+  pairTokenWorldAfterEvents pre (emittedPairEventsAfterCall s result)
+
+def pairRevertedWithOriginalState {α : Type}
+    (s : ContractState) (result : ContractResult α) : Prop :=
+  ∃ reason, result = ContractResult.revert reason s
+
 def mintAmount0 (s : ContractState) : Uint256 :=
   Verity.EVM.Uint256.sub (observedBalance0 s) (s.storage reserve0Slot.slot)
 
@@ -97,7 +147,7 @@ def mintFirstProduct (s : ContractState) : Uint256 :=
 
 def mintLockedState (s : ContractState) : ContractState :=
   { s with «storage» := fun slotIdx =>
-      if slotIdx = unlockedSlot.slot then 0 else s.storage slotIdx }
+      if slotIdx == unlockedSlot.slot then 0 else s.storage slotIdx }
 
 def sqrtValue (x : Uint256) (s : ContractState) : Uint256 :=
   ((FixedPointMathLibBase.sqrt x).run s).fst
@@ -108,8 +158,62 @@ def mintFirstRoot (s : ContractState) : Uint256 :=
 def mintFirstLiquidity (s : ContractState) : Uint256 :=
   Verity.EVM.Uint256.sub (mintFirstRoot s) minimumLiquidity
 
+def mintFirstPathProduct (amount0 amount1 : Uint256) : Uint256 :=
+  Verity.EVM.Uint256.mul amount0 amount1
+
+def mintFirstPathRoot (amount0 amount1 : Uint256) (s : ContractState) : Uint256 :=
+  sqrtValue (mintFirstPathProduct amount0 amount1) s
+
+def mintFirstPathLiquidity (amount0 amount1 : Uint256) (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.sub (mintFirstPathRoot amount0 amount1 s) minimumLiquidity
+
+def mintFirstRecipientBase (toAddr : Address) (s : ContractState) : Uint256 :=
+  if toAddr == zeroAddress then
+    minimumLiquidity
+  else
+    s.storageMap balancesSlot.slot toAddr
+
+def mintFirstRecipientAfter (toAddr : Address) (amount0 amount1 : Uint256)
+    (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.add
+    (mintFirstRecipientBase toAddr s)
+    (mintFirstPathLiquidity amount0 amount1 s)
+
+def mintFirstZeroBalanceAfter (toAddr : Address) (amount0 amount1 : Uint256)
+    (s : ContractState) : Uint256 :=
+  if toAddr == zeroAddress then
+    mintFirstRecipientAfter toAddr amount0 amount1 s
+  else
+    minimumLiquidity
+
+def burnLiquidity (s : ContractState) : Uint256 :=
+  s.storageMap balancesSlot.slot (pairSelf s)
+
+def burnSupply (s : ContractState) : Uint256 :=
+  s.storage totalSupplySlot.slot
+
+def burnAmount0Product (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.mul (burnLiquidity s) (observedBalance0 s)
+
+def burnAmount1Product (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.mul (burnLiquidity s) (observedBalance1 s)
+
+def burnAmount0 (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.div (burnAmount0Product s) (burnSupply s)
+
+def burnAmount1 (s : ContractState) : Uint256 :=
+  Verity.EVM.Uint256.div (burnAmount1Product s) (burnSupply s)
+
 def pairWorldLockedLiquidity (supply : Uint256) : Nat :=
   if supply.val = 0 then 0 else minimumLiquidityNat
+
+def pairWorldFromConcreteState (s : ContractState) : PairWorldState :=
+  { balance0 := (observedBalance0 s).val
+    balance1 := (observedBalance1 s).val
+    reserve0 := (s.storage reserve0Slot.slot).val
+    reserve1 := (s.storage reserve1Slot.slot).val
+    totalSupply := (s.storage totalSupplySlot.slot).val
+    lockedLiquidity := pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) }
 
 def pairWorldBeforeMintRun (s : ContractState) : PairWorldState :=
   { balance0 := (observedBalance0 s).val
@@ -127,6 +231,22 @@ def pairWorldAfterFirstMintRun (s : ContractState) : PairWorldState :=
     totalSupply := (mintFirstRoot s).val
     lockedLiquidity := minimumLiquidityNat }
 
+def pairWorldAfterSkimRun (s : ContractState) : PairWorldState :=
+  { balance0 := (s.storage reserve0Slot.slot).val
+    balance1 := (s.storage reserve1Slot.slot).val
+    reserve0 := (s.storage reserve0Slot.slot).val
+    reserve1 := (s.storage reserve1Slot.slot).val
+    totalSupply := (s.storage totalSupplySlot.slot).val
+    lockedLiquidity := pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) }
+
+def pairWorldAfterSyncRun (s : ContractState) : PairWorldState :=
+  { balance0 := (observedBalance0 s).val
+    balance1 := (observedBalance1 s).val
+    reserve0 := (observedBalance0 s).val
+    reserve1 := (observedBalance1 s).val
+    totalSupply := (s.storage totalSupplySlot.slot).val
+    lockedLiquidity := pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) }
+
 def timestamp32 (s : ContractState) : Uint256 :=
   Verity.EVM.Uint256.mod s.blockTimestamp uint32Modulus
 
@@ -142,18 +262,57 @@ def swapExpected0 (amount0Out : Uint256) (s : ContractState) : Uint256 :=
 def swapExpected1 (amount1Out : Uint256) (s : ContractState) : Uint256 :=
   Verity.EVM.Uint256.sub (s.storage reserve1Slot.slot) amount1Out
 
-def swapAmount0In (amount0Out : Uint256) (balance0Now : Uint256) (s : ContractState) :
-    Uint256 :=
-  if balance0Now > swapExpected0 amount0Out s then
-    Verity.EVM.Uint256.sub balance0Now (swapExpected0 amount0Out s)
+def swapAmountIn (balanceNow expected : Uint256) : Uint256 :=
+  if balanceNow > expected then
+    Verity.EVM.Uint256.sub balanceNow expected
   else
     0
 
+def swapAmount0In (amount0Out : Uint256) (balance0Now : Uint256) (s : ContractState) :
+    Uint256 :=
+  swapAmountIn balance0Now (swapExpected0 amount0Out s)
+
 def swapAmount1In (amount1Out : Uint256) (balance1Now : Uint256) (s : ContractState) :
     Uint256 :=
-  if balance1Now > swapExpected1 amount1Out s then
-    Verity.EVM.Uint256.sub balance1Now (swapExpected1 amount1Out s)
-  else
-    0
+  swapAmountIn balance1Now (swapExpected1 amount1Out s)
+
+def swapBalance0Scaled (balance0Now : Uint256) : Uint256 :=
+  Verity.EVM.Uint256.mul balance0Now feeDenominator
+
+def swapBalance1Scaled (balance1Now : Uint256) : Uint256 :=
+  Verity.EVM.Uint256.mul balance1Now feeDenominator
+
+def swapAmount0Fee (amount0In : Uint256) : Uint256 :=
+  Verity.EVM.Uint256.mul amount0In feeAdjustment
+
+def swapAmount1Fee (amount1In : Uint256) : Uint256 :=
+  Verity.EVM.Uint256.mul amount1In feeAdjustment
+
+def swapBalance0Adjusted (balance0Now amount0In : Uint256) : Uint256 :=
+  Verity.EVM.Uint256.sub (swapBalance0Scaled balance0Now) (swapAmount0Fee amount0In)
+
+def swapBalance1Adjusted (balance1Now amount1In : Uint256) : Uint256 :=
+  Verity.EVM.Uint256.sub (swapBalance1Scaled balance1Now) (swapAmount1Fee amount1In)
+
+def swapAdjustedProduct
+    (balance0Now balance1Now amount0In amount1In : Uint256) : Uint256 :=
+  Verity.EVM.Uint256.mul
+    (swapBalance0Adjusted balance0Now amount0In)
+    (swapBalance1Adjusted balance1Now amount1In)
+
+def swapReserveProductOf (reserve0Value reserve1Value : Uint256) : Uint256 :=
+  Verity.EVM.Uint256.mul reserve0Value reserve1Value
+
+def swapReserveProduct (s : ContractState) : Uint256 :=
+  swapReserveProductOf (s.storage reserve0Slot.slot) (s.storage reserve1Slot.slot)
+
+def swapScaleProduct : Uint256 :=
+  Verity.EVM.Uint256.mul feeDenominator feeDenominator
+
+def swapRequiredProductOf (reserve0Value reserve1Value : Uint256) : Uint256 :=
+  Verity.EVM.Uint256.mul (swapReserveProductOf reserve0Value reserve1Value) swapScaleProduct
+
+def swapRequiredProduct (s : ContractState) : Uint256 :=
+  swapRequiredProductOf (s.storage reserve0Slot.slot) (s.storage reserve1Slot.slot)
 
 end TamaUniV2.Common.UniswapV2PairConcrete

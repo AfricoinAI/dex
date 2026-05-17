@@ -46,6 +46,15 @@ def feeAdjustedBalance (balance amountIn : Nat) : Nat :=
 def requiredK (reserve0 reserve1 : Nat) : Nat :=
   reserve0 * reserve1 * feeDenominatorNat * feeDenominatorNat
 
+def PairWorldK (w : PairWorldState) : Nat :=
+  w.reserve0 * w.reserve1
+
+def PairWorldSpotValueNum (spot pool : PairWorldState) : Nat :=
+  pool.reserve0 * spot.reserve1 + pool.reserve1 * spot.reserve0
+
+def PairWorldNoSpotProfit (before after : PairWorldState) : Prop :=
+  2 * PairWorldK before ≤ PairWorldSpotValueNum before after
+
 def PairWorldMintStep
     (amount0 amount1 liquidity : Nat)
     (before after : PairWorldState) : Prop :=
@@ -69,7 +78,10 @@ def PairWorldMintStep
     (if before.totalSupply = 0 then
       minimumLiquidityNat
     else
-      before.lockedLiquidity)
+      before.lockedLiquidity) ∧
+  (before.totalSupply = 0 ∨
+    liquidity * before.reserve0 ≤ amount0 * before.totalSupply ∧
+    liquidity * before.reserve1 ≤ amount1 * before.totalSupply)
 
 def PairWorldBurnStep
     (amount0 amount1 liquidity : Nat)
@@ -85,7 +97,9 @@ def PairWorldBurnStep
   after.reserve0 ≤ maxUint112Nat ∧
   after.reserve1 ≤ maxUint112Nat ∧
   after.totalSupply = before.totalSupply - liquidity ∧
-  after.lockedLiquidity = before.lockedLiquidity
+  after.lockedLiquidity = before.lockedLiquidity ∧
+  amount0 * before.totalSupply ≤ liquidity * before.balance0 ∧
+  amount1 * before.totalSupply ≤ liquidity * before.balance1
 
 def PairWorldSwapStep
     (amount0In amount1In amount0Out amount1Out : Nat)
@@ -108,7 +122,8 @@ def PairWorldSwapStep
   amount1In * feeAdjustmentNat ≤ after.balance1 * feeDenominatorNat ∧
   feeAdjustedBalance after.balance0 amount0In *
       feeAdjustedBalance after.balance1 amount1In ≥
-    requiredK before.reserve0 before.reserve1
+    requiredK before.reserve0 before.reserve1 ∧
+  PairWorldK before ≤ PairWorldK after
 
 def PairWorldSkimStep (before after : PairWorldState) : Prop :=
   after.balance0 = before.reserve0 ∧
@@ -177,5 +192,21 @@ inductive PairWorldReachable : PairWorldState → Prop where
       PairWorldReachable before →
       PairWorldStep action before after →
       PairWorldReachable after
+
+inductive PairWorldPath : PairWorldState → PairWorldState → Prop where
+  | refl (w : PairWorldState) : PairWorldPath w w
+  | step {start before after : PairWorldState} (action : PairWorldAction) :
+      PairWorldPath start before →
+      PairWorldStep action before after →
+      PairWorldPath start after
+
+inductive PairWorldPathNoBurn : PairWorldState → PairWorldState → Prop where
+  | refl (w : PairWorldState) : PairWorldPathNoBurn w w
+  | step {start before after : PairWorldState} (action : PairWorldAction) :
+      PairWorldPathNoBurn start before →
+      PairWorldStep action before after →
+      (∀ amount0 amount1 liquidity,
+        action ≠ PairWorldAction.burn amount0 amount1 liquidity) →
+      PairWorldPathNoBurn start after
 
 end TamaUniV2.Common.UniswapV2PairGhost

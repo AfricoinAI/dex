@@ -19,6 +19,25 @@ style: local storage/accounting obligations are proved directly, while
 external-token movement is connected to concrete execution through pair-local
 ghost transfer traces. The remaining assumptions stay at actual external
 boundaries such as ERC20 calls, callbacks, and CREATE2 deployment.
+
+The file is organized as an assurance argument:
+
+1. Views expose the intended storage fields and fee-off constants.
+2. Reverts frame both pair storage and external token movement.
+3. LP-token operations satisfy ERC20-style balance, allowance, supply, and event
+   properties.
+4. Exact guard specs pin down important revert payloads for executable runs.
+5. Bridge predicates connect successful public runs to small economic
+   transitions.
+6. Closed-world trace specs prove invariant and economic consequences for every
+   finite sequence of successful modeled actions.
+-/
+
+/-!
+## Views
+
+These specs pin each public view to the storage value or constant it is supposed
+to expose. The fee-off variant deliberately fixes `kLast()` at zero.
 -/
 
 def pair_decimals_spec (result : Uint256) : Prop :=
@@ -61,19 +80,129 @@ def pair_price1CumulativeLast_spec (result : Uint256) (s : ContractState) : Prop
 def pair_kLast_spec (result : Uint256) : Prop :=
   result = 0
 
+/-!
+## ERC20 Boundary Traces
+
+The pair can only affect token balances through ERC20 transfer ECMs. The
+`pair_safeTransfer_traces_token_transfer` spec records a ghost event for each
+successful token transfer so later frame and transition specs can reason about
+token movement without pretending the ERC20 contract is local storage.
+-/
+
 def pair_safeTransfer_traces_token_transfer
     (token toAddr : Address) (amount : Uint256) (s : ContractState)
     (result : ContractResult Uint256) : Prop :=
   result = ContractResult.success 1 result.snd ∧
   hasPairSafeTransferTrace token s.thisAddress toAddr amount result.snd
 
-/-
-Local state-transition specs.
+/-!
+## Revert Frames
+
+On revert, Verity restores the pair state and emits no successful transfer
+trace. These specs keep ERC20 balance accounting separate from the pair's local
+storage rules: a caller supplies the token-balance world obtained by replaying
+the call's transfer events, and the spec says reverted pair calls leave that
+world unchanged. The pair-local frame specs then state the matching storage and
+event-log atomicity for each mutating Pair entrypoint.
+-/
+
+def pair_mint_revert_keeps_token_balances
+    (toAddr : Address) (pre post : PairTokenBalances) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  post = pairTokenWorldAfterCall pre s result →
+    pairRevertedWithOriginalState s result →
+      pairTokenBalancesUnchanged pre post
+
+def pair_burn_revert_keeps_token_balances
+    (toAddr : Address) (pre post : PairTokenBalances) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) : Prop :=
+  post = pairTokenWorldAfterCall pre s result →
+    pairRevertedWithOriginalState s result →
+      pairTokenBalancesUnchanged pre post
+
+def pair_swap_revert_keeps_token_balances
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (pre post : PairTokenBalances) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  post = pairTokenWorldAfterCall pre s result →
+    pairRevertedWithOriginalState s result →
+      pairTokenBalancesUnchanged pre post
+
+def pair_skim_revert_keeps_token_balances
+    (toAddr : Address) (pre post : PairTokenBalances) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  post = pairTokenWorldAfterCall pre s result →
+    pairRevertedWithOriginalState s result →
+      pairTokenBalancesUnchanged pre post
+
+def pair_sync_revert_keeps_token_balances
+    (pre post : PairTokenBalances) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  post = pairTokenWorldAfterCall pre s result →
+    pairRevertedWithOriginalState s result →
+      pairTokenBalancesUnchanged pre post
+
+def pair_mint_revert_keeps_pair_state
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  result = (mint toAddr).run s →
+    (∃ reason, result = ContractResult.revert reason s) →
+      result.snd.storage = s.storage ∧
+      result.snd.storageMap = s.storageMap ∧
+      result.snd.storageMap2 = s.storageMap2 ∧
+      result.snd.events = s.events
+
+def pair_burn_revert_keeps_pair_state
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) : Prop :=
+  result = (burn toAddr).run s →
+    (∃ reason, result = ContractResult.revert reason s) →
+      result.snd.storage = s.storage ∧
+      result.snd.storageMap = s.storageMap ∧
+      result.snd.storageMap2 = s.storageMap2 ∧
+      result.snd.events = s.events
+
+def pair_swap_revert_keeps_pair_state
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    (∃ reason, result = ContractResult.revert reason s) →
+      result.snd.storage = s.storage ∧
+      result.snd.storageMap = s.storageMap ∧
+      result.snd.storageMap2 = s.storageMap2 ∧
+      result.snd.events = s.events
+
+def pair_skim_revert_keeps_pair_state
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  result = (skim toAddr).run s →
+    (∃ reason, result = ContractResult.revert reason s) →
+      result.snd.storage = s.storage ∧
+      result.snd.storageMap = s.storageMap ∧
+      result.snd.storageMap2 = s.storageMap2 ∧
+      result.snd.events = s.events
+
+def pair_sync_revert_keeps_pair_state
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  result = (sync).run s →
+    (∃ reason, result = ContractResult.revert reason s) →
+      result.snd.storage = s.storage ∧
+      result.snd.storageMap = s.storageMap ∧
+      result.snd.storageMap2 = s.storageMap2 ∧
+      result.snd.events = s.events
+
+/-!
+## Local Entry Points
 
 These properties are executable Lean obligations over the source model.
 Entrypoints that read token balances or make callbacks are proved by combining
 pair-local storage facts, explicit external-boundary assumptions, and the
 closed-world economic invariants below.
+
+Initialization is one-shot and factory-only. LP-token approvals and transfers
+then follow the usual ERC20-style rules: approve only writes allowance, transfer
+and transferFrom conserve total supply, finite allowances are spent, infinite
+allowances remain infinite, and successful movements emit Transfer/Approval.
 -/
 
 def pair_initialize_reverts_for_non_factory
@@ -274,14 +403,6 @@ def pair_swap_reverts_when_locked
   s.storage unlockedSlot.slot != 1 →
     result = ContractResult.revert "UniswapV2: LOCKED" s
 
-def pair_swap_reverts_for_insufficient_output
-    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
-    (s : ContractState) (result : ContractResult Unit) : Prop :=
-  s.storage unlockedSlot.slot = 1 →
-    amount0Out = 0 →
-      amount1Out = 0 →
-        result = ContractResult.revert "UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT" s
-
 def pair_skim_reverts_when_locked
     (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=
   s.storage unlockedSlot.slot != 1 →
@@ -304,24 +425,16 @@ def pair_sync_reverts_when_locked
   s.storage unlockedSlot.slot != 1 →
     result = ContractResult.revert "UniswapV2: LOCKED" s
 
-def pair_sync_reverts_when_balance0_overflows
-    (s : ContractState) (result : ContractResult Unit) : Prop :=
-  s.storage unlockedSlot.slot = 1 →
-    observedBalance0 s > maxUint112 →
-      result = ContractResult.revert "UniswapV2: OVERFLOW" s
-
-def pair_sync_reverts_when_balance1_overflows
-    (s : ContractState) (result : ContractResult Unit) : Prop :=
-  s.storage unlockedSlot.slot = 1 →
-    observedBalance1 s > maxUint112 →
-      result = ContractResult.revert "UniswapV2: OVERFLOW" s
-
 /-!
-Exact executable guard specs.
+## Exact Guard Runs
 
 The public obligation mentions the actual entrypoint run result, not a
 separately supplied result value. The older `result`-parameter specs above are
 kept as small reusable adapters.
+
+These are branch-specific: each spec states that, once earlier guards required
+by its hypotheses have passed, the named guard produces the exact canonical
+revert payload and original-state frame.
 -/
 
 def pair_initialize_run_revert_non_factory
@@ -394,15 +507,6 @@ def pair_swap_run_revert_locked
     (swap amount0Out amount1Out toAddr data).run s =
       ContractResult.revert "UniswapV2: LOCKED" s
 
-def pair_swap_run_revert_insufficient_output
-    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
-    (s : ContractState) : Prop :=
-  s.storage unlockedSlot.slot = 1 →
-    amount0Out = 0 →
-      amount1Out = 0 →
-        (swap amount0Out amount1Out toAddr data).run s =
-          ContractResult.revert "UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT" s
-
 def pair_skim_run_revert_locked
     (toAddr : Address) (s : ContractState) : Prop :=
   s.storage unlockedSlot.slot != 1 →
@@ -448,25 +552,23 @@ def pair_skim_run_success_transfers_excess_and_restores_unlocked
           (skimExcess1 s)
           ((skim toAddr).run s).snd
 
+def pair_skim_run_success_refines_closed_world
+    (toAddr : Address) (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    s.storage reserve0Slot.slot ≤ observedBalance0 s →
+      s.storage reserve1Slot.slot ≤ observedBalance1 s →
+        match (skim toAddr).run s with
+        | ContractResult.success () _post =>
+            PairWorldStep PairWorldAction.skim
+              (pairWorldFromConcreteState s)
+              (pairWorldAfterSkimRun s)
+        | ContractResult.revert _ _ => False
+
 def pair_sync_run_revert_locked
     (s : ContractState) : Prop :=
   s.storage unlockedSlot.slot != 1 →
     (sync).run s =
       ContractResult.revert "UniswapV2: LOCKED" s
-
-def pair_sync_run_revert_balance0_overflows
-    (s : ContractState) : Prop :=
-  s.storage unlockedSlot.slot = 1 →
-    observedBalance0 s > maxUint112 →
-      (sync).run s =
-        ContractResult.revert "UniswapV2: OVERFLOW" s
-
-def pair_sync_run_revert_balance1_overflows
-    (s : ContractState) : Prop :=
-  s.storage unlockedSlot.slot = 1 →
-    observedBalance1 s > maxUint112 →
-      (sync).run s =
-        ContractResult.revert "UniswapV2: OVERFLOW" s
 
 def pair_mint_first_expected_refines_closed_world
     (toAddr : Address) (s : ContractState) : Prop :=
@@ -512,19 +614,96 @@ def pair_mint_first_success_run_refines_closed_world
                             (pairWorldAfterFirstMintRun s)
 
 /-!
-Closed-world economic invariants.
+## Closed-World Economic Invariants
 
 These specs mirror Tamago's ERC4626 trace-wide style. They quantify over every
 finite successful transition sequence in `PairWorldReachable`; external ERC20
 movement is represented by explicit mint/burn/swap/donate/skim/sync steps rather
 than by new assumptions about Verity ECM internals.
+
+The logical flow is intentionally compositional:
+
+* `PairWorldGood` says reserves are backed by token balances, reserves fit in
+  uint112, and the permanently locked minimum liquidity is coherent with supply.
+* One-step preservation plus induction gives the same facts for every reachable
+  finite trace.
+* Per-action specs then expose the pieces of Uniswap V2 economics that matter:
+  mint/burn pro-rata discipline, swap fee-adjusted K and raw-K nondecrease,
+  surplus-only skim, sync-to-balance behavior, and LP-supply preservation by
+  non-liquidity actions.
+* The same-supply no-profit theorem is the sequence-level consequence: if a
+  finite path begins and ends with the same LP supply and does not decrease K,
+  then the pool state has no positive profit at the initial spot price.
+
+Properties specified:
+
+* Every successful modeled action preserves the core Pair invariant, and every
+  finite modeled path from a good state preserves it too.
+* Cached reserves remain backed by token balances and inside the uint112 range.
+* LP supply is coherent with the permanently locked minimum liquidity; only
+  mint and burn can change that supply.
+* Swaps satisfy the fee-adjusted K check and cannot decrease raw cached K.
+* Any finite path without a burn cannot decrease cached K. Combined with the
+  spot-value lemma, a same-LP-supply no-burn path cannot create value at the
+  initial spot price.
+
+Security conclusions:
+
+* The pair cannot report reserves that exceed modeled token backing in any
+  closed-world finite trace.
+* Reentrancy-free non-burn traces, including swaps, donations, skims, and syncs,
+  cannot reduce pool K or manufacture spot-price profit for a caller without an
+  external gift.
+* Liquidity creation and redemption are isolated to mint/burn, where the
+  separate ratio specs bound LP tokens against pro-rata token movement.
 -/
+
+def pair_closed_world_step_preserves_good
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep action before after →
+      PairWorldGood after
+
+def pair_closed_world_path_preserves_good
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldPath before after →
+      PairWorldGood after
+
+def pair_closed_world_reachable_good
+    (w : PairWorldState) : Prop :=
+  PairWorldReachable w →
+    PairWorldGood w
+
+def pair_closed_world_reachable_supply_good
+    (w : PairWorldState) : Prop :=
+  PairWorldReachable w →
+    PairWorldSupplyGood w
+
+def pair_concrete_state_reserves_backed
+    (s : ContractState) : Prop :=
+  PairWorldGood (pairWorldFromConcreteState s) →
+    (s.storage reserve0Slot.slot).val ≤ (observedBalance0 s).val ∧
+    (s.storage reserve1Slot.slot).val ≤ (observedBalance1 s).val
+
+def pair_concrete_state_uint112_reserves
+    (s : ContractState) : Prop :=
+  PairWorldGood (pairWorldFromConcreteState s) →
+    (s.storage reserve0Slot.slot).val ≤ maxUint112Nat ∧
+    (s.storage reserve1Slot.slot).val ≤ maxUint112Nat
 
 def pair_closed_world_reachable_reserves_backed
     (w : PairWorldState) : Prop :=
   PairWorldReachable w →
     w.reserve0 ≤ w.balance0 ∧
     w.reserve1 ≤ w.balance1
+
+def pair_closed_world_path_reserves_backed
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldPath before after →
+      after.reserve0 ≤ after.balance0 ∧
+      after.reserve1 ≤ after.balance1
 
 def pair_closed_world_reachable_reserves_fit_uint112
     (w : PairWorldState) : Prop :=
@@ -539,6 +718,41 @@ def pair_closed_world_nonzero_supply_locks_minimum_liquidity
       w.lockedLiquidity = minimumLiquidityNat ∧
       minimumLiquidityNat ≤ w.totalSupply
 
+def pair_closed_world_zero_supply_has_no_locked_liquidity
+    (w : PairWorldState) : Prop :=
+  PairWorldReachable w →
+    w.totalSupply = 0 →
+      w.lockedLiquidity = 0
+
+def pair_closed_world_locked_liquidity_never_exceeds_supply
+    (w : PairWorldState) : Prop :=
+  PairWorldReachable w →
+    w.lockedLiquidity ≤ w.totalSupply
+
+def pair_closed_world_supply_changes_only_on_mint_or_burn
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldStep action before after →
+    after.totalSupply ≠ before.totalSupply →
+      (∃ amount0 amount1 liquidity,
+        action = PairWorldAction.mint amount0 amount1 liquidity) ∨
+      (∃ amount0 amount1 liquidity,
+        action = PairWorldAction.burn amount0 amount1 liquidity)
+
+def pair_closed_world_donate_preserves_reserves_and_supply
+    (amount0 amount1 : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.donate amount0 amount1) before after →
+    after.reserve0 = before.reserve0 ∧
+    after.reserve1 = before.reserve1 ∧
+    after.totalSupply = before.totalSupply ∧
+    after.lockedLiquidity = before.lockedLiquidity
+
+def pair_closed_world_donate_preserves_k
+    (amount0 amount1 : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.donate amount0 amount1) before after →
+    PairWorldK after = PairWorldK before
+
 def pair_closed_world_mint_updates_reserves_to_balances
     (amount0 amount1 liquidity : Nat)
     (before after : PairWorldState) : Prop :=
@@ -546,12 +760,41 @@ def pair_closed_world_mint_updates_reserves_to_balances
     after.reserve0 = after.balance0 ∧
     after.reserve1 = after.balance1
 
+def pair_closed_world_mint_preserves_good
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+      PairWorldGood after
+
+def pair_closed_world_mint_liquidity_ratio
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+    before.totalSupply = 0 ∨
+      liquidity * before.reserve0 ≤ amount0 * before.totalSupply ∧
+      liquidity * before.reserve1 ≤ amount1 * before.totalSupply
+
 def pair_closed_world_burn_updates_reserves_to_balances
     (amount0 amount1 liquidity : Nat)
     (before after : PairWorldState) : Prop :=
   PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
     after.reserve0 = after.balance0 ∧
     after.reserve1 = after.balance1
+
+def pair_closed_world_burn_preserves_good
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+      PairWorldGood after
+
+def pair_closed_world_burn_liquidity_ratio
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+    amount0 * before.totalSupply ≤ liquidity * before.balance0 ∧
+    amount1 * before.totalSupply ≤ liquidity * before.balance1
 
 def pair_closed_world_swap_updates_reserves_to_balances
     (amount0In amount1In amount0Out amount1Out : Nat)
@@ -572,6 +815,65 @@ def pair_closed_world_swap_respects_fee_adjusted_k
         feeAdjustedBalance after.balance1 amount1In ≥
       requiredK before.reserve0 before.reserve1
 
+def pair_closed_world_swap_preserves_good
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+      PairWorldGood after
+
+def pair_closed_world_swap_never_decreases_k
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    PairWorldK before ≤ PairWorldK after
+
+def pair_closed_world_swap_preserves_liquidity_supply
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    after.totalSupply = before.totalSupply ∧
+    after.lockedLiquidity = before.lockedLiquidity
+
+def pair_closed_world_same_supply_path_no_spot_profit
+    (before after : PairWorldState) : Prop :=
+  PairWorldPath before after →
+    PairWorldGood before →
+      before.totalSupply = after.totalSupply →
+        0 < before.reserve0 →
+          0 < before.reserve1 →
+            PairWorldK before ≤ PairWorldK after →
+              PairWorldNoSpotProfit before after
+
+def pair_closed_world_non_burn_step_never_decreases_k
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep action before after →
+      (∀ amount0 amount1 liquidity,
+        action ≠ PairWorldAction.burn amount0 amount1 liquidity) →
+        PairWorldK before ≤ PairWorldK after
+
+def pair_closed_world_no_burn_path_never_decreases_k
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldPathNoBurn before after →
+      PairWorldK before ≤ PairWorldK after
+
+def pair_closed_world_no_burn_same_supply_path_no_spot_profit
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldPathNoBurn before after →
+      before.totalSupply = after.totalSupply →
+        0 < before.reserve0 →
+          0 < before.reserve1 →
+            PairWorldNoSpotProfit before after
+
 def pair_closed_world_skim_removes_surplus
     (before after : PairWorldState) : Prop :=
   PairWorldStep PairWorldAction.skim before after →
@@ -580,6 +882,23 @@ def pair_closed_world_skim_removes_surplus
     after.reserve0 = before.reserve0 ∧
     after.reserve1 = before.reserve1
 
+def pair_closed_world_skim_preserves_good
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep PairWorldAction.skim before after →
+      PairWorldGood after
+
+def pair_closed_world_skim_preserves_liquidity_supply
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep PairWorldAction.skim before after →
+    after.totalSupply = before.totalSupply ∧
+    after.lockedLiquidity = before.lockedLiquidity
+
+def pair_closed_world_skim_preserves_k
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep PairWorldAction.skim before after →
+    PairWorldK after = PairWorldK before
+
 def pair_closed_world_sync_sets_reserves_to_balances
     (before after : PairWorldState) : Prop :=
   PairWorldStep PairWorldAction.sync before after →
@@ -587,5 +906,23 @@ def pair_closed_world_sync_sets_reserves_to_balances
     after.reserve1 = before.balance1 ∧
     after.balance0 = before.balance0 ∧
     after.balance1 = before.balance1
+
+def pair_closed_world_sync_preserves_good
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep PairWorldAction.sync before after →
+      PairWorldGood after
+
+def pair_closed_world_sync_preserves_liquidity_supply
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep PairWorldAction.sync before after →
+    after.totalSupply = before.totalSupply ∧
+    after.lockedLiquidity = before.lockedLiquidity
+
+def pair_closed_world_sync_never_decreases_k
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep PairWorldAction.sync before after →
+      PairWorldK before ≤ PairWorldK after
 
 end TamaUniV2.Spec.UniswapV2PairSpec
