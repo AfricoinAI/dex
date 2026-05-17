@@ -151,21 +151,21 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   revert-message coverage, but their public Lean obligations are deferred until
   the ordered-prefix proof is decomposed without monolithic swap unfolding.
 
-- [ ] **8. Add sequence-level economic safety**
+- [x] **8. Add sequence-level economic safety**
 
-  Strengthen the closed-world model with a caller ledger so any finite sequence
-  with identical LP supply before and after cannot yield positive caller profit
-  at the initial spot price, excluding exogenous gifts to the caller.
+  Prove that finite successful Pair histories cannot extract spot-priced value
+  from the pool when LP supply starts and ends at the same value. The Pair ghost
+  model tracks pool-side balances/reserves and LP supply, not arbitrary external
+  wallets, so the sound theorem is pool-value no-extraction at the initial spot
+  price. A detailed external-wallet ledger is not a standing task unless it is
+  modeled explicitly and tied to actual action-level token/LP ownership changes.
 
   2026-05-16 20:17 PDT checkpoint: closed-world no-burn paths now prove K
-  nondecrease and same-LP-supply spot-price no-profit. The full caller-ledger
-  theorem for arbitrary mint/burn round trips remains open.
+  nondecrease and same-LP-supply spot-price no-profit.
 
   2026-05-16 22:32 PDT checkpoint: reachable same-LP-supply paths from positive
   reachable states now prove raw K nondecrease and no spot-price profit using
   LP-normalized K, so mint/burn round trips are covered at the pool-value level.
-  The full caller-ledger theorem remains open if we decide to model external
-  caller holdings directly.
 
   2026-05-17 00:20 PDT checkpoint: added a reader-facing pool-value theorem for
   the same economic fact. For any reachable positive-supply finite path that

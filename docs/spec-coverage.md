@@ -161,10 +161,12 @@ properties, not API-surface properties.
   gate. Insufficient-liquidity and invalid-recipient runtime checks are exact in
   Foundry, but still need proof-local ordered-prefix Lean proofs before they
   should be reintroduced as public obligations.
-- Sequence-level economics: strengthen the conditional mint/burn/swap bridge
-  obligations into direct executable success/accounting proofs where Lean can
-  reduce the public entrypoint without kernel-recursion issues. Keep any
-  decomposition proof-local; do not add contract helpers.
+- Sequence-level economics: the closed-world no-extraction theorem is now the
+  active caller-facing story. Same-LP-supply reachable histories cannot reduce
+  pool value at the initial spot price, and LP-normalized K explains why
+  mint/burn round trips are covered. Do not add a dummy caller ledger; only add
+  an external-wallet model if it tracks real action-level token and LP ownership
+  changes.
 - Factory invariants: the closed-world reachable and path invariants are now in
   place, failed-create atomicity is proved, and successful create is bridged
   into the factory-world transition for both the empty base case and arbitrary
