@@ -3319,6 +3319,18 @@ theorem closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
     before after h_reachable h_positive
     (pairWorldPath_of_noMintBurn h_path) h_supply.symm h_reserve0 h_reserve1
 
+-- tama: discharges=pair_closed_world_reachable_positive_supply_no_mint_burn_path_no_spot_value_extraction
+theorem closed_world_reachable_positive_supply_no_mint_burn_path_no_spot_value_extraction
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_positive_supply_no_mint_burn_path_no_spot_value_extraction
+    before after := by
+  intro h_reachable h_positive h_path
+  have h_supply :=
+    (pairWorldNoMintBurnPath_preserves_supply h_path).1
+  exact closed_world_reachable_positive_supply_same_supply_path_no_spot_value_extraction
+    before after h_reachable h_positive
+    (pairWorldPath_of_noMintBurn h_path) h_supply.symm
+
 -- tama: discharges=pair_closed_world_non_burn_step_never_decreases_k
 theorem closed_world_non_burn_step_never_decreases_k
     (action : PairWorldAction) (before after : PairWorldState) :

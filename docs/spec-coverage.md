@@ -116,10 +116,11 @@ Pair:
   The strongest same-supply no-extraction theorem now needs only reachable
   positive supply; the positive-reserve invariant supplies the spot-price
   premises. A no-liquidity corollary states the most common operational case
-  directly: reachable histories with no mint and no burn preserve LP supply and
-  therefore cannot extract spot value at the initial price. This allows
-  mint/burn round trips rather than relying only on the older no-burn path
-  theorem.
+  directly with the same strength: reachable positive-supply histories with no
+  mint and no burn preserve LP supply and therefore cannot extract spot value
+  at the initial price, without separate reserve-positive hypotheses. This
+  allows mint/burn round trips rather than relying only on the older no-burn
+  path theorem.
 
 Factory:
 

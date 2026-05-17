@@ -1654,6 +1654,18 @@ def pair_closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
             PairWorldSpotValueNum before before ≤
               PairWorldSpotValueNum before after
 
+/-- Common-case no-extraction without extra spot-price premises. A reachable
+nonempty pool already has positive reserves, and a history with no mint and no
+burn preserves LP supply. Therefore share transfers, donations, swaps, skim,
+and sync cannot extract spot value from the pool at the initial price. -/
+def pair_closed_world_reachable_positive_supply_no_mint_burn_path_no_spot_value_extraction
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPathNoMintBurn before after →
+        PairWorldSpotValueNum before before ≤
+          PairWorldSpotValueNum before after
+
 def pair_closed_world_non_burn_step_never_decreases_k
     (action : PairWorldAction) (before after : PairWorldState) : Prop :=
   PairWorldGood before →

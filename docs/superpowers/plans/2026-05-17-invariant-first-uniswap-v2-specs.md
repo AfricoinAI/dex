@@ -218,6 +218,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   economic story read as: nonempty reachable pool, same ending LP supply, no
   spot-value extraction.
 
+  2026-05-17 02:10 PDT checkpoint: strengthened the no-mint/no-burn
+  no-extraction corollary the same way. The common operational history now
+  reads directly as: reachable nonempty pool, no mint, no burn, no spot-value
+  extraction.
+
 - [x] **9. Add factory-world invariants**
 
   Model pair creation as a finite factory trace and prove sorted-token
