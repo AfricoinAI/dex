@@ -4483,6 +4483,27 @@ theorem closed_world_skim_removes_exact_surplus_value
       (spot := before) (pool := before) h_good
   rw [h_before_decomp, h_after_value]
 
+-- tama: discharges=pair_closed_world_skim_preserves_balanced_pool
+theorem closed_world_skim_preserves_balanced_pool
+    (before after : PairWorldState) :
+  pair_closed_world_skim_preserves_balanced_pool before after := by
+  intro h_good h_step h_surplus0 h_surplus1
+  rcases h_good with ⟨h_back0, h_back1, _h_bound0, _h_bound1, _h_supply_good⟩
+  have h_balance0_before : before.balance0 = before.reserve0 := by
+    unfold PairWorldSurplus0 at h_surplus0
+    omega
+  have h_balance1_before : before.balance1 = before.reserve1 := by
+    unfold PairWorldSurplus1 at h_surplus1
+    omega
+  simp [PairWorldStep, PairWorldSkimStep] at h_step
+  rcases h_step with ⟨h_balance0, h_balance1, h_reserve0, h_reserve1,
+    h_supply, h_locked⟩
+  constructor
+  · rw [h_balance0, h_balance0_before]
+  constructor
+  · rw [h_balance1, h_balance1_before]
+  exact ⟨h_reserve0, h_reserve1, h_supply, h_locked⟩
+
 -- tama: discharges=pair_closed_world_skim_preserves_liquidity_supply
 theorem closed_world_skim_preserves_liquidity_supply
     (before after : PairWorldState) :

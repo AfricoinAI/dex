@@ -205,6 +205,10 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   theorem. At the initial spot price, skim removes exactly pre-existing surplus
   token-balance value and leaves accounted reserve value untouched.
 
+  2026-05-17 08:47 PDT checkpoint: adding the balanced-skim no-op theorem.
+  From a good zero-surplus state, skim must preserve token balances, cached
+  reserves, LP supply, and locked liquidity exactly.
+
   2026-05-16 22:43 PDT checkpoint: the closed-world burn step was tightened to
   match executable burn success by requiring positive redeemed amounts, positive
   burned liquidity, and positive pre-burn supply. A new token-side lock theorem

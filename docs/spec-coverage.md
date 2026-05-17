@@ -83,10 +83,12 @@ Pair:
   for both reserve-management entrypoints: `skim` and `sync` end with no
   modeled surplus above cached reserves. Skim also has an exact value theorem:
   at the initial spot price it removes precisely the pre-existing surplus
-  token-balance value, not accounted reserve value. The sync/K refinement also
-  states that sync preserves cached K exactly when the start state has no
-  surplus, and the converse reader-facing theorem states that any sync-driven K
-  increase requires pre-existing excess token balances.
+  token-balance value, not accounted reserve value. The balanced-pool theorem
+  states the clean no-surplus case directly: `skim` is a no-op on token
+  balances, cached reserves, LP supply, and locked liquidity. The sync/K
+  refinement also states that sync preserves cached K exactly when the start
+  state has no surplus, and the converse reader-facing theorem states that any
+  sync-driven K increase requires pre-existing excess token balances.
 - TWAP/oracle arithmetic obligations for reserve updates are now stated in the
   generic contract-level form first: same-timestamp updates leave cumulative
   prices unchanged, elapsed updates with nonzero old reserves add the canonical

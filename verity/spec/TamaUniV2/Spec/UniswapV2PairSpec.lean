@@ -2487,6 +2487,22 @@ def pair_closed_world_skim_removes_exact_surplus_value
         PairWorldBalanceSpotValueNum before after +
         PairWorldSurplusSpotValueNum before before
 
+/-- If the pool is already balanced, `skim` is a no-op on token balances as
+well as cached accounting. This is the direct statement that skim cannot remove
+accounted liquidity from a reserve-backed pool with no external surplus. -/
+def pair_closed_world_skim_preserves_balanced_pool
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep PairWorldAction.skim before after →
+      PairWorldSurplus0 before = 0 →
+        PairWorldSurplus1 before = 0 →
+          after.balance0 = before.balance0 ∧
+          after.balance1 = before.balance1 ∧
+          after.reserve0 = before.reserve0 ∧
+          after.reserve1 = before.reserve1 ∧
+          after.totalSupply = before.totalSupply ∧
+          after.lockedLiquidity = before.lockedLiquidity
+
 def pair_closed_world_skim_preserves_good
     (before after : PairWorldState) : Prop :=
   PairWorldGood before →
