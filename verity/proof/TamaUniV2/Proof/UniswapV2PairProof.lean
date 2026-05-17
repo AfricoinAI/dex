@@ -1432,6 +1432,35 @@ theorem closed_world_reachable_supply_good
   intro h_reachable
   exact (pairWorldReachable_good w h_reachable).2.2.2.2
 
+-- tama: discharges=pair_closed_world_path_supply_good
+theorem closed_world_path_supply_good
+    (before after : PairWorldState) :
+  pair_closed_world_path_supply_good before after := by
+  intro h_good h_path
+  exact (pairWorldPath_preserves_good h_good h_path).2.2.2.2
+
+-- tama: discharges=pair_closed_world_path_reserves_fit_uint112
+theorem closed_world_path_reserves_fit_uint112
+    (before after : PairWorldState) :
+  pair_closed_world_path_reserves_fit_uint112 before after := by
+  intro h_good h_path
+  rcases pairWorldPath_preserves_good h_good h_path with
+    ⟨_h_back0, _h_back1, h_bound0, h_bound1, _h_supply⟩
+  exact ⟨h_bound0, h_bound1⟩
+
+-- tama: discharges=pair_closed_world_path_locked_liquidity_never_exceeds_supply
+theorem closed_world_path_locked_liquidity_never_exceeds_supply
+    (before after : PairWorldState) :
+  pair_closed_world_path_locked_liquidity_never_exceeds_supply before after := by
+  intro h_good h_path
+  have h_supply := (pairWorldPath_preserves_good h_good h_path).2.2.2.2
+  rcases h_supply with h_empty | h_nonempty
+  · rcases h_empty with ⟨h_supply_zero, h_locked_zero⟩
+    rw [h_supply_zero, h_locked_zero]
+  · rcases h_nonempty with ⟨_h_positive, h_locked, h_min⟩
+    rw [h_locked]
+    exact h_min
+
 -- tama: discharges=pair_concrete_state_reserves_backed
 theorem concrete_state_reserves_backed (s : ContractState) :
   pair_concrete_state_reserves_backed s := by
@@ -1557,6 +1586,87 @@ theorem closed_world_supply_changes_only_on_mint_or_burn
       rcases h_step with ⟨_h_bound0, _h_bound1, _h_balance0, _h_balance1,
         _h_reserve0, _h_reserve1, h_supply, _h_locked⟩
       exact False.elim (h_change h_supply)
+
+-- tama: discharges=pair_closed_world_approve_preserves_pool
+theorem closed_world_approve_preserves_pool
+    (ownerAddr spender : Address) (amount : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_approve_preserves_pool ownerAddr spender amount before after := by
+  intro h_step
+  simpa [PairWorldStep] using h_step
+
+-- tama: discharges=pair_closed_world_transfer_preserves_pool
+theorem closed_world_transfer_preserves_pool
+    (fromAddr toAddr : Address) (amount : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_transfer_preserves_pool fromAddr toAddr amount before after := by
+  intro h_step
+  simpa [PairWorldStep] using h_step
+
+-- tama: discharges=pair_closed_world_transferFrom_preserves_pool
+theorem closed_world_transferFrom_preserves_pool
+    (spender fromAddr toAddr : Address) (amount : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_transferFrom_preserves_pool
+    spender fromAddr toAddr amount before after := by
+  intro h_step
+  simpa [PairWorldStep] using h_step
+
+-- tama: discharges=pair_closed_world_first_mint_locks_minimum_liquidity
+theorem closed_world_first_mint_locks_minimum_liquidity
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_first_mint_locks_minimum_liquidity
+    amount0 amount1 liquidity before after := by
+  intro h_step h_first
+  simp [PairWorldStep, PairWorldMintStep] at h_step
+  rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, _h_before_balance0,
+    _h_before_balance1, _h_after_balance0, _h_after_balance1, _h_after_reserve0,
+    _h_after_reserve1, _h_bound0, _h_bound1, h_supply, h_locked, _h_ratio⟩
+  simp [h_first] at h_supply h_locked
+  exact ⟨h_locked, h_supply⟩
+
+-- tama: discharges=pair_closed_world_subsequent_mint_preserves_locked_liquidity
+theorem closed_world_subsequent_mint_preserves_locked_liquidity
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_subsequent_mint_preserves_locked_liquidity
+    amount0 amount1 liquidity before after := by
+  intro h_step h_subsequent
+  have h_totalSupply_ne : ¬ before.totalSupply = 0 := h_subsequent
+  simp [PairWorldStep, PairWorldMintStep] at h_step
+  rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, _h_before_balance0,
+    _h_before_balance1, _h_after_balance0, _h_after_balance1, _h_after_reserve0,
+    _h_after_reserve1, _h_bound0, _h_bound1, h_supply, h_locked, _h_ratio⟩
+  simp [h_totalSupply_ne] at h_supply h_locked
+  exact ⟨h_locked, h_supply⟩
+
+-- tama: discharges=pair_closed_world_burn_reduces_supply_by_liquidity
+theorem closed_world_burn_reduces_supply_by_liquidity
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_burn_reduces_supply_by_liquidity
+    amount0 amount1 liquidity before after := by
+  intro h_step
+  simp [PairWorldStep, PairWorldBurnStep] at h_step
+  rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, _h_locked_remaining,
+    _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0, _h_bound1,
+    h_supply, _h_locked, _h_ratio0, _h_ratio1⟩
+  exact h_supply
+
+-- tama: discharges=pair_closed_world_burn_cannot_redeem_locked_liquidity
+theorem closed_world_burn_cannot_redeem_locked_liquidity
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_burn_cannot_redeem_locked_liquidity
+    amount0 amount1 liquidity before after := by
+  intro h_step
+  simp [PairWorldStep, PairWorldBurnStep] at h_step
+  rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, h_locked_remaining,
+    _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0, _h_bound1,
+    h_supply, h_locked, _h_ratio0, _h_ratio1⟩
+  rw [h_supply]
+  exact ⟨h_locked_remaining, h_locked⟩
 
 -- tama: discharges=pair_closed_world_donate_preserves_reserves_and_supply
 theorem closed_world_donate_preserves_reserves_and_supply
@@ -1696,6 +1806,32 @@ theorem closed_world_swap_never_decreases_k
     _h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0,
     _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, _h_adjusted_k, h_raw_k⟩
   exact h_raw_k
+
+-- tama: discharges=pair_closed_world_swap_has_input_and_output
+theorem closed_world_swap_has_input_and_output
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_swap_has_input_and_output
+    amount0In amount1In amount0Out amount1Out before after := by
+  intro h_step
+  simp [PairWorldStep, PairWorldSwapStep] at h_step
+  rcases h_step with ⟨h_output, _h_liq0, _h_liq1, _h_enough0, _h_enough1,
+    h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0,
+    _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, _h_adjusted_k, _h_raw_k⟩
+  exact ⟨h_output, h_input⟩
+
+-- tama: discharges=pair_closed_world_swap_outputs_below_reserves
+theorem closed_world_swap_outputs_below_reserves
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_swap_outputs_below_reserves
+    amount0In amount1In amount0Out amount1Out before after := by
+  intro h_step
+  simp [PairWorldStep, PairWorldSwapStep] at h_step
+  rcases h_step with ⟨_h_output, h_liq0, h_liq1, _h_enough0, _h_enough1,
+    _h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0,
+    _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, _h_adjusted_k, _h_raw_k⟩
+  exact ⟨h_liq0, h_liq1⟩
 
 -- tama: discharges=pair_closed_world_swap_preserves_liquidity_supply
 theorem closed_world_swap_preserves_liquidity_supply

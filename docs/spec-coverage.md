@@ -50,11 +50,17 @@ Pair:
 - First-mint closed-world bridge predicates for the expected state.
 - Closed-world `PairWorldGood` preservation for one step and all finite
   reachable traces, plus finite-path preservation from any good state, reserve
-  backing, uint112 reserve bounds,
-  minimum-liquidity lock, reserve-update projections for mint/burn/swap/skim/sync,
-  raw swap-K nondecrease, fee-adjusted K projection for swaps, donation
-  reserve/K framing, LP-supply preservation for swap/skim/sync, and the
-  action classifier that only mint/burn can change LP total supply.
+  backing, uint112 reserve bounds, path-wide LP-supply coherence, path-wide
+  locked-liquidity coverage, minimum-liquidity lock, share-only action framing,
+  reserve-update projections for mint/burn/swap/skim/sync, raw swap-K
+  nondecrease, fee-adjusted K projection for swaps, positive-input/output and
+  output-below-reserve swap facts, donation reserve/K framing, LP-supply
+  preservation for swap/skim/sync, and the action classifier that only mint/burn
+  can change LP total supply.
+- Mint/burn closed-world supply discipline now explicitly states first-mint
+  `MINIMUM_LIQUIDITY` locking, subsequent-mint locked-liquidity preservation,
+  exact burn supply reduction, and the fact that burns cannot redeem the locked
+  liquidity floor.
 - Same-LP-supply spot-value no-profit projection from reserve-product
   nondecrease, plus a stronger closed-world no-burn path theorem: any same-LP
   supply path with no burn cannot reduce K or create spot-price value. This is
