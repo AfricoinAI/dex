@@ -653,6 +653,28 @@ theorem closed_world_lookup_symmetric
   · exact Or.inr h_forward
   · exact Or.inl h_reverse
 
+-- tama: discharges=factory_closed_world_reachable_lookup_is_valid
+theorem closed_world_reachable_lookup_is_valid
+    (w : FactoryWorldState) (tokenA tokenB pair : Address) :
+  factory_closed_world_reachable_lookup_is_valid w tokenA tokenB pair := by
+  intro h_reachable h_contains
+  rcases h_contains with ⟨entry, h_entry, h_tokens, h_pair⟩
+  rcases factoryWorldReachable_good w h_reachable with
+    ⟨h_entries_good, _h_no_duplicates, _h_count⟩
+  rcases h_entries_good entry h_entry with
+    ⟨h_distinct, h_token0_nonzero, h_token1_nonzero, _h_sorted, h_pair_nonzero⟩
+  subst pair
+  rcases h_tokens with h_forward | h_reverse
+  · rcases h_forward with ⟨h_token0, h_token1⟩
+    subst tokenA
+    subst tokenB
+    exact ⟨h_pair_nonzero, h_distinct, h_token0_nonzero, h_token1_nonzero⟩
+  · rcases h_reverse with ⟨h_token0, h_token1⟩
+    subst tokenA
+    subst tokenB
+    exact ⟨h_pair_nonzero, (fun h => h_distinct h.symm),
+      h_token1_nonzero, h_token0_nonzero⟩
+
 -- tama: discharges=factory_closed_world_unordered_pair_address_unique
 theorem closed_world_unordered_pair_address_unique
     (w : FactoryWorldState) (tokenA tokenB pairA pairB : Address) :

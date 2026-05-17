@@ -314,6 +314,25 @@ def factory_closed_world_lookup_symmetric
     FactoryWorldContainsPair w tokenA tokenB pair →
       FactoryWorldContainsPair w tokenB tokenA pair
 
+/--
+Reachable lookups never point at junk. If a factory history says an unordered
+token pair has a pair address, then the address is nonzero and the token pair is
+a valid Uniswap pair key: two distinct nonzero token addresses.
+
+This is the small invariant that sits between the lower-level sorted-entry
+facts and the way routers actually use the factory. A router does not care
+which order the tokens were supplied in; it cares that any discovered pair is a
+real pair for a real two-token market.
+-/
+def factory_closed_world_reachable_lookup_is_valid
+    (w : FactoryWorldState) (tokenA tokenB pair : Address) : Prop :=
+  FactoryWorldReachable w →
+    FactoryWorldContainsPair w tokenA tokenB pair →
+      pair ≠ zeroAddress ∧
+      tokenA ≠ tokenB ∧
+      tokenA ≠ zeroAddress ∧
+      tokenB ≠ zeroAddress
+
 /-- The user-facing uniqueness theorem for factory lookup. In any reachable
 factory history, an unordered token pair can name at most one pair address. This
 is the closed-world version of the property routers rely on when they use

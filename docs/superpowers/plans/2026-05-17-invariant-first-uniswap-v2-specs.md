@@ -277,6 +277,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   pair lookup, every later finite successful create history preserves that same
   lookup.
 
+  2026-05-17 02:22 PDT checkpoint: adding a reader-facing reachable lookup
+  validity theorem. Any unordered lookup in a reachable factory state must
+  point to a nonzero pair for two distinct nonzero tokens, making the
+  router-facing consequence of the sorted-entry invariant explicit.
+
 - [ ] **10. Verify and commit in coherent slices**
 
   After each slice run focused `lake build`. Before claiming completion run
