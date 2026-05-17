@@ -316,6 +316,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   trust surface: when `unlocked != 1`, `mint`, `burn`, `swap`, `skim`, and
   `sync` all return the exact `LOCKED` revert before side effects.
 
+  2026-05-17 12:55 PDT checkpoint: added the two-transfer token trace replay
+  fact. Replaying the two underlying ERC20 transfer events used by burn and
+  two-sided swap accounting moves exactly the two token amounts from the pair
+  account to the recipient, assuming distinct tokens and a recipient different
+  from the pair.
+
 - [ ] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when
@@ -571,6 +577,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   finite-history concrete reconstruction slice: `tama check`, whole `lake build
   TamaUniV2.Proof`, `tama build`, `tama test` (26/26), and `tama audit` (0
   issues). The Foundry signature-cache warning remains sandbox-only.
+
+  2026-05-17 12:59 PDT checkpoint: full verification passes for the
+  two-transfer token trace replay slice: focused Pair proof, whole `lake build
+  TamaUniV2.Proof`, `tama check`, `tama build`, `tama test` (26/26), `tama
+  audit` (0 issues), and `git diff --check`. Known warnings remain
+  unused-variable lints plus sandbox cache/signature write warnings.
 
 ## Non-Goals
 

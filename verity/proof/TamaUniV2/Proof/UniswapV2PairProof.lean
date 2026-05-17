@@ -223,6 +223,25 @@ theorem safeTransfer_event_replay_moves_token_balance
     pairTokenWorldAfterEvent, TamaUniV2.pairTokenSafeTransferEvent,
     pairTokenWorldAfterTransfer, addressOfNat_toNat_mod_uint256]
 
+-- tama: discharges=pair_two_safeTransfer_events_replay_move_distinct_token_balances
+theorem two_safeTransfer_events_replay_move_distinct_token_balances
+    (token0Value token1Value fromAddr toAddr : Address)
+    (amount0 amount1 : Uint256) (pre : PairTokenBalances) :
+  pair_two_safeTransfer_events_replay_move_distinct_token_balances
+    token0Value token1Value fromAddr toAddr amount0 amount1 pre := by
+  intro h_tokens h_accounts
+  have h_tokens_symm : token1Value ≠ token0Value := by
+    intro h_eq
+    exact h_tokens h_eq.symm
+  have h_accounts_symm : toAddr ≠ fromAddr := by
+    intro h_eq
+    exact h_accounts h_eq.symm
+  simp [pair_two_safeTransfer_events_replay_move_distinct_token_balances,
+    pairTokenWorldAfterEvents, pairTokenWorldAfterEvent,
+    TamaUniV2.pairTokenSafeTransferEvent, pairTokenWorldAfterTransfer,
+    addressOfNat_toNat_mod_uint256, h_tokens, h_tokens_symm, h_accounts,
+    h_accounts_symm]
+
 private theorem pair_revert_keeps_token_balances {α : Type}
     (pre post : PairTokenBalances) (s : ContractState) (result : ContractResult α) :
   post = pairTokenWorldAfterCall pre s result →

@@ -230,6 +230,35 @@ def pair_safeTransfer_event_replay_moves_token_balance
       (TamaUniV2.pairTokenSafeTransferEvent token fromAddr toAddr amount) =
     pairTokenWorldAfterTransfer pre token fromAddr toAddr amount
 
+/--
+Burn and two-sided swaps use two pair-local ERC20 transfers. When the two
+tokens are distinct and the transfer is not to the pair itself, replaying those
+two trace events decreases the pair-side balance for each token by exactly its
+amount and increases the recipient-side balance by exactly that amount. This is
+a reusable fact for later burn and swap specs that need to account for both
+underlying token transfers.
+-/
+def pair_two_safeTransfer_events_replay_move_distinct_token_balances
+    (token0Value token1Value fromAddr toAddr : Address)
+    (amount0 amount1 : Uint256) (pre : PairTokenBalances) : Prop :=
+  token0Value ≠ token1Value →
+    fromAddr ≠ toAddr →
+      let post :=
+        pairTokenWorldAfterEvents pre [
+          TamaUniV2.pairTokenSafeTransferEvent
+            token0Value fromAddr toAddr amount0,
+          TamaUniV2.pairTokenSafeTransferEvent
+            token1Value fromAddr toAddr amount1
+        ]
+      post token0Value fromAddr =
+        Verity.EVM.Uint256.sub (pre token0Value fromAddr) amount0 ∧
+      post token0Value toAddr =
+        pre token0Value toAddr + amount0 ∧
+      post token1Value fromAddr =
+        Verity.EVM.Uint256.sub (pre token1Value fromAddr) amount1 ∧
+      post token1Value toAddr =
+        pre token1Value toAddr + amount1
+
 /-!
 ## Revert Frames
 
