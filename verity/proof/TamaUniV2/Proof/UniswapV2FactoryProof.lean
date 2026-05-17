@@ -1405,6 +1405,41 @@ theorem concrete_create_path_preserves_existing_allPairs_entry
   exact concrete_world_allPairs_matches_storage
     sAfter wAfter index entry h_final.2 h_get_after
 
+-- tama: discharges=factory_concrete_same_length_create_path_preserves_world
+theorem concrete_same_length_create_path_preserves_world
+    (sBefore sAfter : ContractState)
+    (wBefore wAfter : FactoryWorldState) :
+  factory_concrete_same_length_create_path_preserves_world
+    sBefore sAfter wBefore wAfter := by
+  intro h_good h_match h_path h_same_length
+  have h_final :=
+    factoryConcreteCreatePath_preserves_match
+      h_good h_match h_path
+  have h_world_path :=
+    factoryConcreteCreatePath_refines_world_path h_path
+  have h_same_count :
+      wBefore.pairCount = wAfter.pairCount := by
+    rw [h_match.1, h_final.2.1]
+    exact h_same_length
+  rcases factoryWorldPath_append_only h_world_path with
+    ⟨suffix, h_pairs, h_count⟩
+  have h_suffix_length_zero : suffix.length = 0 := by
+    rw [h_count] at h_same_count
+    omega
+  have h_suffix_nil : suffix = [] :=
+    List.length_eq_zero_iff.mp h_suffix_length_zero
+  have h_same_pairs : wAfter.pairs = wBefore.pairs := by
+    rw [h_pairs, h_suffix_nil]
+    simp
+  cases wBefore with
+  | mk pairsBefore countBefore =>
+      cases wAfter with
+      | mk pairsAfter countAfter =>
+          dsimp at h_same_pairs h_same_count
+          subst pairsAfter
+          subst countAfter
+          rfl
+
 -- tama: discharges=factory_closed_world_step_preserves_good
 theorem closed_world_step_preserves_good
     (action : FactoryWorldAction)

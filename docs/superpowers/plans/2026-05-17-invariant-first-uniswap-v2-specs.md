@@ -213,34 +213,34 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   From a good zero-surplus state, sync must preserve token balances, cached
   reserves, LP supply, and locked liquidity exactly.
 
-  2026-05-17 09:05 PDT checkpoint: adding the reserve-management fixed-point
+  2026-05-17 09:05 PDT checkpoint: adding the `skim`/`sync` no-change
   theorem. The action family `{skim, sync}` preserves a good balanced pool's
   token balances, cached reserves, LP supply, and locked liquidity exactly.
 
-  2026-05-17 09:12 PDT checkpoint: adding the finite-history
-  reserve-management fixed-point theorem. Any path made only of `skim` and
-  `sync` preserves a good balanced pool's token balances, cached reserves, LP
-  supply, and locked liquidity exactly.
+  2026-05-17 09:12 PDT checkpoint: adding the finite-history `skim`/`sync`
+  no-change theorem. Any path made only of `skim` and `sync` preserves a good
+  balanced pool's token balances, cached reserves, LP supply, and locked
+  liquidity exactly.
 
-  2026-05-17 09:20 PDT checkpoint: adding the balanced passive-maintenance
-  path theorem. Any path made only of LP share bookkeeping plus `skim` and
-  `sync` preserves a good balanced pool's token balances, cached reserves, LP
-  supply, and locked liquidity exactly.
+  2026-05-17 09:20 PDT checkpoint: adding the balanced LP-bookkeeping plus
+  `skim`/`sync` path theorem. Any path made only of LP share bookkeeping plus
+  `skim` and `sync` preserves a good balanced pool's token balances, cached
+  reserves, LP supply, and locked liquidity exactly.
 
   2026-05-17 10:04 PDT checkpoint: added the economic reading of the balanced
-  passive-maintenance path theorem. The public spec now states directly that
-  any such history from a clean balanced pool preserves actual token-balance
-  value at the initial spot price.
+  LP-bookkeeping plus `skim`/`sync` path theorem. The public spec now states
+  directly that any such history from a clean balanced pool preserves actual
+  token-balance value at the initial spot price.
 
   2026-05-17 10:09 PDT checkpoint: added the sibling clean-state theorem.
-  Passive-maintenance histories from a good zero-surplus pool preserve zero
-  surplus, making the no-extraction value corollary read as a consequence of a
-  directly stated invariant.
+  Histories made only of LP bookkeeping plus `skim`/`sync` from a good
+  zero-surplus pool preserve zero surplus, making the no-extraction value
+  corollary read as a consequence of a directly stated invariant.
 
   2026-05-17 10:11 PDT checkpoint: adding the cached-K reading of the same
-  fixed point. Passive-maintenance histories from a clean balanced pool preserve
-  the reserve product exactly, so later economic arguments can cite unchanged K
-  directly.
+  no-change theorem. Histories made only of LP bookkeeping plus `skim`/`sync`
+  from a clean balanced pool preserve the reserve product exactly, so later
+  economic arguments can cite unchanged K directly.
 
   2026-05-16 22:43 PDT checkpoint: the closed-world burn step was tightened to
   match executable burn success by requiring positive redeemed amounts, positive
@@ -477,6 +477,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   `createPair` runs plus modeled append steps, and public specs now prove that
   any such finite path preserves storage/world correspondence, existing
   decoded unordered lookups, and existing indexed `allPairs` entries.
+
+  2026-05-17 10:43 PDT checkpoint: added the concrete same-length factory
+  no-hidden-change theorem. If a finite sequence of real successful
+  `createPair` calls leaves public `allPairsLength` storage unchanged, then
+  the reconstructed factory world is unchanged.
 
 - [ ] **10. Verify and commit in coherent slices**
 

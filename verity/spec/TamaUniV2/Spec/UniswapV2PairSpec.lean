@@ -42,7 +42,7 @@ The argument proceeds in layers:
 3. Prove the LP token behaves like a conservative ERC20 share ledger before
    considering AMM economics.
 4. Pin down security-relevant executable guards: the reentrancy lock, reserve
-   bounds, under-backed reserve-management failures, and early swap/factory
+   bounds, under-backed `skim` failures, and early swap/factory
    failures all have exact revert payloads and original-state frames.
 5. Bridge successful public entrypoints into small ghost transitions. These are
    intentionally not whole-function summaries; they are the doorway from
@@ -743,11 +743,12 @@ def pair_skim_run_revert_balance1_below_reserve
 /-!
 ## Skim And Sync Bridges
 
-`skim` and `sync` are the smallest reserve-management entrypoints. Skim sends
-only balances above cached reserves and leaves reserves unchanged. Sync accepts
-the observed balances as the new reserves, but only if they fit the uint112
-reserve domain. These bridge specs connect those executable calls to the
-closed-world transition model used by the invariant section.
+`skim` and `sync` are the direct calls for reconciling token balances with
+cached reserves. Skim sends only balances above cached reserves and leaves
+reserves unchanged. Sync accepts the observed balances as the new reserves, but
+only if they fit the uint112 reserve domain. These bridge specs connect those
+executable calls to the closed-world transition model used by the invariant
+section.
 -/
 
 def pair_skim_run_success_transfers_excess_and_restores_unlocked
@@ -2583,10 +2584,10 @@ def pair_closed_world_sync_preserves_balanced_pool
           after.totalSupply = before.totalSupply ∧
           after.lockedLiquidity = before.lockedLiquidity
 
-/-- Reserve-management fixed point. The only modeled actions whose job is to
-reconcile token balances without minting, burning, or swapping are `skim` and
-`sync`. From a good balanced pool, either action preserves the pool's token
-balances, cached reserves, LP supply, and permanent liquidity lock exactly. -/
+/-- If there is no excess token balance to clean up, `skim` and `sync` cannot
+change the pool. From a good state where token balances already equal cached
+reserves, either action preserves token balances, cached reserves, LP supply,
+and the permanent liquidity lock exactly. -/
 def pair_closed_world_balanced_reserve_management_preserves_pool
     (action : PairWorldAction) (before after : PairWorldState) : Prop :=
   (action = PairWorldAction.skim ∨ action = PairWorldAction.sync) →
@@ -2601,11 +2602,10 @@ def pair_closed_world_balanced_reserve_management_preserves_pool
             after.totalSupply = before.totalSupply ∧
             after.lockedLiquidity = before.lockedLiquidity
 
-/-- Finite-history reserve-management fixed point. Starting from a good pool
-with no surplus above cached reserves, any finite history made only of `skim`
-and `sync` preserves the token balances, cached reserves, LP supply, and
-permanent liquidity lock exactly. This is the trace-level version of the
-reserve-management no-op theorem above. -/
+/-- The same no-change claim holds for any finite history made only of `skim`
+and `sync`. Starting from a good pool with no excess balances above cached
+reserves, repeated cleanup calls preserve token balances, cached reserves, LP
+supply, and the permanent liquidity lock exactly. -/
 def pair_closed_world_balanced_reserve_management_path_preserves_pool
     (before after : PairWorldState) : Prop :=
   PairWorldGood before →
@@ -2619,10 +2619,10 @@ def pair_closed_world_balanced_reserve_management_path_preserves_pool
           after.totalSupply = before.totalSupply ∧
           after.lockedLiquidity = before.lockedLiquidity
 
-/-- Passive maintenance fixed point. LP share bookkeeping does not touch pool
-assets, and balanced reserve-management calls have no surplus to reconcile.
-Therefore any finite path made only of `approve`, `transfer`, `transferFrom`,
-`skim`, and `sync` preserves a good balanced pool exactly. -/
+/-- LP approvals/transfers only move LP-token claims, not pool assets. Combining
+those bookkeeping actions with `skim`/`sync` on a pool that has no excess token
+balances therefore preserves the pool exactly across any finite history made
+only of `approve`, `transfer`, `transferFrom`, `skim`, and `sync`. -/
 def pair_closed_world_balanced_maintenance_path_preserves_pool
     (before after : PairWorldState) : Prop :=
   PairWorldGood before →
@@ -2636,11 +2636,10 @@ def pair_closed_world_balanced_maintenance_path_preserves_pool
           after.totalSupply = before.totalSupply ∧
           after.lockedLiquidity = before.lockedLiquidity
 
-/-- Cached liquidity is also a passive-maintenance fixed point. The previous
-theorem says the concrete reserve fields are unchanged; this theorem names the
-economic measure built from those fields. It lets later arguments talk about
-unchanged K directly, without making readers unfold the definition of K each
-time they follow a maintenance-only history. -/
+/-- The cached reserve product is unchanged by the same histories. Since token
+balances and cached reserves are unchanged, the pool's `reserve0 * reserve1`
+value is unchanged too; this lets economic arguments cite the K consequence
+directly. -/
 def pair_closed_world_balanced_maintenance_path_preserves_k
     (before after : PairWorldState) : Prop :=
   PairWorldGood before →
@@ -2649,10 +2648,9 @@ def pair_closed_world_balanced_maintenance_path_preserves_k
         PairWorldPathMaintenance before after →
           PairWorldK after = PairWorldK before
 
-/-- Clean pools stay clean under passive maintenance. Since LP bookkeeping is
-pool-neutral and balanced `skim`/`sync` have no surplus to reconcile, a path
-made only of those actions cannot create new token balance surplus above cached
-reserves. -/
+/-- Clean pools stay clean under LP bookkeeping plus `skim`/`sync`. Those
+actions cannot create new excess token balances above cached reserves when none
+existed at the start. -/
 def pair_closed_world_balanced_maintenance_path_preserves_zero_surplus
     (before after : PairWorldState) : Prop :=
   PairWorldGood before →
@@ -2662,11 +2660,11 @@ def pair_closed_world_balanced_maintenance_path_preserves_zero_surplus
           PairWorldSurplus0 after = 0 ∧
           PairWorldSurplus1 after = 0
 
-/-- Economic reading of the passive-maintenance fixed point. If a clean,
-balanced pool only goes through LP approval/transfer bookkeeping plus
-`skim`/`sync`, the actual token balances held by the pool have exactly the same
-spot-priced value at the end as they had at the start. This is the concise
-no-extraction consequence of the stronger fixed-point theorem above. -/
+/-- Economic reading of the no-change theorem above. If a clean balanced pool
+only goes through LP approval/transfer bookkeeping plus `skim`/`sync`, the
+actual token balances held by the pool have exactly the same spot-priced value
+at the end as they had at the start. This is the concise no-extraction
+consequence of the stronger state-preservation theorem above. -/
 def pair_closed_world_balanced_maintenance_path_preserves_token_balance_value
     (before after : PairWorldState) : Prop :=
   PairWorldGood before →

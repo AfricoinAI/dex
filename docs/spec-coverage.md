@@ -80,7 +80,7 @@ Pair:
   observed balances inside uint112 bounds refine the closed-world sync
   transition when the public run succeeds.
 - Closed-world surplus reconciliation now states the direct cleanup consequence
-  for both reserve-management entrypoints: `skim` and `sync` end with no
+  for both balance-reconciliation entrypoints: `skim` and `sync` end with no
   modeled surplus above cached reserves. Skim also has an exact value theorem:
   at the initial spot price it removes precisely the pre-existing surplus
   token-balance value, not accounted reserve value. The balanced-pool theorem
@@ -88,18 +88,17 @@ Pair:
   balances, cached reserves, LP supply, and locked liquidity. The matching sync
   balanced-pool theorem states that zero-surplus sync is also a no-op on token
   balances, cached reserves, LP supply, and locked liquidity. The aggregate
-  reserve-management fixed-point theorem packages those two facts: for the
-  reserve-management action family, a good balanced pool is unchanged, and the
-  finite-history version lifts that fixed point to any path made only of
-  `skim` and `sync`. The broader passive-maintenance invariant adds LP share
+  theorem packages those two facts: any `skim`/`sync` history from a good
+  balanced pool leaves token balances, cached reserves, LP supply, and locked
+  liquidity unchanged. The broader no-change invariant adds LP share
   bookkeeping to that path family: any `approve`/`transfer`/`transferFrom` plus
-  `skim`/`sync` history from a good balanced pool is also a fixed point. The
-  same section names the cached-K consequence directly, then exposes the
-  clean-state invariant: those histories preserve zero surplus, so they cannot
-  create new excess token balances above cached reserves. Its reader-facing
-  economic corollary states the same fact in no-extraction terms:
-  passive-maintenance histories from a clean balanced pool preserve actual
-  token-balance value exactly at the initial spot price. The sync/K
+  `skim`/`sync` history from a good balanced pool is unchanged in the same
+  fields. The same section names the cached-K consequence directly, then
+  exposes the clean-state invariant: those histories preserve zero surplus, so
+  they cannot create new excess token balances above cached reserves. Its
+  reader-facing economic corollary states the same fact in no-extraction terms:
+  those histories from a clean balanced pool preserve actual token-balance
+  value exactly at the initial spot price. The sync/K
   refinement states that sync preserves cached K exactly when the start state
   has no surplus, and the converse reader-facing theorem states that any
   sync-driven K increase requires pre-existing excess token balances.
@@ -255,7 +254,10 @@ Factory:
   real `createPair` runs preserves the storage/world correspondence at the
   endpoint, preserves every pre-existing decoded unordered lookup, and
   preserves every pre-existing indexed `allPairs` entry. Such concrete create
-  histories also cannot decrease router-visible `allPairsLength` storage.
+  histories also cannot decrease router-visible `allPairsLength` storage. The
+  same concrete-history layer now has the same-length no-hidden-change theorem:
+  if public `allPairsLength` is unchanged across a successful concrete create
+  history, the reconstructed factory world itself is unchanged.
 
 ## Remaining Spec Work
 

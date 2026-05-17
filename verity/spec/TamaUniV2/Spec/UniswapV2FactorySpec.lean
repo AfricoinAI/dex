@@ -499,6 +499,24 @@ def factory_concrete_create_path_preserves_existing_allPairs_entry
                 (Core.Uint256.ofNat index)) =
             entry.pair
 
+/--
+Concrete same-length histories are real no-op histories at the factory model
+boundary. A successful concrete create path can only append pairs; therefore,
+if the public `allPairsLength` storage value is the same at both endpoints,
+the reconstructed closed-world factory state is identical. This is the
+executable-storage counterpart of the closed-world "same count means no hidden
+array or lookup change" theorem below.
+-/
+def factory_concrete_same_length_create_path_preserves_world
+    (sBefore sAfter : ContractState)
+    (wBefore wAfter : FactoryWorldState) : Prop :=
+  FactoryWorldGood wBefore →
+    FactoryWorldMatchesStorage sBefore wBefore →
+      FactoryConcreteCreatePath sBefore wBefore sAfter wAfter →
+        (sBefore.storage allPairsLengthSlot.slot).val =
+          (sAfter.storage allPairsLengthSlot.slot).val →
+          wAfter = wBefore
+
 /-!
 ## Closed-World Factory Invariants
 
