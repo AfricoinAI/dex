@@ -178,6 +178,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   atomicity and in-callback lock observations still need either an explicit
   Lean callback trace model or mirrored runtime-boundary coverage.
 
+  2026-05-17 02:31 PDT checkpoint: strengthening the callback boundary spec so
+  the gated ECM body is not just present under `data_length > 0`, but also
+  encodes the canonical `uniswapV2Call` selector, sender, output amounts, and
+  recipient target call.
+
 - [ ] **7. Complete the ordered revert matrix**
 
   Add exact run-result revert specs for canonical guard priority in mint, burn,

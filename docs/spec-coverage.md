@@ -89,9 +89,11 @@ Pair:
   if a reachable successful path ends with lower cached K, the same endpoint
   cannot be reached by any burn-free history.
 - Flash-swap callback gating is covered at the ECM compile-template boundary:
-  the generated callback call sits under a `data_length > 0` Yul guard. The
-  remaining callback-failure and in-callback lock semantics are runtime/ECM
-  boundary behaviors unless the callback ECM gains a richer Lean trace model.
+  the generated callback call sits under a `data_length > 0` Yul guard, and the
+  gated body encodes the canonical `uniswapV2Call` selector, sender, output
+  amounts, and target call. The remaining callback-failure and in-callback lock
+  semantics are runtime/ECM boundary behaviors unless the callback ECM gains a
+  richer Lean trace model.
 - Mint/burn closed-world supply discipline now explicitly states first-mint
   `MINIMUM_LIQUIDITY` locking, subsequent-mint locked-liquidity preservation,
   every valid mint strictly increasing total supply, exact burn supply

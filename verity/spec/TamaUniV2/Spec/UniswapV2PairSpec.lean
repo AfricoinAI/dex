@@ -746,6 +746,47 @@ def pair_flash_callback_module_gates_nonempty_data : Prop :=
               [Compiler.Yul.YulExpr.ident "data_length", Compiler.Yul.YulExpr.lit 0])
             body]
 
+/--
+The callback boundary must not merely be gated; the gated body must be the
+canonical Uniswap V2 callback shape. It writes the `uniswapV2Call` selector,
+forwards the original swap sender and output amounts as calldata words, and
+uses the recipient as the call target. The dynamic bytes payload is handled by
+the ECM helper, so this spec focuses on the fixed ABI prefix and target call
+that are security-critical for flash-swap compatibility.
+-/
+def pair_flash_callback_module_encodes_canonical_call : Prop :=
+  ∀ (ctx : Compiler.ECM.CompilationContext)
+    (target sender amount0Out amount1Out : Compiler.Yul.YulExpr)
+    (stmts : List Compiler.Yul.YulStmt),
+    TamaUniV2.uniswapV2CallbackModule.compile ctx
+        [target, sender, amount0Out, amount1Out] = Except.ok stmts →
+      ∃ body totalSize,
+        stmts =
+          [Compiler.Yul.YulStmt.if_
+            (Compiler.Yul.YulExpr.call "gt"
+              [Compiler.Yul.YulExpr.ident "data_length", Compiler.Yul.YulExpr.lit 0])
+            [Compiler.Yul.YulStmt.block body]] ∧
+        Compiler.Yul.YulStmt.expr
+          (Compiler.Yul.YulExpr.call "mstore"
+            [Compiler.Yul.YulExpr.lit 0,
+              Compiler.Yul.YulExpr.call "shl"
+                [Compiler.Yul.YulExpr.lit 224, Compiler.Yul.YulExpr.hex 0x10d1e85c]]) ∈ body ∧
+        Compiler.Yul.YulStmt.expr
+          (Compiler.Yul.YulExpr.call "mstore" [Compiler.Yul.YulExpr.lit 4, sender]) ∈ body ∧
+        Compiler.Yul.YulStmt.expr
+          (Compiler.Yul.YulExpr.call "mstore" [Compiler.Yul.YulExpr.lit 36, amount0Out]) ∈ body ∧
+        Compiler.Yul.YulStmt.expr
+          (Compiler.Yul.YulExpr.call "mstore" [Compiler.Yul.YulExpr.lit 68, amount1Out]) ∈ body ∧
+        Compiler.Yul.YulStmt.let_ "__uv2_cb_success"
+          (Compiler.Yul.YulExpr.call "call"
+            [Compiler.Yul.YulExpr.call "gas" [],
+              target,
+              Compiler.Yul.YulExpr.lit 0,
+              Compiler.Yul.YulExpr.lit 0,
+              totalSize,
+              Compiler.Yul.YulExpr.lit 0,
+              Compiler.Yul.YulExpr.lit 0]) ∈ body
+
 /-!
 ## Mint, Burn, And Swap Bridges
 

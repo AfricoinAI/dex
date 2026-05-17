@@ -1377,6 +1377,74 @@ theorem flash_callback_module_gates_nonempty_data :
   injection h_compile with h_stmts
   exact ⟨_, h_stmts.symm⟩
 
+-- tama: discharges=pair_flash_callback_module_encodes_canonical_call
+theorem flash_callback_module_encodes_canonical_call :
+  pair_flash_callback_module_encodes_canonical_call := by
+  intro ctx target sender amount0Out amount1Out stmts h_compile
+  dsimp [TamaUniV2.uniswapV2CallbackModule] at h_compile
+  injection h_compile with h_stmts
+  let bytesLenExpr := Compiler.Yul.YulExpr.ident "data_length"
+  let bytesDataOffset := Compiler.Yul.YulExpr.ident "data_data_offset"
+  let bytesDataSlot : Nat := 4 + (3 + 2) * 32
+  let paddedBytesLen := Compiler.Yul.YulExpr.call "and" [
+    Compiler.Yul.YulExpr.call "add" [bytesLenExpr, Compiler.Yul.YulExpr.lit 31],
+    Compiler.Yul.YulExpr.call "not" [Compiler.Yul.YulExpr.lit 31]
+  ]
+  let totalSize := Compiler.Yul.YulExpr.call "add"
+    [Compiler.Yul.YulExpr.lit bytesDataSlot, paddedBytesLen]
+  let body :=
+    [ Compiler.Yul.YulStmt.expr (Compiler.Yul.YulExpr.call "mstore" [
+        Compiler.Yul.YulExpr.lit 0,
+        Compiler.Yul.YulExpr.call "shl"
+          [Compiler.Yul.YulExpr.lit 224, Compiler.Yul.YulExpr.hex 0x10d1e85c]])
+    , Compiler.Yul.YulStmt.expr
+        (Compiler.Yul.YulExpr.call "mstore" [Compiler.Yul.YulExpr.lit 4, sender])
+    , Compiler.Yul.YulStmt.expr
+        (Compiler.Yul.YulExpr.call "mstore" [Compiler.Yul.YulExpr.lit 36, amount0Out])
+    , Compiler.Yul.YulStmt.expr
+        (Compiler.Yul.YulExpr.call "mstore" [Compiler.Yul.YulExpr.lit 68, amount1Out])
+    , Compiler.Yul.YulStmt.expr
+        (Compiler.Yul.YulExpr.call "mstore"
+          [Compiler.Yul.YulExpr.lit 100, Compiler.Yul.YulExpr.lit 128])
+    , Compiler.Yul.YulStmt.expr
+        (Compiler.Yul.YulExpr.call "mstore"
+          [Compiler.Yul.YulExpr.lit 132, bytesLenExpr])
+    ] ++
+    Compiler.ECM.dynamicCopyData ctx
+      (Compiler.Yul.YulExpr.lit bytesDataSlot) bytesDataOffset bytesLenExpr ++
+    [ Compiler.Yul.YulStmt.let_ "__uv2_cb_success"
+        (Compiler.Yul.YulExpr.call "call" [
+          Compiler.Yul.YulExpr.call "gas" [],
+          target,
+          Compiler.Yul.YulExpr.lit 0,
+          Compiler.Yul.YulExpr.lit 0,
+          totalSize,
+          Compiler.Yul.YulExpr.lit 0,
+          Compiler.Yul.YulExpr.lit 0
+        ])
+    , Compiler.Yul.YulStmt.if_
+        (Compiler.Yul.YulExpr.call "iszero"
+          [Compiler.Yul.YulExpr.ident "__uv2_cb_success"])
+        [ Compiler.Yul.YulStmt.let_ "__uv2_cb_rds"
+            (Compiler.Yul.YulExpr.call "returndatasize" [])
+        , Compiler.Yul.YulStmt.expr
+            (Compiler.Yul.YulExpr.call "returndatacopy"
+              [Compiler.Yul.YulExpr.lit 0, Compiler.Yul.YulExpr.lit 0,
+                Compiler.Yul.YulExpr.ident "__uv2_cb_rds"])
+        , Compiler.Yul.YulStmt.expr
+            (Compiler.Yul.YulExpr.call "revert"
+              [Compiler.Yul.YulExpr.lit 0, Compiler.Yul.YulExpr.ident "__uv2_cb_rds"])
+        ]
+    ]
+  refine ⟨body, totalSize, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simpa [body, totalSize, paddedBytesLen, bytesDataSlot, bytesDataOffset,
+      bytesLenExpr] using h_stmts.symm
+  · simp [body]
+  · simp [body]
+  · simp [body]
+  · simp [body]
+  · simp [body, totalSize]
+
 -- tama: discharges=pair_mint_first_expected_refines_closed_world
 theorem mint_first_expected_refines_closed_world (toAddr : Address) (s : ContractState) :
   pair_mint_first_expected_refines_closed_world toAddr s := by
