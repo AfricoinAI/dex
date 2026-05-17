@@ -2636,6 +2636,20 @@ def pair_closed_world_balanced_maintenance_path_preserves_pool
           after.totalSupply = before.totalSupply ∧
           after.lockedLiquidity = before.lockedLiquidity
 
+/-- Economic reading of the passive-maintenance fixed point. If a clean,
+balanced pool only goes through LP approval/transfer bookkeeping plus
+`skim`/`sync`, the actual token balances held by the pool have exactly the same
+spot-priced value at the end as they had at the start. This is the concise
+no-extraction consequence of the stronger fixed-point theorem above. -/
+def pair_closed_world_balanced_maintenance_path_preserves_token_balance_value
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldSurplus0 before = 0 →
+      PairWorldSurplus1 before = 0 →
+        PairWorldPathMaintenance before after →
+          PairWorldBalanceSpotValueNum before after =
+            PairWorldBalanceSpotValueNum before before
+
 /-- `sync` cannot manufacture cached liquidity value. In a good state, if
 syncing balances into reserves increases cached K, then at least one token
 balance was already above the cached reserve before the call. -/

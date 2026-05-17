@@ -4813,6 +4813,17 @@ theorem closed_world_balanced_maintenance_path_preserves_pool
   pair_closed_world_balanced_maintenance_path_preserves_pool before after := by
   exact pairWorldMaintenancePath_preserves_balanced_pool
 
+-- tama: discharges=pair_closed_world_balanced_maintenance_path_preserves_token_balance_value
+theorem closed_world_balanced_maintenance_path_preserves_token_balance_value
+    (before after : PairWorldState) :
+  pair_closed_world_balanced_maintenance_path_preserves_token_balance_value
+    before after := by
+  intro h_good h_surplus0 h_surplus1 h_path
+  rcases pairWorldMaintenancePath_preserves_balanced_pool
+      h_good h_surplus0 h_surplus1 h_path with
+    ⟨h_balance0, h_balance1, _h_reserve0, _h_reserve1, _h_supply, _h_locked⟩
+  simp [PairWorldBalanceSpotValueNum, h_balance0, h_balance1]
+
 -- tama: discharges=pair_closed_world_sync_k_increase_requires_surplus
 theorem closed_world_sync_k_increase_requires_surplus
     (before after : PairWorldState) :
