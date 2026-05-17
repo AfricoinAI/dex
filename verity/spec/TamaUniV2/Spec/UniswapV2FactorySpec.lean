@@ -263,6 +263,37 @@ def factory_createPair_revert_keeps_factory_state
       result.snd.events = s.events
 
 /-!
+## Concrete Storage Reconstruction
+
+The closed-world factory model is useful only if a reader can connect it back
+to real factory storage. This section states that connection in small pieces.
+Given a reconstructed world that matches factory storage, the public length,
+unordered pair mapping, and indexed `allPairs` array all agree with that world.
+These facts let later append-only and uniqueness theorems speak about concrete
+router-visible lookup behavior.
+-/
+
+def factory_concrete_world_length_matches_storage
+    (s : ContractState) (w : FactoryWorldState) : Prop :=
+  FactoryWorldMatchesStorage s w →
+    w.pairCount = (s.storage allPairsLengthSlot.slot).val
+
+def factory_concrete_world_lookup_matches_storage
+    (s : ContractState) (w : FactoryWorldState)
+    (tokenA tokenB pair : Address) : Prop :=
+  FactoryWorldMatchesStorage s w →
+    FactoryWorldContainsPair w tokenA tokenB pair →
+      s.storageMap2 pairForSlot.slot tokenA tokenB = addressToWord pair
+
+def factory_concrete_world_allPairs_matches_storage
+    (s : ContractState) (w : FactoryWorldState)
+    (index : Nat) (entry : FactoryWorldPair) : Prop :=
+  FactoryWorldMatchesStorage s w →
+    w.pairs[index]? = some entry →
+      s.storageMapUint allPairsSlot.slot (Core.Uint256.ofNat index) =
+        addressToWord entry.pair
+
+/-!
 ## Closed-World Factory Invariants
 
 The executable success spec above proves one concrete `createPair` run writes

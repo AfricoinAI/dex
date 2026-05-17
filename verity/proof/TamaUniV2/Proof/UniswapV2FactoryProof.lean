@@ -489,6 +489,41 @@ theorem createPair_revert_keeps_factory_state
   rw [h_result]
   exact ⟨rfl, rfl, rfl, rfl⟩
 
+-- tama: discharges=factory_concrete_world_length_matches_storage
+theorem concrete_world_length_matches_storage
+    (s : ContractState) (w : FactoryWorldState) :
+  factory_concrete_world_length_matches_storage s w := by
+  intro h_match
+  exact h_match.1
+
+-- tama: discharges=factory_concrete_world_lookup_matches_storage
+theorem concrete_world_lookup_matches_storage
+    (s : ContractState) (w : FactoryWorldState)
+    (tokenA tokenB pair : Address) :
+  factory_concrete_world_lookup_matches_storage s w tokenA tokenB pair := by
+  intro h_match h_contains
+  rcases h_match with ⟨_h_count, h_entries, _h_array⟩
+  rcases h_contains with ⟨entry, h_entry, h_tokens, h_pair⟩
+  rcases h_entries entry h_entry with ⟨h_forward, h_reverse⟩
+  subst pair
+  rcases h_tokens with h_forward_tokens | h_reverse_tokens
+  · rcases h_forward_tokens with ⟨h_token0, h_token1⟩
+    subst tokenA
+    subst tokenB
+    exact h_forward
+  · rcases h_reverse_tokens with ⟨h_token0, h_token1⟩
+    subst tokenB
+    subst tokenA
+    exact h_reverse
+
+-- tama: discharges=factory_concrete_world_allPairs_matches_storage
+theorem concrete_world_allPairs_matches_storage
+    (s : ContractState) (w : FactoryWorldState)
+    (index : Nat) (entry : FactoryWorldPair) :
+  factory_concrete_world_allPairs_matches_storage s w index entry := by
+  intro h_match h_get
+  exact h_match.2.2 index entry h_get
+
 private theorem factoryWorldStep_preserves_good
     (action : FactoryWorldAction)
     (before after : FactoryWorldState) :

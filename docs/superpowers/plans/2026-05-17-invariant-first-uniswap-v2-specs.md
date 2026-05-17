@@ -359,11 +359,22 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   every unordered token lookup is identical before and after, making the
   no-hidden-change argument visible at the `getPair` level.
 
+  2026-05-17 04:06 PDT checkpoint: added the first concrete factory
+  reconstruction bridge. `FactoryWorldMatchesStorage` ties modeled pair count,
+  both-direction pair mappings, and indexed `allPairs` entries back to factory
+  storage, and public specs expose the length, lookup, and array agreement
+  facts.
+
 - [ ] **10. Verify and commit in coherent slices**
 
   After each slice run focused `lake build`. Before claiming completion run
   `lake build`, `tama check`, `tama build`, `tama test`, and `tama audit`.
   Commit related spec/proof/doc changes together.
+
+  2026-05-17 04:09 PDT checkpoint: full verification passes for the first
+  factory concrete reconstruction bridge: `tama check`, whole `lake build
+  TamaUniV2.Proof`, `tama build`, `tama test` (26/26), and `tama audit` (0
+  issues). The Foundry signature-cache warning remains sandbox-only.
 
 ## Non-Goals
 
