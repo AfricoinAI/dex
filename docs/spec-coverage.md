@@ -85,7 +85,10 @@ Pair:
   histories, and that finite histories containing no mint and no burn preserve
   total LP supply and locked liquidity exactly. Locked liquidity is also proved
   monotone from good/reachable states: once established, finite successful
-  histories cannot reduce it. The same layer also covers the
+  histories cannot reduce it. The invariant layer now also exposes the
+  token-side no-drain consequence directly: from any reachable nonempty pool,
+  every finite successful modeled history leaves both actual token balances
+  positive. The same layer also covers the
   one-step LP-supply firewall for any action other than mint or burn, one-step
   and finite-history supply-direction invariants showing no-burn histories
   cannot decrease LP supply and no-mint histories cannot increase LP supply,

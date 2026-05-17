@@ -3390,6 +3390,23 @@ theorem closed_world_reachable_positive_supply_path_has_positive_reserves
     (pairWorldReachable_good before h_reachable)
     h_positive h_before_reserves.1 h_before_reserves.2 h_path
 
+-- tama: discharges=pair_closed_world_reachable_positive_supply_path_has_positive_token_balances
+theorem closed_world_reachable_positive_supply_path_has_positive_token_balances
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_positive_supply_path_has_positive_token_balances
+    before after := by
+  intro h_reachable h_positive h_path
+  have h_reserves :=
+    closed_world_reachable_positive_supply_path_has_positive_reserves
+      before after h_reachable h_positive h_path
+  have h_after_good :=
+    pairWorldPath_preserves_good
+      (pairWorldReachable_good before h_reachable)
+      h_path
+  rcases h_after_good with ⟨h_back0, h_back1, _h_bound0, _h_bound1, _h_supply⟩
+  exact ⟨Nat.lt_of_lt_of_le h_reserves.1 h_back0,
+    Nat.lt_of_lt_of_le h_reserves.2 h_back1⟩
+
 -- tama: discharges=pair_closed_world_donate_preserves_reserves_and_supply
 theorem closed_world_donate_preserves_reserves_and_supply
     (amount0 amount1 : Nat)

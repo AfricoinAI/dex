@@ -1196,6 +1196,18 @@ def pair_closed_world_reachable_positive_supply_path_has_positive_reserves
         0 < after.reserve0 ∧
         0 < after.reserve1
 
+/-- Token-side no-drain invariant. The positive-reserve theorem says cached
+reserves stay nonzero; reserve backing then says the actual ERC20 balances held
+by the pair are also nonzero. Thus no finite successful modeled history from a
+reachable nonempty pool can leave either token balance at zero. -/
+def pair_closed_world_reachable_positive_supply_path_has_positive_token_balances
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        0 < after.balance0 ∧
+        0 < after.balance1
+
 /-!
 ### 2. Concrete-State Projections
 

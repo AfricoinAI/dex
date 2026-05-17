@@ -95,6 +95,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   successful modeled history remains nonempty, making the minimum-liquidity
   argument explicit at the trace level.
 
+  2026-05-17 05:33 PDT checkpoint: adding the token-side no-drain consequence
+  of the positive-reserve and reserve-backing invariants. From any reachable
+  nonempty pool, every finite successful modeled history leaves both actual
+  token balances positive.
+
   2026-05-17 01:38 PDT checkpoint: added the finite-history LP supply
   firewall. A path containing no mint and no burn preserves total LP supply and
   locked liquidity exactly, with a reachable reader-facing theorem for the same
