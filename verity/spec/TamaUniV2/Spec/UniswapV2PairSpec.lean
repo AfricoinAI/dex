@@ -909,6 +909,15 @@ def pair_closed_world_path_locked_liquidity_never_exceeds_supply
     PairWorldPath before after →
       after.lockedLiquidity ≤ after.totalSupply
 
+/-- Once a good pool has positive LP supply, the permanent liquidity lock keeps
+every finite successful path from returning total supply to zero. -/
+def pair_closed_world_positive_supply_path_remains_positive
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        0 < after.totalSupply
+
 /-!
 ### 2. Concrete-State Projections
 
@@ -1281,6 +1290,33 @@ no-burn K theorem. -/
 def pair_closed_world_positive_supply_same_supply_path_no_spot_profit
     (before after : PairWorldState) : Prop :=
   PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        before.totalSupply = after.totalSupply →
+          0 < before.reserve0 →
+            0 < before.reserve1 →
+              PairWorldNoSpotProfit before after
+
+/- The reachable-state version of the same-supply K theorem is the one most
+callers should cite: from any actually reachable nonempty pool, any finite
+successful sequence that returns LP supply to its starting value cannot reduce
+raw reserve product. -/
+def pair_closed_world_reachable_same_supply_path_never_decreases_k
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        before.totalSupply = after.totalSupply →
+          PairWorldK before ≤ PairWorldK after
+
+/- The reachable-state no-profit theorem states the economic conclusion in the
+language of the contract user. Starting from any reachable nonempty pool with a
+defined spot price, any finite successful sequence that leaves LP supply
+unchanged leaves the pool worth at least as much at the initial spot price.
+Without an external gift to the caller, that rules out spot-price profit. -/
+def pair_closed_world_reachable_same_supply_path_no_spot_profit
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
     0 < before.totalSupply →
       PairWorldPath before after →
         before.totalSupply = after.totalSupply →

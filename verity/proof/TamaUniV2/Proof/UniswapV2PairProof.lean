@@ -2221,6 +2221,13 @@ theorem closed_world_path_locked_liquidity_never_exceeds_supply
     rw [h_locked]
     exact h_min
 
+-- tama: discharges=pair_closed_world_positive_supply_path_remains_positive
+theorem closed_world_positive_supply_path_remains_positive
+    (before after : PairWorldState) :
+  pair_closed_world_positive_supply_path_remains_positive before after := by
+  intro h_good h_positive h_path
+  exact pairWorldPath_positive_supply_preserved h_good h_positive h_path
+
 -- tama: discharges=pair_concrete_state_reserves_backed
 theorem concrete_state_reserves_backed (s : ContractState) :
   pair_concrete_state_reserves_backed s := by
@@ -2732,6 +2739,23 @@ theorem closed_world_positive_supply_same_supply_path_no_spot_profit
     pairWorldSameSupplyPath_never_decreases_k h_good h_positive h_path h_supply
   exact closed_world_same_supply_path_no_spot_profit before after
     h_path h_good h_supply h_reserve0 h_reserve1 h_k
+
+-- tama: discharges=pair_closed_world_reachable_same_supply_path_never_decreases_k
+theorem closed_world_reachable_same_supply_path_never_decreases_k
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_same_supply_path_never_decreases_k before after := by
+  intro h_reachable h_positive h_path h_supply
+  exact pairWorldSameSupplyPath_never_decreases_k
+    (pairWorldReachable_good before h_reachable) h_positive h_path h_supply
+
+-- tama: discharges=pair_closed_world_reachable_same_supply_path_no_spot_profit
+theorem closed_world_reachable_same_supply_path_no_spot_profit
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_same_supply_path_no_spot_profit before after := by
+  intro h_reachable h_positive h_path h_supply h_reserve0 h_reserve1
+  exact closed_world_positive_supply_same_supply_path_no_spot_profit before after
+    (pairWorldReachable_good before h_reachable)
+    h_positive h_path h_supply h_reserve0 h_reserve1
 
 -- tama: discharges=pair_closed_world_non_burn_step_never_decreases_k
 theorem closed_world_non_burn_step_never_decreases_k
