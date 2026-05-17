@@ -420,6 +420,22 @@ def factory_concrete_create_path_preserves_world_match
         FactoryWorldGood wAfter ∧
         FactoryWorldMatchesStorage sAfter wAfter
 
+/--
+Concrete create histories inherit the closed-world append-only length property.
+If a real sequence of successful `createPair` calls starts from storage that is
+represented by a good factory world, then the public `allPairsLength` value in
+storage cannot go down by the end of that sequence. This is the router-visible
+version of "successful factory operation only appends pairs."
+-/
+def factory_concrete_create_path_allPairsLength_never_decreases
+    (sBefore sAfter : ContractState)
+    (wBefore wAfter : FactoryWorldState) : Prop :=
+  FactoryWorldGood wBefore →
+    FactoryWorldMatchesStorage sBefore wBefore →
+      FactoryConcreteCreatePath sBefore wBefore sAfter wAfter →
+        (sBefore.storage allPairsLengthSlot.slot).val ≤
+          (sAfter.storage allPairsLengthSlot.slot).val
+
 def factory_concrete_create_path_preserves_existing_decoded_lookup
     (existing0 existing1 existingPair : Address)
     (sBefore sAfter : ContractState)

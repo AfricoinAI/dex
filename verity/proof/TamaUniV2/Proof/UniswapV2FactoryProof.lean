@@ -1323,6 +1323,26 @@ theorem concrete_create_path_preserves_world_match
     sBefore sAfter wBefore wAfter := by
   exact factoryConcreteCreatePath_preserves_match
 
+-- tama: discharges=factory_concrete_create_path_allPairsLength_never_decreases
+theorem concrete_create_path_allPairsLength_never_decreases
+    (sBefore sAfter : ContractState)
+    (wBefore wAfter : FactoryWorldState) :
+  factory_concrete_create_path_allPairsLength_never_decreases
+    sBefore sAfter wBefore wAfter := by
+  intro h_good h_match h_path
+  have h_final :=
+    factoryConcreteCreatePath_preserves_match
+      h_good h_match h_path
+  have h_world_path :=
+    factoryConcreteCreatePath_refines_world_path h_path
+  rcases factoryWorldPath_append_only h_world_path with
+    ⟨suffix, _h_pairs, h_count⟩
+  have h_before_count := h_match.1
+  have h_after_count := h_final.2.1
+  rw [← h_before_count, ← h_after_count]
+  rw [h_count]
+  omega
+
 -- tama: discharges=factory_concrete_create_path_preserves_existing_decoded_lookup
 theorem concrete_create_path_preserves_existing_decoded_lookup
     (existing0 existing1 existingPair : Address)
