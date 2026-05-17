@@ -1352,6 +1352,38 @@ def pair_swap_success_run_refines_closed_world
         amount0Out amount1Out balance0Now balance1Now s
 
 /--
+Public swap bridge to caller no-profit.
+
+The executable swap bridge above connects a successful public run to a modeled
+swap step once the concrete balance and K facts are available. This short
+follow-on obligation states why that bridge matters: after the successful run
+has been related to the closed-world swap transition, the existing reachable
+one-swap no-profit theorem applies immediately. If caller-plus-pool spot value
+is merely redistributed at the starting price, the caller cannot finish richer.
+-/
+def pair_swap_success_run_bridge_no_caller_spot_profit
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState)
+    (result : ContractResult Unit)
+    (callerValueBefore callerValueAfter : Nat) : Prop :=
+  let before := pairWorldFromConcreteState s
+  let after := pairWorldAfterSwapRun balance0Now balance1Now s
+  let amount0In := swapAmount0In amount0Out balance0Now s
+  let amount1In := swapAmount1In amount1Out balance1Now s
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      PairWorldReachable before →
+        0 < before.totalSupply →
+          PairWorldStep
+              (PairWorldAction.swap
+                amount0In.val amount1In.val amount0Out.val amount1Out.val)
+              before
+              after →
+            callerValueBefore + PairWorldSpotValueNum before before =
+              callerValueAfter + PairWorldSpotValueNum before after →
+              callerValueAfter ≤ callerValueBefore
+
+/--
 The public mint, burn, and swap bridges above prove that successful executable
 paths are modeled reserve-writing actions once their arithmetic premises are
 available. These follow-on specs connect those modeled actions to the common

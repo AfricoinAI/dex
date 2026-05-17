@@ -86,7 +86,9 @@ Pair:
 - Mint/burn/swap closed-world bridge predicates for expected concrete states:
   first mint, subsequent mint, burn, and swap all refine the corresponding
   PairWorld transition once the concrete amount, liquidity, post-callback
-  balance, and K facts are available.
+  balance, and K facts are available. Swap now also exposes the immediate
+  economic bridge from a successful public run plus its modeled swap step to
+  the one-swap caller no-profit theorem.
 - `sync` expected-state and success-conditional bridge predicates showing that
   observed balances inside uint112 bounds refine the closed-world sync
   transition when the public run succeeds.

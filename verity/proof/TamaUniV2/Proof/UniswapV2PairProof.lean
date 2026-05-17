@@ -4548,6 +4548,25 @@ theorem closed_world_reachable_positive_supply_swap_no_caller_spot_profit
       h_reachable h_positive h_step
   omega
 
+-- tama: discharges=pair_swap_success_run_bridge_no_caller_spot_profit
+theorem swap_success_run_bridge_no_caller_spot_profit
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState)
+    (callerValueBefore callerValueAfter : Nat) :
+  pair_swap_success_run_bridge_no_caller_spot_profit
+    amount0Out amount1Out toAddr data balance0Now balance1Now s
+    ((swap amount0Out amount1Out toAddr data).run s)
+    callerValueBefore callerValueAfter := by
+  intro _h_run _h_success h_reachable h_positive h_step h_total_value
+  exact closed_world_reachable_positive_supply_swap_no_caller_spot_profit
+    (swapAmount0In amount0Out balance0Now s).val
+    (swapAmount1In amount1Out balance1Now s).val
+    amount0Out.val amount1Out.val
+    (pairWorldFromConcreteState s)
+    (pairWorldAfterSwapRun balance0Now balance1Now s)
+    callerValueBefore callerValueAfter
+    h_reachable h_positive h_step h_total_value
+
 -- tama: discharges=pair_closed_world_reachable_same_supply_path_never_decreases_k
 theorem closed_world_reachable_same_supply_path_never_decreases_k
     (before after : PairWorldState) :
