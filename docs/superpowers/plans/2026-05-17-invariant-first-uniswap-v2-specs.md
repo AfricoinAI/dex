@@ -178,6 +178,13 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   or improves reserve product per squared LP supply. This is the concise global
   mint/burn ratio statement that the same-supply no-profit theorem builds on.
 
+  2026-05-17 00:47 PDT checkpoint: after comparing Tamago's closed-world wealth
+  pattern, added a caller-facing no-extraction theorem name for the existing
+  same-LP-supply pool-value result. The Pair model tracks pool-side value rather
+  than arbitrary external wallets, so the theorem states the sound closed-world
+  claim directly: same-LP-supply reachable histories cannot extract positive
+  spot-value from the pool at the initial price.
+
 - [x] **9. Add factory-world invariants**
 
   Model pair creation as a finite factory trace and prove sorted-token

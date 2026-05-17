@@ -1531,6 +1531,24 @@ def pair_closed_world_reachable_same_supply_path_pool_value_never_decreases
               PairWorldSpotValueNum before before ≤
                 PairWorldSpotValueNum before after
 
+/-- Caller-facing form of the same theorem. `PairWorld` tracks pool-side token
+balances and LP supply, not arbitrary external wallet balances, so the
+closed-world no-profit claim is stated as absence of pool value extraction: if a
+finite successful history returns LP supply to its starting value, the final pool
+cannot be worth less at the initial spot price. Any positive closed-world caller
+profit would have to appear as that missing pool value; external gifts are
+outside this theorem's closed-world premise. -/
+def pair_closed_world_reachable_same_supply_path_no_spot_value_extraction
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        before.totalSupply = after.totalSupply →
+          0 < before.reserve0 →
+            0 < before.reserve1 →
+              PairWorldSpotValueNum before before ≤
+                PairWorldSpotValueNum before after
+
 def pair_closed_world_non_burn_step_never_decreases_k
     (action : PairWorldAction) (before after : PairWorldState) : Prop :=
   PairWorldGood before →

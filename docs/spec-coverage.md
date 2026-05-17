@@ -102,10 +102,13 @@ Pair:
   paths cannot reduce raw K, same-supply paths cannot reduce the pool's value
   at the initial spot price, and a reader-facing value-comparison theorem states
   that conclusion directly for any reachable positive-supply same-LP-supply
-  finite path. A reachable LP-share theorem now also states the normalized
-  backing invariant directly for all finite paths from reachable positive-supply
-  states. This allows mint/burn round trips rather than relying only on the older
-  no-burn path theorem.
+  finite path. A caller-facing no-extraction theorem names the same economic
+  conclusion explicitly: within the closed-world Pair model, same-LP-supply
+  histories cannot extract positive spot-value from the pool at the initial
+  price. A reachable LP-share theorem now also states the normalized backing
+  invariant directly for all finite paths from reachable positive-supply states.
+  This allows mint/burn round trips rather than relying only on the older no-burn
+  path theorem.
 
 Factory:
 

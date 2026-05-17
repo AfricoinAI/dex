@@ -2976,6 +2976,14 @@ theorem closed_world_reachable_same_supply_path_pool_value_never_decreases
   simpa [pair_closed_world_reachable_same_supply_path_pool_value_never_decreases,
     PairWorldNoSpotProfit, h_initial_value] using h_no_profit
 
+-- tama: discharges=pair_closed_world_reachable_same_supply_path_no_spot_value_extraction
+theorem closed_world_reachable_same_supply_path_no_spot_value_extraction
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_same_supply_path_no_spot_value_extraction before after := by
+  simpa [pair_closed_world_reachable_same_supply_path_no_spot_value_extraction]
+    using closed_world_reachable_same_supply_path_pool_value_never_decreases
+      before after
+
 -- tama: discharges=pair_closed_world_non_burn_step_never_decreases_k
 theorem closed_world_non_burn_step_never_decreases_k
     (action : PairWorldAction) (before after : PairWorldState) :
