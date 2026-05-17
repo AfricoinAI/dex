@@ -2474,4 +2474,15 @@ def pair_closed_world_sync_never_decreases_k
     PairWorldStep PairWorldAction.sync before after →
       PairWorldK before ≤ PairWorldK after
 
+/-- If there is no surplus above cached reserves, `sync` is a no-op for cached
+K. The only way sync can increase K is by accounting for token balances that
+were already sitting in the pair above reserves. -/
+def pair_closed_world_sync_preserves_k_without_surplus
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep PairWorldAction.sync before after →
+      PairWorldSurplus0 before = 0 →
+        PairWorldSurplus1 before = 0 →
+          PairWorldK after = PairWorldK before
+
 end TamaUniV2.Spec.UniswapV2PairSpec

@@ -4406,4 +4406,20 @@ theorem closed_world_sync_never_decreases_k
   rw [h_reserve0, h_reserve1]
   exact Nat.mul_le_mul h_back0 h_back1
 
+-- tama: discharges=pair_closed_world_sync_preserves_k_without_surplus
+theorem closed_world_sync_preserves_k_without_surplus
+    (before after : PairWorldState) :
+  pair_closed_world_sync_preserves_k_without_surplus before after := by
+  intro h_good h_step h_surplus0 h_surplus1
+  rcases h_good with ⟨h_back0, h_back1, _h_bound0, _h_bound1, _h_supply_good⟩
+  have h_sync := closed_world_sync_sets_reserves_to_balances before after h_step
+  have h_balance0 : before.balance0 = before.reserve0 := by
+    unfold PairWorldSurplus0 at h_surplus0
+    omega
+  have h_balance1 : before.balance1 = before.reserve1 := by
+    unfold PairWorldSurplus1 at h_surplus1
+    omega
+  unfold PairWorldK
+  rw [h_sync.1, h_sync.2.1, h_balance0, h_balance1]
+
 end TamaUniV2.Proof.UniswapV2PairProof

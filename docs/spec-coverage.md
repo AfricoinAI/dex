@@ -81,7 +81,9 @@ Pair:
   transition when the public run succeeds.
 - Closed-world surplus reconciliation now states the direct cleanup consequence
   for both reserve-management entrypoints: `skim` and `sync` end with no
-  modeled surplus above cached reserves.
+  modeled surplus above cached reserves. The sync/K refinement also states
+  that sync preserves cached K exactly when the start state has no surplus, so
+  sync-driven K increases are explained by pre-existing excess token balances.
 - TWAP/oracle arithmetic obligations for reserve updates are now stated in the
   generic contract-level form first: same-timestamp updates leave cumulative
   prices unchanged, elapsed updates with nonzero old reserves add the canonical
