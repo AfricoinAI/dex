@@ -118,8 +118,9 @@ Pair:
   showing LP approvals/transfers/transferFroms leave token balances, cached
   reserves, total LP supply, locked liquidity, cached K, and spot-value
   measurements unchanged, reserve-update projections for
-  mint/burn/swap/skim/sync, canonical fee-adjusted K for swaps plus the
-  arithmetic theorem that the fee-adjusted check implies raw cached-K
+  mint/burn/swap/skim/sync, the reserve-change classifier proving only
+  mint/burn/swap/sync can rewrite cached reserves, canonical fee-adjusted K for
+  swaps plus the arithmetic theorem that the fee-adjusted check implies raw cached-K
   nondecrease once reserves equal final balances, positive-input/output and
   output-below-reserve swap facts,
   post-output plus inferred-input balance accounting for swaps, donation

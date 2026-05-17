@@ -1491,6 +1491,24 @@ def pair_closed_world_supply_changes_only_on_mint_or_burn
       (∃ amount0 amount1 liquidity,
         action = PairWorldAction.burn amount0 amount1 liquidity)
 
+/-- Cached reserve movement is isolated to reserve-update actions. Share
+bookkeeping may move LP ownership, direct donations may raise token balances,
+and `skim` may remove surplus, but none of those actions can rewrite the
+router-visible reserves. If either cached reserve changes in one modeled step,
+the step must be mint, burn, swap, or sync. -/
+def pair_closed_world_reserve_changes_only_on_reserve_update_actions
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldStep action before after →
+    (after.reserve0 ≠ before.reserve0 ∨
+      after.reserve1 ≠ before.reserve1) →
+      (∃ amount0 amount1 liquidity,
+        action = PairWorldAction.mint amount0 amount1 liquidity) ∨
+      (∃ amount0 amount1 liquidity,
+        action = PairWorldAction.burn amount0 amount1 liquidity) ∨
+      (∃ amount0In amount1In amount0Out amount1Out,
+        action = PairWorldAction.swap amount0In amount1In amount0Out amount1Out) ∨
+      action = PairWorldAction.sync
+
 /-- The one-step LP-supply firewall. A successful modeled action that is not
 mint and not burn cannot change total LP supply or the permanently locked
 liquidity amount. This is the local fact that the finite-history theorem below
