@@ -1660,6 +1660,43 @@ theorem sync_success_run_refines_closed_world
   intro _h_run _h_success h_bound0 h_bound1
   exact sync_expected_refines_closed_world s h_bound0 h_bound1
 
+-- tama: discharges=pair_sync_success_run_implies_balances_fit_uint112
+theorem sync_success_run_implies_balances_fit_uint112
+    (s : ContractState) (result : ContractResult Unit) :
+  pair_sync_success_run_implies_balances_fit_uint112 s result := by
+  intro h_run h_success h_unlocked
+  constructor
+  · by_contra h_not_bound
+    have h_not_bound_val :
+        ¬ (observedBalance0 s).val ≤ maxUint112.val := by
+      simpa [Verity.Core.Uint256.le_def] using h_not_bound
+    have h_overflow : observedBalance0 s > maxUint112 := by
+      simpa [Verity.Core.Uint256.lt_def] using Nat.lt_of_not_ge h_not_bound_val
+    have h_revert := sync_run_revert_balance0_overflow s h_unlocked h_overflow
+    rw [h_run] at h_success
+    rw [h_revert] at h_success
+    cases h_success
+  · by_contra h_not_bound
+    have h_not_bound_val :
+        ¬ (observedBalance1 s).val ≤ maxUint112.val := by
+      simpa [Verity.Core.Uint256.le_def] using h_not_bound
+    have h_overflow : observedBalance1 s > maxUint112 := by
+      simpa [Verity.Core.Uint256.lt_def] using Nat.lt_of_not_ge h_not_bound_val
+    have h_revert := sync_run_revert_balance1_overflow s h_unlocked h_overflow
+    rw [h_run] at h_success
+    rw [h_revert] at h_success
+    cases h_success
+
+-- tama: discharges=pair_sync_success_run_refines_closed_world_from_run
+theorem sync_success_run_refines_closed_world_from_run
+    (s : ContractState) (result : ContractResult Unit) :
+  pair_sync_success_run_refines_closed_world_from_run s result := by
+  intro h_run h_success h_unlocked
+  rcases sync_success_run_implies_balances_fit_uint112
+      s result h_run h_success h_unlocked with
+    ⟨h_bound0, h_bound1⟩
+  exact sync_expected_refines_closed_world s h_bound0 h_bound1
+
 -- tama: discharges=pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives
 theorem reserve_update_oracle_same_timestamp_keeps_price_cumulatives
     (s : ContractState) :
