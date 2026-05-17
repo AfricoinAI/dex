@@ -3275,6 +3275,26 @@ theorem closed_world_first_mint_locks_minimum_liquidity
   simp [h_first] at h_supply h_locked
   exact ⟨h_locked, h_supply⟩
 
+-- tama: discharges=pair_closed_world_first_mint_keeps_locked_share
+theorem closed_world_first_mint_keeps_locked_share
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_first_mint_keeps_locked_share
+    amount0 amount1 liquidity before after := by
+  intro h_step h_first
+  simp [PairWorldStep, PairWorldMintStep] at h_step
+  rcases h_step with ⟨_h_amount0, _h_amount1, h_liquidity, _h_before_balance0,
+    _h_before_balance1, _h_after_balance0, _h_after_balance1, _h_after_reserve0,
+    _h_after_reserve1, _h_bound0, _h_bound1, h_supply, h_locked, _h_ratio⟩
+  simp [h_first] at h_supply h_locked
+  constructor
+  · rw [h_locked, h_supply]
+    unfold minimumLiquidityNat
+    omega
+  · rw [h_supply]
+    unfold minimumLiquidityNat
+    omega
+
 -- tama: discharges=pair_closed_world_subsequent_mint_preserves_locked_liquidity
 theorem closed_world_subsequent_mint_preserves_locked_liquidity
     (amount0 amount1 liquidity : Nat)

@@ -1680,6 +1680,18 @@ def pair_closed_world_first_mint_locks_minimum_liquidity
       after.lockedLiquidity = minimumLiquidityNat ∧
       after.totalSupply = minimumLiquidityNat + liquidity
 
+/-- First-mint locking is also an ownership-security fact. A valid first mint
+creates positive user liquidity, but total supply is strictly larger than that
+user liquidity because `MINIMUM_LIQUIDITY` is already locked. The first LP can
+therefore never own the entire pool supply in the closed-world model. -/
+def pair_closed_world_first_mint_keeps_locked_share
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+    before.totalSupply = 0 →
+      after.lockedLiquidity < after.totalSupply ∧
+      liquidity < after.totalSupply
+
 def pair_closed_world_subsequent_mint_preserves_locked_liquidity
     (amount0 amount1 liquidity : Nat)
     (before after : PairWorldState) : Prop :=

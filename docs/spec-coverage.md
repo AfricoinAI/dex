@@ -149,7 +149,8 @@ Pair:
   Lean trace model.
 - Mint/burn closed-world supply discipline now explicitly states first-mint
   `MINIMUM_LIQUIDITY` locking, subsequent-mint locked-liquidity preservation,
-  every valid mint strictly increasing total supply, exact burn supply
+  the strict locked-share consequence that the first LP cannot own the entire
+  supply, every valid mint strictly increasing total supply, exact burn supply
   reduction, burns never increasing supply, and the fact that burns cannot
   redeem the locked liquidity floor. The burn ghost transition itself now
   requires positive liquidity, positive pre-burn supply, and positive redeemed
