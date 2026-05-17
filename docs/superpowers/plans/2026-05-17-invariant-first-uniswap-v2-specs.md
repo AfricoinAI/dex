@@ -109,6 +109,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   reserves. Remaining work is to bridge every concrete public reserve-update
   path to those arithmetic facts without adding contract helpers.
 
+  2026-05-16 23:42 PDT checkpoint: the no-op side of the elapsed branch is now
+  also covered as a public arithmetic spec: if the timestamp comparison branch
+  is entered but elapsed time or either old reserve is zero, cumulative prices
+  remain unchanged. Remaining work is still bridge-oriented: prove the public
+  reserve-update entrypoints reuse these arithmetic facts.
+
 - [ ] **6. Add flash-swap specs**
 
   Prove callback iff `data` is nonempty, callback revert is atomic, the

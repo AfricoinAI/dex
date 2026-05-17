@@ -1334,6 +1334,41 @@ theorem sync_oracle_elapsed_updates_price_cumulatives
     h_time_changed, h_time_changed_raw, h_time_changed_num, h_time_neq_num,
     h_elapsed_branch, h_elapsed_branch_raw, h_elapsed_num]
 
+-- tama: discharges=pair_sync_oracle_inactive_elapsed_keeps_price_cumulatives
+theorem sync_oracle_inactive_elapsed_keeps_price_cumulatives
+    (s : ContractState) :
+  pair_sync_oracle_inactive_elapsed_keeps_price_cumulatives s := by
+  intro h_time_changed h_inactive
+  simp [pair_sync_oracle_inactive_elapsed_keeps_price_cumulatives,
+    oraclePrice0CumulativeAfterSync, oraclePrice1CumulativeAfterSync,
+    oraclePrice0CumulativeAfterElapsed, oraclePrice1CumulativeAfterElapsed,
+    oraclePrice0Increment, oraclePrice1Increment, oraclePrice0, oraclePrice1,
+    oracleElapsed, timestamp32, blockTimestampLastSlot,
+    reserve0Slot, reserve1Slot, price0CumulativeLastSlot,
+    price1CumulativeLastSlot, uint32Modulus, q112,
+    h_time_changed]
+  constructor
+  · intro _ h_elapsed_raw h_reserve0_raw h_reserve1_raw
+    exfalso
+    apply h_inactive
+    exact ⟨by
+        simpa [oracleElapsed, timestamp32, blockTimestampLastSlot,
+          uint32Modulus, Verity.Core.Uint256.lt_def] using h_elapsed_raw,
+      by
+        simpa [reserve0Slot, Verity.Core.Uint256.lt_def] using h_reserve0_raw,
+      by
+        simpa [reserve1Slot, Verity.Core.Uint256.lt_def] using h_reserve1_raw⟩
+  · intro _ h_elapsed_raw h_reserve0_raw h_reserve1_raw
+    exfalso
+    apply h_inactive
+    exact ⟨by
+        simpa [oracleElapsed, timestamp32, blockTimestampLastSlot,
+          uint32Modulus, Verity.Core.Uint256.lt_def] using h_elapsed_raw,
+      by
+        simpa [reserve0Slot, Verity.Core.Uint256.lt_def] using h_reserve0_raw,
+      by
+        simpa [reserve1Slot, Verity.Core.Uint256.lt_def] using h_reserve1_raw⟩
+
 -- tama: discharges=pair_flash_callback_module_gates_nonempty_data
 theorem flash_callback_module_gates_nonempty_data :
   pair_flash_callback_module_gates_nonempty_data := by

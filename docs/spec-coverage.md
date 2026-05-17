@@ -59,10 +59,11 @@ Pair:
   observed balances inside uint112 bounds refine the closed-world sync
   transition when the public run succeeds.
 - TWAP/oracle arithmetic obligations for reserve updates: same-timestamp
-  updates leave cumulative prices unchanged, and elapsed updates with nonzero
-  old reserves add the canonical fixed-point price times elapsed time. The
-  remaining work is to bridge every public reserve-update entrypoint to these
-  oracle arithmetic facts.
+  updates leave cumulative prices unchanged, elapsed updates with nonzero old
+  reserves add the canonical fixed-point price times elapsed time, and elapsed
+  branches with zero elapsed time or a zero old reserve leave cumulative prices
+  unchanged. The remaining work is to bridge every public reserve-update
+  entrypoint to these oracle arithmetic facts.
 - Closed-world `PairWorldGood` preservation for one step and all finite
   reachable traces, plus finite-path preservation from any good state, reserve
   backing, uint112 reserve bounds, path-wide LP-supply coherence, path-wide
@@ -131,10 +132,9 @@ properties, not API-surface properties.
 - Swap formulas: prove input inference from final balances, exact output
   transfers, fee-adjusted K, raw K nondecrease, lock restoration, events, and
   the closed-world swap transition.
-- TWAP/oracle updates: extend the current oracle arithmetic obligations to
-  every reserve update path, proving cumulative prices increment exactly when
-  elapsed time is positive and old reserves are nonzero, and remain unchanged
-  otherwise.
+- TWAP/oracle updates: the arithmetic cases now cover same timestamp, active
+  elapsed update, and inactive elapsed no-op behavior. The remaining work is to
+  connect those concise arithmetic claims to every public reserve-update path.
 - Flash swaps: callback gating is now proved at the ECM compile-template
   boundary, and closed-world swap accounting now states that K is checked
   against final balances after output plus inferred repayment. Remaining work:

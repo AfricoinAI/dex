@@ -698,6 +698,22 @@ def pair_sync_oracle_elapsed_updates_price_cumulatives
           oraclePrice1CumulativeAfterSync s =
             oraclePrice1CumulativeAfterElapsed s
 
+/--
+Entering the timestamp-change branch is not enough to move the oracle. If the
+elapsed-price branch is inactive because elapsed time or either old reserve is
+zero, both cumulative prices remain unchanged.
+-/
+def pair_sync_oracle_inactive_elapsed_keeps_price_cumulatives
+    (s : ContractState) : Prop :=
+  (timestamp32 s != s.storage blockTimestampLastSlot.slot) = true →
+    ¬ (oracleElapsed s > 0 ∧
+        s.storage reserve0Slot.slot > 0 ∧
+        s.storage reserve1Slot.slot > 0) →
+      oraclePrice0CumulativeAfterSync s =
+        s.storage price0CumulativeLastSlot.slot ∧
+      oraclePrice1CumulativeAfterSync s =
+        s.storage price1CumulativeLastSlot.slot
+
 /-!
 ## Flash-Swap Boundary
 
