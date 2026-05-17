@@ -107,6 +107,13 @@ theorem getReserves_meets_spec (s : ContractState) :
     blockTimestampLastSlot, getStorage, Contract.run, ContractResult.fst,
     Verity.bind, Bind.bind, Verity.pure, Pure.pure]
 
+-- tama: discharges=pair_getReserves_run_success_frames_state
+theorem getReserves_run_success_frames_state (s : ContractState) :
+  pair_getReserves_run_success_frames_state s := by
+  simp [pair_getReserves_run_success_frames_state, getReserves, reserve0Slot,
+    reserve1Slot, blockTimestampLastSlot, getStorage, Contract.run,
+    Verity.bind, Bind.bind, Verity.pure, Pure.pure]
+
 -- tama: discharges=pair_price0CumulativeLast_spec
 theorem price0CumulativeLast_meets_spec (s : ContractState) :
   pair_price0CumulativeLast_spec ((price0CumulativeLast).run s).fst s := by

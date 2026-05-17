@@ -102,6 +102,18 @@ def pair_getReserves_spec
       s.storage reserve1Slot.slot,
       s.storage blockTimestampLastSlot.slot)
 
+/-- `getReserves` is the reserve oracle boundary exposed to routers and users.
+It is an exact state-framing read of cached reserve0, cached reserve1, and the
+last 32-bit update timestamp. -/
+def pair_getReserves_run_success_frames_state
+    (s : ContractState) : Prop :=
+  (getReserves).run s =
+    ContractResult.success
+      (s.storage reserve0Slot.slot,
+        s.storage reserve1Slot.slot,
+        s.storage blockTimestampLastSlot.slot)
+      s
+
 def pair_price0CumulativeLast_spec (result : Uint256) (s : ContractState) : Prop :=
   result = s.storage price0CumulativeLastSlot.slot
 

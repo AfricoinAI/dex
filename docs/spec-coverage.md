@@ -44,6 +44,8 @@ Pair:
 
 - Storage-backed view specs for LP balances, allowances, reserves, cumulative
   prices, factory, tokens, `MINIMUM_LIQUIDITY`, decimals, and fee-off `kLast`.
+- Exact `getReserves` success coverage now states the router-facing reserve
+  read returns cached reserve0/reserve1/timestamp and frames pair state.
 - LP ERC20 approve/transfer/transferFrom accounting, allowance, overflow, and
   event specs.
 - Exact run-result reverts for initialization, LP transfer guards, locked
