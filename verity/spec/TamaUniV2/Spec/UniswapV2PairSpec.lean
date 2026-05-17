@@ -826,6 +826,27 @@ def pair_skim_run_success_transfers_excess_and_restores_unlocked
           (skimExcess1 s)
           ((skim toAddr).run s).snd
 
+/-- Successful `skim` has the exact token-world effect that its name promises:
+when replayed through the pair-local ERC20 transfer trace, it transfers only the
+token0 and token1 surplus above cached reserves from the pair to `toAddr`. -/
+def pair_skim_run_success_moves_exact_surplus_in_token_world
+    (toAddr : Address) (pre post : PairTokenBalances) (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    s.storage reserve0Slot.slot ≤ observedBalance0 s →
+      s.storage reserve1Slot.slot ≤ observedBalance1 s →
+        post = pairTokenWorldAfterCall pre s ((skim toAddr).run s) →
+          post =
+            pairTokenWorldAfterTransfer
+              (pairTokenWorldAfterTransfer pre
+                (s.storageAddr token0Slot.slot)
+                s.thisAddress
+                toAddr
+                (skimExcess0 s))
+              (s.storageAddr token1Slot.slot)
+              s.thisAddress
+              toAddr
+              (skimExcess1 s)
+
 def pair_skim_run_success_refines_closed_world
     (toAddr : Address) (s : ContractState) : Prop :=
   s.storage unlockedSlot.slot = 1 →

@@ -57,6 +57,21 @@ attribute [local simp] decimals totalSupply balanceOf allowance factory token0 t
 private def pairLockedState (s : ContractState) : ContractState :=
   { s with «storage» := fun slotIdx => if slotIdx = 11 then 0 else s.storage slotIdx }
 
+private theorem addressOfNat_toNat_mod_uint256 (a : Address) :
+    Core.Address.ofNat (Core.Address.toNat a % Core.Uint256.modulus) = a := by
+  apply Core.Address.toNat_injective
+  have h_lt_uint : Core.Address.toNat a < Core.Uint256.modulus := by
+    have h_lt_addr : Core.Address.toNat a < Core.Address.modulus :=
+      Core.Address.val_lt_modulus a
+    have h_addr_lt_uint : Core.Address.modulus < Core.Uint256.modulus := by
+      decide
+    exact Nat.lt_trans h_lt_addr h_addr_lt_uint
+  have h_uint_mod : Core.Address.toNat a % Core.Uint256.modulus = Core.Address.toNat a :=
+    Nat.mod_eq_of_lt h_lt_uint
+  have h_addr_mod : Core.Address.toNat a % Core.Address.modulus = Core.Address.toNat a := by
+    simp [Core.Address.toNat, Core.Address.val_mod_modulus]
+  simp [h_uint_mod, h_addr_mod]
+
 -- tama: discharges=pair_decimals_spec
 theorem decimals_meets_spec (s : ContractState) :
   pair_decimals_spec ((decimals).run s).fst := by
@@ -1482,6 +1497,38 @@ theorem skim_run_success_transfers_excess_and_restores_unlocked
     observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
     skimExcess0, skimExcess1, h_unlocked_raw, h_require_raw_unfold,
     hasPairSafeTransferTrace, pairTraceContains]
+
+-- tama: discharges=pair_skim_run_success_moves_exact_surplus_in_token_world
+theorem skim_run_success_moves_exact_surplus_in_token_world
+    (toAddr : Address) (pre post : PairTokenBalances) (s : ContractState) :
+  pair_skim_run_success_moves_exact_surplus_in_token_world toAddr pre post s := by
+  intro h_unlocked h_balance0 h_balance1 h_post
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_unlocked
+  have h_require_raw :
+      (s.storage 3).val ≤ (observedBalance0 s).val ∧
+      (s.storage 4).val ≤ (observedBalance1 s).val := by
+    constructor
+    · simpa [reserve0Slot] using h_balance0
+    · simpa [reserve1Slot] using h_balance1
+  have h_require_raw_unfold := h_require_raw
+  dsimp [observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run,
+    ContractResult.fst, Verity.pure, Pure.pure] at h_require_raw_unfold
+  rw [h_post]
+  funext token account
+  simp [pair_skim_run_success_moves_exact_surplus_in_token_world,
+    skim, UniswapV2PairBase.skim, unlockedSlot, token0Slot, token1Slot,
+    reserve0Slot, reserve1Slot, getStorage, getStorageAddr, setStorage,
+    Verity.contractAddress, Contracts.balanceOf, Verity.require, Contract.run,
+    ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+    TamaUniV2.pairSafeTransfer, TamaUniV2.tracePairTokenSafeTransfer,
+    TamaUniV2.pairTokenSafeTransferEvent, Contracts.safeTransfer,
+    pairTokenWorldAfterCall, emittedPairEventsAfterCall,
+    pairTokenWorldAfterEvents, pairTokenWorldAfterEvent,
+    pairTokenWorldAfterTransfer, observedBalance0, observedBalance1,
+    pairToken0, pairToken1, pairSelf, skimExcess0, skimExcess1,
+    h_unlocked_raw, h_require_raw_unfold, addressOfNat_toNat_mod_uint256]
 
 -- tama: discharges=pair_skim_run_success_refines_closed_world
 theorem skim_run_success_refines_closed_world

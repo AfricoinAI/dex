@@ -239,6 +239,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   unchanged; LP events are local share-ledger events, not underlying asset
   movement.
 
+  2026-05-17 11:04 PDT checkpoint: added the executable `skim` token-balance
+  bridge. A successful real `skim` run, replayed through the pair-local ERC20
+  transfer trace model, moves exactly the token0/token1 surplus above cached
+  reserves from the pair to the recipient.
+
   2026-05-17 10:04 PDT checkpoint: added the economic reading of the balanced
   LP-bookkeeping plus `skim`/`sync` path theorem. The public spec now states
   directly that any such history from a clean balanced pool preserves actual
