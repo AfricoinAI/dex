@@ -233,6 +233,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   change scalar AMM storage such as reserves, price accumulators, total supply,
   token identities, or lock state.
 
+  2026-05-17 10:54 PDT checkpoint: added executable LP-bookkeeping token-world
+  frame facts. Replaying the pair-local ERC20 transfer trace across actual
+  `approve`, `transfer`, and `transferFrom` runs leaves token0/token1 balances
+  unchanged; LP events are local share-ledger events, not underlying asset
+  movement.
+
   2026-05-17 10:04 PDT checkpoint: added the economic reading of the balanced
   LP-bookkeeping plus `skim`/`sync` path theorem. The public spec now states
   directly that any such history from a clean balanced pool preserves actual

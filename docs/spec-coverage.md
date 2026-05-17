@@ -53,7 +53,10 @@ Pair:
 - LP ERC20 approve/transfer/transferFrom accounting, allowance, overflow, and
   event specs. The executable LP-bookkeeping layer now also has scalar
   AMM-storage frame facts: approve, transfer, and transferFrom cannot change
-  reserves, cumulative prices, total supply, token identities, or the lock.
+  reserves, cumulative prices, total supply, token identities, or the lock. It
+  also has pair-local token-balance frame facts: those LP bookkeeping calls do
+  not emit the pair-local ERC20 transfer trace used to model token0/token1
+  movement.
 - Exact run-result reverts for initialization, LP transfer guards, locked
   mutating entrypoints, and skim under-reserve guards. The swap zero-output
   pre-interaction guard is now a public Lean spec and proof. The later

@@ -243,6 +243,140 @@ theorem sync_revert_keeps_token_balances
   pair_sync_revert_keeps_token_balances pre post s ((sync).run s) :=
   pair_revert_keeps_token_balances pre post s ((sync).run s)
 
+-- tama: discharges=pair_approve_run_keeps_token_balances
+theorem approve_run_keeps_token_balances
+    (spender : Address) (amount : Uint256)
+    (pre post : PairTokenBalances) (s : ContractState) :
+  pair_approve_run_keeps_token_balances spender amount pre post s := by
+  intro h_post token account
+  rw [h_post]
+  simp [pair_approve_run_keeps_token_balances, pairTokenWorldAfterCall,
+    emittedPairEventsAfterCall, pairTokenWorldAfterEvents,
+    pairTokenWorldAfterEvent, pairTokenBalancesUnchanged, approve,
+    allowancesSlot, msgSender, setMapping2, Contract.run, ContractResult.snd,
+    Verity.bind, Bind.bind, Verity.pure, Pure.pure]
+
+-- tama: discharges=pair_transfer_run_keeps_token_balances
+theorem transfer_run_keeps_token_balances
+    (toAddr : Address) (amount : Uint256)
+    (pre post : PairTokenBalances) (s : ContractState) :
+  pair_transfer_run_keeps_token_balances toAddr amount pre post s := by
+  intro h_post token account
+  rw [h_post]
+  by_cases h_balance : amount.val ≤ (s.storageMap 9 s.sender).val
+  · by_cases h_same : s.sender = toAddr
+    · subst h_same
+      simp [pair_transfer_run_keeps_token_balances, pairTokenWorldAfterCall,
+        emittedPairEventsAfterCall, pairTokenWorldAfterEvents,
+        pairTokenWorldAfterEvent, pairTokenBalancesUnchanged, transfer,
+        balancesSlot, msgSender, getMapping, Contract.run, ContractResult.snd,
+        Verity.bind, Bind.bind, Verity.pure, Pure.pure, Verity.require,
+        h_balance]
+    · by_cases h_overflow :
+        Verity.Stdlib.Math.MAX_UINT256 < (s.storageMap 9 toAddr).val + amount.val
+      · simp [pair_transfer_run_keeps_token_balances, pairTokenWorldAfterCall,
+          emittedPairEventsAfterCall, pairTokenWorldAfterEvents,
+          pairTokenWorldAfterEvent, pairTokenBalancesUnchanged, transfer,
+          balancesSlot, msgSender, getMapping, setMapping, Contract.run,
+          ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+          Verity.require, Verity.Stdlib.Math.requireSomeUint,
+          Verity.Stdlib.Math.safeAdd, h_balance, h_same, h_overflow]
+      · simp [pair_transfer_run_keeps_token_balances, pairTokenWorldAfterCall,
+          emittedPairEventsAfterCall, pairTokenWorldAfterEvents,
+          pairTokenWorldAfterEvent, pairTokenBalancesUnchanged, transfer,
+          balancesSlot, msgSender, getMapping, setMapping, Contract.run,
+          ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+          Verity.require, Verity.Stdlib.Math.requireSomeUint,
+          Verity.Stdlib.Math.safeAdd, h_balance, h_same, h_overflow]
+  · simp [pair_transfer_run_keeps_token_balances, pairTokenWorldAfterCall,
+      emittedPairEventsAfterCall, pairTokenWorldAfterEvents,
+      pairTokenWorldAfterEvent, pairTokenBalancesUnchanged, transfer,
+      balancesSlot, msgSender, getMapping, Contract.run, ContractResult.snd,
+      Verity.bind, Bind.bind, Verity.require, h_balance]
+
+-- tama: discharges=pair_transferFrom_run_keeps_token_balances
+theorem transferFrom_run_keeps_token_balances
+    (fromAddr toAddr : Address) (amount : Uint256)
+    (pre post : PairTokenBalances) (s : ContractState) :
+  pair_transferFrom_run_keeps_token_balances fromAddr toAddr amount pre post s := by
+  intro h_post token account
+  rw [h_post]
+  by_cases h_allowance : amount.val ≤ (s.storageMap2 10 fromAddr s.sender).val
+  · by_cases h_balance : amount.val ≤ (s.storageMap 9 fromAddr).val
+    · by_cases h_same : fromAddr = toAddr
+      · subst h_same
+        by_cases h_max :
+            s.storageMap2 10 fromAddr s.sender =
+              maxUint256
+        · simp [Verity.Stdlib.Math.MAX_UINT256, Verity.Core.MAX_UINT256] at h_max
+          have h_allowance_max : amount.val ≤ (sub 0 1 : Uint256).val := by
+            simpa [h_max] using h_allowance
+          simp [pair_transferFrom_run_keeps_token_balances,
+            pairTokenWorldAfterCall, emittedPairEventsAfterCall,
+            pairTokenWorldAfterEvents, pairTokenWorldAfterEvent,
+            pairTokenBalancesUnchanged, transferFrom, allowancesSlot,
+            balancesSlot, msgSender, getMapping2, getMapping, setMapping2,
+            Contract.run, ContractResult.snd, Verity.bind, Bind.bind,
+            Verity.pure, Pure.pure, Verity.require, h_allowance,
+            h_allowance_max, h_balance, h_max]
+        · simp [Verity.Stdlib.Math.MAX_UINT256, Verity.Core.MAX_UINT256] at h_max
+          simp [pair_transferFrom_run_keeps_token_balances,
+            pairTokenWorldAfterCall, emittedPairEventsAfterCall,
+            pairTokenWorldAfterEvents, pairTokenWorldAfterEvent,
+            pairTokenBalancesUnchanged, transferFrom, allowancesSlot,
+            balancesSlot, msgSender, getMapping2, getMapping, setMapping2,
+            Contract.run, ContractResult.snd, Verity.bind, Bind.bind,
+            Verity.pure, Pure.pure, Verity.require, h_allowance, h_balance,
+            h_max]
+      · by_cases h_overflow :
+          Verity.Stdlib.Math.MAX_UINT256 < (s.storageMap 9 toAddr).val + amount.val
+        · simp [pair_transferFrom_run_keeps_token_balances,
+            pairTokenWorldAfterCall, emittedPairEventsAfterCall,
+            pairTokenWorldAfterEvents, pairTokenWorldAfterEvent,
+            pairTokenBalancesUnchanged, transferFrom, allowancesSlot,
+            balancesSlot, msgSender, getMapping2, getMapping, setMapping,
+            Contract.run, ContractResult.snd, Verity.bind, Bind.bind,
+            Pure.pure, Verity.pure, Verity.require,
+            Verity.Stdlib.Math.requireSomeUint, Verity.Stdlib.Math.safeAdd,
+            h_allowance, h_balance, h_same, h_overflow]
+        · by_cases h_max :
+            s.storageMap2 10 fromAddr s.sender =
+              maxUint256
+          · simp [Verity.Stdlib.Math.MAX_UINT256, Verity.Core.MAX_UINT256] at h_max
+            have h_allowance_max : amount.val ≤ (sub 0 1 : Uint256).val := by
+              simpa [h_max] using h_allowance
+            simp [pair_transferFrom_run_keeps_token_balances,
+              pairTokenWorldAfterCall, emittedPairEventsAfterCall,
+              pairTokenWorldAfterEvents, pairTokenWorldAfterEvent,
+              pairTokenBalancesUnchanged, transferFrom, allowancesSlot,
+              balancesSlot, msgSender, getMapping2, getMapping, setMapping,
+              setMapping2, Contract.run, ContractResult.snd, Verity.bind,
+              Bind.bind, Pure.pure, Verity.pure, Verity.require,
+              Verity.Stdlib.Math.requireSomeUint, Verity.Stdlib.Math.safeAdd,
+              h_allowance, h_allowance_max, h_balance, h_same, h_overflow,
+              h_max]
+          · simp [Verity.Stdlib.Math.MAX_UINT256, Verity.Core.MAX_UINT256] at h_max
+            simp [pair_transferFrom_run_keeps_token_balances,
+              pairTokenWorldAfterCall, emittedPairEventsAfterCall,
+              pairTokenWorldAfterEvents, pairTokenWorldAfterEvent,
+              pairTokenBalancesUnchanged, transferFrom, allowancesSlot,
+              balancesSlot, msgSender, getMapping2, getMapping, setMapping,
+              setMapping2, Contract.run, ContractResult.snd, Verity.bind,
+              Bind.bind, Pure.pure, Verity.pure, Verity.require,
+              Verity.Stdlib.Math.requireSomeUint, Verity.Stdlib.Math.safeAdd,
+              h_allowance, h_balance, h_same, h_overflow, h_max]
+    · simp [pair_transferFrom_run_keeps_token_balances,
+        pairTokenWorldAfterCall, emittedPairEventsAfterCall,
+        pairTokenWorldAfterEvents, pairTokenWorldAfterEvent,
+        pairTokenBalancesUnchanged, transferFrom, allowancesSlot, balancesSlot,
+        msgSender, getMapping2, getMapping, Contract.run, ContractResult.snd,
+        Verity.bind, Bind.bind, Verity.require, h_allowance, h_balance]
+  · simp [pair_transferFrom_run_keeps_token_balances, pairTokenWorldAfterCall,
+      emittedPairEventsAfterCall, pairTokenWorldAfterEvents,
+      pairTokenWorldAfterEvent, pairTokenBalancesUnchanged, transferFrom,
+      allowancesSlot, msgSender, getMapping2, Contract.run, ContractResult.snd,
+      Verity.bind, Bind.bind, Verity.require, h_allowance]
+
 private theorem pair_revert_keeps_pair_state {α : Type}
     (s : ContractState) (result : ContractResult α) :
   (∃ reason, result = ContractResult.revert reason s) →

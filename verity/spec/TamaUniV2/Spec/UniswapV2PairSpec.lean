@@ -263,6 +263,31 @@ def pair_sync_revert_keeps_token_balances
     pairRevertedWithOriginalState s result →
       pairTokenBalancesUnchanged pre post
 
+/-!
+LP-token bookkeeping never calls the underlying ERC20 tokens. The LP `Transfer`
+and `Approval` events are local share-ledger events, not token0/token1
+movements, so replaying the pair-local ERC20 transfer trace across these calls
+must leave the token-balance world unchanged.
+-/
+
+def pair_approve_run_keeps_token_balances
+    (spender : Address) (amount : Uint256)
+    (pre post : PairTokenBalances) (s : ContractState) : Prop :=
+  post = pairTokenWorldAfterCall pre s ((approve spender amount).run s) →
+    pairTokenBalancesUnchanged pre post
+
+def pair_transfer_run_keeps_token_balances
+    (toAddr : Address) (amount : Uint256)
+    (pre post : PairTokenBalances) (s : ContractState) : Prop :=
+  post = pairTokenWorldAfterCall pre s ((transfer toAddr amount).run s) →
+    pairTokenBalancesUnchanged pre post
+
+def pair_transferFrom_run_keeps_token_balances
+    (fromAddr toAddr : Address) (amount : Uint256)
+    (pre post : PairTokenBalances) (s : ContractState) : Prop :=
+  post = pairTokenWorldAfterCall pre s ((transferFrom fromAddr toAddr amount).run s) →
+    pairTokenBalancesUnchanged pre post
+
 def pair_mint_revert_keeps_pair_state
     (toAddr : Address) (s : ContractState)
     (result : ContractResult Uint256) : Prop :=
