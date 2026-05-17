@@ -1049,6 +1049,16 @@ def pair_closed_world_path_reserves_backed
       after.reserve0 ≤ after.balance0 ∧
       after.reserve1 ≤ after.balance1
 
+/-- The reserve-backing invariant in its most useful reader-facing form:
+from any reachable pool state, after any finite sequence of successful modeled
+calls, the cached reserves are still covered by the pair's token balances. -/
+def pair_closed_world_reachable_path_reserves_backed
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPath before after →
+      after.reserve0 ≤ after.balance0 ∧
+      after.reserve1 ≤ after.balance1
+
 def pair_closed_world_reachable_reserves_fit_uint112
     (w : PairWorldState) : Prop :=
   PairWorldReachable w →

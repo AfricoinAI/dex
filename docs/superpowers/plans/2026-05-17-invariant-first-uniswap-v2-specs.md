@@ -63,6 +63,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   Remaining work here is to connect lock restoration across all concrete public
   success paths, not just selected entrypoints.
 
+  2026-05-17 00:42 PDT checkpoint: added the reader-facing reachable-path
+  reserve-backing theorem. It states the invariant in the natural finite-trace
+  form: starting from any reachable pool state, every finite successful modeled
+  history ends with cached reserves no larger than the pair's token balances.
+
 - [x] **3. Strengthen action transitions**
 
   Add concise specs for each action family:

@@ -2326,6 +2326,16 @@ theorem closed_world_path_reserves_backed
     ⟨h_back0, h_back1, _h_bound0, _h_bound1, _h_supply⟩
   exact ⟨h_back0, h_back1⟩
 
+-- tama: discharges=pair_closed_world_reachable_path_reserves_backed
+theorem closed_world_reachable_path_reserves_backed
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_path_reserves_backed before after := by
+  intro h_reachable h_path
+  rcases pairWorldPath_preserves_good
+      (pairWorldReachable_good before h_reachable) h_path with
+    ⟨h_back0, h_back1, _h_bound0, _h_bound1, _h_supply⟩
+  exact ⟨h_back0, h_back1⟩
+
 -- tama: discharges=pair_closed_world_reachable_reserves_fit_uint112
 theorem closed_world_reachable_reserves_fit_uint112
     (w : PairWorldState) :

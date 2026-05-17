@@ -65,16 +65,19 @@ Pair:
   unchanged. The remaining work is to bridge every public reserve-update
   entrypoint to these oracle arithmetic facts.
 - Closed-world `PairWorldGood` preservation for one step and all finite
-  reachable traces, plus finite-path preservation from any good state, reserve
-  backing, uint112 reserve bounds, path-wide LP-supply coherence, path-wide
-  locked-liquidity coverage, minimum-liquidity lock, share-only action framing,
-  reserve-update projections for mint/burn/swap/skim/sync, raw swap-K
-  nondecrease, fee-adjusted K projection for swaps, positive-input/output and
-  output-below-reserve swap facts, post-output plus inferred-input balance
-  accounting for swaps, donation reserve/K framing, LP-supply preservation for
-  swap/skim/sync, the action classifier that only mint/burn can change LP total
-  supply, and the K-direction classifier that any one-step raw K decrease from a
-  good state must be a burn.
+  reachable traces, plus finite-path preservation from any good state. The
+  reader-facing reachable-path reserve-backing theorem now states the central
+  safety invariant directly: from any reachable pool state, every finite
+  successful modeled history ends with cached reserves backed by actual token
+  balances. The same layer also covers uint112 reserve bounds, path-wide
+  LP-supply coherence, path-wide locked-liquidity coverage, minimum-liquidity
+  lock, share-only action framing, reserve-update projections for
+  mint/burn/swap/skim/sync, raw swap-K nondecrease, fee-adjusted K projection
+  for swaps, positive-input/output and output-below-reserve swap facts,
+  post-output plus inferred-input balance accounting for swaps, donation
+  reserve/K framing, LP-supply preservation for swap/skim/sync, the action
+  classifier that only mint/burn can change LP total supply, and the K-direction
+  classifier that any one-step raw K decrease from a good state must be a burn.
 - Flash-swap callback gating is covered at the ECM compile-template boundary:
   the generated callback call sits under a `data_length > 0` Yul guard. The
   remaining callback-failure and in-callback lock semantics are runtime/ECM
