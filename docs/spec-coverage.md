@@ -90,8 +90,10 @@ Pair:
   path-wide LP-supply coherence,
   path-wide locked-liquidity coverage,
   share-only action framing, reserve-update projections for
-  mint/burn/swap/skim/sync, raw swap-K nondecrease, fee-adjusted K projection
-  for swaps, positive-input/output and output-below-reserve swap facts,
+  mint/burn/swap/skim/sync, fee-adjusted K projection for swaps plus the
+  arithmetic theorem that the fee-adjusted check implies raw cached-K
+  nondecrease once reserves equal final balances, positive-input/output and
+  output-below-reserve swap facts,
   post-output plus inferred-input balance accounting for swaps, donation
   reserve/K framing, LP-supply preservation for swap/skim/sync, the action
   classifier that only mint/burn can change LP total supply, the K-direction
@@ -194,8 +196,8 @@ properties, not API-surface properties.
   update reserves to post-transfer balances, restore the lock, emit the expected
   events, and imply the closed-world burn transition.
 - Swap formulas: prove input inference from final balances, exact output
-  transfers, fee-adjusted K, raw K nondecrease, lock restoration, events, and
-  the closed-world swap transition.
+  transfers, fee-adjusted K, derived raw K nondecrease, lock restoration,
+  events, and the closed-world swap transition.
 - TWAP/oracle updates: the arithmetic cases now cover same timestamp, active
   elapsed update, and inactive elapsed no-op behavior. The remaining work is to
   connect those concise arithmetic claims to every public reserve-update path.

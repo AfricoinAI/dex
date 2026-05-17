@@ -1766,6 +1766,45 @@ theorem burn_success_run_refines_closed_world
   intro _h_run _h_success
   exact burn_expected_refines_closed_world s
 
+private theorem feeAdjustedSwap_implies_raw_k
+    (amount0In amount1In : Nat)
+    (before after : PairWorldState) :
+  after.reserve0 = after.balance0 →
+    after.reserve1 = after.balance1 →
+      feeAdjustedBalance after.balance0 amount0In *
+          feeAdjustedBalance after.balance1 amount1In ≥
+        requiredK before.reserve0 before.reserve1 →
+        PairWorldK before ≤ PairWorldK after := by
+  intro h_reserve0 h_reserve1 h_adjusted_k
+  have h_adjusted0_le :
+      feeAdjustedBalance after.balance0 amount0In ≤
+        after.balance0 * feeDenominatorNat := by
+    unfold feeAdjustedBalance
+    exact Nat.sub_le _ _
+  have h_adjusted1_le :
+      feeAdjustedBalance after.balance1 amount1In ≤
+        after.balance1 * feeDenominatorNat := by
+    unfold feeAdjustedBalance
+    exact Nat.sub_le _ _
+  have h_adjusted_product_le :
+      feeAdjustedBalance after.balance0 amount0In *
+          feeAdjustedBalance after.balance1 amount1In ≤
+        (after.balance0 * feeDenominatorNat) *
+          (after.balance1 * feeDenominatorNat) :=
+    Nat.mul_le_mul h_adjusted0_le h_adjusted1_le
+  have h_required_le_scaled :=
+    Nat.le_trans h_adjusted_k h_adjusted_product_le
+  have h_scale_pos : 0 < feeDenominatorNat * feeDenominatorNat := by
+    norm_num [feeDenominatorNat]
+  have h_scaled :
+      PairWorldK before * (feeDenominatorNat * feeDenominatorNat) ≤
+        PairWorldK after * (feeDenominatorNat * feeDenominatorNat) := by
+    unfold requiredK at h_required_le_scaled
+    unfold PairWorldK
+    rw [h_reserve0, h_reserve1]
+    nlinarith [h_required_le_scaled]
+  exact Nat.le_of_mul_le_mul_right h_scaled h_scale_pos
+
 -- tama: discharges=pair_swap_expected_refines_closed_world
 theorem swap_expected_refines_closed_world
     (amount0Out amount1Out balance0Now balance1Now : Uint256)
@@ -1774,7 +1813,16 @@ theorem swap_expected_refines_closed_world
     amount0Out amount1Out balance0Now balance1Now s := by
   dsimp [pair_swap_expected_refines_closed_world]
   intro h_output h_liq0 h_liq1 h_input h_balance0 h_balance1 h_bound0 h_bound1
-    h_fee0 h_fee1 h_adjusted_k h_raw_k
+    h_fee0 h_fee1 h_adjusted_k
+  have h_raw_k :
+      PairWorldK (pairWorldFromConcreteState s) ≤
+        PairWorldK (pairWorldAfterSwapRun balance0Now balance1Now s) := by
+    exact feeAdjustedSwap_implies_raw_k
+      (swapAmount0In amount0Out balance0Now s).val
+      (swapAmount1In amount1Out balance1Now s).val
+      (pairWorldFromConcreteState s)
+      (pairWorldAfterSwapRun balance0Now balance1Now s)
+      rfl rfl h_adjusted_k
   unfold PairWorldStep PairWorldSwapStep pairWorldFromConcreteState
     pairWorldAfterSwapRun
   constructor
@@ -3492,6 +3540,14 @@ theorem closed_world_swap_respects_fee_adjusted_k
     _h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0,
     _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, h_k, _h_raw_k⟩
   exact h_k
+
+-- tama: discharges=pair_closed_world_fee_adjusted_swap_implies_raw_k
+theorem closed_world_fee_adjusted_swap_implies_raw_k
+    (amount0In amount1In : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_fee_adjusted_swap_implies_raw_k
+    amount0In amount1In before after := by
+  exact feeAdjustedSwap_implies_raw_k amount0In amount1In before after
 
 -- tama: discharges=pair_closed_world_swap_never_decreases_k
 theorem closed_world_swap_never_decreases_k

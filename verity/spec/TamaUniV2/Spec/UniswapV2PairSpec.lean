@@ -1004,9 +1004,6 @@ def pair_swap_expected_refines_closed_world
                         requiredK
                           (s.storage reserve0Slot.slot).val
                           (s.storage reserve1Slot.slot).val →
-                        (s.storage reserve0Slot.slot).val *
-                            (s.storage reserve1Slot.slot).val ≤
-                          balance0Now.val * balance1Now.val →
                           PairWorldStep
                             (PairWorldAction.swap
                               amount0In.val amount1In.val
@@ -1038,9 +1035,9 @@ The logical flow is intentionally compositional:
 * One-step preservation plus induction gives the same facts for every reachable
   finite trace.
 * Per-action specs then expose the pieces of Uniswap V2 economics that matter:
-  mint/burn pro-rata discipline, swap fee-adjusted K and raw-K nondecrease,
-  surplus-only skim, sync-to-balance behavior, and LP-supply preservation by
-  non-liquidity actions.
+  mint/burn pro-rata discipline, swap fee-adjusted K with derived raw-K
+  nondecrease, surplus-only skim, sync-to-balance behavior, and LP-supply
+  preservation by non-liquidity actions.
 * LP-normalized K composes across arbitrary finite paths from positive-supply
   states. If such a path begins and ends with the same LP supply, the
   normalization cancels, raw K cannot fall, and the final pool has no
@@ -1608,6 +1605,21 @@ def pair_closed_world_swap_respects_fee_adjusted_k
     feeAdjustedBalance after.balance0 amount0In *
         feeAdjustedBalance after.balance1 amount1In ≥
       requiredK before.reserve0 before.reserve1
+
+/-- Canonical Uniswap's swap guard is fee-adjusted, but the surrounding
+economic argument often cites raw reserve-product monotonicity. This theorem is
+the bridge between those statements: once a swap's cached reserves are the final
+balances, the fee-adjusted K check alone implies raw cached K cannot decrease.
+The raw-K fact is therefore derived, not an extra assumption about swaps. -/
+def pair_closed_world_fee_adjusted_swap_implies_raw_k
+    (amount0In amount1In : Nat)
+    (before after : PairWorldState) : Prop :=
+  after.reserve0 = after.balance0 →
+    after.reserve1 = after.balance1 →
+      feeAdjustedBalance after.balance0 amount0In *
+          feeAdjustedBalance after.balance1 amount1In ≥
+        requiredK before.reserve0 before.reserve1 →
+        PairWorldK before ≤ PairWorldK after
 
 def pair_closed_world_swap_preserves_good
     (amount0In amount1In amount0Out amount1Out : Nat)
