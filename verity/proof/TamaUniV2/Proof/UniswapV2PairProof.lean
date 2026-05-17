@@ -4590,6 +4590,32 @@ theorem closed_world_sync_preserves_k_without_surplus
   unfold PairWorldK
   rw [h_sync.1, h_sync.2.1, h_balance0, h_balance1]
 
+-- tama: discharges=pair_closed_world_sync_preserves_balanced_pool
+theorem closed_world_sync_preserves_balanced_pool
+    (before after : PairWorldState) :
+  pair_closed_world_sync_preserves_balanced_pool before after := by
+  intro h_good h_step h_surplus0 h_surplus1
+  rcases h_good with ⟨h_back0, h_back1, _h_bound0, _h_bound1, _h_supply_good⟩
+  have h_balance0_before : before.balance0 = before.reserve0 := by
+    unfold PairWorldSurplus0 at h_surplus0
+    omega
+  have h_balance1_before : before.balance1 = before.reserve1 := by
+    unfold PairWorldSurplus1 at h_surplus1
+    omega
+  have h_sync := closed_world_sync_sets_reserves_to_balances before after h_step
+  simp [PairWorldStep, PairWorldSyncStep] at h_step
+  rcases h_step with ⟨_h_bound0, _h_bound1, _h_balance0, _h_balance1,
+    _h_reserve0, _h_reserve1, h_supply, h_locked⟩
+  constructor
+  · exact h_sync.2.2.1
+  constructor
+  · exact h_sync.2.2.2
+  constructor
+  · rw [h_sync.1, h_balance0_before]
+  constructor
+  · rw [h_sync.2.1, h_balance1_before]
+  exact ⟨h_supply, h_locked⟩
+
 -- tama: discharges=pair_closed_world_sync_k_increase_requires_surplus
 theorem closed_world_sync_k_increase_requires_surplus
     (before after : PairWorldState) :

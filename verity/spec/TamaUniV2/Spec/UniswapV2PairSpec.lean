@@ -2566,6 +2566,23 @@ def pair_closed_world_sync_preserves_k_without_surplus
         PairWorldSurplus1 before = 0 →
           PairWorldK after = PairWorldK before
 
+/-- If the pool is already balanced, `sync` is a no-op on both token balances
+and cached accounting. This is the clean reserve-reconciliation case: with no
+external surplus to account, sync cannot change reserves, LP supply, or the
+permanent liquidity lock. -/
+def pair_closed_world_sync_preserves_balanced_pool
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep PairWorldAction.sync before after →
+      PairWorldSurplus0 before = 0 →
+        PairWorldSurplus1 before = 0 →
+          after.balance0 = before.balance0 ∧
+          after.balance1 = before.balance1 ∧
+          after.reserve0 = before.reserve0 ∧
+          after.reserve1 = before.reserve1 ∧
+          after.totalSupply = before.totalSupply ∧
+          after.lockedLiquidity = before.lockedLiquidity
+
 /-- `sync` cannot manufacture cached liquidity value. In a good state, if
 syncing balances into reserves increases cached K, then at least one token
 balance was already above the cached reserve before the call. -/
