@@ -2436,6 +2436,34 @@ def pair_closed_world_reachable_zero_surplus_same_supply_path_no_token_balance_v
               PairWorldBalanceSpotValueNum before before ≤
                 PairWorldBalanceSpotValueNum before after
 
+/--
+Caller no-profit as the external-wallet reading of the pool-value theorem.
+
+The Pair model tracks the pair's token balances directly. It does not invent a
+wallet ledger for every possible external caller. Instead, this short theorem
+states the exact logical step a caller ledger would need: if the caller's
+spot-priced value plus the pair's spot-priced token-balance value is the same
+before and after a same-LP-supply history, then the caller cannot finish with
+more value.
+
+This is intentionally a small consequence, not a replacement for the pool
+invariants above. The zero-surplus premise rules out treating a pre-existing
+donation as pair-owned value; the equality premise says the history only
+redistributes value between the caller and the pair at the initial spot price.
+-/
+def pair_closed_world_reachable_zero_surplus_same_supply_path_no_caller_token_balance_profit
+    (before after : PairWorldState)
+    (callerValueBefore callerValueAfter : Nat) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldSurplus0 before = 0 →
+        PairWorldSurplus1 before = 0 →
+          PairWorldPath before after →
+            before.totalSupply = after.totalSupply →
+              callerValueBefore + PairWorldBalanceSpotValueNum before before =
+                callerValueAfter + PairWorldBalanceSpotValueNum before after →
+                callerValueAfter ≤ callerValueBefore
+
 /-- The strongest reader-facing same-supply no-extraction statement. For a
 reachable nonempty pool, positive reserves are no longer an extra assumption;
 they follow from the nondegeneracy invariant above. Therefore any finite

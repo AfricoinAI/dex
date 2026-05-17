@@ -228,7 +228,10 @@ Pair:
   conclusion directly: from a reachable nonempty state with no donated surplus
   above reserves, same-LP-supply histories, and in particular histories with no
   mint and no burn, cannot reduce the pair's actual token-balance value at the
-  initial spot price.
+  initial spot price. The same section now includes the caller-value
+  consequence: when a caller ledger's spot-priced value plus the pair's
+  spot-priced token-balance value is unchanged except for redistribution
+  between them, the caller cannot finish with more value.
 
 Factory:
 

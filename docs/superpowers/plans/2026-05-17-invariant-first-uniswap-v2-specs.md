@@ -447,6 +447,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   the statement reads directly as balanced start plus no liquidity issuance or
   redemption implies no token-balance value extraction.
 
+  2026-05-17 14:05 PDT checkpoint: added the caller no-profit consequence for
+  zero-surplus same-LP-supply histories. The spec states the external-wallet
+  reading directly: if caller value plus pair token-balance value is unchanged
+  except for redistribution at the initial spot price, then the caller cannot
+  finish with more value.
+
 - [x] **9. Add factory-world invariants**
 
   Model pair creation as a finite factory trace and prove sorted-token
@@ -580,6 +586,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
 
   2026-05-17 12:59 PDT checkpoint: full verification passes for the
   two-transfer token trace replay slice: focused Pair proof, whole `lake build
+  TamaUniV2.Proof`, `tama check`, `tama build`, `tama test` (26/26), `tama
+  audit` (0 issues), and `git diff --check`. Known warnings remain
+  unused-variable lints plus sandbox cache/signature write warnings.
+
+  2026-05-17 14:07 PDT checkpoint: full verification passes for the caller
+  no-profit consequence slice: focused Pair proof, whole `lake build
   TamaUniV2.Proof`, `tama check`, `tama build`, `tama test` (26/26), `tama
   audit` (0 issues), and `git diff --check`. Known warnings remain
   unused-variable lints plus sandbox cache/signature write warnings.
