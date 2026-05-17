@@ -363,7 +363,7 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   compose successful-run transition facts with the shared reserve-write/oracle
   rule once each action's concrete arithmetic premises are available.
 
-- [ ] **5. Add TWAP/oracle specs**
+- [x] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when
   elapsed time is positive and old reserves are nonzero, preserve otherwise, and

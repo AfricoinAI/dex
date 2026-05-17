@@ -317,9 +317,11 @@ the executable bridge from canonical public entrypoints to that story.
   shared lock and reserve-update suffixes.
 - TWAP/oracle updates: the arithmetic cases now cover same timestamp, active
   elapsed update, and inactive elapsed no-op behavior as generic reserve-update
-  obligations, with `sync` as the direct public bridge. The remaining work is
-  to connect mint, burn, and swap reserve-update paths to those same concise
-  arithmetic claims.
+  obligations. Sync, first mint, subsequent mint, burn, and swap all have
+  successful-run bridge facts into those claims once their concrete arithmetic
+  premises are available. Remaining work is only to derive more of those
+  concrete premises directly from successful public runs, where that can be
+  done without monolithic entrypoint unfolding.
 - Flash swaps: callback gating is now proved at the ECM compile-template
   boundary, and closed-world swap accounting now states that K is checked
   against final balances after output plus inferred repayment. The ECM template
