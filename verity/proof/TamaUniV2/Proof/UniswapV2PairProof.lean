@@ -3599,6 +3599,17 @@ theorem closed_world_reachable_no_donation_path_never_increases_surplus
   exact pairWorldNoDonationPath_never_increases_surplus
     (pairWorldReachable_good before h_reachable) h_path
 
+-- tama: discharges=pair_closed_world_reachable_zero_surplus_no_donation_path_preserves_zero_surplus
+theorem closed_world_reachable_zero_surplus_no_donation_path_preserves_zero_surplus
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_zero_surplus_no_donation_path_preserves_zero_surplus
+    before after := by
+  intro h_reachable h_surplus0 h_surplus1 h_path
+  have h_le :=
+    closed_world_reachable_no_donation_path_never_increases_surplus
+      before after h_reachable h_path
+  omega
+
 -- tama: discharges=pair_closed_world_mint_preserves_good
 theorem closed_world_mint_preserves_good
     (amount0 amount1 liquidity : Nat)

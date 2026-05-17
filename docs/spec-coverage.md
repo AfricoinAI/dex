@@ -104,7 +104,8 @@ Pair:
   output-below-reserve swap facts,
   post-output plus inferred-input balance accounting for swaps, donation
   reserve/K framing, exact donation-created reserve surplus, finite-history
-  no-donation surplus isolation, LP-supply preservation for swap/skim/sync,
+  no-donation surplus isolation, zero-surplus preservation for no-donation
+  histories, LP-supply preservation for swap/skim/sync,
   the action classifier that only mint/burn can change LP total supply, the K-direction
   classifier that any one-step raw K decrease from a good state must be a burn,
   the reachable finite-trace theorem that any no-burn path cannot decrease
@@ -259,10 +260,12 @@ the executable bridge from canonical public entrypoints to that story.
   if it tracks real action-level token and LP ownership changes.
 - Donation surplus: the closed-world model now tracks token-side reserve
   surplus directly. Donations increase surplus exactly, and finite successful
-  histories with no donation step cannot create new surplus. This is the
-  Tamago-style premise that makes the balanced-start token-balance no-profit
-  theorem honest: `skim` can remove an external gift, but ordinary pair
-  mechanics cannot manufacture that gift internally.
+  histories with no donation step cannot create new surplus. The zero-surplus
+  corollary states the exact clean-start invariant: no-donation histories
+  preserve zero skimmable surplus on both token sides. This is the Tamago-style
+  premise that makes the balanced-start token-balance no-profit theorem honest:
+  `skim` can remove an external gift, but ordinary pair mechanics cannot
+  manufacture that gift internally.
 - Factory invariants: the closed-world reachable and path invariants are now in
   place, failed-create atomicity is proved, and successful create is bridged
   into the factory-world transition for both the empty base case and arbitrary

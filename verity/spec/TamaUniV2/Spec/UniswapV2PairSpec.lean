@@ -1616,6 +1616,21 @@ def pair_closed_world_reachable_no_donation_path_never_increases_surplus
       PairWorldSurplus0 after ≤ PairWorldSurplus0 before ∧
       PairWorldSurplus1 after ≤ PairWorldSurplus1 before
 
+/-- Clean-start surplus preservation. If a reachable pool starts with no
+unaccounted reserve surplus, then a finite history with no direct donation step
+still has no unaccounted reserve surplus at the end. This is the trace-wide
+invariant behind the informal claim that `skim` cannot find internally-created
+profit; without an external token transfer into the pair, there is no skimmable
+gift to remove. -/
+def pair_closed_world_reachable_zero_surplus_no_donation_path_preserves_zero_surplus
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldSurplus0 before = 0 →
+      PairWorldSurplus1 before = 0 →
+        PairWorldPathNoDonation before after →
+          PairWorldSurplus0 after = 0 ∧
+          PairWorldSurplus1 after = 0
+
 /-!
 ### 5. Liquidity Creation And Redemption
 
