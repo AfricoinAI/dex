@@ -94,9 +94,9 @@ Pair:
   nondecrease. The stronger closed-world LP-normalized K theorem now covers
   arbitrary finite paths from good positive-supply states: each step preserves
   or improves `K / totalSupply^2`, the fact composes across paths, same-supply
-  paths cannot reduce raw K, and same-supply paths cannot reduce the pool's
-  value at the initial spot price. The reader-facing reachable theorem now says
-  the same thing directly for any reachable positive-supply same-LP-supply
+  paths cannot reduce raw K, same-supply paths cannot reduce the pool's value
+  at the initial spot price, and a reader-facing value-comparison theorem states
+  that conclusion directly for any reachable positive-supply same-LP-supply
   finite path. This allows mint/burn round trips rather than relying only on the
   older no-burn path theorem.
 

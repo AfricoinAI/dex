@@ -156,6 +156,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   The full caller-ledger theorem remains open if we decide to model external
   caller holdings directly.
 
+  2026-05-17 00:20 PDT checkpoint: added a reader-facing pool-value theorem for
+  the same economic fact. For any reachable positive-supply finite path that
+  returns to the same LP supply, the final pool value at the initial spot price
+  is at least the initial pool value. This keeps the public obligation short but
+  makes the no-profit conclusion easier to read.
+
 - [x] **9. Add factory-world invariants**
 
   Model pair creation as a finite factory trace and prove sorted-token

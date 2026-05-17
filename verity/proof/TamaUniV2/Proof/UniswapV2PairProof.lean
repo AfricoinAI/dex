@@ -2924,6 +2924,22 @@ theorem closed_world_reachable_same_supply_path_no_spot_profit
     (pairWorldReachable_good before h_reachable)
     h_positive h_path h_supply h_reserve0 h_reserve1
 
+-- tama: discharges=pair_closed_world_reachable_same_supply_path_pool_value_never_decreases
+theorem closed_world_reachable_same_supply_path_pool_value_never_decreases
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_same_supply_path_pool_value_never_decreases before after := by
+  intro h_reachable h_positive h_path h_supply h_reserve0 h_reserve1
+  have h_no_profit :
+      PairWorldNoSpotProfit before after :=
+    closed_world_reachable_same_supply_path_no_spot_profit before after
+      h_reachable h_positive h_path h_supply h_reserve0 h_reserve1
+  have h_initial_value :
+      PairWorldSpotValueNum before before = 2 * PairWorldK before := by
+    unfold PairWorldSpotValueNum PairWorldK
+    nlinarith
+  simpa [pair_closed_world_reachable_same_supply_path_pool_value_never_decreases,
+    PairWorldNoSpotProfit, h_initial_value] using h_no_profit
+
 -- tama: discharges=pair_closed_world_non_burn_step_never_decreases_k
 theorem closed_world_non_burn_step_never_decreases_k
     (action : PairWorldAction) (before after : PairWorldState) :
