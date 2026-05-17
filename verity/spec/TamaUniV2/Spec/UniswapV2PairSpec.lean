@@ -1548,6 +1548,13 @@ def pair_closed_world_burn_preserves_positive_balances
 Anyone may transfer tokens directly into a pair. That donation must not silently
 alter cached reserves, LP supply, or cached K. The only way to account for the
 extra token balance is through later mint/swap/sync behavior.
+
+This is the Uniswap V2 analogue of Tamago's ERC4626 donation-surplus layer.
+The model tracks reserve surplus as `balance - reserve` on each token side.
+Direct donations are allowed to create that surplus, but histories with no
+donation step cannot manufacture more of it. That is the missing premise behind
+the actual-token-balance no-profit theorem: `skim` may remove an external gift,
+but the pair cannot create that gift internally.
 -/
 
 def pair_closed_world_donate_preserves_reserves_and_supply
@@ -1564,6 +1571,50 @@ def pair_closed_world_donate_preserves_k
     (before after : PairWorldState) : Prop :=
   PairWorldStep (PairWorldAction.donate amount0 amount1) before after →
     PairWorldK after = PairWorldK before
+
+/-- Donations are exactly the source of new unaccounted reserve surplus. From a
+reserve-backed state, a direct token0/token1 inflow increases each token-side
+surplus by exactly the donated amount while cached reserves remain unchanged. -/
+def pair_closed_world_donation_increases_surplus_exactly
+    (amount0 amount1 : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep (PairWorldAction.donate amount0 amount1) before after →
+      PairWorldSurplus0 after = PairWorldSurplus0 before + amount0 ∧
+      PairWorldSurplus1 after = PairWorldSurplus1 before + amount1
+
+/-- No non-donation action can create new reserve surplus. Share bookkeeping
+preserves any existing surplus; mint, burn, swap, skim, and sync either account
+for balances as reserves or remove surplus; none of them can increase
+`balance - reserve` without an explicit external token donation. -/
+def pair_closed_world_non_donation_step_never_increases_surplus
+    (action : PairWorldAction)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep action before after →
+      (∀ amount0 amount1, action ≠ PairWorldAction.donate amount0 amount1) →
+        PairWorldSurplus0 after ≤ PairWorldSurplus0 before ∧
+        PairWorldSurplus1 after ≤ PairWorldSurplus1 before
+
+/-- Trace-level surplus isolation. Across any finite successful history with no
+direct donation step, reserve surplus on either token side cannot increase. -/
+def pair_closed_world_no_donation_path_never_increases_surplus
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldPathNoDonation before after →
+      PairWorldSurplus0 after ≤ PairWorldSurplus0 before ∧
+      PairWorldSurplus1 after ≤ PairWorldSurplus1 before
+
+/-- Reader-facing reachable form of surplus isolation. Starting from an
+actually reachable PairWorld state, any finite successful no-donation history
+cannot create new unaccounted reserve surplus. Any later `skim` profit must
+come from surplus that was already present, not from the pair's own mechanics. -/
+def pair_closed_world_reachable_no_donation_path_never_increases_surplus
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPathNoDonation before after →
+      PairWorldSurplus0 after ≤ PairWorldSurplus0 before ∧
+      PairWorldSurplus1 after ≤ PairWorldSurplus1 before
 
 /-!
 ### 5. Liquidity Creation And Redemption

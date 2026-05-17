@@ -62,6 +62,12 @@ def requiredK (reserve0 reserve1 : Nat) : Nat :=
 def PairWorldK (w : PairWorldState) : Nat :=
   w.reserve0 * w.reserve1
 
+def PairWorldSurplus0 (w : PairWorldState) : Nat :=
+  w.balance0 - w.reserve0
+
+def PairWorldSurplus1 (w : PairWorldState) : Nat :=
+  w.balance1 - w.reserve1
+
 def PairWorldKPerSupplyNondecreasing (before after : PairWorldState) : Prop :=
   PairWorldK before * after.totalSupply * after.totalSupply ≤
     PairWorldK after * before.totalSupply * before.totalSupply
@@ -251,6 +257,14 @@ inductive PairWorldPathNoMintBurn : PairWorldState → PairWorldState → Prop w
       (∀ amount0 amount1 liquidity,
         action ≠ PairWorldAction.burn amount0 amount1 liquidity) →
       PairWorldPathNoMintBurn start after
+
+inductive PairWorldPathNoDonation : PairWorldState → PairWorldState → Prop where
+  | refl (w : PairWorldState) : PairWorldPathNoDonation w w
+  | step {start before after : PairWorldState} (action : PairWorldAction) :
+      PairWorldPathNoDonation start before →
+      PairWorldStep action before after →
+      (∀ amount0 amount1, action ≠ PairWorldAction.donate amount0 amount1) →
+      PairWorldPathNoDonation start after
 
 inductive PairWorldPathShareBookkeeping : PairWorldState → PairWorldState → Prop where
   | refl (w : PairWorldState) : PairWorldPathShareBookkeeping w w

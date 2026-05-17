@@ -2040,6 +2040,17 @@ private theorem pairWorldPath_of_noMintBurn
   | step action h_prefix h_step _h_not_mint _h_not_burn ih =>
       exact PairWorldPath.step action ih h_step
 
+private theorem pairWorldPath_of_noDonation
+    {before after : PairWorldState} :
+  PairWorldPathNoDonation before after →
+    PairWorldPath before after := by
+  intro h_path
+  induction h_path with
+  | refl =>
+      exact PairWorldPath.refl before
+  | step action h_prefix h_step _h_not_donation ih =>
+      exact PairWorldPath.step action ih h_step
+
 private theorem pairWorldNoBurnPath_of_noMintBurn
     {before after : PairWorldState} :
   PairWorldPathNoMintBurn before after →
@@ -3473,6 +3484,120 @@ theorem closed_world_donate_preserves_k
     _h_supply, _h_locked⟩
   unfold PairWorldK
   rw [h_reserve0, h_reserve1]
+
+-- tama: discharges=pair_closed_world_donation_increases_surplus_exactly
+theorem closed_world_donation_increases_surplus_exactly
+    (amount0 amount1 : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_donation_increases_surplus_exactly
+    amount0 amount1 before after := by
+  intro h_good h_step
+  rcases h_good with ⟨h_back0, h_back1, _h_bound0, _h_bound1, _h_supply⟩
+  simp [PairWorldStep] at h_step
+  rcases h_step with ⟨h_balance0, h_balance1, h_reserve0, h_reserve1,
+    _h_supply, _h_locked⟩
+  unfold PairWorldSurplus0 PairWorldSurplus1
+  constructor <;> omega
+
+-- tama: discharges=pair_closed_world_non_donation_step_never_increases_surplus
+theorem closed_world_non_donation_step_never_increases_surplus
+    (action : PairWorldAction)
+    (before after : PairWorldState) :
+  pair_closed_world_non_donation_step_never_increases_surplus
+    action before after := by
+  intro h_good h_step h_not_donation
+  rcases h_good with ⟨h_back0, h_back1, _h_bound0, _h_bound1, _h_supply_good⟩
+  cases action with
+  | approve ownerAddr spender amount =>
+      simp [PairWorldStep] at h_step
+      rw [h_step]
+      exact ⟨le_rfl, le_rfl⟩
+  | transfer fromAddr toAddr amount =>
+      simp [PairWorldStep] at h_step
+      rw [h_step]
+      exact ⟨le_rfl, le_rfl⟩
+  | transferFrom spender fromAddr toAddr amount =>
+      simp [PairWorldStep] at h_step
+      rw [h_step]
+      exact ⟨le_rfl, le_rfl⟩
+  | donate amount0 amount1 =>
+      exact False.elim (h_not_donation amount0 amount1 rfl)
+  | mint amount0 amount1 liquidity =>
+      simp [PairWorldStep, PairWorldMintStep] at h_step
+      rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity,
+        _h_before_balance0, _h_before_balance1, h_after_balance0,
+        h_after_balance1, h_after_reserve0, h_after_reserve1,
+        _h_bound0, _h_bound1, _h_supply, _h_locked, _h_ratio⟩
+      unfold PairWorldSurplus0 PairWorldSurplus1
+      rw [h_after_reserve0, h_after_reserve1, h_after_balance0, h_after_balance1]
+      omega
+  | burn amount0 amount1 liquidity =>
+      simp [PairWorldStep, PairWorldBurnStep] at h_step
+      rcases h_step with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+        _h_supply_pos, _h_amount0, _h_amount1, _h_liquidity,
+        _h_locked_remaining, h_balance0, h_balance1, h_reserve0, h_reserve1,
+        _h_bound0, _h_bound1, _h_supply, _h_locked, _h_ratio0, _h_ratio1⟩
+      unfold PairWorldSurplus0 PairWorldSurplus1
+      rw [h_reserve0, h_reserve1]
+      omega
+  | swap amount0In amount1In amount0Out amount1Out =>
+      simp [PairWorldStep, PairWorldSwapStep] at h_step
+      rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0,
+        _h_enough1, _h_input, h_balance0, h_balance1, h_reserve0,
+        h_reserve1, _h_bound0, _h_bound1, _h_supply, _h_locked,
+        _h_fee0, _h_fee1, _h_adjusted_k⟩
+      unfold PairWorldSurplus0 PairWorldSurplus1
+      rw [h_reserve0, h_reserve1]
+      omega
+  | skim =>
+      simp [PairWorldStep, PairWorldSkimStep] at h_step
+      rcases h_step with ⟨h_balance0, h_balance1, h_reserve0, h_reserve1,
+        _h_supply, _h_locked⟩
+      unfold PairWorldSurplus0 PairWorldSurplus1
+      rw [h_balance0, h_balance1, h_reserve0, h_reserve1]
+      omega
+  | sync =>
+      simp [PairWorldStep, PairWorldSyncStep] at h_step
+      rcases h_step with ⟨_h_bound0, _h_bound1, h_balance0, h_balance1,
+        h_reserve0, h_reserve1, _h_supply, _h_locked⟩
+      unfold PairWorldSurplus0 PairWorldSurplus1
+      rw [h_balance0, h_balance1, h_reserve0, h_reserve1]
+      omega
+
+private theorem pairWorldNoDonationPath_never_increases_surplus
+    {before after : PairWorldState} :
+  PairWorldGood before →
+    PairWorldPathNoDonation before after →
+      PairWorldSurplus0 after ≤ PairWorldSurplus0 before ∧
+      PairWorldSurplus1 after ≤ PairWorldSurplus1 before := by
+  intro h_good h_path
+  induction h_path with
+  | refl =>
+      exact ⟨le_rfl, le_rfl⟩
+  | step action h_prefix h_step h_not_donation ih =>
+      have h_good_mid :=
+        pairWorldPath_preserves_good h_good
+          (pairWorldPath_of_noDonation h_prefix)
+      have h_step_surplus :=
+        closed_world_non_donation_step_never_increases_surplus
+          action _ _ h_good_mid h_step h_not_donation
+      exact ⟨Nat.le_trans h_step_surplus.1 ih.1,
+        Nat.le_trans h_step_surplus.2 ih.2⟩
+
+-- tama: discharges=pair_closed_world_no_donation_path_never_increases_surplus
+theorem closed_world_no_donation_path_never_increases_surplus
+    (before after : PairWorldState) :
+  pair_closed_world_no_donation_path_never_increases_surplus before after := by
+  exact pairWorldNoDonationPath_never_increases_surplus
+
+-- tama: discharges=pair_closed_world_reachable_no_donation_path_never_increases_surplus
+theorem closed_world_reachable_no_donation_path_never_increases_surplus
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_no_donation_path_never_increases_surplus
+    before after := by
+  intro h_reachable h_path
+  exact pairWorldNoDonationPath_never_increases_surplus
+    (pairWorldReachable_good before h_reachable) h_path
 
 -- tama: discharges=pair_closed_world_mint_preserves_good
 theorem closed_world_mint_preserves_good
