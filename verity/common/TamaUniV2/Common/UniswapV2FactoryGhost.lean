@@ -8,6 +8,12 @@ The executable factory crosses two external boundaries during `createPair`:
 CREATE2 deployment and pair initialization. This model abstracts those
 boundaries to a successful `(token0, token1, pair)` creation step and proves the
 factory-local consequences over every finite sequence of such steps.
+
+The factory model is deliberately smaller than the Pair model because the
+factory has only one economic action: append a new pair. That smallness is the
+security argument. If every valid step appends one sorted nonzero pair and the
+path relation is just finite repetition of that step, then no successful
+history can delete, reorder, or overwrite an existing unordered pair lookup.
 -/
 
 namespace TamaUniV2.Common.UniswapV2FactoryGhost

@@ -18,6 +18,10 @@ economics, and narrow bridges from canonical public entrypoints to those facts.
 - API parity is a build/review constraint, not a formal spec category.
 - Public specs should be short invariants, preservation lemmas, guard/revert
   facts, bridge facts, and economic safety statements.
+- Spec modules should read like an assurance argument. Each section needs to
+  explain the security/correctness role of the facts that follow, so a reader
+  can see why the collection implies the fee-off pair/factory are correct,
+  complete, and secure.
 - Executable run facts may exist as private or narrow bridge lemmas, but should
   not become large public aggregate specs for whole functions.
 - Do not change contract source or public model functions for proof convenience.
@@ -38,6 +42,18 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
 `permit`.
 
 ## Work Plan
+
+- [x] **0. Keep the spec narrative coherent**
+
+  This is an ongoing hygiene constraint rather than a separate proof milestone.
+  The Pair and Factory spec files should read like papers: start from the
+  contract's trust boundaries, build local storage/accounting facts, bridge real
+  entrypoints into concise ghost transitions, then state global finite-history
+  invariants and economic consequences.
+
+  2026-05-17 03:25 PDT checkpoint: after user clarification, this standard is
+  explicit in the active plan. Future spec additions should include
+  plain-language section/comment blocks and avoid aggregate function summaries.
 
 - [x] **1. Restore a coherent public spec/proof manifest**
 
@@ -140,6 +156,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   classifier. If a reachable successful path ends with lower cached K, that
   endpoint cannot also be reached by a burn-free history, making "K loss
   requires LP redemption" explicit for readers.
+
+  2026-05-17 03:31 PDT checkpoint: added the common-case no-mint/no-burn K
+  theorem. Reachable finite histories made only of LP bookkeeping, donations,
+  swaps, skim, and sync cannot decrease cached K; this is the K-side companion
+  to the common-case no-extraction theorem.
 
   2026-05-16 22:43 PDT checkpoint: the closed-world burn step was tightened to
   match executable burn success by requiring positive redeemed amounts, positive

@@ -12,6 +12,9 @@ current route.
 - Public specs should be short security and correctness properties: accounting,
   reserve backing, guarded reverts, oracle updates, reentrancy, K preservation,
   and sequence-level economic safety.
+- Spec files should read as assurance arguments. Each section should say why
+  the following facts matter, how they compose with the previous section, and
+  what security conclusion they support.
 - Executable run lemmas are bridge/proof plumbing. They are useful only when
   they connect a real entrypoint run to a small invariant or transition fact.
 - Do not modify the contract API or source shape to satisfy a proof. Specs and
@@ -93,8 +96,10 @@ Pair:
   reserve/K framing, LP-supply preservation for swap/skim/sync, the action
   classifier that only mint/burn can change LP total supply, the K-direction
   classifier that any one-step raw K decrease from a good state must be a burn,
-  and the reachable finite-trace theorem that any no-burn path cannot decrease
-  cached K. The contrapositive reader-facing theorem is also stated directly:
+  the reachable finite-trace theorem that any no-burn path cannot decrease
+  cached K, and the common-case reachable theorem that histories with no mint
+  and no burn cannot decrease cached K. The contrapositive reader-facing theorem
+  is also stated directly:
   if a reachable successful path ends with lower cached K, the same endpoint
   cannot be reached by any burn-free history.
 - Flash-swap callback gating is covered at the ECM compile-template boundary:

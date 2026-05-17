@@ -19,9 +19,15 @@ The factory assurance argument is:
 2. `createPair` rejects invalid input before crossing CREATE2.
 3. A successful create stores both mapping directions, appends exactly one pair,
    increments length exactly once, and emits `PairCreated`.
-4. Closed-world factory specs express the global consequence: every reachable
-   factory state has symmetric pair lookup, unique sorted pairs, and array
-   length equal to the number of created pairs.
+4. The closed-world model lifts those one-step facts to every finite factory
+   history: pair keys are sorted and unique, lookup is symmetric, old pairs are
+   never overwritten, and array length equals the number of created pairs.
+
+Read as a proof outline, the factory specs show that the executable boundary
+can either fail without changing factory-local state or append one new sorted
+pair. Since the ghost model has no transition that rewrites old entries, the
+finite-history theorems give routers the property they actually rely on:
+unordered lookup is stable and unique forever.
 
 The actual CREATE2 deployment and pair initialization are external boundaries;
 the specs only assume those calls at that boundary and prove factory-local

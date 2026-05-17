@@ -22,15 +22,28 @@ boundaries such as ERC20 calls, callbacks, and CREATE2 deployment.
 
 The file is organized as an assurance argument:
 
-1. Views expose the intended storage fields and fee-off constants.
-2. Reverts frame both pair storage and external token movement.
-3. LP-token operations satisfy ERC20-style balance, allowance, supply, and event
-   properties.
-4. Exact guard specs pin down important revert payloads for executable runs.
-5. Bridge predicates connect successful public runs to small economic
-   transitions.
-6. Closed-world trace specs prove invariant and economic consequences for every
-   finite sequence of successful modeled actions.
+1. Identify the contract state that outside users can observe: reserves,
+   cumulative prices, token addresses, LP balances, allowances, and the fee-off
+   `kLast` constant.
+2. Separate local Pair state from ERC20 state. Reverts must frame both, while
+   successful token movement is represented by explicit trace facts at the ECM
+   boundary.
+3. Prove the LP token behaves like a conservative ERC20 share ledger before
+   considering AMM economics.
+4. Pin down security-relevant executable guards: the reentrancy lock, reserve
+   bounds, under-backed reserve-management failures, and early swap/factory
+   failures all have exact revert payloads and original-state frames.
+5. Bridge successful public entrypoints into small ghost transitions. These are
+   intentionally not whole-function summaries; they are the doorway from
+   executable code into the mathematical model.
+6. Prove the model-level theorem stack over every finite successful history:
+   reserve backing, uint112 bounds, minimum-liquidity locking, K behavior,
+   LP-share discipline, and same-supply no-profit.
+
+Read from top to bottom, the argument is: the executable boundary admits only
+well-framed failures and well-shaped successful transitions; the transition
+model preserves the invariants; therefore every finite closed-world history of
+the fee-off pair preserves the safety and economic properties users rely on.
 
 The public theorem names are intentionally redundant with this prose. A reader
 should be able to skim the section comments, then read each `def` as the
@@ -455,6 +468,10 @@ These are intentionally branch facts rather than full function summaries. They
 are useful because guard order is security-relevant: before any ERC20 transfer,
 callback, reserve update, or LP accounting write can become durable, the
 matching public entrypoint must fail with the expected reason and frame.
+
+The section should stay narrow. If proving a later guard requires unfolding the
+whole function tail, the right move is to factor a proof-local prefix adapter
+first, then expose a short public guard fact here.
 -/
 
 def pair_initialize_run_revert_non_factory
@@ -1052,6 +1069,10 @@ Security conclusions:
   an external gift.
 * Liquidity creation and redemption are isolated to mint/burn, where the
   separate ratio specs bound LP tokens against pro-rata token movement.
+
+This section is the proof spine. Individual entrypoint facts tell us what one
+call can do; these invariants tell us what no finite sequence of calls can do.
+That is where the contract-level security claims live.
 -/
 
 /-!
@@ -1859,6 +1880,16 @@ def pair_closed_world_reachable_positive_supply_no_mint_burn_path_no_spot_value_
       PairWorldPathNoMintBurn before after →
         PairWorldSpotValueNum before before ≤
           PairWorldSpotValueNum before after
+
+/-- Common-case K preservation for non-liquidity histories. A reachable path
+with no mint and no burn is made of LP bookkeeping, donations, swaps, skim, and
+sync. None of those actions can reduce cached reserve product, so K is monotone
+over the whole finite history. -/
+def pair_closed_world_reachable_no_mint_burn_path_never_decreases_k
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPathNoMintBurn before after →
+      PairWorldK before ≤ PairWorldK after
 
 def pair_closed_world_non_burn_step_never_decreases_k
     (action : PairWorldAction) (before after : PairWorldState) : Prop :=

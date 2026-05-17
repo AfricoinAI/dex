@@ -7,6 +7,19 @@ The executable pair reads ERC20 balances through ECMs. This module follows the
 same pattern as Tamago's ERC4626 closed-world specs: model finite successful
 action traces explicitly, prove economic invariants over that model, and keep
 the model outside `verity/spec` so only public obligations are audited.
+
+The alphabet is intentionally economic rather than bytecode-shaped. LP
+approvals and transfers are modeled because they must not change pool assets.
+`donate` represents direct ERC20 inflow that the pair did not initiate.
+`mint`, `burn`, `swap`, `skim`, and `sync` represent the successful public AMM
+entrypoints after executable bridge facts have established their arithmetic
+preconditions.
+
+Within this model, "all possible histories" means every finite sequence whose
+steps satisfy `PairWorldStep`. The public specs prove one-step facts, then
+finite-path facts, then reachable-state corollaries. This mirrors the Tamago
+ERC4626 style: proof over traces first, executable calls bridged into those
+traces second, and no extra trust surface for internal accounting.
 -/
 
 namespace TamaUniV2.Common.UniswapV2PairGhost
