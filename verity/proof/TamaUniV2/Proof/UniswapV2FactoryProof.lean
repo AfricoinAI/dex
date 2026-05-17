@@ -789,6 +789,16 @@ theorem closed_world_path_is_append_only
   factory_closed_world_path_is_append_only before after := by
   exact factoryWorldPath_append_only
 
+-- tama: discharges=factory_closed_world_path_pair_count_never_decreases
+theorem closed_world_path_pair_count_never_decreases
+    (before after : FactoryWorldState) :
+  factory_closed_world_path_pair_count_never_decreases before after := by
+  intro h_path
+  rcases factoryWorldPath_append_only h_path with
+    ⟨suffix, _h_pairs, h_count⟩
+  rw [h_count]
+  omega
+
 -- tama: discharges=factory_closed_world_length_matches_created_pairs
 theorem closed_world_length_matches_created_pairs
     (w : FactoryWorldState) :

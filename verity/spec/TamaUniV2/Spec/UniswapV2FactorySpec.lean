@@ -377,6 +377,14 @@ def factory_closed_world_path_is_append_only
       after.pairs = before.pairs ++ suffix ∧
       after.pairCount = before.pairCount + suffix.length
 
+/-- Pair enumeration is monotone over finite histories. Since successful
+creation only appends, a later factory state cannot have a smaller public pair
+count than an earlier state on the same modeled path. -/
+def factory_closed_world_path_pair_count_never_decreases
+    (before after : FactoryWorldState) : Prop :=
+  FactoryWorldPath before after →
+    before.pairCount ≤ after.pairCount
+
 def factory_closed_world_length_matches_created_pairs
     (w : FactoryWorldState) : Prop :=
   FactoryWorldReachable w →

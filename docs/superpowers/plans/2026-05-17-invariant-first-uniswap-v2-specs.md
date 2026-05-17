@@ -238,6 +238,10 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   public pair list equals the initial list followed by that suffix, and pair
   count increases by exactly the suffix length.
 
+  2026-05-17 01:46 PDT checkpoint: added the reader-facing pair-count
+  monotonicity corollary. Along any finite successful factory create history,
+  modeled public pair count cannot decrease.
+
   2026-05-17 00:55 PDT checkpoint: added a reader-facing reachable lookup
   stability theorem. Once a reachable factory state contains an unordered token
   pair lookup, every later finite successful create history preserves that same
