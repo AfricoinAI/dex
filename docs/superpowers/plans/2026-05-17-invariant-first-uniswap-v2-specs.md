@@ -383,6 +383,16 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   now exposes only the economic arithmetic premises; successful execution
   supplies the shared gates.
 
+  2026-05-17 16:40 PDT checkpoint: did the same cleanup for `sync`. The
+  reader-facing successful-run sync oracle fact now follows directly from
+  success, with lock and uint112 bounds derived by the earlier exact-revert
+  bridge.
+
+  2026-05-17 16:39 PDT checkpoint: a direct exact-run proof for the next swap
+  guard, insufficient liquidity, was attempted and backed out uncommitted after
+  reproducing the known kernel-depth failure. Future ordered swap reverts need
+  a proof-local ordered-prefix adapter before public obligations are added.
+
 - [x] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when

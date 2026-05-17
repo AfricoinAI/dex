@@ -5362,6 +5362,29 @@ theorem sync_success_run_uses_oracle_rule
   exact closed_world_concrete_reserve_write_uses_oracle_rule
     PairWorldAction.sync (pairWorldAfterSyncRun s) s h_action h_step
 
+-- tama: discharges=pair_sync_success_run_uses_oracle_rule_from_run
+theorem sync_success_run_uses_oracle_rule_from_run
+    (s : ContractState) (result : ContractResult Unit) :
+  pair_sync_success_run_uses_oracle_rule_from_run s result := by
+  intro h_run h_success
+  have h_step :=
+    sync_success_run_refines_closed_world_from_run s result h_run h_success
+  have h_action :
+      ((∃ amount0 amount1 liquidity,
+          PairWorldAction.sync = PairWorldAction.mint amount0 amount1 liquidity) ∨
+        (∃ amount0 amount1 liquidity,
+          PairWorldAction.sync = PairWorldAction.burn amount0 amount1 liquidity) ∨
+        (∃ amount0In amount1In amount0Out amount1Out,
+          PairWorldAction.sync =
+            PairWorldAction.swap amount0In amount1In amount0Out amount1Out) ∨
+        PairWorldAction.sync = PairWorldAction.sync) := by
+    right
+    right
+    right
+    rfl
+  exact closed_world_concrete_reserve_write_uses_oracle_rule
+    PairWorldAction.sync (pairWorldAfterSyncRun s) s h_action h_step
+
 private theorem reserve_write_step_uses_oracle_rule
     (action : PairWorldAction) (before after : PairWorldState)
     (s : ContractState) :
