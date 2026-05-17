@@ -194,20 +194,23 @@ Factory:
   endpoint, preserves every pre-existing decoded unordered lookup, and
   preserves every pre-existing indexed `allPairs` entry.
 
-## Current Spec Work
+## Remaining Spec Work
 
 These are the current standards for the next Lean work. They are behavioral
-properties, not API-surface properties.
+properties, not API-surface properties. The broad closed-world invariant and
+economic story is now in place; remaining Pair work should mainly strengthen
+the executable bridge from canonical public entrypoints to that story.
 
-- Mint formulas: prove first mint locks `MINIMUM_LIQUIDITY`, subsequent mints
-  mint no more than the minimum pro-rata share, and successful `mint` runs imply
-  the corresponding closed-world mint transition.
-- Burn formulas: prove burns redeem no more than pro-rata token balances,
-  update reserves to post-transfer balances, restore the lock, emit the expected
-  events, and imply the closed-world burn transition.
-- Swap formulas: prove input inference from final balances, exact output
-  transfers, fee-adjusted K, derived raw K nondecrease, lock restoration,
-  events, and the closed-world swap transition.
+- Mint, burn, and swap executable bridges: closed-world formulas already cover
+  minimum-liquidity locking, pro-rata mint/burn discipline, fee-adjusted swap K,
+  derived raw-K nondecrease, reserve updates, LP-supply effects, and no-profit
+  consequences. The remaining bridge work is to derive more of the arithmetic
+  premises directly from successful public runs, in small prefix/suffix lemmas
+  rather than one aggregate function summary.
+- Concrete success-path restoration and events: Foundry mirrors cover Mint,
+  Burn, Swap, Sync, and lock restoration at runtime. Lean should expose only
+  short obligations here, preferably via factored proof-local adapters for the
+  shared lock and reserve-update suffixes.
 - TWAP/oracle updates: the arithmetic cases now cover same timestamp, active
   elapsed update, and inactive elapsed no-op behavior as generic reserve-update
   obligations, with `sync` as the direct public bridge. The remaining work is
@@ -219,9 +222,10 @@ properties, not API-surface properties.
   now also proves callback call failure reaches a returndata-preserving revert.
   Remaining work: model in-callback lock semantics with an explicit Lean trace
   or keep it as mirrored runtime boundary coverage.
-- Skim/sync bridge: `sync` has uint112 overflow reverts and a closed-world
-  transition bridge. The remaining work is a narrow bridge from successful
-  reserve-update runs to the TWAP/oracle arithmetic facts.
+- Skim/sync bridge: `skim` has exact surplus-transfer and closed-world
+  transition coverage. `sync` has uint112 overflow reverts and a closed-world
+  transition bridge. Remaining work is only the narrow executable bridge from
+  successful reserve-update runs to the TWAP/oracle arithmetic facts.
 - Ordered revert matrix: cover canonical guard priority for mint, burn, swap,
   skim, sync, and factory, with exact revert payload/state.
   Swap now has a public Lean proof for the zero-output guard after the lock
