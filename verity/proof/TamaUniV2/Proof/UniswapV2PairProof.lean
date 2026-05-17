@@ -4899,10 +4899,10 @@ theorem closed_world_sync_preserves_balanced_pool
   · rw [h_sync.2.1, h_balance1_before]
   exact ⟨h_supply, h_locked⟩
 
--- tama: discharges=pair_closed_world_balanced_reserve_management_preserves_pool
-theorem closed_world_balanced_reserve_management_preserves_pool
+-- tama: discharges=pair_closed_world_balanced_skim_or_sync_preserves_pool
+theorem closed_world_balanced_skim_or_sync_preserves_pool
     (action : PairWorldAction) (before after : PairWorldState) :
-  pair_closed_world_balanced_reserve_management_preserves_pool action before after := by
+  pair_closed_world_balanced_skim_or_sync_preserves_pool action before after := by
   intro h_action h_good h_step h_surplus0 h_surplus1
   rcases h_action with h_skim | h_sync
   · subst action
@@ -4912,12 +4912,12 @@ theorem closed_world_balanced_reserve_management_preserves_pool
     exact closed_world_sync_preserves_balanced_pool
       before after h_good h_step h_surplus0 h_surplus1
 
-private theorem pairWorldReserveManagementPath_preserves_balanced_pool
+private theorem pairWorldSkimSyncPath_preserves_balanced_pool
     {before after : PairWorldState} :
   PairWorldGood before →
     PairWorldSurplus0 before = 0 →
       PairWorldSurplus1 before = 0 →
-        PairWorldPathReserveManagement before after →
+        PairWorldPathSkimSync before after →
           after.balance0 = before.balance0 ∧
           after.balance1 = before.balance1 ∧
           after.reserve0 = before.reserve0 ∧
@@ -4989,18 +4989,18 @@ private theorem pairWorldReserveManagementPath_preserves_balanced_pool
       · rw [h_supply_step, h_supply_prefix]
       · rw [h_locked_step, h_locked_prefix]
 
--- tama: discharges=pair_closed_world_balanced_reserve_management_path_preserves_pool
-theorem closed_world_balanced_reserve_management_path_preserves_pool
+-- tama: discharges=pair_closed_world_balanced_skim_sync_path_preserves_pool
+theorem closed_world_balanced_skim_sync_path_preserves_pool
     (before after : PairWorldState) :
-  pair_closed_world_balanced_reserve_management_path_preserves_pool before after := by
-  exact pairWorldReserveManagementPath_preserves_balanced_pool
+  pair_closed_world_balanced_skim_sync_path_preserves_pool before after := by
+  exact pairWorldSkimSyncPath_preserves_balanced_pool
 
-private theorem pairWorldMaintenancePath_preserves_balanced_pool
+private theorem pairWorldLpBookkeepingSkimSyncPath_preserves_balanced_pool
     {before after : PairWorldState} :
   PairWorldGood before →
     PairWorldSurplus0 before = 0 →
       PairWorldSurplus1 before = 0 →
-        PairWorldPathMaintenance before after →
+        PairWorldPathLpBookkeepingSkimSync before after →
           after.balance0 = before.balance0 ∧
           after.balance1 = before.balance1 ∧
           after.reserve0 = before.reserve0 ∧
@@ -5090,42 +5090,42 @@ private theorem pairWorldMaintenancePath_preserves_balanced_pool
       · rw [h_supply_step, h_supply_prefix]
       · rw [h_locked_step, h_locked_prefix]
 
--- tama: discharges=pair_closed_world_balanced_maintenance_path_preserves_pool
-theorem closed_world_balanced_maintenance_path_preserves_pool
+-- tama: discharges=pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_pool
+theorem closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_pool
     (before after : PairWorldState) :
-  pair_closed_world_balanced_maintenance_path_preserves_pool before after := by
-  exact pairWorldMaintenancePath_preserves_balanced_pool
+  pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_pool before after := by
+  exact pairWorldLpBookkeepingSkimSyncPath_preserves_balanced_pool
 
--- tama: discharges=pair_closed_world_balanced_maintenance_path_preserves_k
-theorem closed_world_balanced_maintenance_path_preserves_k
+-- tama: discharges=pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_k
+theorem closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_k
     (before after : PairWorldState) :
-  pair_closed_world_balanced_maintenance_path_preserves_k before after := by
+  pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_k before after := by
   intro h_good h_surplus0 h_surplus1 h_path
-  rcases pairWorldMaintenancePath_preserves_balanced_pool
+  rcases pairWorldLpBookkeepingSkimSyncPath_preserves_balanced_pool
       h_good h_surplus0 h_surplus1 h_path with
     ⟨_h_balance0, _h_balance1, h_reserve0, h_reserve1, _h_supply, _h_locked⟩
   simp [PairWorldK, h_reserve0, h_reserve1]
 
--- tama: discharges=pair_closed_world_balanced_maintenance_path_preserves_zero_surplus
-theorem closed_world_balanced_maintenance_path_preserves_zero_surplus
+-- tama: discharges=pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_zero_surplus
+theorem closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_zero_surplus
     (before after : PairWorldState) :
-  pair_closed_world_balanced_maintenance_path_preserves_zero_surplus
+  pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_zero_surplus
     before after := by
   intro h_good h_surplus0 h_surplus1 h_path
-  rcases pairWorldMaintenancePath_preserves_balanced_pool
+  rcases pairWorldLpBookkeepingSkimSyncPath_preserves_balanced_pool
       h_good h_surplus0 h_surplus1 h_path with
     ⟨h_balance0, h_balance1, h_reserve0, h_reserve1, _h_supply, _h_locked⟩
   constructor
   · simpa [PairWorldSurplus0, h_balance0, h_reserve0] using h_surplus0
   · simpa [PairWorldSurplus1, h_balance1, h_reserve1] using h_surplus1
 
--- tama: discharges=pair_closed_world_balanced_maintenance_path_preserves_token_balance_value
-theorem closed_world_balanced_maintenance_path_preserves_token_balance_value
+-- tama: discharges=pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_token_balance_value
+theorem closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_token_balance_value
     (before after : PairWorldState) :
-  pair_closed_world_balanced_maintenance_path_preserves_token_balance_value
+  pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_token_balance_value
     before after := by
   intro h_good h_surplus0 h_surplus1 h_path
-  rcases pairWorldMaintenancePath_preserves_balanced_pool
+  rcases pairWorldLpBookkeepingSkimSyncPath_preserves_balanced_pool
       h_good h_surplus0 h_surplus1 h_path with
     ⟨h_balance0, h_balance1, _h_reserve0, _h_reserve1, _h_supply, _h_locked⟩
   simp [PairWorldBalanceSpotValueNum, h_balance0, h_balance1]

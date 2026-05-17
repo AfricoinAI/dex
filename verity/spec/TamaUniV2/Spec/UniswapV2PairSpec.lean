@@ -2673,7 +2673,7 @@ def pair_closed_world_sync_preserves_balanced_pool
 change the pool. From a good state where token balances already equal cached
 reserves, either action preserves token balances, cached reserves, LP supply,
 and the permanent liquidity lock exactly. -/
-def pair_closed_world_balanced_reserve_management_preserves_pool
+def pair_closed_world_balanced_skim_or_sync_preserves_pool
     (action : PairWorldAction) (before after : PairWorldState) : Prop :=
   (action = PairWorldAction.skim ∨ action = PairWorldAction.sync) →
     PairWorldGood before →
@@ -2691,12 +2691,12 @@ def pair_closed_world_balanced_reserve_management_preserves_pool
 and `sync`. Starting from a good pool with no excess balances above cached
 reserves, repeated cleanup calls preserve token balances, cached reserves, LP
 supply, and the permanent liquidity lock exactly. -/
-def pair_closed_world_balanced_reserve_management_path_preserves_pool
+def pair_closed_world_balanced_skim_sync_path_preserves_pool
     (before after : PairWorldState) : Prop :=
   PairWorldGood before →
     PairWorldSurplus0 before = 0 →
       PairWorldSurplus1 before = 0 →
-        PairWorldPathReserveManagement before after →
+        PairWorldPathSkimSync before after →
           after.balance0 = before.balance0 ∧
           after.balance1 = before.balance1 ∧
           after.reserve0 = before.reserve0 ∧
@@ -2708,12 +2708,12 @@ def pair_closed_world_balanced_reserve_management_path_preserves_pool
 those bookkeeping actions with `skim`/`sync` on a pool that has no excess token
 balances therefore preserves the pool exactly across any finite history made
 only of `approve`, `transfer`, `transferFrom`, `skim`, and `sync`. -/
-def pair_closed_world_balanced_maintenance_path_preserves_pool
+def pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_pool
     (before after : PairWorldState) : Prop :=
   PairWorldGood before →
     PairWorldSurplus0 before = 0 →
       PairWorldSurplus1 before = 0 →
-        PairWorldPathMaintenance before after →
+        PairWorldPathLpBookkeepingSkimSync before after →
           after.balance0 = before.balance0 ∧
           after.balance1 = before.balance1 ∧
           after.reserve0 = before.reserve0 ∧
@@ -2725,23 +2725,23 @@ def pair_closed_world_balanced_maintenance_path_preserves_pool
 balances and cached reserves are unchanged, the pool's `reserve0 * reserve1`
 value is unchanged too; this lets economic arguments cite the K consequence
 directly. -/
-def pair_closed_world_balanced_maintenance_path_preserves_k
+def pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_k
     (before after : PairWorldState) : Prop :=
   PairWorldGood before →
     PairWorldSurplus0 before = 0 →
       PairWorldSurplus1 before = 0 →
-        PairWorldPathMaintenance before after →
+        PairWorldPathLpBookkeepingSkimSync before after →
           PairWorldK after = PairWorldK before
 
 /-- Clean pools stay clean under LP bookkeeping plus `skim`/`sync`. Those
 actions cannot create new excess token balances above cached reserves when none
 existed at the start. -/
-def pair_closed_world_balanced_maintenance_path_preserves_zero_surplus
+def pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_zero_surplus
     (before after : PairWorldState) : Prop :=
   PairWorldGood before →
     PairWorldSurplus0 before = 0 →
       PairWorldSurplus1 before = 0 →
-        PairWorldPathMaintenance before after →
+        PairWorldPathLpBookkeepingSkimSync before after →
           PairWorldSurplus0 after = 0 ∧
           PairWorldSurplus1 after = 0
 
@@ -2750,12 +2750,12 @@ only goes through LP approval/transfer bookkeeping plus `skim`/`sync`, the
 actual token balances held by the pool have exactly the same spot-priced value
 at the end as they had at the start. This is the concise no-extraction
 consequence of the stronger state-preservation theorem above. -/
-def pair_closed_world_balanced_maintenance_path_preserves_token_balance_value
+def pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_token_balance_value
     (before after : PairWorldState) : Prop :=
   PairWorldGood before →
     PairWorldSurplus0 before = 0 →
       PairWorldSurplus1 before = 0 →
-        PairWorldPathMaintenance before after →
+        PairWorldPathLpBookkeepingSkimSync before after →
           PairWorldBalanceSpotValueNum before after =
             PairWorldBalanceSpotValueNum before before
 

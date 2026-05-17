@@ -307,46 +307,46 @@ inductive PairWorldPathShareBookkeeping : PairWorldState → PairWorldState → 
         before after →
       PairWorldPathShareBookkeeping start after
 
-inductive PairWorldPathReserveManagement : PairWorldState → PairWorldState → Prop where
-  | refl (w : PairWorldState) : PairWorldPathReserveManagement w w
+inductive PairWorldPathSkimSync : PairWorldState → PairWorldState → Prop where
+  | refl (w : PairWorldState) : PairWorldPathSkimSync w w
   | skim {start before after : PairWorldState} :
-      PairWorldPathReserveManagement start before →
+      PairWorldPathSkimSync start before →
       PairWorldStep PairWorldAction.skim before after →
-      PairWorldPathReserveManagement start after
+      PairWorldPathSkimSync start after
   | sync {start before after : PairWorldState} :
-      PairWorldPathReserveManagement start before →
+      PairWorldPathSkimSync start before →
       PairWorldStep PairWorldAction.sync before after →
-      PairWorldPathReserveManagement start after
+      PairWorldPathSkimSync start after
 
-inductive PairWorldPathMaintenance : PairWorldState → PairWorldState → Prop where
-  | refl (w : PairWorldState) : PairWorldPathMaintenance w w
+inductive PairWorldPathLpBookkeepingSkimSync : PairWorldState → PairWorldState → Prop where
+  | refl (w : PairWorldState) : PairWorldPathLpBookkeepingSkimSync w w
   | approve
       {start before after : PairWorldState}
       (ownerAddr spender : Address) (amount : Nat) :
-      PairWorldPathMaintenance start before →
+      PairWorldPathLpBookkeepingSkimSync start before →
       PairWorldStep (PairWorldAction.approve ownerAddr spender amount) before after →
-      PairWorldPathMaintenance start after
+      PairWorldPathLpBookkeepingSkimSync start after
   | transfer
       {start before after : PairWorldState}
       (fromAddr toAddr : Address) (amount : Nat) :
-      PairWorldPathMaintenance start before →
+      PairWorldPathLpBookkeepingSkimSync start before →
       PairWorldStep (PairWorldAction.transfer fromAddr toAddr amount) before after →
-      PairWorldPathMaintenance start after
+      PairWorldPathLpBookkeepingSkimSync start after
   | transferFrom
       {start before after : PairWorldState}
       (spender fromAddr toAddr : Address) (amount : Nat) :
-      PairWorldPathMaintenance start before →
+      PairWorldPathLpBookkeepingSkimSync start before →
       PairWorldStep
         (PairWorldAction.transferFrom spender fromAddr toAddr amount)
         before after →
-      PairWorldPathMaintenance start after
+      PairWorldPathLpBookkeepingSkimSync start after
   | skim {start before after : PairWorldState} :
-      PairWorldPathMaintenance start before →
+      PairWorldPathLpBookkeepingSkimSync start before →
       PairWorldStep PairWorldAction.skim before after →
-      PairWorldPathMaintenance start after
+      PairWorldPathLpBookkeepingSkimSync start after
   | sync {start before after : PairWorldState} :
-      PairWorldPathMaintenance start before →
+      PairWorldPathLpBookkeepingSkimSync start before →
       PairWorldStep PairWorldAction.sync before after →
-      PairWorldPathMaintenance start after
+      PairWorldPathLpBookkeepingSkimSync start after
 
 end TamaUniV2.Common.UniswapV2PairGhost
