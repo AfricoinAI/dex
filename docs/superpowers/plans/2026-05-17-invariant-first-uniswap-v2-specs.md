@@ -358,6 +358,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   successful `sync` call to reserve-to-balance writes and the generic TWAP
   arithmetic facts without unfolding the whole entrypoint again.
 
+  2026-05-17 15:00 PDT checkpoint: extended the same bridge shape to first
+  mint, subsequent mint, burn, and swap. These theorems stay narrow: they
+  compose successful-run transition facts with the shared reserve-write/oracle
+  rule once each action's concrete arithmetic premises are available.
+
 - [ ] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when
@@ -387,6 +392,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   focus on mint, burn, and swap, preferably through proof-local adapters that
   expose the shared reserve-update suffix rather than full-entrypoint
   unfoldings.
+
+  2026-05-17 15:00 PDT checkpoint: the mint, burn, and swap bridge facts are
+  now present too. Remaining TWAP work, if pursued, should be about deriving
+  more concrete arithmetic premises from actual successful runs, not restating
+  the reserve-update rule.
 
 - [ ] **6. Add flash-swap specs**
 

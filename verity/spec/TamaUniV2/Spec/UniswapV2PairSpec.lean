@@ -1351,6 +1351,133 @@ def pair_swap_success_run_refines_closed_world
       pair_swap_expected_refines_closed_world
         amount0Out amount1Out balance0Now balance1Now s
 
+/--
+The public mint, burn, and swap bridges above prove that successful executable
+paths are modeled reserve-writing actions once their arithmetic premises are
+available. These follow-on specs connect those modeled actions to the common
+reserve/TWAP rule: cached reserves end at the token balances represented by the
+model, and cumulative prices obey the generic Uniswap V2 update cases.
+-/
+def pair_mint_first_success_run_uses_oracle_rule
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  let liquidity := mintFirstLiquidity s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      s.storage unlockedSlot.slot = 1 →
+        s.storage totalSupplySlot.slot = 0 →
+          observedBalance0 s ≤ maxUint112 →
+            observedBalance1 s ≤ maxUint112 →
+              s.storage reserve0Slot.slot ≤ observedBalance0 s →
+                s.storage reserve1Slot.slot ≤ observedBalance1 s →
+                  amount0 > 0 →
+                    amount1 > 0 →
+                      (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
+                        mintFirstRoot s > minimumLiquidity →
+                          (pairWorldAfterFirstMintRun s).reserve0 =
+                              (pairWorldAfterFirstMintRun s).balance0 ∧
+                            (pairWorldAfterFirstMintRun s).reserve1 =
+                              (pairWorldAfterFirstMintRun s).balance1 ∧
+                            pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives s ∧
+                            pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
+                            pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
+
+def pair_mint_subsequent_success_run_uses_oracle_rule
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      0 < (s.storage totalSupplySlot.slot).val →
+        s.storage reserve0Slot.slot > 0 →
+          s.storage reserve1Slot.slot > 0 →
+            observedBalance0 s ≤ maxUint112 →
+              observedBalance1 s ≤ maxUint112 →
+                s.storage reserve0Slot.slot ≤ observedBalance0 s →
+                  s.storage reserve1Slot.slot ≤ observedBalance1 s →
+                    amount0 > 0 →
+                      amount1 > 0 →
+                        liquidity > 0 →
+                          liquidity.val * (s.storage reserve0Slot.slot).val ≤
+                              amount0.val * (s.storage totalSupplySlot.slot).val →
+                            liquidity.val * (s.storage reserve1Slot.slot).val ≤
+                                amount1.val * (s.storage totalSupplySlot.slot).val →
+                              (pairWorldAfterSubsequentMintRun liquidity s).reserve0 =
+                                  (pairWorldAfterSubsequentMintRun liquidity s).balance0 ∧
+                                (pairWorldAfterSubsequentMintRun liquidity s).reserve1 =
+                                  (pairWorldAfterSubsequentMintRun liquidity s).balance1 ∧
+                                pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives s ∧
+                                pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
+                                pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
+
+def pair_burn_success_run_uses_oracle_rule
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) : Prop :=
+  let liquidity := burnLiquidity s
+  let amount0 := burnAmount0 s
+  let amount1 := burnAmount1 s
+  result = (burn toAddr).run s →
+    result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
+      0 < liquidity.val →
+        0 < (burnSupply s).val →
+          liquidity.val ≤ (burnSupply s).val →
+            minimumLiquidityNat ≤ (burnSupply s).val - liquidity.val →
+              amount0 > 0 →
+                amount1 > 0 →
+                  amount0 ≤ observedBalance0 s →
+                    amount1 ≤ observedBalance1 s →
+                      burnBalance0After s ≤ maxUint112 →
+                        burnBalance1After s ≤ maxUint112 →
+                          amount0.val * (burnSupply s).val ≤
+                              liquidity.val * (observedBalance0 s).val →
+                            amount1.val * (burnSupply s).val ≤
+                                liquidity.val * (observedBalance1 s).val →
+                              (pairWorldAfterBurnRun s).reserve0 =
+                                  (pairWorldAfterBurnRun s).balance0 ∧
+                                (pairWorldAfterBurnRun s).reserve1 =
+                                  (pairWorldAfterBurnRun s).balance1 ∧
+                                pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives s ∧
+                                pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
+                                pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
+
+def pair_swap_success_run_uses_oracle_rule
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  let amount0In := swapAmount0In amount0Out balance0Now s
+  let amount1In := swapAmount1In amount1Out balance1Now s
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      (amount0Out > 0 ∨ amount1Out > 0) →
+        amount0Out < s.storage reserve0Slot.slot →
+          amount1Out < s.storage reserve1Slot.slot →
+            (amount0In > 0 ∨ amount1In > 0) →
+              balance0Now.val =
+                  (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
+                balance1Now.val =
+                    (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
+                  balance0Now ≤ maxUint112 →
+                    balance1Now ≤ maxUint112 →
+                      amount0In.val * feeAdjustmentNat ≤
+                          balance0Now.val * feeDenominatorNat →
+                        amount1In.val * feeAdjustmentNat ≤
+                            balance1Now.val * feeDenominatorNat →
+                          feeAdjustedBalance balance0Now.val amount0In.val *
+                              feeAdjustedBalance balance1Now.val amount1In.val ≥
+                            requiredK
+                              (s.storage reserve0Slot.slot).val
+                              (s.storage reserve1Slot.slot).val →
+                            (pairWorldAfterSwapRun balance0Now balance1Now s).reserve0 =
+                                (pairWorldAfterSwapRun balance0Now balance1Now s).balance0 ∧
+                              (pairWorldAfterSwapRun balance0Now balance1Now s).reserve1 =
+                                (pairWorldAfterSwapRun balance0Now balance1Now s).balance1 ∧
+                              pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives s ∧
+                              pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
+                              pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
+
 /-!
 ## Closed-World Economic Invariants
 

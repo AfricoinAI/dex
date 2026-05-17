@@ -5054,6 +5054,191 @@ theorem sync_success_run_uses_oracle_rule
   exact closed_world_concrete_reserve_write_uses_oracle_rule
     PairWorldAction.sync (pairWorldAfterSyncRun s) s h_action h_step
 
+private theorem reserve_write_step_uses_oracle_rule
+    (action : PairWorldAction) (before after : PairWorldState)
+    (s : ContractState) :
+  ((∃ amount0 amount1 liquidity,
+      action = PairWorldAction.mint amount0 amount1 liquidity) ∨
+    (∃ amount0 amount1 liquidity,
+      action = PairWorldAction.burn amount0 amount1 liquidity) ∨
+    (∃ amount0In amount1In amount0Out amount1Out,
+      action = PairWorldAction.swap amount0In amount1In amount0Out amount1Out) ∨
+    action = PairWorldAction.sync) →
+    PairWorldStep action before after →
+      after.reserve0 = after.balance0 ∧
+      after.reserve1 = after.balance1 ∧
+      pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives s ∧
+      pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
+      pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s := by
+  intro h_action h_step
+  have h_write :=
+    closed_world_reserve_write_sets_reserves_to_balances
+      action before after h_action h_step
+  exact ⟨h_write.1, h_write.2,
+    reserve_update_oracle_same_timestamp_keeps_price_cumulatives s,
+    reserve_update_oracle_elapsed_updates_price_cumulatives s,
+    reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s⟩
+
+-- tama: discharges=pair_mint_first_success_run_uses_oracle_rule
+theorem mint_first_success_run_uses_oracle_rule
+    (toAddr : Address) (s : ContractState) :
+  pair_mint_first_success_run_uses_oracle_rule toAddr s
+    ((mint toAddr).run s) := by
+  dsimp [pair_mint_first_success_run_uses_oracle_rule]
+  intro _h_run h_success h_unlocked h_supply_zero h_bound0 h_bound1
+    h_reserve0 h_reserve1 h_amount0 h_amount1 h_product h_root
+  have h_step :=
+    mint_first_success_run_refines_closed_world toAddr s
+      rfl h_success h_unlocked h_supply_zero h_bound0 h_bound1
+      h_reserve0 h_reserve1 h_amount0 h_amount1 h_product h_root
+  have h_action :
+      ((∃ amount0 amount1 liquidity,
+          PairWorldAction.mint
+              (mintAmount0 s).val (mintAmount1 s).val (mintFirstLiquidity s).val =
+            PairWorldAction.mint amount0 amount1 liquidity) ∨
+        (∃ amount0 amount1 liquidity,
+          PairWorldAction.mint
+              (mintAmount0 s).val (mintAmount1 s).val (mintFirstLiquidity s).val =
+            PairWorldAction.burn amount0 amount1 liquidity) ∨
+        (∃ amount0In amount1In amount0Out amount1Out,
+          PairWorldAction.mint
+              (mintAmount0 s).val (mintAmount1 s).val (mintFirstLiquidity s).val =
+            PairWorldAction.swap amount0In amount1In amount0Out amount1Out) ∨
+        PairWorldAction.mint
+            (mintAmount0 s).val (mintAmount1 s).val (mintFirstLiquidity s).val =
+          PairWorldAction.sync) := by
+    left
+    exact ⟨(mintAmount0 s).val, (mintAmount1 s).val,
+      (mintFirstLiquidity s).val, rfl⟩
+  exact reserve_write_step_uses_oracle_rule
+    (PairWorldAction.mint
+      (mintAmount0 s).val (mintAmount1 s).val (mintFirstLiquidity s).val)
+    (pairWorldBeforeMintRun s) (pairWorldAfterFirstMintRun s) s h_action h_step
+
+-- tama: discharges=pair_mint_subsequent_success_run_uses_oracle_rule
+theorem mint_subsequent_success_run_uses_oracle_rule
+    (toAddr : Address) (s : ContractState) (liquidity : Uint256) :
+  pair_mint_subsequent_success_run_uses_oracle_rule
+    toAddr s ((mint toAddr).run s) liquidity := by
+  intro _h_run h_success h_supply_pos h_reserve0_pos h_reserve1_pos
+    h_bound0 h_bound1 h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity
+    h_ratio0 h_ratio1
+  have h_step :=
+    mint_subsequent_success_run_refines_closed_world
+      toAddr s liquidity rfl h_success h_supply_pos h_reserve0_pos
+      h_reserve1_pos h_bound0 h_bound1 h_reserve0 h_reserve1 h_amount0
+      h_amount1 h_liquidity h_ratio0 h_ratio1
+  have h_action :
+      ((∃ amount0 amount1 liquidity',
+          PairWorldAction.mint
+              (mintAmount0 s).val (mintAmount1 s).val liquidity.val =
+            PairWorldAction.mint amount0 amount1 liquidity') ∨
+        (∃ amount0 amount1 liquidity',
+          PairWorldAction.mint
+              (mintAmount0 s).val (mintAmount1 s).val liquidity.val =
+            PairWorldAction.burn amount0 amount1 liquidity') ∨
+        (∃ amount0In amount1In amount0Out amount1Out,
+          PairWorldAction.mint
+              (mintAmount0 s).val (mintAmount1 s).val liquidity.val =
+            PairWorldAction.swap amount0In amount1In amount0Out amount1Out) ∨
+        PairWorldAction.mint
+            (mintAmount0 s).val (mintAmount1 s).val liquidity.val =
+          PairWorldAction.sync) := by
+    left
+    exact ⟨(mintAmount0 s).val, (mintAmount1 s).val, liquidity.val, rfl⟩
+  exact reserve_write_step_uses_oracle_rule
+    (PairWorldAction.mint
+      (mintAmount0 s).val (mintAmount1 s).val liquidity.val)
+    (pairWorldBeforeMintRun s) (pairWorldAfterSubsequentMintRun liquidity s)
+    s h_action h_step
+
+-- tama: discharges=pair_burn_success_run_uses_oracle_rule
+theorem burn_success_run_uses_oracle_rule
+    (toAddr : Address) (s : ContractState) :
+  pair_burn_success_run_uses_oracle_rule toAddr s ((burn toAddr).run s) := by
+  intro _h_run h_success h_liquidity_pos h_supply_pos h_liquidity_le
+    h_locked_remaining h_amount0 h_amount1 h_amount0_le h_amount1_le h_bound0
+    h_bound1 h_ratio0 h_ratio1
+  have h_step :=
+    burn_success_run_refines_closed_world toAddr s rfl h_success
+      h_liquidity_pos h_supply_pos h_liquidity_le h_locked_remaining
+      h_amount0 h_amount1 h_amount0_le h_amount1_le h_bound0 h_bound1
+      h_ratio0 h_ratio1
+  have h_action :
+      ((∃ amount0 amount1 liquidity,
+          PairWorldAction.burn
+              (burnAmount0 s).val (burnAmount1 s).val (burnLiquidity s).val =
+            PairWorldAction.mint amount0 amount1 liquidity) ∨
+        (∃ amount0 amount1 liquidity,
+          PairWorldAction.burn
+              (burnAmount0 s).val (burnAmount1 s).val (burnLiquidity s).val =
+            PairWorldAction.burn amount0 amount1 liquidity) ∨
+        (∃ amount0In amount1In amount0Out amount1Out,
+          PairWorldAction.burn
+              (burnAmount0 s).val (burnAmount1 s).val (burnLiquidity s).val =
+            PairWorldAction.swap amount0In amount1In amount0Out amount1Out) ∨
+        PairWorldAction.burn
+            (burnAmount0 s).val (burnAmount1 s).val (burnLiquidity s).val =
+          PairWorldAction.sync) := by
+    right
+    left
+    exact ⟨(burnAmount0 s).val, (burnAmount1 s).val, (burnLiquidity s).val, rfl⟩
+  exact reserve_write_step_uses_oracle_rule
+    (PairWorldAction.burn
+      (burnAmount0 s).val (burnAmount1 s).val (burnLiquidity s).val)
+    (pairWorldFromConcreteState s) (pairWorldAfterBurnRun s) s h_action h_step
+
+-- tama: discharges=pair_swap_success_run_uses_oracle_rule
+theorem swap_success_run_uses_oracle_rule
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState) :
+  pair_swap_success_run_uses_oracle_rule
+    amount0Out amount1Out toAddr data balance0Now balance1Now s
+    ((swap amount0Out amount1Out toAddr data).run s) := by
+  intro _h_run h_success h_output h_liq0 h_liq1 h_input h_balance0 h_balance1
+    h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
+  have h_step :=
+    swap_success_run_refines_closed_world
+      amount0Out amount1Out toAddr data balance0Now balance1Now s
+      rfl h_success h_output h_liq0 h_liq1 h_input h_balance0 h_balance1
+      h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
+  have h_action :
+      ((∃ amount0 amount1 liquidity,
+          PairWorldAction.swap
+              (swapAmount0In amount0Out balance0Now s).val
+              (swapAmount1In amount1Out balance1Now s).val
+              amount0Out.val amount1Out.val =
+            PairWorldAction.mint amount0 amount1 liquidity) ∨
+        (∃ amount0 amount1 liquidity,
+          PairWorldAction.swap
+              (swapAmount0In amount0Out balance0Now s).val
+              (swapAmount1In amount1Out balance1Now s).val
+              amount0Out.val amount1Out.val =
+            PairWorldAction.burn amount0 amount1 liquidity) ∨
+        (∃ amount0In amount1In amount0Out' amount1Out',
+          PairWorldAction.swap
+              (swapAmount0In amount0Out balance0Now s).val
+              (swapAmount1In amount1Out balance1Now s).val
+              amount0Out.val amount1Out.val =
+            PairWorldAction.swap amount0In amount1In amount0Out' amount1Out') ∨
+        PairWorldAction.swap
+            (swapAmount0In amount0Out balance0Now s).val
+            (swapAmount1In amount1Out balance1Now s).val
+            amount0Out.val amount1Out.val =
+          PairWorldAction.sync) := by
+    right
+    right
+    left
+    exact ⟨(swapAmount0In amount0Out balance0Now s).val,
+      (swapAmount1In amount1Out balance1Now s).val,
+      amount0Out.val, amount1Out.val, rfl⟩
+  exact reserve_write_step_uses_oracle_rule
+    (PairWorldAction.swap
+      (swapAmount0In amount0Out balance0Now s).val
+      (swapAmount1In amount1Out balance1Now s).val amount0Out.val amount1Out.val)
+    (pairWorldFromConcreteState s)
+    (pairWorldAfterSwapRun balance0Now balance1Now s) s h_action h_step
+
 -- tama: discharges=pair_closed_world_skim_or_sync_token_balance_value_never_increases
 theorem closed_world_skim_or_sync_token_balance_value_never_increases
     (action : PairWorldAction) (before after : PairWorldState) :
