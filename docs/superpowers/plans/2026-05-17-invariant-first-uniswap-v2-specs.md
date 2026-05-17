@@ -295,6 +295,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   reads directly as: reachable nonempty pool, no mint, no burn, no spot-value
   extraction.
 
+  2026-05-17 04:01 PDT checkpoint: added the token1-denominated no-profit
+  theorem. This is the same pool-value comparison as the no-extraction theorem,
+  but stated in the initial `reserve1 / reserve0` spot-price denomination that
+  a reader would use to reason about caller profit, with the expression scaled
+  by `reserve0` to avoid division.
+
 - [x] **9. Add factory-world invariants**
 
   Model pair creation as a finite factory trace and prove sorted-token

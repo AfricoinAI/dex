@@ -1841,6 +1841,26 @@ def pair_closed_world_reachable_same_supply_path_no_spot_value_extraction
             PairWorldSpotValueNum before before ≤
               PairWorldSpotValueNum before after
 
+/--
+The same no-profit theorem in the denomination a user would use for an
+economic sanity check. `PairWorldSpotValueNum before pool` is the token1 value
+of `pool`, using the initial spot price `before.reserve1 / before.reserve0`,
+multiplied by `before.reserve0` to avoid division. If LP supply ends where it
+started, every finite successful closed-world history leaves that
+token1-denominated pool value nondecreasing; a caller cannot make positive
+spot-value profit without an external gift.
+-/
+def pair_closed_world_reachable_same_supply_path_no_token1_denominated_profit
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        before.totalSupply = after.totalSupply →
+          0 < before.reserve0 →
+            0 < before.reserve1 →
+              PairWorldSpotValueNum before before ≤
+                PairWorldSpotValueNum before after
+
 /-- The strongest reader-facing same-supply no-extraction statement. For a
 reachable nonempty pool, positive reserves are no longer an extra assumption;
 they follow from the nondegeneracy invariant above. Therefore any finite

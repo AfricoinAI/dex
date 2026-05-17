@@ -131,8 +131,11 @@ Pair:
   finite path. A caller-facing no-extraction theorem names the same economic
   conclusion explicitly: within the closed-world Pair model, same-LP-supply
   histories cannot extract positive spot-value from the pool at the initial
-  price. A reachable LP-share theorem now also states the normalized backing
-  invariant directly for all finite paths from reachable positive-supply states.
+  price. A token1-denominated no-profit theorem states the same value
+  comparison in the units a user would naturally use for the initial
+  `reserve1 / reserve0` spot price, scaled by `reserve0` to avoid division. A
+  reachable LP-share theorem now also states the normalized backing invariant
+  directly for all finite paths from reachable positive-supply states.
   The strongest same-supply no-extraction theorem now needs only reachable
   positive supply; the positive-reserve invariant supplies the spot-price
   premises. A no-liquidity corollary states the most common operational case

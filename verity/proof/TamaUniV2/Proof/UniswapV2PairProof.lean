@@ -3686,6 +3686,15 @@ theorem closed_world_reachable_same_supply_path_no_spot_value_extraction
     using closed_world_reachable_same_supply_path_pool_value_never_decreases
       before after
 
+-- tama: discharges=pair_closed_world_reachable_same_supply_path_no_token1_denominated_profit
+theorem closed_world_reachable_same_supply_path_no_token1_denominated_profit
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_same_supply_path_no_token1_denominated_profit
+    before after := by
+  simpa [pair_closed_world_reachable_same_supply_path_no_token1_denominated_profit]
+    using closed_world_reachable_same_supply_path_pool_value_never_decreases
+      before after
+
 -- tama: discharges=pair_closed_world_reachable_positive_supply_same_supply_path_no_spot_value_extraction
 theorem closed_world_reachable_positive_supply_same_supply_path_no_spot_value_extraction
     (before after : PairWorldState) :
