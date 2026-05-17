@@ -280,6 +280,23 @@ def pair_initialize_run_success_sets_tokens
         ((«initialize» token0Value token1Value).run s).snd.storageAddr
           token1Slot.slot = token1Value
 
+/-- Initialization is identity-only. A successful fresh-pair initialization
+must not mint LP shares, change reserves, mutate LP balances/allowances, or emit
+events. This keeps factory deployment from becoming an implicit economic action;
+the AMM starts changing only through mint, burn, swap, skim, and sync. -/
+def pair_initialize_run_success_keeps_amm_accounting
+    (token0Value token1Value : Address) (s : ContractState) : Prop :=
+  s.sender = s.storageAddr factorySlot.slot →
+    s.storageAddr token0Slot.slot = zeroAddress →
+      s.storageAddr token1Slot.slot = zeroAddress →
+        let post := ((«initialize» token0Value token1Value).run s).snd
+        post.storage reserve0Slot.slot = s.storage reserve0Slot.slot ∧
+        post.storage reserve1Slot.slot = s.storage reserve1Slot.slot ∧
+        post.storage totalSupplySlot.slot = s.storage totalSupplySlot.slot ∧
+        post.storageMap = s.storageMap ∧
+        post.storageMap2 = s.storageMap2 ∧
+        post.events = s.events
+
 /-- Approval is intentionally narrow: it returns true, writes exactly one
 allowance cell, preserves all LP balances and total supply, and emits Approval. -/
 def pair_approve_succeeds

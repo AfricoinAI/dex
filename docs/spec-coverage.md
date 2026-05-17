@@ -54,7 +54,9 @@ Pair:
   ordered-prefix proofs are decomposed enough to avoid kernel-depth blowups.
 - Exact successful initialization coverage now states the positive side of the
   same lifecycle: a factory call into a fresh pair succeeds and records the two
-  token addresses that define the market.
+  token addresses that define the market. The matching success-frame theorem
+  shows initialization is identity-only: it does not mutate reserves, LP supply,
+  LP accounting maps, or events.
 - A reader-facing Pair reentrancy invariant packages the locked-entrypoint
   facts directly: if the lock is closed, every state-changing AMM entrypoint
   reverts with `UniswapV2: LOCKED` before durable side effects.

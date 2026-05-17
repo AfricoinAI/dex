@@ -290,6 +290,23 @@ theorem initialize_run_success_sets_tokens
   simpa [pair_initialize_run_success_sets_tokens, pair_initialize_sets_tokens]
     using initialize_sets_tokens token0Value token1Value s
 
+-- tama: discharges=pair_initialize_run_success_keeps_amm_accounting
+theorem initialize_run_success_keeps_amm_accounting
+    (token0Value token1Value : Address) (s : ContractState) :
+  pair_initialize_run_success_keeps_amm_accounting token0Value token1Value s := by
+  intro h_sender h_token0_empty h_token1_empty
+  have h_sender_raw : s.sender = s.storageAddr 0 := by
+    simpa [factorySlot] using h_sender
+  have h_token0_raw : s.storageAddr 1 = (0 : Address) := by
+    simpa [token0Slot] using h_token0_empty
+  have h_token1_raw : s.storageAddr 2 = (0 : Address) := by
+    simpa [token1Slot] using h_token1_empty
+  simp [pair_initialize_run_success_keeps_amm_accounting, «initialize»,
+    msgSender, getStorageAddr, setStorageAddr, Verity.require, Contract.run,
+    ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+    h_sender_raw, h_token0_raw, h_token1_raw, reserve0Slot, reserve1Slot,
+    totalSupplySlot]
+
 private theorem approve_properties_after_run
     (spender : Address) (amount : Uint256) (s : ContractState) :
   pair_approve_succeeds spender amount s ((approve spender amount).run s) ∧
