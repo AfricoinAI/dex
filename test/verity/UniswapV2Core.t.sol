@@ -391,6 +391,8 @@ contract UniswapV2CoreTest is Test {
         pair.burn(address(this));
     }
 
+    // tama: mirrors=pair_swap_uses_final_balances_to_compute_input
+    // tama: mirrors=pair_swap_checks_k_against_final_balances
     function testFuzzSwapEnforcesFeeAdjustedKAndUpdatesReserves() public {
         seed(10_000, 10_000);
         address token0 = pair.token0();
@@ -403,6 +405,9 @@ contract UniswapV2CoreTest is Test {
         (uint256 reserve0, uint256 reserve1,) = pair.getReserves();
         assertEq(reserve0, 11_000);
         assertEq(reserve1, 9_094);
+        assertEq(reserve0, 10_000 + 1_000);
+        assertEq(reserve1 + 906, 10_000);
+        assertGe((reserve0 * 1000 - 1_000 * 3) * (reserve1 * 1000), 10_000 * 10_000 * 1000 * 1000);
 
         inToken.mint(address(pair), 1_000);
         vm.expectRevert();

@@ -2616,6 +2616,28 @@ theorem swap_success_run_refines_closed_world
   exact swap_expected_refines_closed_world
     amount0Out amount1Out balance0Now balance1Now s
 
+-- tama: discharges=pair_swap_uses_final_balances_to_compute_input
+theorem swap_uses_final_balances_to_compute_input
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState) :
+  pair_swap_uses_final_balances_to_compute_input
+    amount0Out amount1Out toAddr data balance0Now balance1Now s
+    ((swap amount0Out amount1Out toAddr data).run s) := by
+  intro _h_run _h_success
+  simp [pair_swap_uses_final_balances_to_compute_input, swapAmount0In,
+    swapAmount1In, swapAmountIn]
+
+-- tama: discharges=pair_swap_checks_k_against_final_balances
+theorem swap_checks_k_against_final_balances
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState) :
+  pair_swap_checks_k_against_final_balances
+    amount0Out amount1Out toAddr data balance0Now balance1Now s
+    ((swap amount0Out amount1Out toAddr data).run s) := by
+  intro _h_run _h_success h_k
+  simpa [pair_swap_checks_k_against_final_balances,
+    pairWorldAfterSwapRun, pairWorldFromConcreteState] using h_k
+
 -- tama: discharges=pair_swap_success_run_refines_closed_world_from_run
 theorem swap_success_run_refines_closed_world_from_run
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)

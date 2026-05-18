@@ -270,7 +270,7 @@ git commit -m "Prove burn uses pair LP balance"
 - Modify: `docs/spec-coverage.md`
 - Modify: `docs/agent-progress.md`
 
-- [ ] **Step 1: Add swap input-from-final-balances spec**
+- [x] **Step 1: Add swap input-from-final-balances spec**
 
 Add near swap specs:
 
@@ -286,39 +286,32 @@ def pair_swap_uses_final_balances_to_compute_input
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (balance0Now balance1Now : Uint256) (s : ContractState)
     (result : ContractResult Unit) : Prop :=
+  let expected0 := swapExpected0 amount0Out s
+  let expected1 := swapExpected1 amount1Out s
   let amount0In := swapAmount0In amount0Out balance0Now s
   let amount1In := swapAmount1In amount1Out balance1Now s
   result = (swap amount0Out amount1Out toAddr data).run s →
     result = ContractResult.success () result.snd →
-      amount0Out < s.storage reserve0Slot.slot →
-        amount1Out < s.storage reserve1Slot.slot →
-          balance0Now.val =
-              (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val ∧
-          balance1Now.val =
-              (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val
+      amount0In =
+          (if balance0Now > expected0 then
+            Verity.EVM.Uint256.sub balance0Now expected0
+          else
+            0) ∧
+        amount1In =
+          (if balance1Now > expected1 then
+            Verity.EVM.Uint256.sub balance1Now expected1
+          else
+            0)
 ```
 
-- [ ] **Step 2: Prove swap input-from-final-balances spec**
+- [x] **Step 2: Prove swap input-from-final-balances spec**
 
-Use the existing helper definitions `swapAmount0In`, `swapAmount1In`, `swapExpected0`, and `swapExpected1`. If subtraction side conditions need strengthening, add a private proof-local lemma:
-
-```lean
-private theorem swapAmountIn_balance_identity
-    (reserve amountOut balance amountIn : Uint256) :
-  amountIn = swapAmountIn amountOut balance reserve →
-    amountOut < reserve →
-      balance.val = reserve.val + amountIn.val - amountOut.val := by
-  intro h_amount h_out
-  subst amountIn
-  unfold swapAmountIn
-  by_cases h_balance : balance > sub reserve amountOut
-  · simp [h_balance]
-    omega
-  · simp [h_balance]
-    omega
-```
-
-Then prove:
+Use the existing helper definitions `swapAmount0In`, `swapAmount1In`,
+`swapExpected0`, and `swapExpected1`. Important correction from plan review:
+the balance equation is not true from `amountOut < reserve` alone, because
+Uniswap infers zero input on a side whose final balance is not above
+`reserve - amountOut`. The proved public spec states the exact max-style input
+inference rule instead.
 
 ```lean
 -- tama: discharges=pair_swap_uses_final_balances_to_compute_input
@@ -328,19 +321,12 @@ theorem swap_uses_final_balances_to_compute_input
   pair_swap_uses_final_balances_to_compute_input
     amount0Out amount1Out toAddr data balance0Now balance1Now s
     ((swap amount0Out amount1Out toAddr data).run s) := by
-  intro _h_run _h_success h_liq0 h_liq1
-  constructor
-  · exact swapAmountIn_balance_identity
-      (s.storage reserve0Slot.slot) amount0Out balance0Now
-      (swapAmount0In amount0Out balance0Now s) rfl h_liq0
-  · exact swapAmountIn_balance_identity
-      (s.storage reserve1Slot.slot) amount1Out balance1Now
-      (swapAmount1In amount1Out balance1Now s) rfl h_liq1
+  intro _h_run _h_success
+  simp [pair_swap_uses_final_balances_to_compute_input, swapAmount0In,
+    swapAmount1In, swapAmountIn]
 ```
 
-If `omega` cannot handle `Uint256` coercions, rewrite the private lemma over `Nat` values and call it after `change`.
-
-- [ ] **Step 3: Add swap final-balances K-check spec**
+- [x] **Step 3: Add swap final-balances K-check spec**
 
 Do not unfold the whole public `swap` body. State the short fact that once success and final balances are known, the fee-adjusted K check is about the same final balances:
 
@@ -371,7 +357,7 @@ def pair_swap_checks_k_against_final_balances
           (pairWorldFromConcreteState s).reserve1
 ```
 
-- [ ] **Step 4: Prove swap final-balances K-check spec**
+- [x] **Step 4: Prove swap final-balances K-check spec**
 
 ```lean
 -- tama: discharges=pair_swap_checks_k_against_final_balances
@@ -386,7 +372,7 @@ theorem swap_checks_k_against_final_balances
     pairWorldAfterSwapRun, pairWorldFromConcreteState] using h_k
 ```
 
-- [ ] **Step 5: Refactor downstream specs to cite the new short facts**
+- [x] **Step 5: Refactor downstream specs to cite the new short facts**
 
 Where current specs repeat final-balance equations and final-balance K checks, update comments and proofs to cite:
 
@@ -395,9 +381,12 @@ swap_uses_final_balances_to_compute_input
 swap_checks_k_against_final_balances
 ```
 
-Do not delete existing stronger specs unless the proof remains smaller and clearer. The goal is making the proof graph easier to read, not churn.
+No downstream proof churn was needed for this slice: the existing stronger swap
+specs already state the accounting equations under their explicit premises,
+while the new public facts now give readers the shorter final-balance and K
+check statements.
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 Run the same full verification commands as Task 1.
 

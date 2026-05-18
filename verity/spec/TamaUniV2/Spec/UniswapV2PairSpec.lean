@@ -2299,6 +2299,58 @@ def pair_swap_success_run_refines_closed_world
       pair_swap_expected_refines_closed_world
         amount0Out amount1Out balance0Now balance1Now s
 
+/--
+A successful swap infers token input from the final balances after optimistic
+output and any callback repayment.
+
+For each token, input is the positive excess above the balance expected after
+output; if the final balance is not above that expected balance, inferred input
+for that token is zero.
+-/
+def pair_swap_uses_final_balances_to_compute_input
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  let expected0 := swapExpected0 amount0Out s
+  let expected1 := swapExpected1 amount1Out s
+  let amount0In := swapAmount0In amount0Out balance0Now s
+  let amount1In := swapAmount1In amount1Out balance1Now s
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      amount0In =
+          (if balance0Now > expected0 then
+            Verity.EVM.Uint256.sub balance0Now expected0
+          else
+            0) ∧
+        amount1In =
+          (if balance1Now > expected1 then
+            Verity.EVM.Uint256.sub balance1Now expected1
+          else
+            0)
+
+/--
+When a successful swap's final balance reads satisfy the fee-adjusted K check,
+that check is about the same final balances the pair will cache as reserves.
+-/
+def pair_swap_checks_k_against_final_balances
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  let before := pairWorldFromConcreteState s
+  let after := pairWorldAfterSwapRun balance0Now balance1Now s
+  let amount0In := swapAmount0In amount0Out balance0Now s
+  let amount1In := swapAmount1In amount1Out balance1Now s
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      feeAdjustedBalance balance0Now.val amount0In.val *
+          feeAdjustedBalance balance1Now.val amount1In.val ≥
+        requiredK
+          (s.storage reserve0Slot.slot).val
+          (s.storage reserve1Slot.slot).val →
+        feeAdjustedBalance after.balance0 amount0In.val *
+            feeAdjustedBalance after.balance1 amount1In.val ≥
+          requiredK before.reserve0 before.reserve1
+
 /-- When `swap` succeeds, the zero-output guard has passed. The remaining
 premises are the post-callback balance, input, reserve-bound, and K facts that
 describe the state observed after any optimistic transfer and callback
