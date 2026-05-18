@@ -86,7 +86,9 @@ Pair:
   runs leave storage, LP accounting maps, and event logs unchanged.
 - `skim` success spec for exact surplus transfer traces, exact pair-local
   token-balance effects when those traces are replayed, unchanged reserves,
-  restored lock, and refinement to the closed-world skim transition.
+  restored lock, refinement to the closed-world skim transition, and the
+  clean-pool actual-token-balance caller no-profit bridge at the public
+  entrypoint boundary.
 - Mint/burn/swap closed-world bridge predicates for expected concrete states:
   first mint, subsequent mint, burn, and swap all refine the corresponding
   PairWorld transition once the concrete amount, liquidity, post-callback

@@ -959,6 +959,29 @@ def pair_skim_success_run_preserves_good_from_run
       result = ContractResult.success () result.snd →
         PairWorldGood after
 
+/--
+Successful-skim clean-pool no-profit bridge.
+
+`skim` is allowed to remove surplus above cached reserves; that surplus is an
+external gift, not AMM-created value. When the starting pool has no surplus, a
+successful public `skim` is a no-op on pair token balances in the closed-world
+model. Therefore, if caller-plus-pair actual token-balance value is merely
+redistributed at the starting spot price, the caller cannot finish richer.
+-/
+def pair_skim_success_run_no_caller_token_balance_profit_from_run
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit)
+    (callerValueBefore callerValueAfter : Nat) : Prop :=
+  let before := pairWorldFromConcreteState s
+  let after := pairWorldAfterSkimRun s
+  result = (skim toAddr).run s →
+    result = ContractResult.success () result.snd →
+      PairWorldReachable before →
+        PairWorldSurplus0 before = 0 →
+          PairWorldSurplus1 before = 0 →
+            callerValueBefore + PairWorldBalanceSpotValueNum before before =
+              callerValueAfter + PairWorldBalanceSpotValueNum before after →
+              callerValueAfter ≤ callerValueBefore
+
 def pair_sync_run_revert_locked
     (s : ContractState) : Prop :=
   s.storage unlockedSlot.slot != 1 →
