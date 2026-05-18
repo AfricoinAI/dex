@@ -5433,12 +5433,12 @@ theorem closed_world_reachable_positive_supply_swap_no_caller_spot_profit
       h_reachable h_positive h_step
   omega
 
--- tama: discharges=pair_swap_success_run_bridge_no_caller_spot_profit
-theorem swap_success_run_bridge_no_caller_spot_profit
+-- tama: discharges=pair_swap_success_run_no_caller_spot_profit_with_valid_swap
+theorem swap_success_run_no_caller_spot_profit_with_valid_swap
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (balance0Now balance1Now : Uint256) (s : ContractState)
     (callerValueBefore callerValueAfter : Nat) :
-  pair_swap_success_run_bridge_no_caller_spot_profit
+  pair_swap_success_run_no_caller_spot_profit_with_valid_swap
     amount0Out amount1Out toAddr data balance0Now balance1Now s
     ((swap amount0Out amount1Out toAddr data).run s)
     callerValueBefore callerValueAfter := by
@@ -6652,6 +6652,31 @@ theorem closed_world_sync_preserves_balanced_pool
   constructor
   · rw [h_sync.2.1, h_balance1_before]
   exact ⟨h_supply, h_locked⟩
+
+-- tama: discharges=pair_sync_success_run_no_caller_token_balance_profit_from_run
+theorem sync_success_run_no_caller_token_balance_profit_from_run
+    (s : ContractState) (result : ContractResult Unit)
+    (callerValueBefore callerValueAfter : Nat) :
+  pair_sync_success_run_no_caller_token_balance_profit_from_run
+    s result callerValueBefore callerValueAfter := by
+  intro h_run h_success h_reachable h_surplus0 h_surplus1 h_total_value
+  have h_step :=
+    sync_success_run_refines_closed_world_from_run
+      s result h_run h_success
+  have h_good := pairWorldReachable_good
+    (pairWorldFromConcreteState s) h_reachable
+  rcases closed_world_sync_preserves_balanced_pool
+      (pairWorldFromConcreteState s) (pairWorldAfterSyncRun s)
+      h_good h_step h_surplus0 h_surplus1 with
+    ⟨h_balance0, h_balance1, _h_reserve0, _h_reserve1, _h_supply, _h_locked⟩
+  have h_pair_value :
+      PairWorldBalanceSpotValueNum (pairWorldFromConcreteState s)
+          (pairWorldAfterSyncRun s) =
+        PairWorldBalanceSpotValueNum (pairWorldFromConcreteState s)
+          (pairWorldFromConcreteState s) := by
+    unfold PairWorldBalanceSpotValueNum
+    rw [h_balance0, h_balance1]
+  omega
 
 -- tama: discharges=pair_closed_world_balanced_skim_or_sync_preserves_pool
 theorem closed_world_balanced_skim_or_sync_preserves_pool

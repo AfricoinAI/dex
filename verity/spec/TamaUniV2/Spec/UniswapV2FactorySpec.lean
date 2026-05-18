@@ -32,7 +32,7 @@ The assurance argument is:
    history: pair keys are sorted and unique, lookup is symmetric, old pairs are
    never overwritten, and array length equals the number of created pairs.
 
-Read as a proof outline, the factory specs show that the executable boundary
+Read as a proof outline, the factory specs show that the public-call boundary
 can either fail without changing factory-local state or append one new sorted
 pair. Since the ghost model has no transition that rewrites old entries, the
 finite-history theorems give routers the property they actually rely on:
@@ -158,7 +158,7 @@ def factory_createPair_success_updates_storage_and_emits
                 ((createPair tokenA tokenB).run s).snd.events
 
 /--
-The first successful `createPair` run is the executable base case for the
+The first successful `createPair` run is the base case for the
 closed-world factory model. When the concrete guards pass from an empty public
 pair array, the run creates exactly the one modeled sorted pair entry that the
 finite-trace invariants start from.
@@ -187,12 +187,10 @@ def factory_createPair_first_success_refines_closed_world
                       }]
                       pairCount := 1 }
 
-/--
-Executable base-case invariant bridge. The first successful real `createPair`
-from an empty public pair array creates a one-pair modeled history that already
-satisfies the factory invariant: the pair entry is sorted and nonzero, there
-are no duplicates, and the modeled count is exactly one.
--/
+/-- The first successful real `createPair` from an empty public pair array
+creates a one-pair factory history that already satisfies the factory
+invariant: the pair entry is sorted and nonzero, there are no duplicates, and
+the modeled count is exactly one. -/
 def factory_createPair_first_success_preserves_good
     (tokenA tokenB : Address) (s : ContractState) : Prop :=
   let token0Value := factoryToken0 tokenA tokenB
@@ -216,13 +214,9 @@ def factory_createPair_first_success_preserves_good
                       }]
                       pairCount := 1 }
 
-/--
-The general success bridge adds the correspondence needed for nonempty factory
-histories. If a modeled factory state has the same public pair count as the
-concrete pre-state and contains no entry for the sorted token pair, then a
-successful executable `createPair` run instantiates the closed-world create
-transition by appending exactly that sorted pair entry.
--/
+/-- In a nonempty factory, if the modeled state has the same public pair count
+as storage and contains no entry for the sorted token pair, then a successful
+`createPair` run appends exactly that sorted pair entry. -/
 def factory_createPair_success_refines_closed_world
     (tokenA tokenB : Address) (s : ContractState)
     (before : FactoryWorldState) : Prop :=
@@ -253,12 +247,10 @@ def factory_createPair_success_refines_closed_world
                         before
                         after
 
-/--
-Executable create-pair invariant bridge. A successful real `createPair` that
-matches a good modeled factory history appends one new sorted pair and leaves
-the global factory invariant true: entries remain sorted and nonzero, sorted
-token pairs remain unique, and the modeled count still matches the list.
--/
+/-- A successful real `createPair` that matches a good modeled factory history
+appends one new sorted pair and leaves the global factory invariant true:
+entries remain sorted and nonzero, sorted token pairs remain unique, and the
+modeled count still matches the list. -/
 def factory_createPair_success_preserves_good
     (tokenA tokenB : Address) (s : ContractState)
     (before : FactoryWorldState) : Prop :=
@@ -290,7 +282,7 @@ def factory_createPair_success_preserves_good
 /-!
 ## Exact Guard Runs
 
-These specs state canonical guard priority as exact executable run results.
+These specs state canonical guard priority as exact public-call results.
 Each branch supplies hypotheses that earlier guards have passed, so a proof of
 the spec fixes both the revert payload and original-state frame for that guard.
 -/
@@ -363,12 +355,9 @@ def factory_createPair_revert_keeps_factory_state
         s.storage allPairsLengthSlot.slot ∧
       result.snd.events = s.events
 
-/--
-Executable create-pair guard bridge. A successful `createPair` run proves that
-the early ordered guards passed before the CREATE2 boundary: the token addresses
-were distinct, neither token was zero, and the sorted pair mapping was empty.
-Later success bridges can cite these facts instead of assuming them separately.
--/
+/-- A successful `createPair` run proves that the early ordered guards passed
+before the CREATE2 boundary: the token addresses were distinct, neither token
+was zero, and the sorted pair mapping was empty. -/
 def factory_createPair_success_implies_pre_create_guards
     (tokenA tokenB : Address) (s : ContractState)
     (result : ContractResult Address) : Prop :=
@@ -435,16 +424,11 @@ def factory_concrete_world_allPairs_matches_storage
         (s.storageMapUint allPairsSlot.slot (Core.Uint256.ofNat index)) =
           entry.pair
 
-/--
-A successful concrete `createPair` run preserves the reconstruction bridge.
+/-- A successful concrete `createPair` run preserves storage/model agreement.
 If the pre-state factory storage is represented by a good closed-world history,
 then the post-state storage is represented by that history with exactly the new
-sorted pair appended.
-
-This is the factory counterpart to a simulation invariant: after one real
-success, the reader may continue using the finite-history theorems on the
-updated world and know they still describe concrete router-visible storage.
--/
+sorted pair appended. After one real success, the finite-history theorems still
+describe concrete router-visible storage. -/
 def factory_createPair_success_preserves_concrete_world_match
     (tokenA tokenB : Address) (s : ContractState)
     (before : FactoryWorldState) : Prop :=
@@ -537,7 +521,7 @@ def factory_createPair_success_preserves_existing_decoded_lookup
 /-!
 ## Concrete Factory Histories
 
-The one-step reconstruction bridge is useful because it composes. A finite
+The one-step storage/model agreement is useful because it composes. A finite
 sequence of successful concrete `createPair` calls should keep the closed-world
 factory history aligned with real storage at every endpoint. These specs are
 the global version of that simulation argument.
@@ -626,9 +610,9 @@ def factory_concrete_create_path_preserves_existing_allPairs_entry
 Concrete same-length histories are real no-op histories at the factory model
 boundary. A successful concrete create path can only append pairs; therefore,
 if the public `allPairsLength` storage value is the same at both endpoints,
-the reconstructed closed-world factory state is identical. This is the
-executable-storage counterpart of the closed-world "same count means no hidden
-array or lookup change" theorem below.
+the reconstructed closed-world factory state is identical. This is the storage
+counterpart of the closed-world "same count means no hidden array or lookup
+change" theorem below.
 -/
 def factory_concrete_same_length_create_path_preserves_world
     (sBefore sAfter : ContractState)
@@ -679,7 +663,7 @@ The intended reader story is:
   good factory state: created pairs remain present, the list remains coherent,
   and length keeps matching the number of created pairs.
 
-Together with the executable create/revert specs, these are the global factory
+Together with the concrete create/revert specs, these are the global factory
 facts that users and routers depend on: deterministic uniqueness, no hidden
 overwrite, and append-only enumeration.
 -/

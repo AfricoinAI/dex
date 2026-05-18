@@ -19,8 +19,9 @@ current route.
   section comments should introduce the informal claim, each `def` should be
   the short formal version of that claim, and later sections should explicitly
   explain how earlier claims compose into trace-wide safety.
-- Executable run lemmas are bridge/proof plumbing. They are useful only when
-  they connect a real entrypoint run to a small invariant or transition fact.
+- Public-call facts are useful only when they state a contract guarantee a
+  reader cares about: a successful call preserves an invariant, a failed call
+  leaves state unchanged, or a call enforces an accounting rule.
 - Do not modify the contract API or source shape to satisfy a proof. Specs and
   proofs serve the contract.
 - Do not add axioms or trust surfaces for internal logic. Trust belongs only at
@@ -56,7 +57,7 @@ Pair:
   between the recorded accounts, and replaying two events for distinct tokens
   moves exactly both token amounts from the pair-side account to the recipient.
 - LP ERC20 approve/transfer/transferFrom accounting, allowance, overflow, and
-  event specs. The executable LP-bookkeeping layer now also has scalar
+  event specs. The public-call LP-bookkeeping layer now also has scalar
   AMM-storage frame facts: approve, transfer, and transferFrom cannot change
   reserves, cumulative prices, total supply, token identities, or the lock. It
   also has pair-local token-balance frame facts: those LP bookkeeping calls do
@@ -77,28 +78,24 @@ Pair:
 - A reader-facing Pair reentrancy invariant packages the locked-entrypoint
   facts directly: if the lock is closed, every state-changing AMM entrypoint
   reverts with `UniswapV2: LOCKED` before durable side effects.
-- The success-side lock bridge is now explicit for mint, burn, swap, skim, and
-  sync: if any of those public calls succeeds, the initial lock gate must have
-  been open.
+- Successful mint, burn, swap, skim, and sync calls must have entered through
+  an open reentrancy lock.
 - Revert-frame token-balance preservation specs for mint, burn, swap, skim, and
   sync using pair-local transfer traces.
 - Pair-local atomicity specs showing reverted mint, burn, swap, skim, and sync
   runs leave storage, LP accounting maps, and event logs unchanged.
-- `skim` success spec for exact surplus transfer traces, exact pair-local
+- Successful `skim` specs for exact surplus transfer traces, exact pair-local
   token-balance effects when those traces are replayed, unchanged reserves,
-  restored lock, refinement to the closed-world skim transition, and the
-  clean-pool actual-token-balance caller no-profit bridge at the public
-  entrypoint boundary.
-- Mint/burn/swap closed-world bridge predicates for expected concrete states:
-  first mint, subsequent mint, burn, and swap all refine the corresponding
-  PairWorld transition once the concrete amount, liquidity, post-callback
-  balance, and K facts are available. Swap now also exposes the economic bridge
-  from a successful public run plus final-balance/K facts directly to the
-  one-swap caller no-profit theorem, including the actual-token-balance version
-  for zero-surplus starting pools.
-- `sync` expected-state and success-conditional bridge predicates showing that
-  observed balances inside uint112 bounds refine the closed-world sync
-  transition when the public run succeeds.
+  restored lock, agreement with the skim accounting rule, and the clean-pool
+  caller no-profit theorem at the public call boundary.
+- Mint, burn, and swap specs state that the public calls match their model
+  rules once the relevant concrete arithmetic facts are known: first mint,
+  later mint, burn, and swap cover deposited amounts, returned liquidity,
+  redeemed amounts, post-callback balances, and the K check. Swap also has
+  direct caller no-profit statements for successful calls, including the
+  actual-token-balance version for zero-surplus starting pools.
+- `sync` specs show that observed balances inside uint112 bounds are accepted
+  as the new reserves when the public call succeeds.
 - Closed-world surplus reconciliation now states the direct cleanup consequence
   for both balance-reconciliation entrypoints: `skim` and `sync` end with no
   modeled surplus above cached reserves. Skim also has an exact value theorem:
@@ -129,13 +126,17 @@ Pair:
   value exactly at the initial spot price. The sync/K
   refinement states that sync preserves cached K exactly when the start state
   has no surplus, and the converse reader-facing theorem states that any
-  sync-driven K increase requires pre-existing excess token balances.
+  sync-driven K increase requires pre-existing excess token balances. A
+  successful `sync` from a reachable zero-surplus pool now also has the direct
+  caller no-profit statement: if caller-plus-pair actual token-balance value is
+  only redistributed at the starting spot price, the caller cannot finish
+  richer.
 - TWAP/oracle arithmetic obligations for reserve updates are now stated in the
   generic contract-level form first: same-timestamp updates leave cumulative
   prices unchanged, elapsed updates with nonzero old reserves add the canonical
   UQ112x112 encoded price times elapsed time, and elapsed branches with zero elapsed
   time or a zero old reserve leave cumulative prices unchanged. Each
-  reserve-writing action family now has a success-run bridge into that rule:
+  reserve-writing action family now points to that rule:
   first mint, subsequent mint, burn, swap, and sync all expose
   reserve-to-balance writes plus the generic TWAP cases once their existing
   concrete arithmetic premises are established. For `mint`, success now derives
@@ -144,11 +145,11 @@ Pair:
   directly from exact revert specs, so the closed-world sync transition can be
   cited without separate lock or reserve-bound assumptions. Successful `sync`
   now also exposes the reserve-write conclusion directly: it caches the current
-  observed token balances as reserves. The shared concrete reserve-write bridge
+  observed token balances as reserves. The shared concrete reserve-write fact
   packages the same facts for any mint, burn, swap, or sync transition from a
-  concrete state. The executable bridge layer now also exposes core-invariant
+  concrete state. Public-call theorems now also expose core-invariant
   preservation for first mint, later mint, burn, swap, skim, and sync once each
-  call is connected to its existing closed-world transition facts. Initial mint
+  call is connected to its existing accounting rule. Initial mint
   now has the base-case version too: the concrete empty-pool premises plus a
   successful public run establish `PairWorldGood` for the post-mint state
   without assuming the projected pre-state was already good. Remaining work is
@@ -175,10 +176,10 @@ Pair:
   token-side positive-balance consequence directly: from any reachable nonempty
   pool, every finite successful modeled history leaves both actual token
   balances positive. The same layer also covers the one-step LP-supply firewall
-  for any action other than mint or burn, executable successful-run bridges
-  proving that `swap`, `skim`, and `sync` preserve total LP supply and locked
-  liquidity once their existing transition premises are available. Successful
-  public `skim` and `sync` now also bridge directly back to the core invariant:
+  for any action other than mint or burn, and successful `swap`, `skim`, and
+  `sync` calls preserve total LP supply and locked liquidity once their
+  existing arithmetic premises are available. Successful public `skim` and
+  `sync` calls also preserve the core invariant:
   from any concrete state whose projection is `PairWorldGood`, a successful run
   has a modeled post-state that is still `PairWorldGood`. The same layer covers
   one-step and finite-history
@@ -204,7 +205,7 @@ Pair:
   fee-adjusted K for swaps plus the arithmetic theorem that the fee-adjusted
   check implies raw cached-K
   nondecrease once reserves equal final balances, positive-input/output and
-  output-below-reserve swap facts, an executable successful-swap bridge that
+  output-below-reserve swap facts, a successful-swap theorem that
   states both reserve-write and raw cached-K nondecrease from the real public
   run once the final-balance/K facts are supplied, the one-swap economic
   consequence that a
@@ -233,7 +234,7 @@ Pair:
   boundary: the generated body checks call failure, copies returndata, and
   executes `revert` instead of silently continuing. In-callback lock observation
   remains a runtime/ECM boundary behavior unless the callback ECM gains a richer
-  Lean trace model. The executable swap bridge now also exposes the core
+  Lean trace model. The successful-swap theorem now also exposes the core
   flash-swap accounting rule directly: once a successful public swap is
   connected to its final post-callback balances and K facts, those final
   balances both account for input/output and are the balances charged by the
@@ -248,16 +249,16 @@ Pair:
   side. The burn ghost transition itself now requires positive liquidity,
   positive pre-burn supply, and positive redeemed token amounts, and the
   token-side lock consequence proves burns from good positive-token states
-  cannot empty either token balance. The executable burn layer now also exposes
+  cannot empty either token balance. The public burn theorem now also exposes
   the reserve-write fact directly: successful public burns, once connected to
   their redemption facts, cache the post-transfer token balances as reserves.
   Mint and burn now also have explicit
   LP-share safety obligations: existing positive pools cannot be diluted by
   mints, and burns cannot over-extract from the remaining LPs, because each
-  preserves or improves K per squared LP supply. The public executable layer now
-  exposes both economic consequences directly for successful nonempty-pool mints
+  preserves or improves K per squared LP supply. Public-call theorems now
+  expose both economic consequences directly for successful nonempty-pool mints
   and successful burns once their concrete pro-rata/redemption facts are
-  available. The same executable layer also exposes the supply-movement facts
+  available. The same public-call layer also exposes the supply-movement facts
   directly: successful initial and later mints strictly increase LP total
   supply, and successful burns reduce LP total supply exactly by the burned
   liquidity. Successful burns also expose that the permanently locked liquidity
@@ -342,10 +343,10 @@ Factory:
   sorted pair mapping before the CREATE2 boundary.
 - Create-pair success spec for sorted tokens, bidirectional mapping writes,
   append/length update, nonzero pair boundary, and `PairCreated`.
-- Executable create bridges showing successful `createPair` runs instantiate
-  the closed-world factory create transition: one base-case bridge for an empty
-  public pair array, and one general bridge for a modeled pre-history with
-  matching pair count and no existing sorted pair. Both bridges now expose the
+- Successful `createPair` specs show that real pair creation follows the
+  factory creation model: one base case for an empty public pair array, and one
+  general case for a modeled pre-history with matching pair count and no
+  existing sorted pair. Both cases expose the
   direct invariant consequence: first real creation establishes, and later real
   creation preserves, the good factory-world invariant covering sorted nonzero
   entries, uniqueness, and pair-count/list coherence.
@@ -359,7 +360,7 @@ Factory:
   pair-count/list length consistency, and path-level preservation from any good
   factory state, plus trace closure when a finite path is appended to an
   already reachable factory state.
-- Concrete factory reconstruction bridge: a `FactoryWorldMatchesStorage`
+- Concrete factory/storage agreement: a `FactoryWorldMatchesStorage`
   relation now ties a modeled factory world back to real storage. Public specs
   state that reconstructed worlds agree with `allPairsLength`, decoded
   both-direction pair mapping lookup, and decoded indexed `allPairs` storage
@@ -370,7 +371,7 @@ Factory:
   append-only invariants continue to describe router-visible storage after real
   factory successes. Reader-facing concrete consequences now state that
   successful creation installs the decoded new-pair lookup in both token orders
-  and preserves every existing reconstructed decoded lookup. The bridge now
+  and preserves every existing reconstructed decoded lookup. The relation now
   composes over finite concrete create histories: any successful sequence of
   real `createPair` runs preserves the storage/world correspondence at the
   endpoint, preserves every pre-existing decoded unordered lookup, and
@@ -386,25 +387,17 @@ Factory:
 
 These are the current standards for the next Lean work. They are behavioral
 properties, not API-surface properties. The broad closed-world invariant and
-economic story is now in place; remaining Pair work should mainly strengthen
-the executable bridge from canonical public entrypoints to that story.
+economic story is now in place; remaining Pair work should mainly prove that
+successful public calls establish more of the arithmetic facts used by that
+story.
 
-- Mint, burn, and swap executable bridges: closed-world formulas already cover
+- Direct arithmetic from successful calls: the model formulas already cover
   minimum-liquidity locking, pro-rata mint/burn discipline, fee-adjusted swap K,
   derived raw-K nondecrease, reserve updates, LP-supply effects, and no-profit
-  consequences. Successful later mints and successful burns now bridge directly
-  to their LP-share economic conclusions once their concrete arithmetic facts
-  are supplied. Successful swaps derive the zero-output guard, prove LP supply
-  and locked liquidity are unchanged, and connect directly to the one-swap
-  caller no-profit theorem once final-balance/K facts are supplied; the same
-  executable bridge now covers actual pair token balances when the starting pool
-  has zero surplus. Successful
-  first mint, later mint, burn, swap, skim, and sync now also expose core
-  `PairWorldGood` preservation at the executable boundary once their existing
-  transition facts are supplied; `skim` and `sync` need no extra arithmetic
-  premises beyond success. The remaining bridge work is to derive more of
-  the arithmetic premises directly from successful public runs, in small
-  prefix/suffix lemmas rather than one aggregate function summary.
+  consequences. The next security gain is to prove that successful `mint`,
+  `burn`, and `swap` establish their own liquidity, redemption, input, final
+  balance, and K facts instead of asking later theorems to take those facts as
+  premises.
 - Concrete success-path restoration and events: Foundry mirrors cover Mint,
   Burn, Swap, Sync, and lock restoration at runtime. Lean should expose only
   short obligations here, preferably via factored proof-local adapters for the
@@ -412,7 +405,7 @@ the executable bridge from canonical public entrypoints to that story.
 - TWAP/oracle updates: the arithmetic cases now cover same timestamp, active
   elapsed update, and inactive elapsed no-op behavior as generic reserve-update
   obligations. Sync, first mint, subsequent mint, burn, and swap all have
-  successful-run bridge facts into those claims once their concrete arithmetic
+  public-call facts into those claims once their concrete arithmetic
   premises are available. Remaining work is only to derive more of those
   concrete premises directly from successful public runs, where that can be
   done without monolithic entrypoint unfolding.
@@ -422,11 +415,10 @@ the executable bridge from canonical public entrypoints to that story.
   now also proves callback call failure reaches a returndata-preserving revert.
   Remaining work: model in-callback lock semantics with an explicit Lean trace
   or keep it as mirrored runtime boundary coverage.
-- Skim/sync bridge: `skim` has exact surplus-transfer and closed-world
-  transition coverage. `sync` has uint112 overflow reverts, a closed-world
-  transition bridge, and a successful-run bridge to reserve-to-balance writes
-  plus the generic TWAP/oracle arithmetic facts. The same oracle bridge shape
-  now exists for mint, burn, and swap once their concrete arithmetic premises
+- Skim and sync: `skim` has exact surplus-transfer coverage and model
+  agreement. `sync` has uint112 overflow reverts, accepts current balances as
+  reserves, and uses the generic TWAP/oracle arithmetic facts. Mint, burn, and
+  swap use the same reserve/oracle rule once their concrete arithmetic premises
   are available.
 - Ordered revert matrix: cover canonical guard priority for mint, burn, swap,
   skim, sync, and factory, with exact revert payload/state.
@@ -463,17 +455,17 @@ the executable bridge from canonical public entrypoints to that story.
   can remove an external gift, but ordinary pair mechanics cannot manufacture
   that gift internally.
 - Factory invariants: the closed-world reachable and path invariants are now in
-  place, failed-create atomicity is proved, and successful create is bridged
-  into the factory-world transition for both the empty base case and arbitrary
+  place, failed-create atomicity is proved, and successful create matches the
+  factory-world transition for both the empty base case and arbitrary
   modeled pre-histories with matching count/no-existing-pair correspondence.
-  A concrete-history reconstruction bridge is now in place for length, decoded
+  A concrete-history reconstruction relation is now in place for length, decoded
   pair mappings, reverse mappings, and indexed pair-array entries, and
   successful concrete `createPair` runs preserve that correspondence across one
   append. Concrete new-lookup installation and existing-lookup preservation are
   now exposed directly. The one-step correspondence has also been lifted to
   longer reconstructed concrete histories, with reader-facing corollaries for
   stable decoded lookups, stable indexed pair-array entries, and valid endpoint
-  decoded lookups. Remaining work should return to the Pair bridge/oracle/revert
+  decoded lookups. Remaining work should return to the Pair arithmetic/revert
   layers unless a new
   factory-specific behavioral gap is identified.
 

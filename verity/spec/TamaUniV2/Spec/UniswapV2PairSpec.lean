@@ -13,7 +13,7 @@ open TamaUniV2.Common.UniswapV2PairGhost
 /-!
 Behavior specs for the production-style Uniswap v2 pair.
 
-The executable contract uses external-call modules for token transfers, token
+The contract uses external-call modules for token transfers, token
 balances, pair creation, and flash callbacks. Specs follow Tamago's ERC4626
 style: local storage/accounting obligations are proved directly, while
 external-token movement is connected to concrete execution through pair-local
@@ -41,17 +41,17 @@ The argument proceeds in layers:
    boundary.
 3. Prove the LP token behaves like a conservative ERC20 share ledger before
    considering AMM economics.
-4. Pin down security-relevant executable guards: the reentrancy lock, reserve
+4. Pin down security-relevant guards: the reentrancy lock, reserve
    bounds, under-backed `skim` failures, and early swap/factory
    failures all have exact revert payloads and original-state frames.
-5. Bridge successful public entrypoints into small ghost transitions. These are
-   intentionally not whole-function summaries; they are the doorway from
-   executable code into the mathematical model.
+5. State what successful public calls establish in the mathematical model.
+   These are intentionally not whole-function summaries; they are short claims
+   about the accounting rule each call must satisfy.
 6. Prove the model-level theorem stack over every finite successful history:
    reserve backing, uint112 bounds, minimum-liquidity locking, K behavior,
    LP-share discipline, and same-supply no-profit.
 
-Read from top to bottom, the argument is: the executable boundary admits only
+Read from top to bottom, the argument is: the public-call boundary admits only
 well-framed failures and well-shaped successful transitions; the transition
 model preserves the invariants; therefore every finite closed-world history of
 the fee-off pair preserves the safety and economic properties users rely on.
@@ -71,7 +71,7 @@ These specs pin each public view to the storage value or constant it is supposed
 to expose. The fee-off variant deliberately fixes `kLast()` at zero. The
 run-level facts are not API-parity checks; they are the observable-state layer
 of the assurance argument. Routers, LPs, and proofs below can trust these reads
-only because the actual executable view returns the expected value and frames
+only because the actual view returns the expected value and frames
 pair state.
 -/
 
@@ -219,7 +219,7 @@ def pair_safeTransfer_traces_token_transfer
 /--
 The token-transfer trace model has one job: when a pair-local ERC20 transfer
 event is replayed, it moves exactly that token amount from the pair-side sender
-to the recipient in the ghost token-balance world. Later executable specs for
+to the recipient in the ghost token-balance world. Later public-call specs for
 `skim`, `burn`, and `swap` can cite this fact instead of re-proving event
 decoding each time.
 -/
@@ -533,7 +533,7 @@ def pair_transfer_keeps_total_supply
   result.snd.storage totalSupplySlot.slot = s.storage totalSupplySlot.slot
 
 /-- Direct LP transfers may move LP balances, but they cannot change scalar AMM
-storage. This is the executable counterpart of the model-level fact that share
+storage. This is the public-call counterpart of the model-level fact that share
 bookkeeping does not touch reserves, prices, supply, token identities, or the
 lock. -/
 def pair_transfer_keeps_pool_storage
@@ -690,7 +690,8 @@ def pair_sync_reverts_when_locked
 /-!
 ## Exact Guard Runs
 
-This section pins the contract's failure boundaries to exact executable runs.
+This section pins the contract's failure boundaries to exact public-call
+results.
 Each statement has the same shape: once the hypotheses establish that earlier
 guards have either failed or passed in the intended order, the actual public
 entrypoint returns the canonical revert string and the pre-call state.
@@ -698,7 +699,7 @@ entrypoint returns the canonical revert string and the pre-call state.
 These are intentionally branch facts rather than full function summaries. They
 are useful because guard order is security-relevant: before any ERC20 transfer,
 callback, reserve update, or LP accounting write can become durable, the
-matching public entrypoint must fail with the expected reason and frame.
+matching public call must fail with the expected reason and frame.
 
 The section should stay narrow. If proving a later guard requires unfolding the
 whole function tail, the right move is to factor a proof-local prefix adapter
@@ -834,14 +835,13 @@ def pair_skim_run_revert_balance1_below_reserve
         ContractResult.revert "UniswapV2: INSUFFICIENT_BALANCE" s
 
 /-!
-## Skim And Sync Bridges
+## Skim And Sync
 
 `skim` and `sync` are the direct calls for reconciling token balances with
 cached reserves. Skim sends only balances above cached reserves and leaves
 reserves unchanged. Sync accepts the observed balances as the new reserves, but
-only if they fit the uint112 reserve domain. These bridge specs connect those
-executable calls to the closed-world transition model used by the invariant
-section.
+only if they fit the uint112 reserve domain. The claims below say what those
+public calls guarantee and how they support the invariant section.
 -/
 
 def pair_skim_run_success_transfers_excess_and_restores_unlocked
@@ -918,10 +918,9 @@ def pair_skim_success_run_restores_unlocked_from_run
     result = ContractResult.success () result.snd →
       result.snd.storage unlockedSlot.slot = 1
 
-/-- Reader-facing executable `skim` bridge. Success of the real entrypoint
-implies the lock gate passed and the pair held at least its cached reserves, so
-the run is exactly the closed-world skim transition used by the invariant
-section. -/
+/-- When `skim` succeeds, the lock gate passed and the pair held at least its
+cached reserves, so the call follows the skim rule used by the invariant
+proofs. -/
 def pair_skim_success_run_refines_closed_world_from_run
     (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=
   result = (skim toAddr).run s →
@@ -943,11 +942,11 @@ def pair_skim_success_run_preserves_liquidity_supply_from_run
         after.lockedLiquidity = before.lockedLiquidity
 
 /--
-Successful `skim` preserves the core pair invariant at the executable boundary.
+Successful `skim` preserves the core pair invariant.
 
 The precondition is the projection of the concrete pre-state into the
-closed-world invariant. Success of the real entrypoint already proves that the
-run is the closed-world skim transition; the invariant layer then proves that
+closed-world invariant. Success of the real public call proves that the
+call follows the skim rule; the invariant layer then proves that
 reserve backing, uint112 bounds, and LP-supply lock coherence survive the call.
 -/
 def pair_skim_success_run_preserves_good_from_run
@@ -960,13 +959,14 @@ def pair_skim_success_run_preserves_good_from_run
         PairWorldGood after
 
 /--
-Successful-skim clean-pool no-profit bridge.
+When `skim` succeeds from a clean reachable pool, it cannot transfer value to
+the caller.
 
 `skim` is allowed to remove surplus above cached reserves; that surplus is an
 external gift, not AMM-created value. When the starting pool has no surplus, a
-successful public `skim` is a no-op on pair token balances in the closed-world
-model. Therefore, if caller-plus-pair actual token-balance value is merely
-redistributed at the starting spot price, the caller cannot finish richer.
+successful public `skim` is a no-op on pair token balances in the model.
+Therefore, if caller-plus-pair actual token-balance value is merely redistributed
+at the starting spot price, the caller cannot finish richer.
 -/
 def pair_skim_success_run_no_caller_token_balance_profit_from_run
     (toAddr : Address) (s : ContractState) (result : ContractResult Unit)
@@ -1007,8 +1007,7 @@ def pair_reentrancy_guard_blocks_all_mutating_entrypoints
     (skim skimTo).run s = ContractResult.revert "UniswapV2: LOCKED" s ∧
     (sync).run s = ContractResult.revert "UniswapV2: LOCKED" s
 
-/-- The success-side reading of the same lock gate for `mint`: if the public
-entrypoint succeeds, the initial lock value must have been open. -/
+/-- If `mint` succeeds, the initial lock value must have been open. -/
 def pair_mint_success_run_implies_lock_open
     (toAddr : Address) (s : ContractState)
     (result : ContractResult Uint256) : Prop :=
@@ -1016,7 +1015,7 @@ def pair_mint_success_run_implies_lock_open
     (∃ liquidity, result = ContractResult.success liquidity result.snd) →
       s.storage unlockedSlot.slot = 1
 
-/-- The success-side reading of the same lock gate for `burn`. -/
+/-- If `burn` succeeds, the initial lock value must have been open. -/
 def pair_burn_success_run_implies_lock_open
     (toAddr : Address) (s : ContractState)
     (result : ContractResult (Uint256 × Uint256)) : Prop :=
@@ -1024,7 +1023,7 @@ def pair_burn_success_run_implies_lock_open
     (∃ amounts, result = ContractResult.success amounts result.snd) →
       s.storage unlockedSlot.slot = 1
 
-/-- The success-side reading of the same lock gate for `swap`. -/
+/-- If `swap` succeeds, the initial lock value must have been open. -/
 def pair_swap_success_run_implies_lock_open
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (s : ContractState) (result : ContractResult Unit) : Prop :=
@@ -1033,9 +1032,8 @@ def pair_swap_success_run_implies_lock_open
       s.storage unlockedSlot.slot = 1
 
 /-- A successful `swap` must have passed the first economic guard: at least one
-output amount is nonzero. This is a narrow bridge from the exact zero-output
-revert proof into the closed-world swap model, whose swap action requires real
-output before reasoning about input, callback repayment, or K. -/
+output amount is nonzero. A zero-output request fails before token transfers,
+callback repayment, or the K check can matter. -/
 def pair_swap_success_run_implies_nonzero_output
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (s : ContractState) (result : ContractResult Unit) : Prop :=
@@ -1043,7 +1041,7 @@ def pair_swap_success_run_implies_nonzero_output
     result = ContractResult.success () result.snd →
       amount0Out ≠ 0 ∨ amount1Out ≠ 0
 
-/-- The success-side reading of the same lock gate for `skim`. -/
+/-- If `skim` succeeds, the initial lock value must have been open. -/
 def pair_skim_success_run_implies_lock_open
     (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=
   result = (skim toAddr).run s →
@@ -1104,9 +1102,7 @@ def pair_sync_success_run_implies_lock_open
 
 /-- A successful `sync` call cannot have observed balances outside the reserve
 domain. If either observed token balance were above `uint112`, the exact
-overflow revert specs above would force the run to revert instead. This is a
-narrow executable bridge from the real public call back to the arithmetic
-premise used by the closed-world transition. -/
+overflow revert specs above would force the run to revert instead. -/
 def pair_sync_success_run_implies_balances_fit_uint112
     (s : ContractState) (result : ContractResult Unit) : Prop :=
   result = (sync).run s →
@@ -1114,10 +1110,8 @@ def pair_sync_success_run_implies_balances_fit_uint112
       observedBalance0 s ≤ maxUint112 ∧
       observedBalance1 s ≤ maxUint112
 
-/-- The public `sync` transition can now be cited without separately assuming
-the reserve-domain bounds. Success of the real entrypoint implies the lock gate
-and bounds passed, and therefore the run refines the closed-world sync
-transition used by the invariant section. -/
+/-- When `sync` succeeds, the lock gate and reserve-domain checks passed, so
+the call follows the sync rule used by the invariant proofs. -/
 def pair_sync_success_run_refines_closed_world_from_run
     (s : ContractState) (result : ContractResult Unit) : Prop :=
   result = (sync).run s →
@@ -1127,8 +1121,8 @@ def pair_sync_success_run_refines_closed_world_from_run
         (pairWorldAfterSyncRun s)
 
 /-- Successful `sync` is reserve accounting, not LP issuance or redemption. Once
-success identifies the closed-world sync transition, LP total supply and locked
-liquidity are unchanged.
+the call follows the sync rule, LP total supply and locked liquidity are
+unchanged.
 -/
 def pair_sync_success_run_preserves_liquidity_supply_from_run
     (s : ContractState) (result : ContractResult Unit) : Prop :=
@@ -1140,11 +1134,11 @@ def pair_sync_success_run_preserves_liquidity_supply_from_run
         after.lockedLiquidity = before.lockedLiquidity
 
 /--
-Successful `sync` preserves the core pair invariant at the executable boundary.
+Successful `sync` preserves the core pair invariant.
 
 The public call first proves its observed balances fit the reserve domain, then
-refines to the closed-world sync transition. From a good projected pre-state,
-the transition preserves the same invariant package that the global trace
+follows the sync rule. From a good projected pre-state, that rule preserves the
+same invariant package that the global trace
 theorems use: reserves remain backed, reserves remain `uint112`, and LP supply
 keeps the minimum-liquidity lock shape.
 -/
@@ -1158,10 +1152,32 @@ def pair_sync_success_run_preserves_good_from_run
         PairWorldGood after
 
 /--
-Executable sync reserve-write fact. A successful public `sync` is the direct
-accounting operation: it caches the pair's currently observed token balances as
-reserves.
+When `sync` succeeds from a clean reachable pool, it cannot transfer value to
+the caller.
+
+`sync` changes accounting, not custody: it records current token balances as
+cached reserves. From a zero-surplus reachable pool, current balances already
+equal cached reserves, so a successful public `sync` is a no-op on actual pair
+token balances in the model. If caller-plus-pair token-balance value is only
+redistributed at the starting spot price, the caller therefore cannot finish
+richer.
 -/
+def pair_sync_success_run_no_caller_token_balance_profit_from_run
+    (s : ContractState) (result : ContractResult Unit)
+    (callerValueBefore callerValueAfter : Nat) : Prop :=
+  let before := pairWorldFromConcreteState s
+  let after := pairWorldAfterSyncRun s
+  result = (sync).run s →
+    result = ContractResult.success () result.snd →
+      PairWorldReachable before →
+        PairWorldSurplus0 before = 0 →
+          PairWorldSurplus1 before = 0 →
+            callerValueBefore + PairWorldBalanceSpotValueNum before before =
+              callerValueAfter + PairWorldBalanceSpotValueNum before after →
+              callerValueAfter ≤ callerValueBefore
+
+/-- A successful public `sync` caches the pair's currently observed token
+balances as reserves. -/
 def pair_sync_success_run_updates_reserves_to_balances_from_run
     (s : ContractState) (result : ContractResult Unit) : Prop :=
   let after := pairWorldAfterSyncRun s
@@ -1185,8 +1201,8 @@ The arithmetic is contract-level reserve-update behavior, shared by mint, burn,
 swap, and sync. The formulas are factored outside the contract source so the
 spec can discuss the rule directly without adding public or internal Pair
 functions for proof convenience. The first three specs state the generic rule;
-the `sync`-named obligations keep the simplest public-entrypoint bridge visible
-until the mint/burn/swap reserve-update paths are connected to the same facts.
+the `sync`-named obligations keep the simplest public-call form visible until
+the mint/burn/swap reserve-update paths are connected to the same facts.
 -/
 
 /-- Reserve updates in the same 32-bit timestamp window do not move the TWAP
@@ -1230,29 +1246,25 @@ def pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives
       oraclePrice1CumulativeAfterSync s =
         s.storage price1CumulativeLastSlot.slot
 
-/-- `sync` is the direct public bridge to the generic same-timestamp reserve
-update rule. -/
+/-- `sync` uses the generic same-timestamp reserve update rule. -/
 def pair_sync_oracle_same_timestamp_keeps_price_cumulatives
     (s : ContractState) : Prop :=
   pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives s
 
-/-- `sync` is the direct public bridge to the generic active-elapsed reserve
-update rule. -/
+/-- `sync` uses the generic active-elapsed reserve update rule. -/
 def pair_sync_oracle_elapsed_updates_price_cumulatives
     (s : ContractState) : Prop :=
   pair_reserve_update_oracle_elapsed_updates_price_cumulatives s
 
-/-- `sync` is the direct public bridge to the generic inactive-elapsed reserve
-update rule. -/
+/-- `sync` uses the generic inactive-elapsed reserve update rule. -/
 def pair_sync_oracle_inactive_elapsed_keeps_price_cumulatives
     (s : ContractState) : Prop :=
   pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
 
-/-- Successful `sync` is the simplest public reserve-write bridge. Once the
-real entrypoint succeeds with token balances inside the reserve domain, the
-closed-world endpoint has cached reserves equal to the observed balances, and
-the TWAP accumulators follow the same generic reserve-update rule used by mint,
-burn, and swap. -/
+/-- Successful `sync` writes reserves and updates the oracle according to the
+same rule as every other reserve update. Once the public call succeeds with
+token balances inside the reserve domain, cached reserves equal the observed
+balances, and the TWAP accumulators follow the generic Uniswap V2 rule. -/
 def pair_sync_success_run_uses_oracle_rule
     (s : ContractState) (result : ContractResult Unit) : Prop :=
   result = (sync).run s →
@@ -1267,9 +1279,8 @@ def pair_sync_success_run_uses_oracle_rule
             pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
             pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
 
-/-- Reader-facing `sync` reserve/oracle bridge. A successful public `sync` run
-already proves the lock gate and reserve-domain bounds, so callers can cite the
-reserve-write and TWAP rules directly from success. -/
+/-- A successful public `sync` proves the lock gate and reserve-domain bounds,
+so the reserve-write and TWAP rules follow directly from success. -/
 def pair_sync_success_run_uses_oracle_rule_from_run
     (s : ContractState) (result : ContractResult Unit) : Prop :=
   result = (sync).run s →
@@ -1282,11 +1293,10 @@ def pair_sync_success_run_uses_oracle_rule_from_run
         pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
         pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
 
-/-- Shared bridge for reserve-writing actions. Once a mint, burn, swap, or sync
-has been connected to the closed-world transition from a concrete state, the
-common reserve-update facts are available together: cached reserves end at the
-actual token balances, and the cumulative prices follow the generic Uniswap V2
-TWAP rule above. -/
+/-- Shared rule for reserve-writing actions. Once a mint, burn, swap, or sync
+matches its accounting rule from a concrete state, cached reserves end at the actual
+token balances, and cumulative prices follow the generic Uniswap V2 TWAP rule
+above. -/
 def pair_closed_world_concrete_reserve_write_uses_oracle_rule
     (action : PairWorldAction) (after : PairWorldState)
     (s : ContractState) : Prop :=
@@ -1409,17 +1419,16 @@ def pair_flash_callback_module_bubbles_callback_failure : Prop :=
           ] ∈ body
 
 /-!
-## Mint, Burn, And Swap Bridges
+## Mint, Burn, And Swap
 
 The closed-world model below is where the main invariant and economic theorems
-live. These bridge specs are the narrow doorway from executable public calls to
-that model: if a real call succeeds and exposes the expected arithmetic facts,
-then the corresponding `PairWorldStep` is available. The public specs stay
-short on purpose. They do not copy the whole function body; they connect one
-entrypoint to one modeled economic transition.
+live. The claims in this section say what successful public calls establish in
+that model: if a real call succeeds and the relevant arithmetic facts hold, then
+the corresponding mint, burn, or swap rule is available. The public specs stay
+short on purpose. They do not copy whole function bodies; they state the
+accounting rule needed by the invariant section.
 
-These are simulation links, not substitutes for the invariant section. A bridge
-only says "this successful run is one of the modeled actions." The reason that
+These claims are not substitutes for the invariant section. The reason each
 action is safe comes later, where the model proves reserve backing, K behavior,
 LP-share discipline, and no-profit consequences across arbitrary finite
 histories.
@@ -1468,10 +1477,9 @@ def pair_mint_first_success_run_refines_closed_world
                             (pairWorldBeforeMintRun s)
                             (pairWorldAfterFirstMintRun s)
 
-/-- This is the reader-facing first-mint bridge from the actual public call.
-Success of `mint` itself proves that the lock gate was open and both observed
-token balances fit the `uint112` reserve domain; the remaining premises are the
-economic facts that identify this run as the initial-liquidity path. -/
+/-- When the first `mint` succeeds, the lock gate was open and both observed
+token balances fit the `uint112` reserve domain; the remaining premises identify
+the call as the initial-liquidity path. -/
 def pair_mint_first_success_run_refines_closed_world_from_run
     (toAddr : Address) (s : ContractState)
     (result : ContractResult Uint256) : Prop :=
@@ -1492,12 +1500,9 @@ def pair_mint_first_success_run_refines_closed_world_from_run
                       (pairWorldBeforeMintRun s)
                       (pairWorldAfterFirstMintRun s)
 
-/--
-Executable first-mint core-invariant bridge. Once a successful initial `mint`
-is connected to the closed-world first-mint transition, a good projected
-pre-state remains good: the minted state still has backed reserves, uint112
-reserve bounds, and the minimum-liquidity lock shape.
--/
+/-- Successful initial `mint` preserves the core pair invariant: from a good
+projected pre-state, the minted state still has backed reserves, uint112 reserve
+bounds, and the minimum-liquidity lock shape. -/
 def pair_mint_first_success_run_preserves_good_from_run
     (toAddr : Address) (s : ContractState)
     (result : ContractResult Uint256) : Prop :=
@@ -1519,7 +1524,7 @@ def pair_mint_first_success_run_preserves_good_from_run
                       PairWorldGood after
 
 /--
-Executable first-mint base case. In the initial-liquidity path, the concrete
+Initial-mint base case. In the initial-liquidity path, the concrete
 empty-pool premises already imply the projected pre-state is good: cached
 reserves are backed by observed balances, reserves fit the reserve domain, and
 LP supply has not yet been created. Therefore a successful first `mint`
@@ -1543,11 +1548,7 @@ def pair_mint_first_success_run_establishes_good_from_run
                   mintFirstRoot s > minimumLiquidity →
                     PairWorldGood after
 
-/--
-Executable first-mint supply fact. Once a successful public `mint` is identified
-as the initial-liquidity case, the closed-world mint theorem gives the
-reader-facing conclusion: LP total supply strictly increases.
--/
+/-- When the initial `mint` succeeds, LP total supply strictly increases. -/
 def pair_mint_first_success_run_strictly_increases_supply_from_run
     (toAddr : Address) (s : ContractState)
     (result : ContractResult Uint256) : Prop :=
@@ -1568,7 +1569,7 @@ def pair_mint_first_success_run_strictly_increases_supply_from_run
                     before.totalSupply < after.totalSupply
 
 /--
-Executable first-mint lock fact. The initial successful `mint` does not give
+The initial successful `mint` does not give
 the whole LP supply to the depositor: `MINIMUM_LIQUIDITY` is permanently locked,
 and total supply is exactly the locked floor plus the returned user liquidity.
 -/
@@ -1592,7 +1593,7 @@ def pair_mint_first_success_run_locks_minimum_liquidity_from_run
                       after.totalSupply = minimumLiquidityNat + liquidity.val
 
 /--
-Executable first-LP share fact. Because the first mint locks
+Because the first mint locks
 `MINIMUM_LIQUIDITY`, the first liquidity provider's returned LP amount is
 strictly smaller than total LP supply whenever the public first-mint path
 succeeds.
@@ -1618,7 +1619,7 @@ def pair_mint_first_success_run_keeps_locked_share_from_run
                       liquidity.val < after.totalSupply
 
 /--
-Executable first-mint K fact. Initial liquidity deposits add token balances and
+Initial liquidity deposits add token balances and
 cache those balances as reserves; once the successful public run is connected
 to that first-mint transition, raw cached K cannot decrease.
 -/
@@ -1642,7 +1643,7 @@ def pair_mint_first_success_run_never_decreases_k_from_run
                     PairWorldK before ≤ PairWorldK after
 
 /--
-Executable first-mint reserve-write fact. In the initial-liquidity path, a
+In the initial-liquidity path, a
 successful public `mint` caches exactly the observed token balances as the
 router-visible reserves.
 -/
@@ -1666,11 +1667,10 @@ def pair_mint_first_success_run_updates_reserves_to_balances_from_run
                       after.reserve1 = after.balance1
 
 /-!
-The remaining bridge specs keep the same shape. Each one is a one-step
-simulation fact: a successful public call, together with the arithmetic facts
-that the executable path computes, corresponds to the appropriate ghost action.
-The economic content remains in the short invariants below, where those actions
-are composed over paths.
+The remaining mint, burn, and swap facts keep the same shape. Each says that a
+successful public call, together with the arithmetic facts computed along that
+path, matches the appropriate model action. The economic content remains in the
+short invariants below, where those actions are composed over paths.
 -/
 
 def pair_mint_subsequent_expected_refines_closed_world
@@ -1703,10 +1703,10 @@ def pair_mint_subsequent_success_run_refines_closed_world
     result = ContractResult.success liquidity result.snd →
       pair_mint_subsequent_expected_refines_closed_world s liquidity
 
-/-- The corresponding bridge for later liquidity additions. A successful real
-`mint` run already establishes the execution gates shared by every mint; the
-remaining premises say that supply/reserves are live and that the returned LP
-amount is the canonical minimum of the two pro-rata sides. -/
+/-- For later liquidity additions, a successful `mint` already establishes the
+shared mint gates; the remaining premises say that supply/reserves are live and
+that the returned LP amount is the canonical minimum of the two pro-rata sides.
+-/
 def pair_mint_subsequent_success_run_refines_closed_world_from_run
     (toAddr : Address) (s : ContractState)
     (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
@@ -1731,11 +1731,8 @@ def pair_mint_subsequent_success_run_refines_closed_world_from_run
                             (pairWorldBeforeMintRun s)
                             (pairWorldAfterSubsequentMintRun liquidity s)
 
-/--
-Executable later-mint core-invariant bridge. A successful non-initial `mint`
-that satisfies the canonical pro-rata arithmetic facts is one closed-world mint
-step, so it preserves the core pair invariant from any good projected pre-state.
--/
+/-- A successful later `mint` satisfying the canonical pro-rata facts preserves
+the core pair invariant from any good projected pre-state. -/
 def pair_mint_subsequent_success_run_preserves_good_from_run
     (toAddr : Address) (s : ContractState)
     (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
@@ -1761,7 +1758,7 @@ def pair_mint_subsequent_success_run_preserves_good_from_run
                             PairWorldGood after
 
 /--
-Executable later-mint supply fact. In a nonempty pool, a successful public
+In a nonempty pool, a successful public
 `mint` that is connected to its pro-rata arithmetic facts strictly increases LP
 total supply.
 -/
@@ -1789,7 +1786,7 @@ def pair_mint_subsequent_success_run_strictly_increases_supply_from_run
                           before.totalSupply < after.totalSupply
 
 /--
-Executable later-mint lock fact. After the first mint has created the permanent
+After the first mint has created the permanent
 `MINIMUM_LIQUIDITY` floor, later successful mints may add user LP supply but
 must preserve the locked-liquidity amount exactly.
 -/
@@ -1818,7 +1815,7 @@ def pair_mint_subsequent_success_run_preserves_locked_liquidity_from_run
                             after.totalSupply = before.totalSupply + liquidity.val
 
 /--
-Executable later-mint K fact. Later liquidity deposits add balances on both
+Later-mint K fact. Later liquidity deposits add balances on both
 token sides before reserves are updated, so connecting a successful public
 `mint` to its pro-rata transition proves raw cached K cannot decrease.
 -/
@@ -1846,7 +1843,7 @@ def pair_mint_subsequent_success_run_never_decreases_k_from_run
                           PairWorldK before ≤ PairWorldK after
 
 /--
-Executable later-mint reserve-write fact. In a live pool, a successful public
+Later-mint reserve-write fact. In a live pool, a successful public
 `mint` updates cached reserves to the observed token balances after the
 liquidity addition.
 -/
@@ -1935,12 +1932,9 @@ def pair_burn_success_run_refines_closed_world
     result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
       pair_burn_expected_refines_closed_world s
 
-/--
-Executable burn core-invariant bridge. A successful burn connected to its
-redemption arithmetic facts is a closed-world burn step; from a good projected
-pre-state, the post-burn model still has backed reserves, uint112 reserve
-bounds, and coherent locked LP supply.
--/
+/-- A successful burn satisfying the redemption arithmetic facts preserves the
+core pair invariant: from a good projected pre-state, the post-burn model still
+has backed reserves, uint112 reserve bounds, and coherent locked LP supply. -/
 def pair_burn_success_run_preserves_good_from_run
     (toAddr : Address) (s : ContractState)
     (result : ContractResult (Uint256 × Uint256)) : Prop :=
@@ -1968,10 +1962,8 @@ def pair_burn_success_run_preserves_good_from_run
                                   liquidity.val * (observedBalance1 s).val →
                                 PairWorldGood after
 
-/--
-Executable burn supply fact. A successful public `burn`, once connected to its
-redemption arithmetic facts, destroys exactly the LP liquidity held by the pair.
--/
+/-- A successful public `burn` satisfying the redemption arithmetic facts
+destroys exactly the LP liquidity held by the pair. -/
 def pair_burn_success_run_reduces_supply_by_liquidity_from_run
     (toAddr : Address) (s : ContractState)
     (result : ContractResult (Uint256 × Uint256)) : Prop :=
@@ -2000,7 +1992,7 @@ def pair_burn_success_run_reduces_supply_by_liquidity_from_run
                                 before.totalSupply - liquidity.val
 
 /--
-Executable burn lock fact. A successful public `burn` may redeem ordinary LP
+A successful public `burn` may redeem ordinary LP
 shares, but it cannot redeem below the permanently locked liquidity floor. The
 locked amount remains the same before and after the burn, and the post-burn
 total supply still covers it.
@@ -2033,7 +2025,7 @@ def pair_burn_success_run_cannot_redeem_locked_liquidity_from_run
                                 after.lockedLiquidity = before.lockedLiquidity
 
 /--
-Executable burn token-side lock fact. From a good pool with positive token
+From a good pool with positive token
 balances, a successful public `burn` cannot drain either token side to zero
 once the run is connected to its redemption arithmetic.
 -/
@@ -2068,7 +2060,7 @@ def pair_burn_success_run_preserves_positive_balances_from_run
                                       0 < after.balance1
 
 /--
-Executable burn reserve-write fact. After a successful burn transfers redeemed
+After a successful burn transfers redeemed
 tokens out, the pair rereads both token balances and caches exactly those
 post-transfer balances as reserves.
 -/
@@ -2099,11 +2091,10 @@ def pair_burn_success_run_updates_reserves_to_balances_from_run
                                 after.reserve1 = after.balance1
 
 /--
-Successful-burn economic bridge. A burn may reduce raw reserves because assets
+A burn may reduce raw reserves because assets
 leave the pair, but it must not over-extract from the LPs that remain. Once the
-real public run is connected to its concrete redemption facts, the closed-world
-burn invariant proves that reserve product per squared LP supply does not
-decrease.
+real public run satisfies its concrete redemption facts, the model proves that
+reserve product per squared LP supply does not decrease.
 -/
 def pair_burn_success_run_preserves_remaining_lp_share
     (toAddr : Address) (s : ContractState)
@@ -2173,10 +2164,10 @@ def pair_swap_success_run_refines_closed_world
       pair_swap_expected_refines_closed_world
         amount0Out amount1Out balance0Now balance1Now s
 
-/-- Successful-run swap refinement with the zero-output guard discharged by the
-actual executable run. The remaining premises are the post-callback balance,
-input, reserve-bound, and K facts that describe the state observed after any
-optimistic transfer and callback repayment. -/
+/-- When `swap` succeeds, the zero-output guard has passed. The remaining
+premises are the post-callback balance, input, reserve-bound, and K facts that
+describe the state observed after any optimistic transfer and callback
+repayment. -/
 def pair_swap_success_run_refines_closed_world_from_run
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (balance0Now balance1Now : Uint256) (s : ContractState)
@@ -2210,11 +2201,8 @@ def pair_swap_success_run_refines_closed_world_from_run
                             (pairWorldFromConcreteState s)
                             (pairWorldAfterSwapRun balance0Now balance1Now s)
 
-/--
-Executable swap core-invariant bridge. A successful `swap` connected to its
-final-balance and fee-adjusted-K facts is a closed-world swap step, so the
-resulting modeled state keeps the core invariant package.
--/
+/-- A successful `swap` satisfying its final-balance and fee-adjusted-K facts
+keeps the core invariant package in the resulting modeled state. -/
 def pair_swap_success_run_preserves_good_from_run
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (balance0Now balance1Now : Uint256) (s : ContractState)
@@ -2247,7 +2235,7 @@ def pair_swap_success_run_preserves_good_from_run
                             PairWorldGood after
 
 /--
-Executable non-liquidity invariant for swaps. A successful public `swap` may
+A successful public `swap` may
 change token balances and cached reserves, but it must not mint, burn, or unlock
 any LP supply. Once the concrete final-balance and K facts identify the modeled
 swap step, the closed-world supply theorem gives the public conclusion.
@@ -2284,7 +2272,7 @@ def pair_swap_success_run_preserves_liquidity_supply_from_run
                             after.lockedLiquidity = before.lockedLiquidity
 
 /--
-Executable swap K fact. The public `swap` reads final balances after optimistic
+The public `swap` reads final balances after optimistic
 outputs and any callback repayment, then enforces the fee-adjusted K check. Once
 those concrete facts identify the modeled swap step, raw cached reserve product
 cannot decrease.
@@ -2320,7 +2308,7 @@ def pair_swap_success_run_never_decreases_k_from_run
                           PairWorldK before ≤ PairWorldK after
 
 /--
-Executable swap final-balance safety fact. The public `swap` may transfer
+The public `swap` may transfer
 tokens optimistically and run a callback, but the safety check is about the
 final balances after all input or repayment has arrived. Once a successful run
 is connected to those final-balance facts, the same balances both account for
@@ -2363,7 +2351,7 @@ def pair_swap_success_run_k_uses_final_balances_from_run
                               requiredK before.reserve0 before.reserve1
 
 /--
-Executable swap reserve-write fact. The swap's K check is charged against final
+The swap's K check is charged against final
 post-output, post-callback balances, and the successful path then caches those
 same final balances as reserves.
 -/
@@ -2398,16 +2386,14 @@ def pair_swap_success_run_updates_reserves_to_balances_from_run
                             after.reserve1 = after.balance1
 
 /--
-Public swap bridge to caller no-profit.
+Successful swaps cannot make the caller richer when value is only redistributed.
 
-The executable swap bridge above connects a successful public run to a modeled
-swap step once the concrete balance and K facts are available. This short
-follow-on obligation states why that bridge matters: after the successful run
-has been related to the closed-world swap transition, the existing reachable
-one-swap no-profit theorem applies immediately. If caller-plus-pool spot value
-is merely redistributed at the starting price, the caller cannot finish richer.
+Once a successful public `swap` satisfies the concrete balance and K facts, the
+reachable one-swap no-profit theorem applies immediately. If caller-plus-pool
+spot value is merely redistributed at the starting price, the caller cannot
+finish richer.
 -/
-def pair_swap_success_run_bridge_no_caller_spot_profit
+def pair_swap_success_run_no_caller_spot_profit_with_valid_swap
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (balance0Now balance1Now : Uint256) (s : ContractState)
     (result : ContractResult Unit)
@@ -2430,7 +2416,7 @@ def pair_swap_success_run_bridge_no_caller_spot_profit
               callerValueAfter ≤ callerValueBefore
 
 /--
-Successful-swap economic bridge with the modeled step derived from the run.
+Successful-swap no-profit once the swap accounting rule is established.
 
 This is the reader-facing form: if a real `swap` succeeds, the final observed
 balances satisfy the input/K facts, the starting pool is reachable and live, and
@@ -2475,11 +2461,11 @@ def pair_swap_success_run_no_caller_spot_profit_from_run
                                 callerValueAfter ≤ callerValueBefore
 
 /--
-Successful-swap actual-token-balance no-profit bridge.
+Successful-swap actual-token-balance no-profit.
 
 Reserve value is the core AMM invariant, but a caller sees ERC20 token balances.
 When the starting pool has no surplus above cached reserves, the successful
-public swap bridge can use the closed-world actual-balance theorem directly:
+public swap can use the closed-world actual-balance theorem directly:
 if the final post-callback balances and fee-adjusted K facts identify the run as
 a valid swap, and caller-plus-pair actual token-balance value is merely
 redistributed at the starting spot price, then the caller cannot finish richer.
@@ -2522,11 +2508,10 @@ def pair_swap_success_run_no_caller_token_balance_profit_from_run
                                     callerValueAfter ≤ callerValueBefore
 
 /--
-The public mint, burn, and swap bridges above prove that successful executable
-paths are modeled reserve-writing actions once their arithmetic premises are
-available. These follow-on specs connect those modeled actions to the common
-reserve/TWAP rule: cached reserves end at the token balances represented by the
-model, and cumulative prices obey the generic Uniswap V2 update cases.
+Successful mint, burn, and swap calls use the common reserve/TWAP rule once
+their arithmetic premises are available: cached reserves end at the token
+balances represented by the model, and cumulative prices obey the generic
+Uniswap V2 update cases.
 -/
 def pair_mint_first_success_run_uses_oracle_rule
     (toAddr : Address) (s : ContractState)
@@ -2554,10 +2539,9 @@ def pair_mint_first_success_run_uses_oracle_rule
                             pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
                             pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
 
-/-- Reader-facing first-mint reserve/oracle bridge. A successful public `mint`
-run supplies the execution gates; the remaining premises identify the run as
-the first-liquidity case, and the conclusion exposes the shared reserve-write
-and TWAP rules. -/
+/-- A successful public first `mint` supplies the shared mint gates; the
+remaining premises identify the first-liquidity case, and the conclusion
+exposes the shared reserve-write and TWAP rules. -/
 def pair_mint_first_success_run_uses_oracle_rule_from_run
     (toAddr : Address) (s : ContractState)
     (result : ContractResult Uint256) : Prop :=
@@ -2610,10 +2594,9 @@ def pair_mint_subsequent_success_run_uses_oracle_rule
                                 pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
                                 pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
 
-/-- Reader-facing reserve/oracle bridge for later mints. Successful execution
-provides the shared mint gates; the remaining premises are just the live-pool
-and pro-rata facts needed to identify the concrete run as a valid later
-liquidity addition. -/
+/-- For later mints, a successful public call provides the shared mint gates;
+the remaining premises are the live-pool and pro-rata facts needed to identify
+the concrete run as a valid later liquidity addition. -/
 def pair_mint_subsequent_success_run_uses_oracle_rule_from_run
     (toAddr : Address) (s : ContractState)
     (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
@@ -2706,9 +2689,9 @@ def pair_swap_success_run_uses_oracle_rule
                               pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
                               pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
 
-/-- Swap reserve/oracle bridge with the zero-output guard discharged from the
-successful run. The caller still supplies the final-balance and K facts because
-those describe the post-callback token balances that the executable swap reads
+/-- Successful `swap` uses the shared reserve/oracle rule after the zero-output
+guard has passed. The caller still supplies the final-balance and K facts
+because those describe the post-callback token balances that the swap reads
 before updating reserves. -/
 def pair_swap_success_run_uses_oracle_rule_from_run
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
@@ -3068,7 +3051,7 @@ def pair_closed_world_supply_changes_only_on_mint_or_burn
 /-- Cached reserve movement is isolated to reserve-update actions. Share
 bookkeeping may move LP ownership, direct donations may raise token balances,
 and `skim` may remove surplus, but none of those actions can rewrite the
-router-visible reserves. If either cached reserve changes in one modeled step,
+router-visible reserves. If either cached reserve changes in one valid action,
 the step must be mint, burn, swap, or sync. -/
 def pair_closed_world_reserve_changes_only_on_reserve_update_actions
     (action : PairWorldAction) (before after : PairWorldState) : Prop :=
@@ -3608,9 +3591,9 @@ def pair_closed_world_swap_respects_fee_adjusted_k
       requiredK before.reserve0 before.reserve1
 
 /-- Canonical Uniswap's swap guard is fee-adjusted, but the surrounding
-economic argument often cites raw reserve-product monotonicity. This theorem is
-the bridge between those statements: once a swap's cached reserves are the final
-balances, the fee-adjusted K check alone implies raw cached K cannot decrease.
+economic argument often cites raw reserve-product monotonicity. Once a swap's
+cached reserves are the final balances, the fee-adjusted K check alone implies
+raw cached K cannot decrease.
 The raw-K fact is therefore derived, not an extra assumption about swaps. -/
 def pair_closed_world_fee_adjusted_swap_implies_raw_k
     (amount0In amount1In : Nat)
@@ -3826,7 +3809,7 @@ Security conclusions:
   gift outside the model.
 -/
 
-/- One valid closed-world transition cannot dilute existing LP shares: measured
+/- One valid action cannot dilute existing LP shares: measured
 as reserve product per squared LP supply, the pool is at least as strong after
 the step as before it. -/
 def pair_closed_world_step_k_per_supply_never_decreases
