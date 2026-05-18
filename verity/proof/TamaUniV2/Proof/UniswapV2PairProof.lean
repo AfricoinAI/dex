@@ -3409,6 +3409,15 @@ theorem closed_world_reachable_good
   pair_closed_world_reachable_good w := by
   exact pairWorldReachable_good w
 
+-- tama: discharges=pair_closed_world_reachable_path_good
+theorem closed_world_reachable_path_good
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_path_good before after := by
+  intro h_reachable h_path
+  exact pairWorldPath_preserves_good
+    (pairWorldReachable_good before h_reachable)
+    h_path
+
 -- tama: discharges=pair_closed_world_path_preserves_reachability
 theorem closed_world_path_preserves_reachability
     (before after : PairWorldState) :

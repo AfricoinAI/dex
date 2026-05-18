@@ -2379,6 +2379,21 @@ def pair_closed_world_reachable_good
   PairWorldReachable w →
     PairWorldGood w
 
+/--
+The core invariant over all finite modeled histories.
+
+`PairWorldGood` is the compact name for the safety facts that must never be
+lost: cached reserves are backed by actual token balances, cached reserves fit
+the `uint112` domain, and LP supply obeys the permanent minimum-liquidity lock.
+This theorem says those facts hold after any finite successful modeled history
+starting from any reachable Pair state.
+-/
+def pair_closed_world_reachable_path_good
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPath before after →
+      PairWorldGood after
+
 /-- Reachability is stable under finite successful histories. This is the
 trace-level closure fact that lets the rest of the section talk about "any
 later reachable state" rather than only states built directly from the initial

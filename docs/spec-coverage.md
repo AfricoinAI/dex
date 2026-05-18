@@ -160,7 +160,10 @@ Pair:
   histories, and that finite histories containing no mint and no burn preserve
   total LP supply and locked liquidity exactly. Locked liquidity is also proved
   monotone from good/reachable states: once established, finite successful
-  histories cannot reduce it. The invariant layer now also exposes the
+  histories cannot reduce it. The central reachable-path theorem now packages
+  the core invariant directly: every finite successful modeled history from a
+  reachable state ends with backed reserves, uint112 reserve bounds, and
+  coherent LP-supply locking. The invariant layer now also exposes the
   token-side positive-balance consequence directly: from any reachable nonempty
   pool, every finite successful modeled history leaves both actual token
   balances positive. The same layer also covers the one-step LP-supply firewall
