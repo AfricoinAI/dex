@@ -66,8 +66,8 @@ Pair:
 - Exact run-result reverts for initialization, LP transfer guards, locked
   mutating entrypoints, and skim under-reserve guards. The swap zero-output
   pre-interaction guard is now a public Lean spec and proof with a Foundry
-  mirror. The later
-  insufficient-liquidity and invalid-recipient guards have exact Foundry
+  mirror. The later insufficient-liquidity, invalid-recipient,
+  insufficient-input, K, and final-balance overflow guards have exact Foundry
   revert-message coverage, but are not public Lean obligations until their
   ordered-prefix proofs are decomposed enough to avoid kernel-depth blowups.
 - Exact successful initialization coverage now states the positive side of the

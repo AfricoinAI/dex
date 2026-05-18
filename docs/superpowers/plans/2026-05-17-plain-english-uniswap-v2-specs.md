@@ -8,6 +8,28 @@
 
 **Tech Stack:** Lean 4, Verity EDSL, Tama, Foundry mirrors, Tamago-style closed-world reasoning.
 
+**Execution note added 2026-05-17:** Do not prove later swap ordered failures
+or AMM event correctness by broadly simplifying the full public `swap`, `mint`,
+`burn`, or reserve-update `sync` bodies. Two restart-era attempts hit Lean
+kernel recursion after expanding into transfer/callback/K or oracle tails. The
+remaining exact-revert and AMM-event work needs proof-local prefix/tail lemmas
+that stop at the security-relevant guard or event append point, while keeping
+public specs as short contract claims.
+
+**Execution status added 2026-05-17 22:27 PDT:** The checklist below is
+historical and may contain unchecked boxes for work already landed. Treat this
+status block as the authoritative restart point.
+
+- Done and committed: plain-language cleanup plus clean-pool `sync` no-profit
+  (`c222c24`), first-mint formula (`a20e06c`), burn redemption formula
+  (`a64dd3a`), and swap final-balance/K formula (`e8d4bd5`).
+- Backed out, not landed: later swap exact reverts proved by broad public
+  `swap` simplification, and `sync` event correctness proved by broad public
+  `sync` simplification. Do not retry those routes.
+- Next executable work: commit this restart note, then choose a small spec
+  slice that either improves public wording without touching proofs or proves a
+  remaining property through a bounded proof-local helper.
+
 ---
 
 ## Files And Responsibilities
