@@ -224,7 +224,11 @@ Pair:
   boundary: the generated body checks call failure, copies returndata, and
   executes `revert` instead of silently continuing. In-callback lock observation
   remains a runtime/ECM boundary behavior unless the callback ECM gains a richer
-  Lean trace model.
+  Lean trace model. The executable swap bridge now also exposes the core
+  flash-swap accounting rule directly: once a successful public swap is
+  connected to its final post-callback balances and K facts, those final
+  balances both account for input/output and are the balances charged by the
+  fee-adjusted K check.
 - Mint/burn closed-world supply discipline now explicitly states first-mint
   `MINIMUM_LIQUIDITY` locking, subsequent-mint locked-liquidity preservation,
   the strict locked-share consequence that the first LP cannot own the entire
