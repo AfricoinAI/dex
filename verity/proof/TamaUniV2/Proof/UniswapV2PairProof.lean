@@ -5679,6 +5679,32 @@ theorem closed_world_reachable_zero_surplus_swap_no_caller_token_balance_profit
     before after callerValueBefore callerValueAfter h_reachable h_positive
     h_surplus0 h_surplus1 h_path h_supply.symm h_total_value
 
+-- tama: discharges=pair_swap_success_run_no_caller_token_balance_profit_from_run
+theorem swap_success_run_no_caller_token_balance_profit_from_run
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState)
+    (callerValueBefore callerValueAfter : Nat) :
+  pair_swap_success_run_no_caller_token_balance_profit_from_run
+    amount0Out amount1Out toAddr data balance0Now balance1Now s
+    ((swap amount0Out amount1Out toAddr data).run s)
+    callerValueBefore callerValueAfter := by
+  intro _h_run h_success h_reachable h_positive h_surplus0 h_surplus1
+    h_liq0 h_liq1 h_input h_balance0 h_balance1 h_bound0 h_bound1 h_fee0
+    h_fee1 h_adjusted_k h_total_value
+  have h_step :=
+    swap_success_run_refines_closed_world_from_run
+      amount0Out amount1Out toAddr data balance0Now balance1Now s
+      rfl h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
+      h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
+  exact closed_world_reachable_zero_surplus_swap_no_caller_token_balance_profit
+    (swapAmount0In amount0Out balance0Now s).val
+    (swapAmount1In amount1Out balance1Now s).val
+    amount0Out.val amount1Out.val
+    (pairWorldFromConcreteState s)
+    (pairWorldAfterSwapRun balance0Now balance1Now s)
+    callerValueBefore callerValueAfter
+    h_reachable h_positive h_surplus0 h_surplus1 h_step h_total_value
+
 -- tama: discharges=pair_closed_world_reachable_balanced_same_supply_path_no_token_balance_value_extraction
 theorem closed_world_reachable_balanced_same_supply_path_no_token_balance_value_extraction
     (before after : PairWorldState) :

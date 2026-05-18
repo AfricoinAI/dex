@@ -92,7 +92,8 @@ Pair:
   PairWorld transition once the concrete amount, liquidity, post-callback
   balance, and K facts are available. Swap now also exposes the economic bridge
   from a successful public run plus final-balance/K facts directly to the
-  one-swap caller no-profit theorem.
+  one-swap caller no-profit theorem, including the actual-token-balance version
+  for zero-surplus starting pools.
 - `sync` expected-state and success-conditional bridge predicates showing that
   observed balances inside uint112 bounds refine the closed-world sync
   transition when the public run succeeds.
@@ -393,7 +394,9 @@ the executable bridge from canonical public entrypoints to that story.
   to their LP-share economic conclusions once their concrete arithmetic facts
   are supplied. Successful swaps derive the zero-output guard, prove LP supply
   and locked liquidity are unchanged, and connect directly to the one-swap
-  caller no-profit theorem once final-balance/K facts are supplied. Successful
+  caller no-profit theorem once final-balance/K facts are supplied; the same
+  executable bridge now covers actual pair token balances when the starting pool
+  has zero surplus. Successful
   first mint, later mint, burn, swap, skim, and sync now also expose core
   `PairWorldGood` preservation at the executable boundary once their existing
   transition facts are supplied; `skim` and `sync` need no extra arithmetic
