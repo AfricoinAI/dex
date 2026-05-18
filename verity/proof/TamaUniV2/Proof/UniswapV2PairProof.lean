@@ -4203,6 +4203,25 @@ theorem closed_world_burn_preserves_positive_balances
   · rw [h_balance1]
     omega
 
+-- tama: discharges=pair_burn_success_run_preserves_positive_balances_from_run
+theorem burn_success_run_preserves_positive_balances_from_run
+    (toAddr : Address) (s : ContractState) :
+  pair_burn_success_run_preserves_positive_balances_from_run
+    toAddr s ((burn toAddr).run s) := by
+  intro _h_run h_success h_good h_before_balance0 h_before_balance1
+    h_liquidity_pos h_supply_pos h_liquidity_le h_locked_remaining
+    h_amount0 h_amount1 h_amount0_le h_amount1_le
+    h_bound0 h_bound1 h_ratio0 h_ratio1
+  have h_step :=
+    burn_success_run_refines_closed_world toAddr s
+      rfl h_success h_liquidity_pos h_supply_pos h_liquidity_le
+      h_locked_remaining h_amount0 h_amount1 h_amount0_le h_amount1_le
+      h_bound0 h_bound1 h_ratio0 h_ratio1
+  exact closed_world_burn_preserves_positive_balances
+    (burnAmount0 s).val (burnAmount1 s).val (burnLiquidity s).val
+    (pairWorldFromConcreteState s) (pairWorldAfterBurnRun s)
+    h_good h_step h_before_balance0 h_before_balance1
+
 private theorem pairWorldStep_positive_reserves_preserved
     {action : PairWorldAction} {before after : PairWorldState} :
   PairWorldGood before →

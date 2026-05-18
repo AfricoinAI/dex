@@ -2010,6 +2010,41 @@ def pair_burn_success_run_cannot_redeem_locked_liquidity_from_run
                                 after.lockedLiquidity = before.lockedLiquidity
 
 /--
+Executable burn token-side lock fact. From a good pool with positive token
+balances, a successful public `burn` cannot drain either token side to zero
+once the run is connected to its redemption arithmetic.
+-/
+def pair_burn_success_run_preserves_positive_balances_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) : Prop :=
+  let before := pairWorldFromConcreteState s
+  let after := pairWorldAfterBurnRun s
+  let liquidity := burnLiquidity s
+  let amount0 := burnAmount0 s
+  let amount1 := burnAmount1 s
+  result = (burn toAddr).run s →
+    result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
+      PairWorldGood before →
+        0 < before.balance0 →
+          0 < before.balance1 →
+            0 < liquidity.val →
+              0 < (burnSupply s).val →
+                liquidity.val ≤ (burnSupply s).val →
+                  minimumLiquidityNat ≤ (burnSupply s).val - liquidity.val →
+                    amount0 > 0 →
+                      amount1 > 0 →
+                        amount0 ≤ observedBalance0 s →
+                          amount1 ≤ observedBalance1 s →
+                            burnBalance0After s ≤ maxUint112 →
+                              burnBalance1After s ≤ maxUint112 →
+                                amount0.val * (burnSupply s).val ≤
+                                    liquidity.val * (observedBalance0 s).val →
+                                  amount1.val * (burnSupply s).val ≤
+                                      liquidity.val * (observedBalance1 s).val →
+                                    0 < after.balance0 ∧
+                                      0 < after.balance1
+
+/--
 Executable burn reserve-write fact. After a successful burn transfers redeemed
 tokens out, the pair rereads both token balances and caches exactly those
 post-transfer balances as reserves.
