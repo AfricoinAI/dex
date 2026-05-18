@@ -435,6 +435,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   facts, now directly proves that remaining LP backing is preserved or
   improved (`K / totalSupply^2` does not decrease).
 
+  2026-05-17 17:45 PDT checkpoint: added and fully verified the matching
+  nonempty-pool mint economic bridge. A successful later `mint`, once connected
+  to its pro-rata arithmetic facts, now directly proves that existing LP backing
+  is not diluted.
+
 - [x] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when

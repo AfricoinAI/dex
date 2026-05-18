@@ -215,10 +215,13 @@ Pair:
   side. The burn ghost transition itself now requires positive liquidity,
   positive pre-burn supply, and positive redeemed token amounts, and the
   token-side lock consequence proves burns from good positive-token states
-  cannot empty either token balance. Mint and
-  burn now also have explicit LP-share safety obligations: existing positive
-  pools cannot be diluted by mints, and burns cannot over-extract from the
-  remaining LPs, because each preserves or improves K per squared LP supply.
+  cannot empty either token balance. Mint and burn now also have explicit
+  LP-share safety obligations: existing positive pools cannot be diluted by
+  mints, and burns cannot over-extract from the remaining LPs, because each
+  preserves or improves K per squared LP supply. The public executable layer now
+  exposes both economic consequences directly for successful nonempty-pool mints
+  and successful burns once their concrete pro-rata/redemption facts are
+  available.
 - Same-LP-supply spot-value no-profit projection from reserve-product
   nondecrease. The stronger closed-world LP-normalized K theorem now covers
   arbitrary finite paths from good positive-supply states: each step preserves
@@ -326,7 +329,9 @@ the executable bridge from canonical public entrypoints to that story.
 - Mint, burn, and swap executable bridges: closed-world formulas already cover
   minimum-liquidity locking, pro-rata mint/burn discipline, fee-adjusted swap K,
   derived raw-K nondecrease, reserve updates, LP-supply effects, and no-profit
-  consequences. Successful swaps now derive the zero-output guard and connect
+  consequences. Successful later mints and successful burns now bridge directly
+  to their LP-share economic conclusions once their concrete arithmetic facts
+  are supplied. Successful swaps derive the zero-output guard and connect
   directly to the one-swap caller no-profit theorem once final-balance/K facts
   are supplied. The remaining bridge work is to derive more of the arithmetic
   premises directly from successful public runs, in small prefix/suffix lemmas

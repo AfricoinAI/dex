@@ -4559,6 +4559,25 @@ theorem closed_world_mint_does_not_dilute_existing_lp_share
   intro h_good h_positive h_step
   exact pairWorldStep_k_per_supply_never_decreases h_good h_positive h_step
 
+-- tama: discharges=pair_mint_subsequent_success_run_preserves_existing_lp_share
+theorem mint_subsequent_success_run_preserves_existing_lp_share
+    (toAddr : Address) (s : ContractState)
+    (liquidity : Uint256) :
+  pair_mint_subsequent_success_run_preserves_existing_lp_share
+    toAddr s ((mint toAddr).run s) liquidity := by
+  intro _h_run h_success h_good h_positive h_supply_pos h_reserve0_pos
+    h_reserve1_pos h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity
+    h_ratio0 h_ratio1
+  have h_step :=
+    mint_subsequent_success_run_refines_closed_world_from_run
+      toAddr s liquidity rfl h_success h_supply_pos h_reserve0_pos
+      h_reserve1_pos h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity
+      h_ratio0 h_ratio1
+  exact closed_world_mint_does_not_dilute_existing_lp_share
+    (mintAmount0 s).val (mintAmount1 s).val liquidity.val
+    (pairWorldBeforeMintRun s) (pairWorldAfterSubsequentMintRun liquidity s)
+    h_good h_positive h_step
+
 -- tama: discharges=pair_closed_world_burn_preserves_good
 theorem closed_world_burn_preserves_good
     (amount0 amount1 liquidity : Nat)

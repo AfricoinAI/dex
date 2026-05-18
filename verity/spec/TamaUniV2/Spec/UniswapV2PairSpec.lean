@@ -1462,6 +1462,37 @@ def pair_mint_subsequent_success_run_refines_closed_world_from_run
                             (pairWorldBeforeMintRun s)
                             (pairWorldAfterSubsequentMintRun liquidity s)
 
+/--
+Successful later mints cannot dilute existing LPs. Once a real `mint` succeeds
+in the nonempty-pool case and its pro-rata arithmetic facts are available, the
+closed-world mint invariant proves that reserve product per squared LP supply
+does not decrease.
+-/
+def pair_mint_subsequent_success_run_preserves_existing_lp_share
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
+  let before := pairWorldBeforeMintRun s
+  let after := pairWorldAfterSubsequentMintRun liquidity s
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      PairWorldGood before →
+        0 < before.totalSupply →
+          0 < (s.storage totalSupplySlot.slot).val →
+            s.storage reserve0Slot.slot > 0 →
+              s.storage reserve1Slot.slot > 0 →
+                s.storage reserve0Slot.slot ≤ observedBalance0 s →
+                  s.storage reserve1Slot.slot ≤ observedBalance1 s →
+                    amount0 > 0 →
+                      amount1 > 0 →
+                        liquidity > 0 →
+                          liquidity.val * (s.storage reserve0Slot.slot).val ≤
+                              amount0.val * (s.storage totalSupplySlot.slot).val →
+                            liquidity.val * (s.storage reserve1Slot.slot).val ≤
+                                amount1.val * (s.storage totalSupplySlot.slot).val →
+                              PairWorldKPerSupplyNondecreasing before after
+
 def pair_burn_expected_refines_closed_world
     (s : ContractState) : Prop :=
   let liquidity := burnLiquidity s
