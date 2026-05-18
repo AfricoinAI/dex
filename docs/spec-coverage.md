@@ -360,6 +360,9 @@ Factory:
   direct invariant consequence: first real creation establishes, and later real
   creation preserves, the good factory-world invariant covering sorted nonzero
   entries, uniqueness, and pair-count/list coherence.
+- Successful `createPair` now also exposes the append-only array rule as two
+  short public facts: `allPairsLength` increases exactly once, and the new pair
+  is written at the previous length index.
 - Closed-world factory model for finite successful create histories, proving
   sorted nonzero pair entries, sorted-pair uniqueness, symmetric membership,
   reachable lookup validity for distinct nonzero token pairs and nonzero pair

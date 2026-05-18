@@ -354,6 +354,30 @@ theorem createPair_success_updates_storage_and_emits
       h_tokenB_nonzero, h_tokenA_not_zero, h_tokenB_not_zero, h_sort, h_sort_raw,
       h_absent_branch, h_pair_nonzero_branch, h_create2_guard, h_safe_len]
 
+-- tama: discharges=factory_createPair_success_increments_length_once
+theorem createPair_success_increments_length_once
+    (tokenA tokenB : Address) (s : ContractState) :
+  factory_createPair_success_increments_length_once tokenA tokenB s := by
+  intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_absent
+    h_pair_nonzero h_len_ok
+  have h_success :=
+    createPair_success_updates_storage_and_emits
+      tokenA tokenB s h_distinct h_tokenA_nonzero h_tokenB_nonzero
+      h_absent h_pair_nonzero h_len_ok
+  exact h_success.2.2.2.2.1
+
+-- tama: discharges=factory_createPair_success_appends_pair_at_old_length
+theorem createPair_success_appends_pair_at_old_length
+    (tokenA tokenB : Address) (s : ContractState) :
+  factory_createPair_success_appends_pair_at_old_length tokenA tokenB s := by
+  intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_absent
+    h_pair_nonzero h_len_ok
+  have h_success :=
+    createPair_success_updates_storage_and_emits
+      tokenA tokenB s h_distinct h_tokenA_nonzero h_tokenB_nonzero
+      h_absent h_pair_nonzero h_len_ok
+  exact h_success.2.2.2.1
+
 -- tama: discharges=factory_createPair_first_success_refines_closed_world
 theorem createPair_first_success_refines_closed_world
     (tokenA tokenB : Address) (s : ContractState) :

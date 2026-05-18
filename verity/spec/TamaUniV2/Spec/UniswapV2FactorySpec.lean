@@ -158,6 +158,52 @@ def factory_createPair_success_updates_storage_and_emits
                 ((createPair tokenA tokenB).run s).snd.events
 
 /--
+When `createPair` succeeds, `allPairsLength` increases exactly once.
+
+This is the array-length half of the append-only rule: successful creation can
+add one market, but it cannot skip counts or rewrite the meaning of the public
+pair count.
+-/
+def factory_createPair_success_increments_length_once
+    (tokenA tokenB : Address) (s : ContractState) : Prop :=
+  let token0Value := factoryToken0 tokenA tokenB
+  let token1Value := factoryToken1 tokenA tokenB
+  let pair := wordToAddress (factoryCreate2Word tokenA tokenB)
+  tokenA ≠ tokenB →
+    tokenA ≠ zeroAddress →
+      tokenB ≠ zeroAddress →
+        s.storageMap2 pairForSlot.slot token0Value token1Value = 0 →
+          pair ≠ zeroAddress →
+            (s.storage allPairsLengthSlot.slot).val + 1 ≤
+              Verity.Stdlib.Math.MAX_UINT256 →
+              ((createPair tokenA tokenB).run s).snd.storage
+                allPairsLengthSlot.slot = factoryLengthAfter s
+
+/--
+When `createPair` succeeds, the new pair is appended at the old
+`allPairsLength` index.
+
+This is the array-entry half of the append-only rule: enumeration discovers the
+new pair at the next slot, while older slots remain governed by the preservation
+theorems below.
+-/
+def factory_createPair_success_appends_pair_at_old_length
+    (tokenA tokenB : Address) (s : ContractState) : Prop :=
+  let token0Value := factoryToken0 tokenA tokenB
+  let token1Value := factoryToken1 tokenA tokenB
+  let pair := wordToAddress (factoryCreate2Word tokenA tokenB)
+  tokenA ≠ tokenB →
+    tokenA ≠ zeroAddress →
+      tokenB ≠ zeroAddress →
+        s.storageMap2 pairForSlot.slot token0Value token1Value = 0 →
+          pair ≠ zeroAddress →
+            (s.storage allPairsLengthSlot.slot).val + 1 ≤
+              Verity.Stdlib.Math.MAX_UINT256 →
+              ((createPair tokenA tokenB).run s).snd.storageMapUint
+                allPairsSlot.slot (s.storage allPairsLengthSlot.slot) =
+                  factoryCreate2Word tokenA tokenB
+
+/--
 The first successful `createPair` run is the base case for the
 closed-world factory model. When the concrete guards pass from an empty public
 pair array, the run creates exactly the one modeled sorted pair entry that the
