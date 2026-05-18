@@ -4063,6 +4063,40 @@ theorem mint_first_success_run_keeps_locked_share_from_run
       h_step h_first
   exact ⟨h_locked.1, h_locked_share⟩
 
+-- tama: discharges=pair_first_mint_success_uses_canonical_liquidity_formula
+theorem first_mint_success_uses_canonical_liquidity_formula
+    (toAddr : Address) (s : ContractState) :
+  pair_first_mint_success_uses_canonical_liquidity_formula
+    toAddr s ((mint toAddr).run s) := by
+  intro _h_run _h_success _h_supply_zero _h_reserve0 _h_reserve1
+    _h_amount0 _h_amount1 _h_product h_root
+  have h_root_le : minimumLiquidity.val ≤ (mintFirstRoot s).val :=
+    Nat.le_of_lt h_root
+  have h_min_val : minimumLiquidity.val = minimumLiquidityNat := by
+    change (Verity.Core.Uint256.ofNat 1000).val = (1000 : Nat)
+    norm_num [Verity.Core.Uint256.ofNat, Verity.Core.Uint256.modulus,
+      Verity.Core.UINT256_MODULUS]
+  have h_liquidity_eq :
+      (mintFirstLiquidity s).val =
+        (mintFirstRoot s).val - minimumLiquidity.val := by
+    simpa [mintFirstLiquidity] using
+      (Verity.Core.Uint256.sub_eq_of_le
+        (a := mintFirstRoot s) (b := minimumLiquidity) h_root_le)
+  constructor
+  · rw [h_liquidity_eq, h_min_val]
+    have h_root_le_nat : minimumLiquidityNat ≤ (mintFirstRoot s).val := by
+      rw [← h_min_val]
+      exact h_root_le
+    omega
+  constructor
+  · simp [pairWorldAfterFirstMintRun]
+  · rw [h_liquidity_eq, h_min_val]
+    simp [pairWorldAfterFirstMintRun]
+    have h_root_le_nat : minimumLiquidityNat ≤ (mintFirstRoot s).val := by
+      rw [← h_min_val]
+      exact h_root_le
+    omega
+
 -- tama: discharges=pair_mint_subsequent_success_run_strictly_increases_supply_from_run
 theorem mint_subsequent_success_run_strictly_increases_supply_from_run
     (toAddr : Address) (s : ContractState)

@@ -94,6 +94,10 @@ Pair:
   redeemed amounts, post-callback balances, and the K check. Swap also has
   direct caller no-profit statements for successful calls, including the
   actual-token-balance version for zero-surplus starting pools.
+- The initial mint formula is explicit: when the first-mint path succeeds under
+  its arithmetic facts, total LP supply equals the square-root liquidity
+  measure and the provider receives that amount minus the permanently locked
+  `MINIMUM_LIQUIDITY`.
 - `sync` specs show that observed balances inside uint112 bounds are accepted
   as the new reserves when the public call succeeds.
 - Closed-world surplus reconciliation now states the direct cleanup consequence

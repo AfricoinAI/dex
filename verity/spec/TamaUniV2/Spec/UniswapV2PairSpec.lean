@@ -1619,6 +1619,34 @@ def pair_mint_first_success_run_keeps_locked_share_from_run
                       liquidity.val < after.totalSupply
 
 /--
+When the first `mint` succeeds, total LP supply equals the square-root
+liquidity measure and the caller receives exactly that amount minus
+`MINIMUM_LIQUIDITY`.
+
+This is the first-deposit fairness rule: the permanent lock is created once,
+and the first LP cannot own the entire supply.
+-/
+def pair_first_mint_success_uses_canonical_liquidity_formula
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  let after := pairWorldAfterFirstMintRun s
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  let liquidity := mintFirstLiquidity s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      s.storage totalSupplySlot.slot = 0 →
+        s.storage reserve0Slot.slot ≤ observedBalance0 s →
+          s.storage reserve1Slot.slot ≤ observedBalance1 s →
+            amount0 > 0 →
+              amount1 > 0 →
+                (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
+                  mintFirstRoot s > minimumLiquidity →
+                    liquidity.val + minimumLiquidityNat = (mintFirstRoot s).val ∧
+                      after.totalSupply = (mintFirstRoot s).val ∧
+                      after.totalSupply = minimumLiquidityNat + liquidity.val
+
+/--
 Initial liquidity deposits add token balances and
 cache those balances as reserves; once the successful public run is connected
 to that first-mint transition, raw cached K cannot decrease.
