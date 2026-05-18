@@ -1151,6 +1151,32 @@ private theorem factoryWorldStep_preserves_good
       · rw [h_count, h_pairs, h_count_before]
         simp
 
+-- tama: discharges=factory_createPair_first_success_preserves_good
+theorem createPair_first_success_preserves_good
+    (tokenA tokenB : Address) (s : ContractState) :
+  factory_createPair_first_success_preserves_good tokenA tokenB s := by
+  dsimp [factory_createPair_first_success_preserves_good]
+  intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_empty
+    h_absent h_pair_nonzero h_len_ok h_run
+  have h_step :=
+    createPair_first_success_refines_closed_world tokenA tokenB s
+      h_distinct h_tokenA_nonzero h_tokenB_nonzero h_empty h_absent
+      h_pair_nonzero h_len_ok h_run
+  have h_initial_good : FactoryWorldGood FactoryWorldInitial := by
+    simp [FactoryWorldInitial, FactoryWorldGood,
+      FactoryWorldNoDuplicateSortedPairs]
+  exact factoryWorldStep_preserves_good
+    (FactoryWorldAction.createPair tokenA tokenB
+      (wordToAddress (factoryCreate2Word tokenA tokenB)))
+    FactoryWorldInitial
+    { pairs := [{
+        token0 := factoryToken0 tokenA tokenB
+        token1 := factoryToken1 tokenA tokenB
+        pair := wordToAddress (factoryCreate2Word tokenA tokenB)
+      }]
+      pairCount := 1 }
+    h_initial_good h_step
+
 -- tama: discharges=factory_createPair_success_preserves_good
 theorem createPair_success_preserves_good
     (tokenA tokenB : Address) (s : ContractState)

@@ -188,6 +188,35 @@ def factory_createPair_first_success_refines_closed_world
                       pairCount := 1 }
 
 /--
+Executable base-case invariant bridge. The first successful real `createPair`
+from an empty public pair array creates a one-pair modeled history that already
+satisfies the factory invariant: the pair entry is sorted and nonzero, there
+are no duplicates, and the modeled count is exactly one.
+-/
+def factory_createPair_first_success_preserves_good
+    (tokenA tokenB : Address) (s : ContractState) : Prop :=
+  let token0Value := factoryToken0 tokenA tokenB
+  let token1Value := factoryToken1 tokenA tokenB
+  let pair := wordToAddress (factoryCreate2Word tokenA tokenB)
+  tokenA ≠ tokenB →
+    tokenA ≠ zeroAddress →
+      tokenB ≠ zeroAddress →
+        s.storage allPairsLengthSlot.slot = 0 →
+          s.storageMap2 pairForSlot.slot token0Value token1Value = 0 →
+            pair ≠ zeroAddress →
+              (s.storage allPairsLengthSlot.slot).val + 1 ≤
+                Verity.Stdlib.Math.MAX_UINT256 →
+                (createPair tokenA tokenB).run s =
+                  ContractResult.success pair ((createPair tokenA tokenB).run s).snd →
+                  FactoryWorldGood
+                    { pairs := [{
+                        token0 := token0Value
+                        token1 := token1Value
+                        pair := pair
+                      }]
+                      pairCount := 1 }
+
+/--
 The general success bridge adds the correspondence needed for nonempty factory
 histories. If a modeled factory state has the same public pair count as the
 concrete pre-state and contains no entry for the sorted token pair, then a
