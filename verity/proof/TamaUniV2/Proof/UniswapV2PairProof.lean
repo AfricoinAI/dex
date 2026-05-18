@@ -6162,6 +6162,20 @@ theorem sync_success_run_preserves_liquidity_supply_from_run
   exact closed_world_sync_preserves_liquidity_supply
     (pairWorldFromConcreteState s) (pairWorldAfterSyncRun s) h_step
 
+-- tama: discharges=pair_sync_success_run_updates_reserves_to_balances_from_run
+theorem sync_success_run_updates_reserves_to_balances_from_run
+    (s : ContractState) (result : ContractResult Unit) :
+  pair_sync_success_run_updates_reserves_to_balances_from_run s result := by
+  intro h_run h_success
+  have h_step :=
+    sync_success_run_refines_closed_world_from_run s result h_run h_success
+  have h_sync :=
+    closed_world_sync_sets_reserves_to_balances
+      (pairWorldFromConcreteState s) (pairWorldAfterSyncRun s) h_step
+  constructor
+  · rw [h_sync.1, h_sync.2.2.1]
+  · rw [h_sync.2.1, h_sync.2.2.2]
+
 -- tama: discharges=pair_closed_world_sync_never_decreases_k
 theorem closed_world_sync_never_decreases_k
     (before after : PairWorldState) :

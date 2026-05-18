@@ -1099,6 +1099,19 @@ def pair_sync_success_run_preserves_liquidity_supply_from_run
       after.totalSupply = before.totalSupply ∧
         after.lockedLiquidity = before.lockedLiquidity
 
+/--
+Executable sync reserve-write fact. A successful public `sync` is the direct
+accounting operation: it caches the pair's currently observed token balances as
+reserves.
+-/
+def pair_sync_success_run_updates_reserves_to_balances_from_run
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  let after := pairWorldAfterSyncRun s
+  result = (sync).run s →
+    result = ContractResult.success () result.snd →
+      after.reserve0 = after.balance0 ∧
+        after.reserve1 = after.balance1
+
 /-!
 Oracle/TWAP arithmetic for reserve updates.
 

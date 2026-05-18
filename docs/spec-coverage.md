@@ -138,11 +138,13 @@ Pair:
   the uint112 observed-balance bounds directly from exact overflow reverts. For
   `sync`, success derives both the open-lock fact and the uint112 balance bounds
   directly from exact revert specs, so the closed-world sync transition can be
-  cited without separate lock or reserve-bound assumptions. The shared concrete
-  reserve-write bridge packages the same facts for any mint, burn, swap, or
-  sync transition from a concrete state. Remaining work is deriving more of the
-  arithmetic premises directly from successful mint, burn, and swap runs where
-  that can be done with small adapters.
+  cited without separate lock or reserve-bound assumptions. Successful `sync`
+  now also exposes the reserve-write conclusion directly: it caches the current
+  observed token balances as reserves. The shared concrete reserve-write bridge
+  packages the same facts for any mint, burn, swap, or sync transition from a
+  concrete state. Remaining work is deriving more of the arithmetic premises
+  directly from successful mint, burn, and swap runs where that can be done with
+  small adapters.
 - Closed-world `PairWorldGood` preservation for one step and all finite
   reachable traces, finite-path preservation from any good state, and
   reachability closure for appending finite successful paths. The
