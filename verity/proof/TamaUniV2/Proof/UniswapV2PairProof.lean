@@ -3973,6 +3973,53 @@ theorem mint_first_success_run_strictly_increases_supply_from_run
     (pairWorldBeforeMintRun s) (pairWorldAfterFirstMintRun s)
     h_step
 
+-- tama: discharges=pair_mint_first_success_run_locks_minimum_liquidity_from_run
+theorem mint_first_success_run_locks_minimum_liquidity_from_run
+    (toAddr : Address) (s : ContractState) :
+  pair_mint_first_success_run_locks_minimum_liquidity_from_run
+    toAddr s ((mint toAddr).run s) := by
+  intro _h_run h_success h_supply_zero h_reserve0 h_reserve1
+    h_amount0 h_amount1 h_product h_root
+  have h_step :=
+    mint_first_success_run_refines_closed_world_from_run toAddr s
+      rfl h_success h_supply_zero h_reserve0 h_reserve1
+      h_amount0 h_amount1 h_product h_root
+  have h_first : (pairWorldBeforeMintRun s).totalSupply = 0 := by
+    have h_supply_zero_val : (s.storage totalSupplySlot.slot).val = 0 := by
+      simpa using congrArg (fun x : Uint256 => x.val) h_supply_zero
+    simpa [pairWorldBeforeMintRun] using h_supply_zero_val
+  exact closed_world_first_mint_locks_minimum_liquidity
+    (mintAmount0 s).val (mintAmount1 s).val (mintFirstLiquidity s).val
+    (pairWorldBeforeMintRun s) (pairWorldAfterFirstMintRun s)
+    h_step h_first
+
+-- tama: discharges=pair_mint_first_success_run_keeps_locked_share_from_run
+theorem mint_first_success_run_keeps_locked_share_from_run
+    (toAddr : Address) (s : ContractState) :
+  pair_mint_first_success_run_keeps_locked_share_from_run
+    toAddr s ((mint toAddr).run s) := by
+  intro _h_run h_success h_supply_zero h_reserve0 h_reserve1
+    h_amount0 h_amount1 h_product h_root
+  have h_step :=
+    mint_first_success_run_refines_closed_world_from_run toAddr s
+      rfl h_success h_supply_zero h_reserve0 h_reserve1
+      h_amount0 h_amount1 h_product h_root
+  have h_first : (pairWorldBeforeMintRun s).totalSupply = 0 := by
+    have h_supply_zero_val : (s.storage totalSupplySlot.slot).val = 0 := by
+      simpa using congrArg (fun x : Uint256 => x.val) h_supply_zero
+    simpa [pairWorldBeforeMintRun] using h_supply_zero_val
+  have h_locked_share :=
+    closed_world_first_mint_keeps_locked_share
+      (mintAmount0 s).val (mintAmount1 s).val (mintFirstLiquidity s).val
+      (pairWorldBeforeMintRun s) (pairWorldAfterFirstMintRun s)
+      h_step h_first
+  have h_locked :=
+    closed_world_first_mint_locks_minimum_liquidity
+      (mintAmount0 s).val (mintAmount1 s).val (mintFirstLiquidity s).val
+      (pairWorldBeforeMintRun s) (pairWorldAfterFirstMintRun s)
+      h_step h_first
+  exact ⟨h_locked.1, h_locked_share⟩
+
 -- tama: discharges=pair_mint_subsequent_success_run_strictly_increases_supply_from_run
 theorem mint_subsequent_success_run_strictly_increases_supply_from_run
     (toAddr : Address) (s : ContractState)

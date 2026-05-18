@@ -247,7 +247,10 @@ Pair:
   available. The same executable layer also exposes the supply-movement facts
   directly: successful initial and later mints strictly increase LP total
   supply, and successful burns reduce LP total supply exactly by the burned
-  liquidity. Successful initial and later mints now also expose the matching
+  liquidity. Successful first mints also expose the concrete
+  `MINIMUM_LIQUIDITY` lock at the public-call boundary: total supply is the
+  locked floor plus returned user liquidity, so the first LP receives less than
+  total LP supply. Successful initial and later mints now also expose the matching
   reserve-write and raw cached-K facts directly: once connected to their
   arithmetic facts, each public mint path caches observed token balances as
   reserves and cannot decrease the cached reserve product.

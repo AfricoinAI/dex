@@ -1545,6 +1545,56 @@ def pair_mint_first_success_run_strictly_increases_supply_from_run
                     before.totalSupply < after.totalSupply
 
 /--
+Executable first-mint lock fact. The initial successful `mint` does not give
+the whole LP supply to the depositor: `MINIMUM_LIQUIDITY` is permanently locked,
+and total supply is exactly the locked floor plus the returned user liquidity.
+-/
+def pair_mint_first_success_run_locks_minimum_liquidity_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  let after := pairWorldAfterFirstMintRun s
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  let liquidity := mintFirstLiquidity s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      s.storage totalSupplySlot.slot = 0 →
+        s.storage reserve0Slot.slot ≤ observedBalance0 s →
+          s.storage reserve1Slot.slot ≤ observedBalance1 s →
+            amount0 > 0 →
+              amount1 > 0 →
+                (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
+                  mintFirstRoot s > minimumLiquidity →
+                    after.lockedLiquidity = minimumLiquidityNat ∧
+                      after.totalSupply = minimumLiquidityNat + liquidity.val
+
+/--
+Executable first-LP share fact. Because the first mint locks
+`MINIMUM_LIQUIDITY`, the first liquidity provider's returned LP amount is
+strictly smaller than total LP supply whenever the public first-mint path
+succeeds.
+-/
+def pair_mint_first_success_run_keeps_locked_share_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  let after := pairWorldAfterFirstMintRun s
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  let liquidity := mintFirstLiquidity s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      s.storage totalSupplySlot.slot = 0 →
+        s.storage reserve0Slot.slot ≤ observedBalance0 s →
+          s.storage reserve1Slot.slot ≤ observedBalance1 s →
+            amount0 > 0 →
+              amount1 > 0 →
+                (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
+                  mintFirstRoot s > minimumLiquidity →
+                    after.lockedLiquidity = minimumLiquidityNat ∧
+                      after.lockedLiquidity < after.totalSupply ∧
+                      liquidity.val < after.totalSupply
+
+/--
 Executable first-mint K fact. Initial liquidity deposits add token balances and
 cache those balances as reserves; once the successful public run is connected
 to that first-mint transition, raw cached K cannot decrease.
