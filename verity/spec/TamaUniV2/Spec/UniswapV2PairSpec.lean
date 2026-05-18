@@ -1603,6 +1603,51 @@ def pair_swap_success_run_bridge_no_caller_spot_profit
               callerValueAfter ≤ callerValueBefore
 
 /--
+Successful-swap economic bridge with the modeled step derived from the run.
+
+This is the reader-facing form: if a real `swap` succeeds, the final observed
+balances satisfy the input/K facts, the starting pool is reachable and live, and
+caller-plus-pool reserve value is merely redistributed at the starting price,
+then the caller cannot finish richer. The statement deliberately leaves the
+post-callback balance/K facts explicit because those are the concrete facts the
+swap reads after optimistic transfer and callback repayment.
+-/
+def pair_swap_success_run_no_caller_spot_profit_from_run
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState)
+    (result : ContractResult Unit)
+    (callerValueBefore callerValueAfter : Nat) : Prop :=
+  let before := pairWorldFromConcreteState s
+  let after := pairWorldAfterSwapRun balance0Now balance1Now s
+  let amount0In := swapAmount0In amount0Out balance0Now s
+  let amount1In := swapAmount1In amount1Out balance1Now s
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      PairWorldReachable before →
+        0 < before.totalSupply →
+          amount0Out < s.storage reserve0Slot.slot →
+            amount1Out < s.storage reserve1Slot.slot →
+              (amount0In > 0 ∨ amount1In > 0) →
+                balance0Now.val =
+                    (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
+                  balance1Now.val =
+                      (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
+                    balance0Now ≤ maxUint112 →
+                      balance1Now ≤ maxUint112 →
+                        amount0In.val * feeAdjustmentNat ≤
+                            balance0Now.val * feeDenominatorNat →
+                          amount1In.val * feeAdjustmentNat ≤
+                              balance1Now.val * feeDenominatorNat →
+                            feeAdjustedBalance balance0Now.val amount0In.val *
+                                feeAdjustedBalance balance1Now.val amount1In.val ≥
+                              requiredK
+                                (s.storage reserve0Slot.slot).val
+                                (s.storage reserve1Slot.slot).val →
+                              callerValueBefore + PairWorldSpotValueNum before before =
+                                callerValueAfter + PairWorldSpotValueNum before after →
+                                callerValueAfter ≤ callerValueBefore
+
+/--
 The public mint, burn, and swap bridges above prove that successful executable
 paths are modeled reserve-writing actions once their arithmetic premises are
 available. These follow-on specs connect those modeled actions to the common

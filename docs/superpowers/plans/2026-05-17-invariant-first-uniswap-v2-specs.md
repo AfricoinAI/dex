@@ -416,6 +416,15 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   nonzero-output guard from the actual run while keeping the post-callback
   balance and K facts explicit.
 
+  2026-05-17 17:16 PDT checkpoint: next target is the economic consequence of
+  that bridge: a successful real swap, once supplied with final-balance and K
+  facts, should imply caller no-profit directly without a separate modeled-step
+  premise.
+
+  2026-05-17 17:19 PDT checkpoint: implemented and verified that economic
+  consequence. Successful real swaps now connect directly to the caller
+  no-profit theorem once their post-callback balance and K facts are supplied.
+
 - [x] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when
