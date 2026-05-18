@@ -101,6 +101,9 @@ Pair:
 - Burn redemption is explicit: successful burn accounting returns the floor
   pro-rata token amounts for the LP liquidity being burned, then caches the
   post-redemption token balances as reserves.
+- Swap balance/K accounting is explicit: successful swap final balances account
+  for optimistic output plus inferred input, and the fee-adjusted K check is
+  charged against those final post-repayment balances.
 - `sync` specs show that observed balances inside uint112 bounds are accepted
   as the new reserves when the public call succeeds.
 - Closed-world surplus reconciliation now states the direct cleanup consequence

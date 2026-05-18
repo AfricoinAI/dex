@@ -5339,6 +5339,36 @@ theorem swap_success_run_k_uses_final_balances_from_run
     (pairWorldAfterSwapRun balance0Now balance1Now s)
     h_step
 
+-- tama: discharges=pair_swap_success_accounts_for_input_and_output
+theorem swap_success_accounts_for_input_and_output
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState) :
+  pair_swap_success_accounts_for_input_and_output
+    amount0Out amount1Out toAddr data balance0Now balance1Now s
+    ((swap amount0Out amount1Out toAddr data).run s) := by
+  intro h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
+    h_bound0 h_bound1 h_fee0 h_fee1 h_k
+  have h_final :=
+    swap_success_run_k_uses_final_balances_from_run
+      amount0Out amount1Out toAddr data balance0Now balance1Now s
+      h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
+      h_bound0 h_bound1 h_fee0 h_fee1 h_k
+  exact ⟨h_final.1, h_final.2.1⟩
+
+-- tama: discharges=pair_swap_success_charges_k_against_final_balances
+theorem swap_success_charges_k_against_final_balances
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState) :
+  pair_swap_success_charges_k_against_final_balances
+    amount0Out amount1Out toAddr data balance0Now balance1Now s
+    ((swap amount0Out amount1Out toAddr data).run s) := by
+  intro h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
+    h_bound0 h_bound1 h_fee0 h_fee1 h_k
+  exact (swap_success_run_k_uses_final_balances_from_run
+    amount0Out amount1Out toAddr data balance0Now balance1Now s
+    h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
+    h_bound0 h_bound1 h_fee0 h_fee1 h_k).2.2
+
 -- tama: discharges=pair_closed_world_step_k_per_supply_never_decreases
 theorem closed_world_step_k_per_supply_never_decreases
     (action : PairWorldAction) (before after : PairWorldState) :
