@@ -223,7 +223,10 @@ Pair:
   preserves or improves K per squared LP supply. The public executable layer now
   exposes both economic consequences directly for successful nonempty-pool mints
   and successful burns once their concrete pro-rata/redemption facts are
-  available.
+  available. The same executable layer also exposes the supply-movement facts
+  directly: successful initial and later mints strictly increase LP total
+  supply, and successful burns reduce LP total supply exactly by the burned
+  liquidity.
 - Same-LP-supply spot-value no-profit projection from reserve-product
   nondecrease. The stronger closed-world LP-normalized K theorem now covers
   arbitrary finite paths from good positive-supply states: each step preserves

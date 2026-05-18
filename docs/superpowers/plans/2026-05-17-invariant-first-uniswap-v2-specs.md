@@ -194,6 +194,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   swap from a reachable nonempty pool cannot reduce pool value at the starting
   spot price.
 
+  2026-05-17 18:04 PDT checkpoint: added executable mint/burn supply-movement
+  bridges. Successful initial and later public `mint` runs now connect to the
+  closed-world strict supply-increase theorem, and successful public `burn`
+  runs connect to exact LP-supply reduction by the burned liquidity.
+
   2026-05-17 07:59 PDT checkpoint: added the reserve-change classifier. Cached
   reserves can change only through mint, burn, swap, or sync; share
   bookkeeping, direct donation, and skim cannot secretly rewrite router-visible

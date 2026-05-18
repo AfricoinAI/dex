@@ -1421,6 +1421,30 @@ def pair_mint_first_success_run_refines_closed_world_from_run
                       (pairWorldBeforeMintRun s)
                       (pairWorldAfterFirstMintRun s)
 
+/--
+Executable first-mint supply fact. Once a successful public `mint` is identified
+as the initial-liquidity case, the closed-world mint theorem gives the
+reader-facing conclusion: LP total supply strictly increases.
+-/
+def pair_mint_first_success_run_strictly_increases_supply_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  let before := pairWorldBeforeMintRun s
+  let after := pairWorldAfterFirstMintRun s
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  let liquidity := mintFirstLiquidity s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      s.storage totalSupplySlot.slot = 0 →
+        s.storage reserve0Slot.slot ≤ observedBalance0 s →
+          s.storage reserve1Slot.slot ≤ observedBalance1 s →
+            amount0 > 0 →
+              amount1 > 0 →
+                (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
+                  mintFirstRoot s > minimumLiquidity →
+                    before.totalSupply < after.totalSupply
+
 /-!
 The remaining bridge specs keep the same shape. Each one is a one-step
 simulation fact: a successful public call, together with the arithmetic facts
@@ -1488,6 +1512,34 @@ def pair_mint_subsequent_success_run_refines_closed_world_from_run
                             (pairWorldAfterSubsequentMintRun liquidity s)
 
 /--
+Executable later-mint supply fact. In a nonempty pool, a successful public
+`mint` that is connected to its pro-rata arithmetic facts strictly increases LP
+total supply.
+-/
+def pair_mint_subsequent_success_run_strictly_increases_supply_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
+  let before := pairWorldBeforeMintRun s
+  let after := pairWorldAfterSubsequentMintRun liquidity s
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      0 < (s.storage totalSupplySlot.slot).val →
+        s.storage reserve0Slot.slot > 0 →
+          s.storage reserve1Slot.slot > 0 →
+            s.storage reserve0Slot.slot ≤ observedBalance0 s →
+              s.storage reserve1Slot.slot ≤ observedBalance1 s →
+                amount0 > 0 →
+                  amount1 > 0 →
+                    liquidity > 0 →
+                      liquidity.val * (s.storage reserve0Slot.slot).val ≤
+                          amount0.val * (s.storage totalSupplySlot.slot).val →
+                        liquidity.val * (s.storage reserve1Slot.slot).val ≤
+                            amount1.val * (s.storage totalSupplySlot.slot).val →
+                          before.totalSupply < after.totalSupply
+
+/--
 Successful later mints cannot dilute existing LPs. Once a real `mint` succeeds
 in the nonempty-pool case and its pro-rata arithmetic facts are available, the
 closed-world mint invariant proves that reserve product per squared LP supply
@@ -1548,6 +1600,37 @@ def pair_burn_success_run_refines_closed_world
   result = (burn toAddr).run s →
     result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
       pair_burn_expected_refines_closed_world s
+
+/--
+Executable burn supply fact. A successful public `burn`, once connected to its
+redemption arithmetic facts, destroys exactly the LP liquidity held by the pair.
+-/
+def pair_burn_success_run_reduces_supply_by_liquidity_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) : Prop :=
+  let before := pairWorldFromConcreteState s
+  let after := pairWorldAfterBurnRun s
+  let liquidity := burnLiquidity s
+  let amount0 := burnAmount0 s
+  let amount1 := burnAmount1 s
+  result = (burn toAddr).run s →
+    result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
+      0 < liquidity.val →
+        0 < (burnSupply s).val →
+          liquidity.val ≤ (burnSupply s).val →
+            minimumLiquidityNat ≤ (burnSupply s).val - liquidity.val →
+              amount0 > 0 →
+                amount1 > 0 →
+                  amount0 ≤ observedBalance0 s →
+                    amount1 ≤ observedBalance1 s →
+                      burnBalance0After s ≤ maxUint112 →
+                        burnBalance1After s ≤ maxUint112 →
+                          amount0.val * (burnSupply s).val ≤
+                              liquidity.val * (observedBalance0 s).val →
+                            amount1.val * (burnSupply s).val ≤
+                                liquidity.val * (observedBalance1 s).val →
+                              after.totalSupply =
+                                before.totalSupply - liquidity.val
 
 /--
 Successful-burn economic bridge. A burn may reduce raw reserves because assets

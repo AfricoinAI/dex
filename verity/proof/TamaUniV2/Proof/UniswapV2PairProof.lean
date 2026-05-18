@@ -3948,6 +3948,40 @@ theorem closed_world_mint_strictly_increases_supply
     rw [h_supply]
     omega
 
+-- tama: discharges=pair_mint_first_success_run_strictly_increases_supply_from_run
+theorem mint_first_success_run_strictly_increases_supply_from_run
+    (toAddr : Address) (s : ContractState) :
+  pair_mint_first_success_run_strictly_increases_supply_from_run
+    toAddr s ((mint toAddr).run s) := by
+  intro _h_run h_success h_supply_zero h_reserve0 h_reserve1
+    h_amount0 h_amount1 h_product h_root
+  have h_step :=
+    mint_first_success_run_refines_closed_world_from_run toAddr s
+      rfl h_success h_supply_zero h_reserve0 h_reserve1
+      h_amount0 h_amount1 h_product h_root
+  exact closed_world_mint_strictly_increases_supply
+    (mintAmount0 s).val (mintAmount1 s).val (mintFirstLiquidity s).val
+    (pairWorldBeforeMintRun s) (pairWorldAfterFirstMintRun s)
+    h_step
+
+-- tama: discharges=pair_mint_subsequent_success_run_strictly_increases_supply_from_run
+theorem mint_subsequent_success_run_strictly_increases_supply_from_run
+    (toAddr : Address) (s : ContractState)
+    (liquidity : Uint256) :
+  pair_mint_subsequent_success_run_strictly_increases_supply_from_run
+    toAddr s ((mint toAddr).run s) liquidity := by
+  intro _h_run h_success h_supply_pos h_reserve0_pos h_reserve1_pos
+    h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
+  have h_step :=
+    mint_subsequent_success_run_refines_closed_world_from_run
+      toAddr s liquidity rfl h_success h_supply_pos h_reserve0_pos
+      h_reserve1_pos h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity
+      h_ratio0 h_ratio1
+  exact closed_world_mint_strictly_increases_supply
+    (mintAmount0 s).val (mintAmount1 s).val liquidity.val
+    (pairWorldBeforeMintRun s) (pairWorldAfterSubsequentMintRun liquidity s)
+    h_step
+
 -- tama: discharges=pair_closed_world_burn_reduces_supply_by_liquidity
 theorem closed_world_burn_reduces_supply_by_liquidity
     (amount0 amount1 liquidity : Nat)
@@ -3961,6 +3995,24 @@ theorem closed_world_burn_reduces_supply_by_liquidity
     _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0, _h_bound1,
     h_supply, _h_locked, _h_ratio0, _h_ratio1⟩
   exact h_supply
+
+-- tama: discharges=pair_burn_success_run_reduces_supply_by_liquidity_from_run
+theorem burn_success_run_reduces_supply_by_liquidity_from_run
+    (toAddr : Address) (s : ContractState) :
+  pair_burn_success_run_reduces_supply_by_liquidity_from_run
+    toAddr s ((burn toAddr).run s) := by
+  intro _h_run h_success h_liquidity_pos h_supply_pos h_liquidity_le
+    h_locked_remaining h_amount0 h_amount1 h_amount0_le h_amount1_le
+    h_bound0 h_bound1 h_ratio0 h_ratio1
+  have h_step :=
+    burn_success_run_refines_closed_world toAddr s
+      rfl h_success h_liquidity_pos h_supply_pos h_liquidity_le
+      h_locked_remaining h_amount0 h_amount1 h_amount0_le h_amount1_le
+      h_bound0 h_bound1 h_ratio0 h_ratio1
+  exact closed_world_burn_reduces_supply_by_liquidity
+    (burnAmount0 s).val (burnAmount1 s).val (burnLiquidity s).val
+    (pairWorldFromConcreteState s) (pairWorldAfterBurnRun s)
+    h_step
 
 -- tama: discharges=pair_closed_world_burn_never_increases_supply
 theorem closed_world_burn_never_increases_supply
