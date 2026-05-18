@@ -3448,11 +3448,41 @@ def pair_closed_world_mint_strictly_increases_supply
   PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
     before.totalSupply < after.totalSupply
 
+/--
+Mint reserve accounting is exact in the closed-world model.
+
+A valid mint observes token balances that exceed cached reserves by
+`amount0` and `amount1`, then caches those balances. Equivalently, the new
+cached reserves are the old cached reserves plus exactly the deposited amounts.
+-/
+def pair_closed_world_mint_adds_exact_deposits_to_reserves
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+    after.reserve0 = before.reserve0 + amount0 ∧
+    after.reserve1 = before.reserve1 + amount1
+
 def pair_closed_world_burn_reduces_supply_by_liquidity
     (amount0 amount1 liquidity : Nat)
     (before after : PairWorldState) : Prop :=
   PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
     after.totalSupply = before.totalSupply - liquidity
+
+/--
+Burn token accounting is exact in the closed-world model.
+
+A valid burn pays `amount0` and `amount1` out of the pair's token balances, then
+caches the remaining balances as reserves. No additional token amount can
+disappear from the pool through the modeled burn step.
+-/
+def pair_closed_world_burn_removes_exact_redemptions_from_balances
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+    after.balance0 + amount0 = before.balance0 ∧
+    after.balance1 + amount1 = before.balance1 ∧
+    after.reserve0 = after.balance0 ∧
+    after.reserve1 = after.balance1
 
 /-- Burning destroys LP liquidity. The exact reduction is specified separately;
 this consequence says no burn can increase total LP supply. -/

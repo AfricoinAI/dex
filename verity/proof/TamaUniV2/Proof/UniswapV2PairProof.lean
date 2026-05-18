@@ -4000,6 +4000,21 @@ theorem closed_world_mint_strictly_increases_supply
     rw [h_supply]
     omega
 
+-- tama: discharges=pair_closed_world_mint_adds_exact_deposits_to_reserves
+theorem closed_world_mint_adds_exact_deposits_to_reserves
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_mint_adds_exact_deposits_to_reserves
+    amount0 amount1 liquidity before after := by
+  intro h_step
+  simp [PairWorldStep, PairWorldMintStep] at h_step
+  rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity, h_before_balance0,
+    h_before_balance1, _h_after_balance0, _h_after_balance1, h_after_reserve0,
+    h_after_reserve1, _h_bound0, _h_bound1, _h_supply, _h_locked, _h_ratio⟩
+  constructor
+  · rw [h_after_reserve0, h_before_balance0]
+  · rw [h_after_reserve1, h_before_balance1]
+
 -- tama: discharges=pair_mint_first_success_run_strictly_increases_supply_from_run
 theorem mint_first_success_run_strictly_increases_supply_from_run
     (toAddr : Address) (s : ContractState) :
@@ -4150,6 +4165,26 @@ theorem closed_world_burn_reduces_supply_by_liquidity
     _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0, _h_bound1,
     h_supply, _h_locked, _h_ratio0, _h_ratio1⟩
   exact h_supply
+
+-- tama: discharges=pair_closed_world_burn_removes_exact_redemptions_from_balances
+theorem closed_world_burn_removes_exact_redemptions_from_balances
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) :
+  pair_closed_world_burn_removes_exact_redemptions_from_balances
+    amount0 amount1 liquidity before after := by
+  intro h_step
+  simp [PairWorldStep, PairWorldBurnStep] at h_step
+  rcases h_step with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+    _h_supply_pos, h_amount0_le, h_amount1_le, _h_liquidity_le,
+    _h_locked_remaining, h_balance0, h_balance1, h_reserve0, h_reserve1,
+    _h_bound0, _h_bound1, _h_supply, _h_locked, _h_ratio0, _h_ratio1⟩
+  constructor
+  · omega
+  constructor
+  · omega
+  constructor
+  · exact h_reserve0
+  · exact h_reserve1
 
 -- tama: discharges=pair_burn_success_run_reduces_supply_by_liquidity_from_run
 theorem burn_success_run_reduces_supply_by_liquidity_from_run

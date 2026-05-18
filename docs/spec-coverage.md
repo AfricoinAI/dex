@@ -256,7 +256,10 @@ Pair:
   reduction, burns never increasing supply, and the fact that burns cannot
   redeem the locked liquidity floor. The reachable burn theorem states directly
   that a valid burn from a reachable nonempty pool cannot empty either token
-  side. The burn ghost transition itself now requires positive liquidity,
+  side. Mint and burn token accounting is now stated directly in the model:
+  valid mints increase cached reserves by exactly the deposited token amounts,
+  and valid burns remove exactly the redeemed token amounts before caching the
+  remaining balances as reserves. The burn ghost transition itself now requires positive liquidity,
   positive pre-burn supply, and positive redeemed token amounts, and the
   token-side lock consequence proves burns from good positive-token states
   cannot empty either token balance. The public burn theorem now also exposes
