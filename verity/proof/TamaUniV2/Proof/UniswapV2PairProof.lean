@@ -4582,6 +4582,55 @@ theorem mint_first_success_run_preserves_good_from_run
     (pairWorldBeforeMintRun s) (pairWorldAfterFirstMintRun s)
     h_good h_step
 
+-- tama: discharges=pair_mint_first_success_run_establishes_good_from_run
+theorem mint_first_success_run_establishes_good_from_run
+    (toAddr : Address) (s : ContractState) :
+  pair_mint_first_success_run_establishes_good_from_run
+    toAddr s ((mint toAddr).run s) := by
+  intro _h_run h_success h_supply_zero h_reserve0 h_reserve1
+    h_amount0 h_amount1 h_product h_root
+  have h_success_exists :
+      ∃ liquidity,
+        (mint toAddr).run s =
+          ContractResult.success liquidity ((mint toAddr).run s).snd := by
+    exact ⟨mintFirstLiquidity s, h_success⟩
+  rcases mint_success_run_implies_balances_fit_uint112 toAddr s
+      ((mint toAddr).run s) rfl h_success_exists with
+    ⟨h_bound0, h_bound1⟩
+  have h_supply_zero_val : (s.storage totalSupplySlot.slot).val = 0 := by
+    simpa using congrArg (fun x : Uint256 => x.val) h_supply_zero
+  have h_slot8_zero : (s.storage 8).val = 0 := by
+    simpa [totalSupplySlot] using h_supply_zero_val
+  have h_reserve0_bound :
+      (s.storage reserve0Slot.slot).val ≤ maxUint112Nat := by
+    exact Nat.le_trans
+      (by simpa [Verity.Core.Uint256.le_def] using h_reserve0)
+      (by simpa [Verity.Core.Uint256.le_def, maxUint112, maxUint112Nat,
+        UniswapV2PairBase.maxUint112] using h_bound0)
+  have h_reserve1_bound :
+      (s.storage reserve1Slot.slot).val ≤ maxUint112Nat := by
+    exact Nat.le_trans
+      (by simpa [Verity.Core.Uint256.le_def] using h_reserve1)
+      (by simpa [Verity.Core.Uint256.le_def, maxUint112, maxUint112Nat,
+        UniswapV2PairBase.maxUint112] using h_bound1)
+  have h_good_before : PairWorldGood (pairWorldBeforeMintRun s) := by
+    constructor
+    · simpa [pairWorldBeforeMintRun, Verity.Core.Uint256.le_def] using h_reserve0
+    constructor
+    · simpa [pairWorldBeforeMintRun, Verity.Core.Uint256.le_def] using h_reserve1
+    constructor
+    · simpa [pairWorldBeforeMintRun] using h_reserve0_bound
+    constructor
+    · simpa [pairWorldBeforeMintRun] using h_reserve1_bound
+    · left
+      constructor
+      · simpa [pairWorldBeforeMintRun] using h_supply_zero_val
+      · unfold pairWorldBeforeMintRun pairWorldLockedLiquidity
+        simp [h_slot8_zero]
+  exact mint_first_success_run_preserves_good_from_run toAddr s
+    h_good_before rfl h_success h_supply_zero h_reserve0 h_reserve1
+    h_amount0 h_amount1 h_product h_root
+
 -- tama: discharges=pair_mint_subsequent_success_run_preserves_good_from_run
 theorem mint_subsequent_success_run_preserves_good_from_run
     (toAddr : Address) (s : ContractState)

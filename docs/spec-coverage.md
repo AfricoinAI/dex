@@ -145,9 +145,12 @@ Pair:
   packages the same facts for any mint, burn, swap, or sync transition from a
   concrete state. The executable bridge layer now also exposes core-invariant
   preservation for first mint, later mint, burn, swap, skim, and sync once each
-  call is connected to its existing closed-world transition facts. Remaining
-  work is deriving more of the arithmetic premises directly from successful
-  mint, burn, and swap runs where that can be done with small adapters.
+  call is connected to its existing closed-world transition facts. Initial mint
+  now has the base-case version too: the concrete empty-pool premises plus a
+  successful public run establish `PairWorldGood` for the post-mint state
+  without assuming the projected pre-state was already good. Remaining work is
+  deriving more of the arithmetic premises directly from successful mint, burn,
+  and swap runs where that can be done with small adapters.
 - Closed-world `PairWorldGood` preservation for one step and all finite
   reachable traces, finite-path preservation from any good state, and
   reachability closure for appending finite successful paths. The

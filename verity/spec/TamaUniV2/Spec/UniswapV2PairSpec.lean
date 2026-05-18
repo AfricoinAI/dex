@@ -1496,6 +1496,31 @@ def pair_mint_first_success_run_preserves_good_from_run
                       PairWorldGood after
 
 /--
+Executable first-mint base case. In the initial-liquidity path, the concrete
+empty-pool premises already imply the projected pre-state is good: cached
+reserves are backed by observed balances, reserves fit the reserve domain, and
+LP supply has not yet been created. Therefore a successful first `mint`
+establishes the core pair invariant without asking the reader to assume it.
+-/
+def pair_mint_first_success_run_establishes_good_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  let after := pairWorldAfterFirstMintRun s
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  let liquidity := mintFirstLiquidity s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      s.storage totalSupplySlot.slot = 0 →
+        s.storage reserve0Slot.slot ≤ observedBalance0 s →
+          s.storage reserve1Slot.slot ≤ observedBalance1 s →
+            amount0 > 0 →
+              amount1 > 0 →
+                (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
+                  mintFirstRoot s > minimumLiquidity →
+                    PairWorldGood after
+
+/--
 Executable first-mint supply fact. Once a successful public `mint` is identified
 as the initial-liquidity case, the closed-world mint theorem gives the
 reader-facing conclusion: LP total supply strictly increases.
