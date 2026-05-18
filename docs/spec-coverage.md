@@ -160,10 +160,12 @@ Pair:
   histories cannot reduce it. The invariant layer now also exposes the
   token-side positive-balance consequence directly: from any reachable nonempty
   pool, every finite successful modeled history leaves both actual token
-  balances positive. The same layer also covers the
-  one-step LP-supply firewall for any action other than mint or burn, one-step
-  and finite-history supply-direction invariants showing no-burn histories
-  cannot decrease LP supply and no-mint histories cannot increase LP supply,
+  balances positive. The same layer also covers the one-step LP-supply firewall
+  for any action other than mint or burn, an executable successful-swap bridge
+  proving that swaps preserve total LP supply and locked liquidity once their
+  final-balance/K facts are available, one-step and finite-history
+  supply-direction invariants showing no-burn histories cannot decrease LP
+  supply and no-mint histories cannot increase LP supply,
   path-wide LP-supply coherence,
   path-wide locked-liquidity coverage,
   share-only action framing, finite-history pure-share-bookkeeping invariants
@@ -331,11 +333,12 @@ the executable bridge from canonical public entrypoints to that story.
   derived raw-K nondecrease, reserve updates, LP-supply effects, and no-profit
   consequences. Successful later mints and successful burns now bridge directly
   to their LP-share economic conclusions once their concrete arithmetic facts
-  are supplied. Successful swaps derive the zero-output guard and connect
-  directly to the one-swap caller no-profit theorem once final-balance/K facts
-  are supplied. The remaining bridge work is to derive more of the arithmetic
-  premises directly from successful public runs, in small prefix/suffix lemmas
-  rather than one aggregate function summary.
+  are supplied. Successful swaps derive the zero-output guard, prove LP supply
+  and locked liquidity are unchanged, and connect directly to the one-swap
+  caller no-profit theorem once final-balance/K facts are supplied. The
+  remaining bridge work is to derive more of the arithmetic premises directly
+  from successful public runs, in small prefix/suffix lemmas rather than one
+  aggregate function summary.
 - Concrete success-path restoration and events: Foundry mirrors cover Mint,
   Burn, Swap, Sync, and lock restoration at runtime. Lean should expose only
   short obligations here, preferably via factored proof-local adapters for the

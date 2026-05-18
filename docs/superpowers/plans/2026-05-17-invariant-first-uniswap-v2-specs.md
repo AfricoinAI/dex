@@ -440,6 +440,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   to its pro-rata arithmetic facts, now directly proves that existing LP backing
   is not diluted.
 
+  2026-05-17 17:50 PDT checkpoint: added and fully verified a successful-swap
+  supply bridge. A successful `swap`, once connected to its final-balance/K
+  facts, now directly proves that LP total supply and locked liquidity are
+  unchanged.
+
 - [x] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when
