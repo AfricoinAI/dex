@@ -566,6 +566,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   consuming surplus that was already donated above cached reserves at the
   start.
 
+  2026-05-17 17:14 PDT checkpoint: added the spot-valued no-donation surplus
+  theorem, following the Tamago ERC4626 trace-wide pattern. Any finite
+  no-donation PairWorld history cannot increase the starting-spot value of
+  skimmable surplus, so later skim profit must be explained by surplus already
+  present at the start.
+
 - [x] **9. Add factory-world invariants**
 
   Model pair creation as a finite factory trace and prove sorted-token
@@ -667,6 +673,12 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   endpoint lookup in that later world decodes to a nonzero pair for two
   distinct nonzero tokens.
 
+  2026-05-17 17:05 PDT checkpoint: added the concrete same-length lookup
+  preservation theorem. If a finite sequence of real successful `createPair`
+  calls leaves public `allPairsLength` unchanged, then the reconstructed
+  unordered lookup relation is exactly the same at both endpoints. This is the
+  router-facing version of the existing same-length world-preservation theorem.
+
 - [ ] **10. Verify and commit in coherent slices**
 
   After each slice run focused `lake build`. Before claiming completion run
@@ -711,6 +723,18 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
 
   2026-05-17 14:18 PDT checkpoint: full verification passes for the common
   no-mint/no-burn caller no-profit slice: focused Pair proof, whole `lake build
+  TamaUniV2.Proof`, `tama check`, `tama build`, `tama test` (26/26), `tama
+  audit` (0 issues), and `git diff --check`. Known warnings remain
+  unused-variable lints plus sandbox cache/signature write warnings.
+
+  2026-05-17 17:05 PDT checkpoint: full verification passes for the factory
+  same-length lookup slice: focused Factory proof, whole `lake build
+  TamaUniV2.Proof`, `tama check`, `tama build`, `tama test` (26/26), `tama
+  audit` (0 issues), and `git diff --check`. Known warnings remain
+  unused-variable lints plus sandbox cache/signature write warnings.
+
+  2026-05-17 17:14 PDT checkpoint: full verification passes for the Pair
+  surplus-value no-donation slice: focused Pair proof, whole `lake build
   TamaUniV2.Proof`, `tama check`, `tama build`, `tama test` (26/26), `tama
   audit` (0 issues), and `git diff --check`. Known warnings remain
   unused-variable lints plus sandbox cache/signature write warnings.

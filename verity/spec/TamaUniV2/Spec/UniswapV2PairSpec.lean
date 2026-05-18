@@ -2383,6 +2383,18 @@ def pair_closed_world_reachable_no_donation_path_never_increases_surplus
       PairWorldSurplus0 after ≤ PairWorldSurplus0 before ∧
       PairWorldSurplus1 after ≤ PairWorldSurplus1 before
 
+/-- Spot-valued form of the same surplus isolation. The previous theorem is
+token-side; this one states the economic consequence at the starting pool's
+spot price. Along a no-donation history, the token1-denominated value of
+skimmable surplus cannot increase. Any later caller profit from `skim` must be
+paid for by surplus that already existed at the start. -/
+def pair_closed_world_reachable_no_donation_path_surplus_value_never_increases
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPathNoDonation before after →
+      PairWorldSurplusSpotValueNum before after ≤
+        PairWorldSurplusSpotValueNum before before
+
 /-- Clean-start surplus preservation. If a reachable pool starts with no
 unaccounted reserve surplus, then a finite history with no direct donation step
 still has no unaccounted reserve surplus at the end. This is the trace-wide

@@ -4400,6 +4400,20 @@ theorem closed_world_reachable_no_donation_path_never_increases_surplus
   exact pairWorldNoDonationPath_never_increases_surplus
     (pairWorldReachable_good before h_reachable) h_path
 
+-- tama: discharges=pair_closed_world_reachable_no_donation_path_surplus_value_never_increases
+theorem closed_world_reachable_no_donation_path_surplus_value_never_increases
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_no_donation_path_surplus_value_never_increases
+    before after := by
+  intro h_reachable h_path
+  have h_surplus :=
+    closed_world_reachable_no_donation_path_never_increases_surplus
+      before after h_reachable h_path
+  unfold PairWorldSurplusSpotValueNum
+  exact Nat.add_le_add
+    (Nat.mul_le_mul_right before.reserve1 h_surplus.1)
+    (Nat.mul_le_mul_right before.reserve0 h_surplus.2)
+
 -- tama: discharges=pair_closed_world_reachable_zero_surplus_no_donation_path_preserves_zero_surplus
 theorem closed_world_reachable_zero_surplus_no_donation_path_preserves_zero_surplus
     (before after : PairWorldState) :
