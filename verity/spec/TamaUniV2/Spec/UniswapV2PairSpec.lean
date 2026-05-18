@@ -1997,6 +1997,34 @@ def pair_burn_success_run_refines_closed_world
     result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
       pair_burn_expected_refines_closed_world s
 
+/--
+A successful burn destroys the LP tokens sitting on the pair itself and uses
+current total supply as the denominator for redemption.
+-/
+def pair_burn_uses_pair_lp_balance_and_total_supply
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) : Prop :=
+  result = (burn toAddr).run s →
+    result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
+      burnLiquidity s = s.storageMap balancesSlot.slot (pairSelf s) ∧
+        burnSupply s = s.storage totalSupplySlot.slot
+
+/--
+A successful burn leaves the pair with its previous token balances minus the
+tokens paid to the recipient.
+-/
+def pair_burn_leaves_remaining_token_balances
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) : Prop :=
+  result = (burn toAddr).run s →
+    result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
+      burnAmount0 s ≤ observedBalance0 s →
+        burnAmount1 s ≤ observedBalance1 s →
+          (pairWorldAfterBurnRun s).balance0 + (burnAmount0 s).val =
+            (observedBalance0 s).val ∧
+            (pairWorldAfterBurnRun s).balance1 + (burnAmount1 s).val =
+              (observedBalance1 s).val
+
 /-- A successful burn satisfying the redemption arithmetic facts preserves the
 core pair invariant: from a good projected pre-state, the post-burn model still
 has backed reserves, uint112 reserve bounds, and coherent locked LP supply. -/

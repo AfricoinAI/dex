@@ -177,7 +177,7 @@ git commit -m "Prove mint uses balance increases"
 - Modify: `docs/spec-coverage.md`
 - Modify: `docs/agent-progress.md`
 
-- [ ] **Step 1: Add burn-source spec**
+- [x] **Step 1: Add burn-source spec**
 
 Add near burn specs:
 
@@ -195,11 +195,11 @@ def pair_burn_uses_pair_lp_balance_and_total_supply
     (result : ContractResult (Uint256 × Uint256)) : Prop :=
   result = (burn toAddr).run s →
     result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
-      burnLiquidity s = s.storageMap balancesSlot.slot s.thisAddress ∧
+      burnLiquidity s = s.storageMap balancesSlot.slot (pairSelf s) ∧
       burnSupply s = s.storage totalSupplySlot.slot
 ```
 
-- [ ] **Step 2: Prove burn-source spec**
+- [x] **Step 2: Prove burn-source spec**
 
 ```lean
 -- tama: discharges=pair_burn_uses_pair_lp_balance_and_total_supply
@@ -213,7 +213,7 @@ theorem burn_uses_pair_lp_balance_and_total_supply
   · rfl
 ```
 
-- [ ] **Step 3: Add burn remaining-balances spec**
+- [x] **Step 3: Add burn remaining-balances spec**
 
 ```lean
 /--
@@ -233,7 +233,7 @@ def pair_burn_leaves_remaining_token_balances
             (observedBalance1 s).val
 ```
 
-- [ ] **Step 4: Prove burn remaining-balances spec**
+- [x] **Step 4: Prove burn remaining-balances spec**
 
 ```lean
 -- tama: discharges=pair_burn_leaves_remaining_token_balances
@@ -247,7 +247,7 @@ theorem burn_leaves_remaining_token_balances
   constructor <;> omega
 ```
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run the same full verification commands as Task 1.
 

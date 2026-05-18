@@ -162,9 +162,13 @@ Pair:
   call is connected to its existing accounting rule. Initial mint
   now has the base-case version too: the concrete empty-pool premises plus a
   successful public run establish `PairWorldGood` for the post-mint state
-  without assuming the projected pre-state was already good. Remaining work is
-  deriving more of the arithmetic premises directly from successful mint, burn,
-  and swap runs where that can be done with small adapters.
+  without assuming the projected pre-state was already good. Successful mint
+  and burn runs now expose their direct token-movement premises: mint uses the
+  token balance increase above cached reserves as the deposit, and burn uses
+  the LP balance held by the pair plus current total supply to compute
+  redemption. Remaining work is deriving the equivalent direct premise layer
+  for swap final balances and K accounting where that can be done with small
+  adapters.
 - Closed-world `PairWorldGood` preservation for one step and all finite
   reachable traces, finite-path preservation from any good state, and
   reachability closure for appending finite successful paths. The

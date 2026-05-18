@@ -2469,6 +2469,46 @@ theorem burn_success_run_refines_closed_world
   intro _h_run _h_success
   exact burn_expected_refines_closed_world s
 
+-- tama: discharges=pair_burn_uses_pair_lp_balance_and_total_supply
+theorem burn_uses_pair_lp_balance_and_total_supply
+    (toAddr : Address) (s : ContractState) :
+  pair_burn_uses_pair_lp_balance_and_total_supply
+    toAddr s ((burn toAddr).run s) := by
+  intro _h_run _h_success
+  constructor <;> rfl
+
+-- tama: discharges=pair_burn_leaves_remaining_token_balances
+theorem burn_leaves_remaining_token_balances
+    (toAddr : Address) (s : ContractState) :
+  pair_burn_leaves_remaining_token_balances
+    toAddr s ((burn toAddr).run s) := by
+  intro _h_run _h_success h_amount0 h_amount1
+  constructor
+  · have h_sub :
+        (burnBalance0After s).val =
+          (observedBalance0 s).val - (burnAmount0 s).val := by
+      simpa [burnBalance0After] using
+        (Verity.Core.Uint256.sub_eq_of_le
+          (a := observedBalance0 s) (b := burnAmount0 s) h_amount0)
+    have h_le : (burnAmount0 s).val ≤ (observedBalance0 s).val := by
+      simpa using h_amount0
+    change (burnBalance0After s).val + (burnAmount0 s).val =
+      (observedBalance0 s).val
+    rw [h_sub]
+    omega
+  · have h_sub :
+        (burnBalance1After s).val =
+          (observedBalance1 s).val - (burnAmount1 s).val := by
+      simpa [burnBalance1After] using
+        (Verity.Core.Uint256.sub_eq_of_le
+          (a := observedBalance1 s) (b := burnAmount1 s) h_amount1)
+    have h_le : (burnAmount1 s).val ≤ (observedBalance1 s).val := by
+      simpa using h_amount1
+    change (burnBalance1After s).val + (burnAmount1 s).val =
+      (observedBalance1 s).val
+    rw [h_sub]
+    omega
+
 private theorem feeAdjustedSwap_implies_raw_k
     (amount0In amount1In : Nat)
     (before after : PairWorldState) :

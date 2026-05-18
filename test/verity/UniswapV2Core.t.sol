@@ -277,6 +277,8 @@ contract UniswapV2CoreTest is Test {
         pair.mint(address(this));
     }
 
+    // tama: mirrors=pair_burn_uses_pair_lp_balance_and_total_supply
+    // tama: mirrors=pair_burn_leaves_remaining_token_balances
     function testFuzzMintLocksMinimumLiquidityAndBurnsProRata() public {
         seed(1_000_000, 4_000_000);
 
@@ -289,10 +291,17 @@ contract UniswapV2CoreTest is Test {
         assertEq(reserve1, pair.token0() == address(tokenA) ? 4_000_000 : 1_000_000);
 
         assertTrue(pair.transfer(address(pair), 200_000));
+        assertEq(pair.balanceOf(address(pair)), 200_000);
+        uint256 supplyBeforeBurn = pair.totalSupply();
         (uint256 amount0, uint256 amount1) = pair.burn(address(this));
+        (uint256 reserve0After, uint256 reserve1After,) = pair.getReserves();
+
+        assertEq(supplyBeforeBurn, 2_000_000);
         assertEq(amount0, reserve0 / 10);
         assertEq(amount1, reserve1 / 10);
         assertEq(pair.totalSupply(), 1_800_000);
+        assertEq(reserve0After + amount0, reserve0);
+        assertEq(reserve1After + amount1, reserve1);
     }
 
     function testFuzzBurnRevertsWithoutLiquidity() public {
