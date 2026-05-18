@@ -181,6 +181,9 @@ Pair:
   one-step and finite-history
   supply-direction invariants showing no-burn histories cannot decrease LP
   supply and no-mint histories cannot increase LP supply,
+  the reader-facing contrapositive supply classifiers proving that LP supply
+  increases require mint, LP supply decreases require burn, and any LP supply
+  change excludes histories with neither mint nor burn,
   path-wide LP-supply coherence,
   path-wide locked-liquidity coverage,
   share-only action framing, finite-history pure-share-bookkeeping invariants

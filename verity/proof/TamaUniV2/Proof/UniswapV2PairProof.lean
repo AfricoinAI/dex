@@ -3821,6 +3821,36 @@ theorem closed_world_reachable_no_mint_path_never_increases_supply
   intro _h_reachable h_path
   exact pairWorldNoMintPath_never_increases_supply h_path
 
+-- tama: discharges=pair_closed_world_reachable_supply_increase_requires_mint
+theorem closed_world_reachable_supply_increase_requires_mint
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_supply_increase_requires_mint before after := by
+  intro h_reachable h_increase h_no_mint
+  have h_no_increase :=
+    closed_world_reachable_no_mint_path_never_increases_supply
+      before after h_reachable h_no_mint
+  exact Nat.not_lt_of_ge h_no_increase h_increase
+
+-- tama: discharges=pair_closed_world_reachable_supply_decrease_requires_burn
+theorem closed_world_reachable_supply_decrease_requires_burn
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_supply_decrease_requires_burn before after := by
+  intro h_reachable h_decrease h_no_burn
+  have h_no_decrease :=
+    closed_world_reachable_no_burn_path_never_decreases_supply
+      before after h_reachable h_no_burn
+  exact Nat.not_lt_of_ge h_no_decrease h_decrease
+
+-- tama: discharges=pair_closed_world_reachable_supply_change_requires_mint_or_burn
+theorem closed_world_reachable_supply_change_requires_mint_or_burn
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_supply_change_requires_mint_or_burn before after := by
+  intro h_reachable h_changed h_no_mint_burn
+  have h_preserve :=
+    closed_world_reachable_no_mint_burn_path_preserves_supply
+      before after h_reachable h_no_mint_burn
+  exact h_changed h_preserve.1
+
 -- tama: discharges=pair_closed_world_approve_preserves_pool
 theorem closed_world_approve_preserves_pool
     (ownerAddr spender : Address) (amount : Nat)

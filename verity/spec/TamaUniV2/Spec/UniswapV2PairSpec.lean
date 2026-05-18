@@ -3128,6 +3128,35 @@ def pair_closed_world_reachable_no_mint_path_never_increases_supply
     PairWorldPathNoMint before after →
       after.totalSupply ≤ before.totalSupply
 
+/-- LP issuance requires mint. This is the same supply invariant stated in the
+direction an auditor usually wants: if an endpoint has more LP supply than the
+reachable starting state, then no successful history without a mint can produce
+that endpoint. -/
+def pair_closed_world_reachable_supply_increase_requires_mint
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    before.totalSupply < after.totalSupply →
+      ¬ PairWorldPathNoMint before after
+
+/-- LP redemption requires burn. If an endpoint has less LP supply than the
+reachable starting state, then no successful history without a burn can produce
+that endpoint. -/
+def pair_closed_world_reachable_supply_decrease_requires_burn
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    after.totalSupply < before.totalSupply →
+      ¬ PairWorldPathNoBurn before after
+
+/-- Any LP-supply change requires a liquidity operation. Histories made only of
+approvals, LP transfers, donations, swaps, skim, and sync preserve total supply,
+so an endpoint with different LP supply cannot be reached by a history that has
+neither mint nor burn. -/
+def pair_closed_world_reachable_supply_change_requires_mint_or_burn
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    after.totalSupply ≠ before.totalSupply →
+      ¬ PairWorldPathNoMintBurn before after
+
 def pair_closed_world_approve_preserves_pool
     (ownerAddr spender : Address) (amount : Nat)
     (before after : PairWorldState) : Prop :=
