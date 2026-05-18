@@ -328,6 +328,9 @@ Factory:
   CREATE2 failure, and length overflow.
 - Failed-create atomicity spec showing reverted `createPair` runs leave pair
   mappings, pair array, length, and events unchanged.
+- Successful `createPair` now also exposes the early ordered guard facts
+  directly: a success proves distinct nonzero token addresses and an absent
+  sorted pair mapping before the CREATE2 boundary.
 - Create-pair success spec for sorted tokens, bidirectional mapping writes,
   append/length update, nonzero pair boundary, and `PairCreated`.
 - Executable create bridges showing successful `createPair` runs instantiate

@@ -630,6 +630,48 @@ theorem createPair_revert_keeps_factory_state
   rw [h_result]
   exact ⟨rfl, rfl, rfl, rfl⟩
 
+-- tama: discharges=factory_createPair_success_implies_pre_create_guards
+theorem createPair_success_implies_pre_create_guards
+    (tokenA tokenB : Address) (s : ContractState)
+    (result : ContractResult Address) :
+  factory_createPair_success_implies_pre_create_guards tokenA tokenB s result := by
+  intro h_run h_success
+  rcases h_success with ⟨pair, h_success⟩
+  have h_distinct : tokenA ≠ tokenB := by
+    intro h_same
+    have h_revert := createPair_run_revert_identical_addresses tokenA tokenB s h_same
+    rw [h_run] at h_success
+    rw [h_revert] at h_success
+    cases h_success
+  have h_tokenA_nonzero : tokenA ≠ zeroAddress := by
+    intro h_zero
+    have h_revert := createPair_run_revert_zero_address tokenA tokenB s h_distinct (Or.inl h_zero)
+    rw [h_run] at h_success
+    rw [h_revert] at h_success
+    cases h_success
+  have h_tokenB_nonzero : tokenB ≠ zeroAddress := by
+    intro h_zero
+    have h_revert := createPair_run_revert_zero_address tokenA tokenB s h_distinct (Or.inr h_zero)
+    rw [h_run] at h_success
+    rw [h_revert] at h_success
+    cases h_success
+  have h_absent :
+      s.storageMap2 pairForSlot.slot
+        (factoryToken0 tokenA tokenB) (factoryToken1 tokenA tokenB) = 0 := by
+    by_contra h_existing_not
+    have h_existing :
+        s.storageMap2 pairForSlot.slot
+          (if addressToWord tokenA < addressToWord tokenB then tokenA else tokenB)
+          (if addressToWord tokenA < addressToWord tokenB then tokenB else tokenA) ≠ 0 := by
+      simpa [factoryToken0, factoryToken1] using h_existing_not
+    have h_revert :=
+      createPair_run_revert_duplicates tokenA tokenB s
+        h_distinct h_tokenA_nonzero h_tokenB_nonzero h_existing
+    rw [h_run] at h_success
+    rw [h_revert] at h_success
+    cases h_success
+  exact ⟨h_distinct, h_tokenA_nonzero, h_tokenB_nonzero, h_absent⟩
+
 -- tama: discharges=factory_concrete_world_length_matches_storage
 theorem concrete_world_length_matches_storage
     (s : ContractState) (w : FactoryWorldState) :

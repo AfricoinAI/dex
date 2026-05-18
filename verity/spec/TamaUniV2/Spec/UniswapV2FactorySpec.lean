@@ -363,6 +363,24 @@ def factory_createPair_revert_keeps_factory_state
         s.storage allPairsLengthSlot.slot ∧
       result.snd.events = s.events
 
+/--
+Executable create-pair guard bridge. A successful `createPair` run proves that
+the early ordered guards passed before the CREATE2 boundary: the token addresses
+were distinct, neither token was zero, and the sorted pair mapping was empty.
+Later success bridges can cite these facts instead of assuming them separately.
+-/
+def factory_createPair_success_implies_pre_create_guards
+    (tokenA tokenB : Address) (s : ContractState)
+    (result : ContractResult Address) : Prop :=
+  let token0Value := factoryToken0 tokenA tokenB
+  let token1Value := factoryToken1 tokenA tokenB
+  result = (createPair tokenA tokenB).run s →
+    (∃ pair, result = ContractResult.success pair result.snd) →
+      tokenA ≠ tokenB ∧
+      tokenA ≠ zeroAddress ∧
+      tokenB ≠ zeroAddress ∧
+      s.storageMap2 pairForSlot.slot token0Value token1Value = 0
+
 /-!
 ## Concrete Storage Reconstruction
 
