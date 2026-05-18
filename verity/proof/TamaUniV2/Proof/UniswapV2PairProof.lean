@@ -5704,6 +5704,18 @@ theorem skim_success_run_preserves_liquidity_supply_from_run
   exact closed_world_skim_preserves_liquidity_supply
     (pairWorldFromConcreteState s) (pairWorldAfterSkimRun s) h_step
 
+-- tama: discharges=pair_skim_success_run_preserves_good_from_run
+theorem skim_success_run_preserves_good_from_run
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) :
+  pair_skim_success_run_preserves_good_from_run toAddr s result := by
+  intro h_good h_run h_success
+  have h_step :=
+    skim_success_run_refines_closed_world_from_run
+      toAddr s result h_run h_success
+  exact closed_world_skim_preserves_good
+    (pairWorldFromConcreteState s) (pairWorldAfterSkimRun s)
+    h_good h_step
+
 -- tama: discharges=pair_closed_world_skim_preserves_k
 theorem closed_world_skim_preserves_k
     (before after : PairWorldState) :
@@ -5720,6 +5732,17 @@ theorem closed_world_sync_preserves_good
     (before after : PairWorldState) :
   pair_closed_world_sync_preserves_good before after := by
   exact pairWorldStep_preserves_good
+
+-- tama: discharges=pair_sync_success_run_preserves_good_from_run
+theorem sync_success_run_preserves_good_from_run
+    (s : ContractState) (result : ContractResult Unit) :
+  pair_sync_success_run_preserves_good_from_run s result := by
+  intro h_good h_run h_success
+  have h_step :=
+    sync_success_run_refines_closed_world_from_run s result h_run h_success
+  exact closed_world_sync_preserves_good
+    (pairWorldFromConcreteState s) (pairWorldAfterSyncRun s)
+    h_good h_step
 
 -- tama: discharges=pair_closed_world_sync_sets_reserves_to_balances
 theorem closed_world_sync_sets_reserves_to_balances

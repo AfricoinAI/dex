@@ -169,7 +169,11 @@ Pair:
   balances positive. The same layer also covers the one-step LP-supply firewall
   for any action other than mint or burn, executable successful-run bridges
   proving that `swap`, `skim`, and `sync` preserve total LP supply and locked
-  liquidity once their existing transition premises are available, one-step and finite-history
+  liquidity once their existing transition premises are available. Successful
+  public `skim` and `sync` now also bridge directly back to the core invariant:
+  from any concrete state whose projection is `PairWorldGood`, a successful run
+  has a modeled post-state that is still `PairWorldGood`. The same layer covers
+  one-step and finite-history
   supply-direction invariants showing no-burn histories cannot decrease LP
   supply and no-mint histories cannot increase LP supply,
   path-wide LP-supply coherence,
@@ -359,8 +363,9 @@ the executable bridge from canonical public entrypoints to that story.
   are supplied. Successful swaps derive the zero-output guard, prove LP supply
   and locked liquidity are unchanged, and connect directly to the one-swap
   caller no-profit theorem once final-balance/K facts are supplied. Successful
-  `skim` and `sync` now also expose the LP-supply preservation conclusion
-  directly from successful runs. The remaining bridge work is to derive more of
+  `skim` and `sync` now also expose the LP-supply preservation and core
+  `PairWorldGood` preservation conclusions directly from successful runs. The
+  remaining bridge work is to derive more of
   the arithmetic premises directly from successful public runs, in small
   prefix/suffix lemmas rather than one aggregate function summary.
 - Concrete success-path restoration and events: Foundry mirrors cover Mint,

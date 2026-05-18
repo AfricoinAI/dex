@@ -942,6 +942,23 @@ def pair_skim_success_run_preserves_liquidity_supply_from_run
       after.totalSupply = before.totalSupply ∧
         after.lockedLiquidity = before.lockedLiquidity
 
+/--
+Successful `skim` preserves the core pair invariant at the executable boundary.
+
+The precondition is the projection of the concrete pre-state into the
+closed-world invariant. Success of the real entrypoint already proves that the
+run is the closed-world skim transition; the invariant layer then proves that
+reserve backing, uint112 bounds, and LP-supply lock coherence survive the call.
+-/
+def pair_skim_success_run_preserves_good_from_run
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=
+  let before := pairWorldFromConcreteState s
+  let after := pairWorldAfterSkimRun s
+  PairWorldGood before →
+    result = (skim toAddr).run s →
+      result = ContractResult.success () result.snd →
+        PairWorldGood after
+
 def pair_sync_run_revert_locked
     (s : ContractState) : Prop :=
   s.storage unlockedSlot.slot != 1 →
@@ -1098,6 +1115,24 @@ def pair_sync_success_run_preserves_liquidity_supply_from_run
     result = ContractResult.success () result.snd →
       after.totalSupply = before.totalSupply ∧
         after.lockedLiquidity = before.lockedLiquidity
+
+/--
+Successful `sync` preserves the core pair invariant at the executable boundary.
+
+The public call first proves its observed balances fit the reserve domain, then
+refines to the closed-world sync transition. From a good projected pre-state,
+the transition preserves the same invariant package that the global trace
+theorems use: reserves remain backed, reserves remain `uint112`, and LP supply
+keeps the minimum-liquidity lock shape.
+-/
+def pair_sync_success_run_preserves_good_from_run
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  let before := pairWorldFromConcreteState s
+  let after := pairWorldAfterSyncRun s
+  PairWorldGood before →
+    result = (sync).run s →
+      result = ContractResult.success () result.snd →
+        PairWorldGood after
 
 /--
 Executable sync reserve-write fact. A successful public `sync` is the direct
