@@ -98,6 +98,9 @@ Pair:
   its arithmetic facts, total LP supply equals the square-root liquidity
   measure and the provider receives that amount minus the permanently locked
   `MINIMUM_LIQUIDITY`.
+- Burn redemption is explicit: successful burn accounting returns the floor
+  pro-rata token amounts for the LP liquidity being burned, then caches the
+  post-redemption token balances as reserves.
 - `sync` specs show that observed balances inside uint112 bounds are accepted
   as the new reserves when the public call succeeds.
 - Closed-world surplus reconciliation now states the direct cleanup consequence

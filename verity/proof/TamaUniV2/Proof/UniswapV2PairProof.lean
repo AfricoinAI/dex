@@ -5043,6 +5043,26 @@ theorem burn_success_run_updates_reserves_to_balances_from_run
     (pairWorldFromConcreteState s) (pairWorldAfterBurnRun s)
     h_step
 
+-- tama: discharges=pair_burn_success_pays_exact_pro_rata_amounts
+theorem burn_success_pays_exact_pro_rata_amounts
+    (toAddr : Address) (s : ContractState) :
+  pair_burn_success_pays_exact_pro_rata_amounts
+    toAddr s ((burn toAddr).run s) := by
+  intro _h_run _h_success _h_liquidity_pos _h_supply_pos
+  simp [burnAmount0, burnAmount1, burnAmount0Product, burnAmount1Product,
+    observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run,
+    ContractResult.fst, Verity.pure, Pure.pure]
+
+-- tama: discharges=pair_burn_success_caches_post_redemption_balances
+theorem burn_success_caches_post_redemption_balances
+    (toAddr : Address) (s : ContractState) :
+  pair_burn_success_caches_post_redemption_balances
+    toAddr s ((burn toAddr).run s) := by
+  intro _h_run _h_success _h_liquidity_pos _h_supply_pos
+    _h_amount0_le _h_amount1_le
+  simp [pairWorldAfterBurnRun]
+
 -- tama: discharges=pair_closed_world_burn_liquidity_ratio
 theorem closed_world_burn_liquidity_ratio
     (amount0 amount1 liquidity : Nat)

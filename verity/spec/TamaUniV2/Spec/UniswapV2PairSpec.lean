@@ -2020,6 +2020,28 @@ def pair_burn_success_run_reduces_supply_by_liquidity_from_run
                                 before.totalSupply - liquidity.val
 
 /--
+When `burn` succeeds, the paid token amounts are exactly the burned LP share
+of the pair's token balances before the payout.
+
+This is the LP redemption rule: a burner can receive only their pro-rata
+share, and the remaining LPs are not diluted.
+-/
+def pair_burn_success_pays_exact_pro_rata_amounts
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) : Prop :=
+  let liquidity := burnLiquidity s
+  let amount0 := burnAmount0 s
+  let amount1 := burnAmount1 s
+  result = (burn toAddr).run s →
+    result = ContractResult.success (amount0, amount1) result.snd →
+      0 < liquidity.val →
+        0 < (burnSupply s).val →
+          amount0 =
+              div (mul liquidity (observedBalance0 s)) (burnSupply s) ∧
+            amount1 =
+              div (mul liquidity (observedBalance1 s)) (burnSupply s)
+
+/--
 A successful public `burn` may redeem ordinary LP
 shares, but it cannot redeem below the permanently locked liquidity floor. The
 locked amount remains the same before and after the burn, and the post-burn
@@ -2117,6 +2139,26 @@ def pair_burn_success_run_updates_reserves_to_balances_from_run
                                 liquidity.val * (observedBalance1 s).val →
                               after.reserve0 = after.balance0 ∧
                                 after.reserve1 = after.balance1
+
+/--
+When `burn` succeeds, cached reserves become the token balances left after the
+redemption transfers.
+-/
+def pair_burn_success_caches_post_redemption_balances
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) : Prop :=
+  let after := pairWorldAfterBurnRun s
+  let liquidity := burnLiquidity s
+  let amount0 := burnAmount0 s
+  let amount1 := burnAmount1 s
+  result = (burn toAddr).run s →
+    result = ContractResult.success (amount0, amount1) result.snd →
+      0 < liquidity.val →
+        0 < (burnSupply s).val →
+          amount0 ≤ observedBalance0 s →
+            amount1 ≤ observedBalance1 s →
+              after.reserve0 = (burnBalance0After s).val ∧
+                after.reserve1 = (burnBalance1After s).val
 
 /--
 A burn may reduce raw reserves because assets
