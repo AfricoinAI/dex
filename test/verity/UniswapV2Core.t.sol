@@ -228,27 +228,38 @@ contract UniswapV2CoreTest is Test {
         assertFalse(permitOk);
     }
 
+    // tama: mirrors=pair_first_mint_uses_balance_increase_as_deposit
     function testFuzzLargeInitialMintUsesFloorSqrt() public {
         tokenA.mint(address(pair), 1 ether);
         tokenB.mint(address(pair), 1 ether);
+        (uint256 amount0, uint256 amount1) = sortedAmounts(1 ether, 1 ether);
 
         uint256 liquidity = pair.mint(address(this));
+        (uint256 reserve0, uint256 reserve1,) = pair.getReserves();
 
         assertEq(liquidity, 1 ether - 1000);
         assertEq(pair.totalSupply(), 1 ether);
         assertEq(pair.balanceOf(address(0)), 1000);
         assertEq(pair.balanceOf(address(this)), 1 ether - 1000);
+        assertEq(reserve0, amount0);
+        assertEq(reserve1, amount1);
     }
 
+    // tama: mirrors=pair_later_mint_uses_balance_increase_as_deposit
     function testFuzzSubsequentMintUsesMinProRataLiquidity() public {
         seed(1_000_000, 1_000_000);
+        (uint256 reserve0Before, uint256 reserve1Before,) = pair.getReserves();
         tokenA.mint(address(pair), 100_000);
         tokenB.mint(address(pair), 50_000);
+        (uint256 amount0, uint256 amount1) = sortedAmounts(100_000, 50_000);
 
         uint256 liquidity = pair.mint(address(this));
+        (uint256 reserve0After, uint256 reserve1After,) = pair.getReserves();
 
         assertEq(liquidity, 50_000);
         assertEq(pair.totalSupply(), 1_050_000);
+        assertEq(reserve0After, reserve0Before + amount0);
+        assertEq(reserve1After, reserve1Before + amount1);
     }
 
     function testFuzzMintRevertsWhenOneTokenAmountMissing() public {

@@ -1500,6 +1500,26 @@ def pair_mint_first_success_run_refines_closed_world_from_run
                       (pairWorldBeforeMintRun s)
                       (pairWorldAfterFirstMintRun s)
 
+/--
+A successful first mint treats each token's balance increase as the deposit.
+
+The pair does not receive deposit amounts as function arguments. It looks at
+its ERC20 balances and subtracts cached reserves. This spec states that fact in
+one place.
+-/
+def pair_first_mint_uses_balance_increase_as_deposit
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  result = (mint toAddr).run s →
+    result = ContractResult.success (mintFirstLiquidity s) result.snd →
+      s.storage totalSupplySlot.slot = 0 →
+        s.storage reserve0Slot.slot ≤ observedBalance0 s →
+          s.storage reserve1Slot.slot ≤ observedBalance1 s →
+            amount0 = observedBalance0 s - s.storage reserve0Slot.slot ∧
+              amount1 = observedBalance1 s - s.storage reserve1Slot.slot
+
 /-- Successful initial `mint` preserves the core pair invariant: from a good
 projected pre-state, the minted state still has backed reserves, uint112 reserve
 bounds, and the minimum-liquidity lock shape. -/
@@ -1758,6 +1778,23 @@ def pair_mint_subsequent_success_run_refines_closed_world_from_run
                             (PairWorldAction.mint amount0.val amount1.val liquidity.val)
                             (pairWorldBeforeMintRun s)
                             (pairWorldAfterSubsequentMintRun liquidity s)
+
+/--
+A successful later mint also treats each token's balance increase as the
+deposit.
+-/
+def pair_later_mint_uses_balance_increase_as_deposit
+    (toAddr : Address) (s : ContractState)
+    (liquidity : Uint256) (result : ContractResult Uint256) : Prop :=
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      0 < (s.storage totalSupplySlot.slot).val →
+        s.storage reserve0Slot.slot ≤ observedBalance0 s →
+          s.storage reserve1Slot.slot ≤ observedBalance1 s →
+            amount0 = observedBalance0 s - s.storage reserve0Slot.slot ∧
+              amount1 = observedBalance1 s - s.storage reserve1Slot.slot
 
 /-- A successful later `mint` satisfying the canonical pro-rata facts preserves
 the core pair invariant from any good projected pre-state. -/

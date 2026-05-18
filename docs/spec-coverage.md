@@ -410,13 +410,12 @@ economic story is now in place; remaining Pair work should mainly prove that
 successful public calls establish more of the arithmetic facts used by that
 story.
 
-- Direct arithmetic from successful calls: the model formulas already cover
-  minimum-liquidity locking, pro-rata mint/burn discipline, fee-adjusted swap K,
-  derived raw-K nondecrease, reserve updates, LP-supply effects, and no-profit
-  consequences. The next security gain is to prove that successful `mint`,
-  `burn`, and `swap` establish their own liquidity, redemption, input, final
-  balance, and K facts instead of asking later theorems to take those facts as
-  premises.
+- Direct arithmetic from successful calls: successful first and later `mint`
+  now state directly that the deposited amounts are the pair's token balance
+  increases above cached reserves. The next security gain is to give `burn` and
+  `swap` the same treatment: successful burns should expose their LP source and
+  remaining balances, and successful swaps should expose their final-balance
+  input and K facts.
 - Concrete success-path restoration and events: Foundry mirrors cover Mint,
   Burn, Swap, Sync, and lock restoration at runtime. Lean should expose only
   short obligations here, preferably via factored proof-local adapters for the

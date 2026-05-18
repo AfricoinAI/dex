@@ -2260,6 +2260,14 @@ theorem mint_first_success_run_refines_closed_world_from_run
     h_unlocked h_supply_zero h_bound0 h_bound1 h_reserve0 h_reserve1
     h_amount0 h_amount1 h_product h_root
 
+-- tama: discharges=pair_first_mint_uses_balance_increase_as_deposit
+theorem first_mint_uses_balance_increase_as_deposit
+    (toAddr : Address) (s : ContractState) :
+  pair_first_mint_uses_balance_increase_as_deposit
+    toAddr s ((mint toAddr).run s) := by
+  intro _h_run _h_success _h_supply_zero _h_reserve0 _h_reserve1
+  constructor <;> rfl
+
 -- tama: discharges=pair_mint_subsequent_expected_refines_closed_world
 theorem mint_subsequent_expected_refines_closed_world
     (s : ContractState) (liquidity : Uint256) :
@@ -2373,6 +2381,14 @@ theorem mint_subsequent_success_run_refines_closed_world_from_run
   exact mint_subsequent_expected_refines_closed_world s liquidity
     h_supply_pos h_reserve0_pos h_reserve1_pos h_bound0 h_bound1
     h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
+
+-- tama: discharges=pair_later_mint_uses_balance_increase_as_deposit
+theorem later_mint_uses_balance_increase_as_deposit
+    (toAddr : Address) (s : ContractState) (liquidity : Uint256) :
+  pair_later_mint_uses_balance_increase_as_deposit
+    toAddr s liquidity ((mint toAddr).run s) := by
+  intro _h_run _h_success _h_supply_pos _h_reserve0 _h_reserve1
+  constructor <;> rfl
 
 -- tama: discharges=pair_burn_expected_refines_closed_world
 theorem burn_expected_refines_closed_world
