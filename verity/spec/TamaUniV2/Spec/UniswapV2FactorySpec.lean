@@ -224,6 +224,40 @@ def factory_createPair_success_refines_closed_world
                         before
                         after
 
+/--
+Executable create-pair invariant bridge. A successful real `createPair` that
+matches a good modeled factory history appends one new sorted pair and leaves
+the global factory invariant true: entries remain sorted and nonzero, sorted
+token pairs remain unique, and the modeled count still matches the list.
+-/
+def factory_createPair_success_preserves_good
+    (tokenA tokenB : Address) (s : ContractState)
+    (before : FactoryWorldState) : Prop :=
+  let token0Value := factoryToken0 tokenA tokenB
+  let token1Value := factoryToken1 tokenA tokenB
+  let pair := wordToAddress (factoryCreate2Word tokenA tokenB)
+  let after : FactoryWorldState :=
+    { pairs := before.pairs ++ [{
+        token0 := token0Value
+        token1 := token1Value
+        pair := pair
+      }]
+      pairCount := before.pairCount + 1 }
+  tokenA ≠ tokenB →
+    tokenA ≠ zeroAddress →
+      tokenB ≠ zeroAddress →
+        FactoryWorldGood before →
+          before.pairCount = (s.storage allPairsLengthSlot.slot).val →
+            s.storageMap2 pairForSlot.slot token0Value token1Value = 0 →
+              (∀ entry, entry ∈ before.pairs →
+                entry.token0 ≠ token0Value ∨ entry.token1 ≠ token1Value) →
+                pair ≠ zeroAddress →
+                  (s.storage allPairsLengthSlot.slot).val + 1 ≤
+                    Verity.Stdlib.Math.MAX_UINT256 →
+                    (createPair tokenA tokenB).run s =
+                      ContractResult.success pair ((createPair tokenA tokenB).run s).snd →
+                      FactoryWorldGood after
+
 /-!
 ## Exact Guard Runs
 

@@ -316,7 +316,10 @@ Factory:
 - Executable create bridges showing successful `createPair` runs instantiate
   the closed-world factory create transition: one base-case bridge for an empty
   public pair array, and one general bridge for a modeled pre-history with
-  matching pair count and no existing sorted pair.
+  matching pair count and no existing sorted pair. The general bridge now also
+  exposes the direct invariant consequence: successful real creation from a
+  good modeled history leaves the appended modeled history good, preserving
+  sorted nonzero entries, uniqueness, and pair-count/list coherence.
 - Closed-world factory model for finite successful create histories, proving
   sorted nonzero pair entries, sorted-pair uniqueness, symmetric membership,
   reachable lookup validity for distinct nonzero token pairs and nonzero pair
