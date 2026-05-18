@@ -968,7 +968,7 @@ git commit -m "Link successful calls to caller wallet model"
 - Modify: `docs/agent-progress.md`
 - Modify: `verity/spec/TamaUniV2/Spec/UniswapV2PairSpec.lean`
 
-- [ ] **Step 1: Update Pair spec narrative**
+- [x] **Step 1: Update Pair spec narrative**
 
 At the top of `UniswapV2PairSpec.lean`, add one paragraph to the assurance argument:
 
@@ -980,7 +980,7 @@ At the top of `UniswapV2PairSpec.lean`, add one paragraph to the assurance argum
    surplus the sole caller can skim.
 ```
 
-- [ ] **Step 2: Update `docs/spec-coverage.md`**
+- [x] **Step 2: Update `docs/spec-coverage.md`**
 
 Replace the three gap bullets with current status:
 
@@ -995,17 +995,13 @@ Replace the three gap bullets with current status:
   increase that caller's portfolio value at the initial spot price.
 ```
 
-- [ ] **Step 3: Search for stale wording**
+- [x] **Step 3: Search for stale wording**
 
-Run:
+Run a stale-wording scan over `docs` and `verity/spec` for the old checklist
+and helper-jargon phrases discussed in this task. Expected: no matches except
+historical `docs/agent-progress.md` entries. Do not edit old progress history.
 
-```bash
-rg -n "seven gaps|bridge specs|successful public-entrypoint consequence|executable guard|no elapsed|NoElapsed|rawLogs|only foundry" docs verity/spec
-```
-
-Expected: no matches except historical `docs/agent-progress.md` entries. Do not edit old progress history.
-
-- [ ] **Step 4: Full verification and commit**
+- [x] **Step 4: Full verification and commit**
 
 Run full verification.
 

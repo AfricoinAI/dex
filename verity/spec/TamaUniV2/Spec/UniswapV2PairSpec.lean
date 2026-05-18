@@ -50,6 +50,11 @@ The argument proceeds in layers:
 6. Prove the model-level theorem stack over every finite successful history:
    reserve backing, uint112 bounds, minimum-liquidity locking, K behavior,
    LP-share discipline, and same-supply no-profit.
+7. Track one caller wallet together with the pair. This is the final economic
+   theorem layer: when one caller owns every LP token except the permanent
+   lock, no finite sequence of valid modeled interactions can increase that
+   caller's portfolio value at the initial spot price. The portfolio counts
+   wallet tokens, LP ownership, and surplus the sole caller can skim.
 
 Read from top to bottom, the argument is: the public-call boundary admits only
 well-framed failures and well-shaped successful transitions; the transition
