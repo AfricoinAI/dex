@@ -533,6 +533,33 @@ def factory_createPair_success_adds_decoded_lookup
                       pairForSlot.slot tokenB tokenA) = pair
 
 /--
+Successful creation is immediately visible through the public `getPair` view.
+
+This is the concrete router-facing form of the symmetric storage update: after
+`createPair(tokenA, tokenB)` succeeds, both `getPair(tokenA, tokenB)` and
+`getPair(tokenB, tokenA)` return the newly created pair in the post-state.
+-/
+def factory_createPair_success_getPair_views_return_new_pair
+    (tokenA tokenB : Address) (s : ContractState) : Prop :=
+  let token0Value := factoryToken0 tokenA tokenB
+  let token1Value := factoryToken1 tokenA tokenB
+  let pair := wordToAddress (factoryCreate2Word tokenA tokenB)
+  tokenA ≠ tokenB →
+    tokenA ≠ zeroAddress →
+      tokenB ≠ zeroAddress →
+        s.storageMap2 pairForSlot.slot token0Value token1Value = 0 →
+          pair ≠ zeroAddress →
+            (s.storage allPairsLengthSlot.slot).val + 1 ≤
+              Verity.Stdlib.Math.MAX_UINT256 →
+              (createPair tokenA tokenB).run s =
+                ContractResult.success pair ((createPair tokenA tokenB).run s).snd →
+                let post := ((createPair tokenA tokenB).run s).snd
+                (getPair tokenA tokenB).run post =
+                  ContractResult.success pair post ∧
+                (getPair tokenB tokenA).run post =
+                  ContractResult.success pair post
+
+/--
 Successful creation cannot overwrite an existing reconstructed lookup. If the
 pre-state storage/world correspondence says an unordered token pair already
 resolves to `existingPair`, then after creating some other absent pair, the

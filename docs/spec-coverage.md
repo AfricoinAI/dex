@@ -363,6 +363,9 @@ Factory:
 - Successful `createPair` now also exposes the append-only array rule as two
   short public facts: `allPairsLength` increases exactly once, and the new pair
   is written at the previous length index.
+- The router-facing postcondition is now explicit: immediately after successful
+  `createPair`, the public `getPair` view returns the new pair in both token
+  orders.
 - Closed-world factory model for finite successful create histories, proving
   sorted nonzero pair entries, sorted-pair uniqueness, symmetric membership,
   reachable lookup validity for distinct nonzero token pairs and nonzero pair

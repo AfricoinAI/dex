@@ -1139,6 +1139,25 @@ theorem createPair_success_adds_decoded_lookup
         addressToWord, h_sort, h_sort_raw] using
         congrArg wordToAddress h_new_forward
 
+-- tama: discharges=factory_createPair_success_getPair_views_return_new_pair
+theorem createPair_success_getPair_views_return_new_pair
+    (tokenA tokenB : Address) (s : ContractState) :
+  factory_createPair_success_getPair_views_return_new_pair tokenA tokenB s := by
+  intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_absent
+    h_pair_nonzero h_len_ok h_run
+  have h_lookup :=
+    createPair_success_adds_decoded_lookup tokenA tokenB s
+      h_distinct h_tokenA_nonzero h_tokenB_nonzero h_absent
+      h_pair_nonzero h_len_ok h_run
+  rcases h_lookup with ⟨h_forward, h_reverse⟩
+  constructor
+  · simpa [factory_createPair_success_getPair_views_return_new_pair,
+      getPair, UniswapV2FactoryBase.getPair, getMapping2, Contract.run,
+      Verity.bind, Bind.bind, Verity.pure, Pure.pure] using h_forward
+  · simpa [factory_createPair_success_getPair_views_return_new_pair,
+      getPair, UniswapV2FactoryBase.getPair, getMapping2, Contract.run,
+      Verity.bind, Bind.bind, Verity.pure, Pure.pure] using h_reverse
+
 -- tama: discharges=factory_createPair_success_preserves_existing_decoded_lookup
 theorem createPair_success_preserves_existing_decoded_lookup
     (tokenA tokenB existing0 existing1 existingPair : Address)
