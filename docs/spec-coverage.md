@@ -103,9 +103,9 @@ Pair:
   that skim cannot increase token-balance value at the starting spot price.
   Sync now states the complementary custody fact directly: it changes cached
   accounting, not token balances, so every spot-price valuation of actual token
-  balances is unchanged. Together, the passive reconciliation theorem states
-  that either `skim` or `sync` cannot increase actual token-balance value at
-  the starting spot price, and the finite-history theorem lifts that to any
+  balances is unchanged. Together, the shared `skim`/`sync` value theorem
+  states that either action cannot increase actual token-balance value at the
+  starting spot price, and the finite-history theorem lifts that to any
   reachable history made only of LP approvals/transfers plus `skim`/`sync`. The
   balanced-pool theorem states the clean
   no-surplus case directly: `skim` is a no-op on token

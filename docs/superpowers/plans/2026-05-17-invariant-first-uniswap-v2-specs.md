@@ -244,13 +244,13 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   `skim` and `sync` preserves a good balanced pool's token balances, cached
   reserves, LP supply, and locked liquidity exactly.
 
-  2026-05-17 14:25 PDT checkpoint: added passive reconciliation value facts.
+  2026-05-17 14:25 PDT checkpoint: added shared `skim`/`sync` value facts.
   `sync` is now stated directly as custody-preserving accounting, and the
   shared `skim`/`sync` theorem says either action cannot increase actual
   token-balance value at the starting spot price.
 
-  2026-05-17 14:30 PDT checkpoint: lifted passive reconciliation value
-  nonincrease to finite histories. A path made only of LP
+  2026-05-17 14:30 PDT checkpoint: lifted the shared `skim`/`sync` value
+  nonincrease theorem to finite histories. A path made only of LP
   approval/transfer/transferFrom bookkeeping plus `skim`/`sync` cannot increase
   actual token-balance value at the starting spot price.
 
@@ -424,6 +424,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   2026-05-17 17:19 PDT checkpoint: implemented and verified that economic
   consequence. Successful real swaps now connect directly to the caller
   no-profit theorem once their post-callback balance and K facts are supplied.
+
+  2026-05-17 17:23 PDT checkpoint: cleaned this active plan and related
+  reader-facing spec/coverage/manifest text to say `skim`/`sync` directly
+  instead of using the confusing "passive reconciliation" wording. Historical
+  progress entries were left append-only.
 
 - [x] **5. Add TWAP/oracle specs**
 

@@ -3538,9 +3538,9 @@ def pair_closed_world_skim_or_sync_token_balance_value_never_increases
         PairWorldBalanceSpotValueNum before after ≤
           PairWorldBalanceSpotValueNum before before
 
-/-- The one-step passive-reconciliation value bound is independent of which
-spot price is used to measure token balances. This lets finite-history proofs
-keep valuing every later step at the original starting price. -/
+/-- The one-step `skim`/`sync` value bound is independent of which spot price is
+used to measure token balances. This lets finite-history proofs keep valuing
+every later step at the original starting price. -/
 def pair_closed_world_skim_or_sync_token_balance_value_never_increases_at_spot
     (spot : PairWorldState) (action : PairWorldAction)
     (before after : PairWorldState) : Prop :=
