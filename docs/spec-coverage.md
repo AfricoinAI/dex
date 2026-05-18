@@ -89,9 +89,9 @@ Pair:
 - Mint/burn/swap closed-world bridge predicates for expected concrete states:
   first mint, subsequent mint, burn, and swap all refine the corresponding
   PairWorld transition once the concrete amount, liquidity, post-callback
-  balance, and K facts are available. Swap now also exposes the immediate
-  economic bridge from a successful public run plus its modeled swap step to
-  the one-swap caller no-profit theorem.
+  balance, and K facts are available. Swap now also exposes the economic bridge
+  from a successful public run plus final-balance/K facts directly to the
+  one-swap caller no-profit theorem.
 - `sync` expected-state and success-conditional bridge predicates showing that
   observed balances inside uint112 bounds refine the closed-world sync
   transition when the public run succeeds.
@@ -326,7 +326,9 @@ the executable bridge from canonical public entrypoints to that story.
 - Mint, burn, and swap executable bridges: closed-world formulas already cover
   minimum-liquidity locking, pro-rata mint/burn discipline, fee-adjusted swap K,
   derived raw-K nondecrease, reserve updates, LP-supply effects, and no-profit
-  consequences. The remaining bridge work is to derive more of the arithmetic
+  consequences. Successful swaps now derive the zero-output guard and connect
+  directly to the one-swap caller no-profit theorem once final-balance/K facts
+  are supplied. The remaining bridge work is to derive more of the arithmetic
   premises directly from successful public runs, in small prefix/suffix lemmas
   rather than one aggregate function summary.
 - Concrete success-path restoration and events: Foundry mirrors cover Mint,
