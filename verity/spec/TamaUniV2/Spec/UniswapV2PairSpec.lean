@@ -980,6 +980,17 @@ def pair_swap_success_run_implies_lock_open
     result = ContractResult.success () result.snd →
       s.storage unlockedSlot.slot = 1
 
+/-- A successful `swap` must have passed the first economic guard: at least one
+output amount is nonzero. This is a narrow bridge from the exact zero-output
+revert proof into the closed-world swap model, whose swap action requires real
+output before reasoning about input, callback repayment, or K. -/
+def pair_swap_success_run_implies_nonzero_output
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      amount0Out ≠ 0 ∨ amount1Out ≠ 0
+
 /-- The success-side reading of the same lock gate for `skim`. -/
 def pair_skim_success_run_implies_lock_open
     (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=

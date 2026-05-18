@@ -1641,6 +1641,27 @@ theorem swap_success_run_implies_lock_open
   rw [h_revert] at h_success
   cases h_success
 
+-- tama: discharges=pair_swap_success_run_implies_nonzero_output
+theorem swap_success_run_implies_nonzero_output
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) (result : ContractResult Unit) :
+  pair_swap_success_run_implies_nonzero_output
+    amount0Out amount1Out toAddr data s result := by
+  intro h_run h_success
+  by_cases h_amount0 : amount0Out = 0
+  · by_cases h_amount1 : amount1Out = 0
+    · have h_unlocked :=
+        swap_success_run_implies_lock_open
+          amount0Out amount1Out toAddr data s result h_run h_success
+      have h_revert :=
+        swap_run_revert_zero_output
+          amount0Out amount1Out toAddr data s h_unlocked h_amount0 h_amount1
+      rw [h_run] at h_success
+      rw [h_revert] at h_success
+      cases h_success
+    · exact Or.inr h_amount1
+  · exact Or.inl h_amount0
+
 -- tama: discharges=pair_skim_success_run_implies_lock_open
 theorem skim_success_run_implies_lock_open
     (toAddr : Address) (s : ContractState) (result : ContractResult Unit) :

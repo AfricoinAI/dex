@@ -398,6 +398,14 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   proves final lock restoration, and connects the run to the closed-world skim
   transition without extra reader-supplied execution premises.
 
+  2026-05-17 17:06 PDT checkpoint: added the success-side nonzero-output swap
+  bridge. It composes existing exact-run facts instead of unfolding the full
+  swap tail: if a real `swap` succeeds, it cannot be the zero-output case.
+
+  2026-05-17 17:09 PDT checkpoint: full verification passed for that bridge:
+  focused Pair proof, whole `lake build TamaUniV2.Proof`, `tama check`, `tama
+  build`, `tama test` (26/26), `tama audit` (0 issues), and `git diff --check`.
+
 - [x] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when
