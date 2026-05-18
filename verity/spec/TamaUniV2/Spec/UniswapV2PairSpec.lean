@@ -1469,6 +1469,30 @@ def pair_mint_first_success_run_never_decreases_k_from_run
                   mintFirstRoot s > minimumLiquidity →
                     PairWorldK before ≤ PairWorldK after
 
+/--
+Executable first-mint reserve-write fact. In the initial-liquidity path, a
+successful public `mint` caches exactly the observed token balances as the
+router-visible reserves.
+-/
+def pair_mint_first_success_run_updates_reserves_to_balances_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  let after := pairWorldAfterFirstMintRun s
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  let liquidity := mintFirstLiquidity s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      s.storage totalSupplySlot.slot = 0 →
+        s.storage reserve0Slot.slot ≤ observedBalance0 s →
+          s.storage reserve1Slot.slot ≤ observedBalance1 s →
+            amount0 > 0 →
+              amount1 > 0 →
+                (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
+                  mintFirstRoot s > minimumLiquidity →
+                    after.reserve0 = after.balance0 ∧
+                      after.reserve1 = after.balance1
+
 /-!
 The remaining bridge specs keep the same shape. Each one is a one-step
 simulation fact: a successful public call, together with the arithmetic facts
@@ -1590,6 +1614,34 @@ def pair_mint_subsequent_success_run_never_decreases_k_from_run
                         liquidity.val * (s.storage reserve1Slot.slot).val ≤
                             amount1.val * (s.storage totalSupplySlot.slot).val →
                           PairWorldK before ≤ PairWorldK after
+
+/--
+Executable later-mint reserve-write fact. In a live pool, a successful public
+`mint` updates cached reserves to the observed token balances after the
+liquidity addition.
+-/
+def pair_mint_subsequent_success_run_updates_reserves_to_balances_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
+  let after := pairWorldAfterSubsequentMintRun liquidity s
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      0 < (s.storage totalSupplySlot.slot).val →
+        s.storage reserve0Slot.slot > 0 →
+          s.storage reserve1Slot.slot > 0 →
+            s.storage reserve0Slot.slot ≤ observedBalance0 s →
+              s.storage reserve1Slot.slot ≤ observedBalance1 s →
+                amount0 > 0 →
+                  amount1 > 0 →
+                    liquidity > 0 →
+                      liquidity.val * (s.storage reserve0Slot.slot).val ≤
+                          amount0.val * (s.storage totalSupplySlot.slot).val →
+                        liquidity.val * (s.storage reserve1Slot.slot).val ≤
+                            amount1.val * (s.storage totalSupplySlot.slot).val →
+                          after.reserve0 = after.balance0 ∧
+                            after.reserve1 = after.balance1
 
 /--
 Successful later mints cannot dilute existing LPs. Once a real `mint` succeeds

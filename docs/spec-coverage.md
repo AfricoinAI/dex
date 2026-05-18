@@ -232,8 +232,9 @@ Pair:
   directly: successful initial and later mints strictly increase LP total
   supply, and successful burns reduce LP total supply exactly by the burned
   liquidity. Successful initial and later mints now also expose the matching
-  raw cached-K fact directly: once connected to their arithmetic facts, neither
-  public mint path can decrease the cached reserve product.
+  reserve-write and raw cached-K facts directly: once connected to their
+  arithmetic facts, each public mint path caches observed token balances as
+  reserves and cannot decrease the cached reserve product.
 - Same-LP-supply spot-value no-profit projection from reserve-product
   nondecrease. The stronger closed-world LP-normalized K theorem now covers
   arbitrary finite paths from good positive-supply states: each step preserves
