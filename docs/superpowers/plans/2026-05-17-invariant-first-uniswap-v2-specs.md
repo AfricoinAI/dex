@@ -430,6 +430,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   instead of using the confusing "passive reconciliation" wording. Historical
   progress entries were left append-only.
 
+  2026-05-17 17:32 PDT checkpoint: added and fully verified the burn economic
+  bridge. A successful real `burn`, once connected to its concrete redemption
+  facts, now directly proves that remaining LP backing is preserved or
+  improved (`K / totalSupply^2` does not decrease).
+
 - [x] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when

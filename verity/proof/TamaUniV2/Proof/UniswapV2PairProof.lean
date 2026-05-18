@@ -4603,6 +4603,24 @@ theorem closed_world_burn_does_not_dilute_remaining_lp_share
   intro h_good h_positive h_step
   exact pairWorldStep_k_per_supply_never_decreases h_good h_positive h_step
 
+-- tama: discharges=pair_burn_success_run_preserves_remaining_lp_share
+theorem burn_success_run_preserves_remaining_lp_share
+    (toAddr : Address) (s : ContractState) :
+  pair_burn_success_run_preserves_remaining_lp_share
+    toAddr s ((burn toAddr).run s) := by
+  intro _h_run h_success h_good h_positive h_liquidity_pos h_supply_pos
+    h_liquidity_le h_locked_remaining h_amount0 h_amount1 h_amount0_le
+    h_amount1_le h_bound0 h_bound1 h_ratio0 h_ratio1
+  have h_step :=
+    burn_success_run_refines_closed_world toAddr s rfl h_success
+      h_liquidity_pos h_supply_pos h_liquidity_le h_locked_remaining
+      h_amount0 h_amount1 h_amount0_le h_amount1_le h_bound0 h_bound1
+      h_ratio0 h_ratio1
+  exact closed_world_burn_does_not_dilute_remaining_lp_share
+    (burnAmount0 s).val (burnAmount1 s).val (burnLiquidity s).val
+    (pairWorldFromConcreteState s) (pairWorldAfterBurnRun s)
+    h_good h_positive h_step
+
 -- tama: discharges=pair_closed_world_swap_preserves_good
 theorem closed_world_swap_preserves_good
     (amount0In amount1In amount0Out amount1Out : Nat)

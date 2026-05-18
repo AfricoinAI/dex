@@ -1493,6 +1493,41 @@ def pair_burn_success_run_refines_closed_world
     result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
       pair_burn_expected_refines_closed_world s
 
+/--
+Successful-burn economic bridge. A burn may reduce raw reserves because assets
+leave the pair, but it must not over-extract from the LPs that remain. Once the
+real public run is connected to its concrete redemption facts, the closed-world
+burn invariant proves that reserve product per squared LP supply does not
+decrease.
+-/
+def pair_burn_success_run_preserves_remaining_lp_share
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) : Prop :=
+  let before := pairWorldFromConcreteState s
+  let after := pairWorldAfterBurnRun s
+  let liquidity := burnLiquidity s
+  let amount0 := burnAmount0 s
+  let amount1 := burnAmount1 s
+  result = (burn toAddr).run s →
+    result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
+      PairWorldGood before →
+        0 < before.totalSupply →
+          0 < liquidity.val →
+            0 < (burnSupply s).val →
+              liquidity.val ≤ (burnSupply s).val →
+                minimumLiquidityNat ≤ (burnSupply s).val - liquidity.val →
+                  amount0 > 0 →
+                    amount1 > 0 →
+                      amount0 ≤ observedBalance0 s →
+                        amount1 ≤ observedBalance1 s →
+                          burnBalance0After s ≤ maxUint112 →
+                            burnBalance1After s ≤ maxUint112 →
+                              amount0.val * (burnSupply s).val ≤
+                                  liquidity.val * (observedBalance0 s).val →
+                                amount1.val * (burnSupply s).val ≤
+                                    liquidity.val * (observedBalance1 s).val →
+                                  PairWorldKPerSupplyNondecreasing before after
+
 def pair_swap_expected_refines_closed_world
     (amount0Out amount1Out balance0Now balance1Now : Uint256)
     (s : ContractState) : Prop :=
