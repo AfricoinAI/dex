@@ -3037,6 +3037,17 @@ def pair_closed_world_no_reserve_update_path_preserves_k_and_spot_value
     PairWorldSpotValueNum before after =
       PairWorldSpotValueNum before before
 
+/-- Cached reserve movement requires a reserve-update action. If either cached
+reserve differs at the endpoint, then the endpoint cannot be produced by a
+successful history made only of LP bookkeeping, direct donations, and skim.
+Some mint, burn, swap, or sync step must be present in the history. -/
+def pair_closed_world_reachable_reserve_change_requires_reserve_update
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    (after.reserve0 ≠ before.reserve0 ∨
+      after.reserve1 ≠ before.reserve1) →
+      ¬ PairWorldPathNoReserveUpdate before after
+
 /-- The one-step LP-supply firewall. A successful modeled action that is not
 mint and not burn cannot change total LP supply or the permanently locked
 liquidity amount. This is the local fact that the finite-history theorem below

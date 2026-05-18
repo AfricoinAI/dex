@@ -3760,6 +3760,19 @@ theorem closed_world_no_reserve_update_path_preserves_k_and_spot_value
   · unfold PairWorldSpotValueNum
     rw [h_reserves.1, h_reserves.2]
 
+-- tama: discharges=pair_closed_world_reachable_reserve_change_requires_reserve_update
+theorem closed_world_reachable_reserve_change_requires_reserve_update
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_reserve_change_requires_reserve_update
+    before after := by
+  intro _h_reachable h_changed h_no_reserve_update
+  have h_preserve :=
+    closed_world_no_reserve_update_path_preserves_reserves
+      before after h_no_reserve_update
+  rcases h_changed with h_reserve0_changed | h_reserve1_changed
+  · exact h_reserve0_changed h_preserve.1
+  · exact h_reserve1_changed h_preserve.2
+
 -- tama: discharges=pair_closed_world_non_liquidity_step_preserves_supply
 theorem closed_world_non_liquidity_step_preserves_supply
     (action : PairWorldAction) (before after : PairWorldState) :

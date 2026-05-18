@@ -191,8 +191,10 @@ Pair:
   reserves, total LP supply, locked liquidity, cached K, and spot-value
   measurements unchanged, reserve-update projections for
   mint/burn/swap/skim/sync, the reserve-change classifier proving only
-  mint/burn/swap/sync can rewrite cached reserves, the finite-history reserve
-  isolation theorem for histories with no reserve-update action, the shared
+  mint/burn/swap/sync can rewrite cached reserves, the reader-facing
+  finite-history reserve classifier proving cached reserve changes require a
+  mint/burn/swap/sync step, the finite-history reserve isolation theorem for
+  histories with no reserve-update action, the shared
   reserve-write theorem that mint/burn/swap/sync write cached reserves to the
   pair's actual token balances, the matching cached-K and reserve spot-value
   preservation corollary, canonical
