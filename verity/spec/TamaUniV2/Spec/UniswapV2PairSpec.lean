@@ -930,6 +930,18 @@ def pair_skim_success_run_refines_closed_world_from_run
         (pairWorldFromConcreteState s)
         (pairWorldAfterSkimRun s)
 
+/-- Successful `skim` is not a liquidity operation. Once success identifies the
+closed-world skim transition, LP total supply and locked liquidity are unchanged.
+-/
+def pair_skim_success_run_preserves_liquidity_supply_from_run
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=
+  let before := pairWorldFromConcreteState s
+  let after := pairWorldAfterSkimRun s
+  result = (skim toAddr).run s →
+    result = ContractResult.success () result.snd →
+      after.totalSupply = before.totalSupply ∧
+        after.lockedLiquidity = before.lockedLiquidity
+
 def pair_sync_run_revert_locked
     (s : ContractState) : Prop :=
   s.storage unlockedSlot.slot != 1 →
@@ -1073,6 +1085,19 @@ def pair_sync_success_run_refines_closed_world_from_run
       PairWorldStep PairWorldAction.sync
         (pairWorldFromConcreteState s)
         (pairWorldAfterSyncRun s)
+
+/-- Successful `sync` is reserve accounting, not LP issuance or redemption. Once
+success identifies the closed-world sync transition, LP total supply and locked
+liquidity are unchanged.
+-/
+def pair_sync_success_run_preserves_liquidity_supply_from_run
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  let before := pairWorldFromConcreteState s
+  let after := pairWorldAfterSyncRun s
+  result = (sync).run s →
+    result = ContractResult.success () result.snd →
+      after.totalSupply = before.totalSupply ∧
+        after.lockedLiquidity = before.lockedLiquidity
 
 /-!
 Oracle/TWAP arithmetic for reserve updates.

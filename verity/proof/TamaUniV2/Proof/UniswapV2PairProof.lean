@@ -5469,6 +5469,18 @@ theorem closed_world_skim_preserves_liquidity_supply
     h_supply, h_locked⟩
   exact ⟨h_supply, h_locked⟩
 
+-- tama: discharges=pair_skim_success_run_preserves_liquidity_supply_from_run
+theorem skim_success_run_preserves_liquidity_supply_from_run
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) :
+  pair_skim_success_run_preserves_liquidity_supply_from_run
+    toAddr s result := by
+  intro h_run h_success
+  have h_step :=
+    skim_success_run_refines_closed_world_from_run
+      toAddr s result h_run h_success
+  exact closed_world_skim_preserves_liquidity_supply
+    (pairWorldFromConcreteState s) (pairWorldAfterSkimRun s) h_step
+
 -- tama: discharges=pair_closed_world_skim_preserves_k
 theorem closed_world_skim_preserves_k
     (before after : PairWorldState) :
@@ -5957,6 +5969,16 @@ theorem closed_world_sync_preserves_liquidity_supply
   rcases h_step with ⟨_h_bound0, _h_bound1, _h_balance0, _h_balance1,
     _h_reserve0, _h_reserve1, h_supply, h_locked⟩
   exact ⟨h_supply, h_locked⟩
+
+-- tama: discharges=pair_sync_success_run_preserves_liquidity_supply_from_run
+theorem sync_success_run_preserves_liquidity_supply_from_run
+    (s : ContractState) (result : ContractResult Unit) :
+  pair_sync_success_run_preserves_liquidity_supply_from_run s result := by
+  intro h_run h_success
+  have h_step :=
+    sync_success_run_refines_closed_world_from_run s result h_run h_success
+  exact closed_world_sync_preserves_liquidity_supply
+    (pairWorldFromConcreteState s) (pairWorldAfterSyncRun s) h_step
 
 -- tama: discharges=pair_closed_world_sync_never_decreases_k
 theorem closed_world_sync_never_decreases_k

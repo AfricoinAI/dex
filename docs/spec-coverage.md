@@ -161,9 +161,9 @@ Pair:
   token-side positive-balance consequence directly: from any reachable nonempty
   pool, every finite successful modeled history leaves both actual token
   balances positive. The same layer also covers the one-step LP-supply firewall
-  for any action other than mint or burn, an executable successful-swap bridge
-  proving that swaps preserve total LP supply and locked liquidity once their
-  final-balance/K facts are available, one-step and finite-history
+  for any action other than mint or burn, executable successful-run bridges
+  proving that `swap`, `skim`, and `sync` preserve total LP supply and locked
+  liquidity once their existing transition premises are available, one-step and finite-history
   supply-direction invariants showing no-burn histories cannot decrease LP
   supply and no-mint histories cannot increase LP supply,
   path-wide LP-supply coherence,
@@ -335,10 +335,11 @@ the executable bridge from canonical public entrypoints to that story.
   to their LP-share economic conclusions once their concrete arithmetic facts
   are supplied. Successful swaps derive the zero-output guard, prove LP supply
   and locked liquidity are unchanged, and connect directly to the one-swap
-  caller no-profit theorem once final-balance/K facts are supplied. The
-  remaining bridge work is to derive more of the arithmetic premises directly
-  from successful public runs, in small prefix/suffix lemmas rather than one
-  aggregate function summary.
+  caller no-profit theorem once final-balance/K facts are supplied. Successful
+  `skim` and `sync` now also expose the LP-supply preservation conclusion
+  directly from successful runs. The remaining bridge work is to derive more of
+  the arithmetic premises directly from successful public runs, in small
+  prefix/suffix lemmas rather than one aggregate function summary.
 - Concrete success-path restoration and events: Foundry mirrors cover Mint,
   Burn, Swap, Sync, and lock restoration at runtime. Lean should expose only
   short obligations here, preferably via factored proof-local adapters for the

@@ -445,6 +445,10 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   facts, now directly proves that LP total supply and locked liquidity are
   unchanged.
 
+  2026-05-17 17:55 PDT checkpoint: added and fully verified the matching
+  successful `skim`/`sync` supply bridges. Successful cleanup/accounting calls
+  now directly prove LP total supply and locked liquidity are unchanged.
+
 - [x] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when
