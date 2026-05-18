@@ -447,14 +447,16 @@ the executable bridge from canonical public entrypoints to that story.
   model if it tracks real action-level token and LP ownership changes.
 - Donation surplus: the closed-world model now tracks token-side reserve
   surplus directly. Donations increase surplus exactly, and finite successful
-  histories with no donation step cannot create new surplus. The zero-surplus
-  corollary states the exact clean-start invariant: no-donation histories
-  preserve zero skimmable surplus on both token sides, and the endpoint-balance
-  corollary states the same fact in direct accounting form: balances equal
-  reserves at the end. This is the Tamago-style premise that makes the
-  balanced-start token-balance no-profit theorem honest: `skim` can remove an
-  external gift, but ordinary pair mechanics cannot manufacture that gift
-  internally.
+  histories with no donation step cannot create new surplus. The reader-facing
+  classifier now states the contrapositive directly: if either token-side
+  skimmable surplus increases, a donation step is necessary somewhere in the
+  history. The zero-surplus corollary states the exact clean-start invariant:
+  no-donation histories preserve zero skimmable surplus on both token sides,
+  and the endpoint-balance corollary states the same fact in direct accounting
+  form: balances equal reserves at the end. This is the Tamago-style premise
+  that makes the balanced-start token-balance no-profit theorem honest: `skim`
+  can remove an external gift, but ordinary pair mechanics cannot manufacture
+  that gift internally.
 - Factory invariants: the closed-world reachable and path invariants are now in
   place, failed-create atomicity is proved, and successful create is bridged
   into the factory-world transition for both the empty base case and arbitrary
