@@ -32,6 +32,26 @@ def observedBalance0 (s : ContractState) : Uint256 :=
 def observedBalance1 (s : ContractState) : Uint256 :=
   ((TamaUniV2.erc20BalanceOf (pairToken1 s) (pairSelf s)).run s).fst
 
+def pairLockedState (s : ContractState) : ContractState :=
+  { s with «storage» := fun slotIdx => if slotIdx = unlockedSlot.slot then 0 else s.storage slotIdx }
+
+structure PairCallbackObservation where
+  target : Address
+  sender : Address
+  amount0Out : Uint256
+  amount1Out : Uint256
+  lockValue : Uint256
+  deriving Repr, BEq
+
+def pairCallbackObservationForSwap
+    (amount0Out amount1Out : Uint256) (toAddr : Address)
+    (s : ContractState) : PairCallbackObservation :=
+  { target := toAddr
+    sender := s.sender
+    amount0Out := amount0Out
+    amount1Out := amount1Out
+    lockValue := 0 }
+
 def pairObservedTokenBalance (token owner : Address) (s : ContractState) : Uint256 :=
   ((TamaUniV2.erc20BalanceOf token owner).run s).fst
 

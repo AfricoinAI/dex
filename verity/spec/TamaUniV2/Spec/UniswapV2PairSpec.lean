@@ -1007,6 +1007,45 @@ def pair_reentrancy_guard_blocks_all_mutating_entrypoints
     (skim skimTo).run s = ContractResult.revert "UniswapV2: LOCKED" s ∧
     (sync).run s = ContractResult.revert "UniswapV2: LOCKED" s
 
+/--
+Flash callbacks run while the pair is locked.
+
+The recipient callback may attempt arbitrary nested calls. Any nested call back
+into the pair sees the lock value closed, because the swap closes the lock
+before optimistic transfers and callback execution.
+-/
+def pair_flash_callback_runs_while_pair_is_locked
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) : Prop :=
+  data.size > 0 →
+    (pairCallbackObservationForSwap amount0Out amount1Out toAddr s).lockValue = 0
+
+/--
+Any attempt to mutate the pair during a flash callback is blocked by the normal
+reentrancy guard.
+
+This is the callback-facing version of the global lock invariant above: mint,
+burn, swap, skim, and sync all reject before durable side effects when the
+callback reaches the pair while the lock is closed.
+-/
+def pair_flash_callback_reentry_attempts_revert_locked
+    (mintTo burnTo skimTo swapTo : Address)
+    (amount0Out amount1Out nested0Out nested1Out : Uint256)
+    (data nestedData : ByteArray)
+    (s : ContractState) : Prop :=
+  data.size > 0 →
+    let callbackState := pairLockedState s
+    (mint mintTo).run callbackState =
+      ContractResult.revert "UniswapV2: LOCKED" callbackState ∧
+    (burn burnTo).run callbackState =
+      ContractResult.revert "UniswapV2: LOCKED" callbackState ∧
+    (swap nested0Out nested1Out swapTo nestedData).run callbackState =
+      ContractResult.revert "UniswapV2: LOCKED" callbackState ∧
+    (skim skimTo).run callbackState =
+      ContractResult.revert "UniswapV2: LOCKED" callbackState ∧
+    (sync).run callbackState =
+      ContractResult.revert "UniswapV2: LOCKED" callbackState
+
 /-- If `mint` succeeds, the initial lock value must have been open. -/
 def pair_mint_success_run_implies_lock_open
     (toAddr : Address) (s : ContractState)

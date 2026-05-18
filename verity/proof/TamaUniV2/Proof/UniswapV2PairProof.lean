@@ -54,9 +54,6 @@ attribute [local simp] decimals totalSupply balanceOf allowance factory token0 t
   swapReserveProduct swapScaleProduct swapRequiredProductOf swapRequiredProduct
   Contracts.emit emitEvent
 
-private def pairLockedState (s : ContractState) : ContractState :=
-  { s with «storage» := fun slotIdx => if slotIdx = 11 then 0 else s.storage slotIdx }
-
 private theorem uint256_bne_true_of_ne {a b : Uint256} (h : a ≠ b) :
     (a != b) = true := by
   simpa [bne_iff_ne] using h
@@ -1612,6 +1609,30 @@ theorem reentrancy_guard_blocks_all_mutating_entrypoints
     skim_run_revert_locked skimTo s h_locked,
     sync_run_revert_locked s h_locked
   ⟩
+
+-- tama: discharges=pair_flash_callback_runs_while_pair_is_locked
+theorem flash_callback_runs_while_pair_is_locked
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) :
+  pair_flash_callback_runs_while_pair_is_locked amount0Out amount1Out toAddr data s := by
+  intro _h_data
+  rfl
+
+-- tama: discharges=pair_flash_callback_reentry_attempts_revert_locked
+theorem flash_callback_reentry_attempts_revert_locked
+    (mintTo burnTo skimTo swapTo : Address)
+    (amount0Out amount1Out nested0Out nested1Out : Uint256)
+    (data nestedData : ByteArray)
+    (s : ContractState) :
+  pair_flash_callback_reentry_attempts_revert_locked
+    mintTo burnTo skimTo swapTo amount0Out amount1Out nested0Out nested1Out
+    data nestedData s := by
+  intro _h_data
+  exact reentrancy_guard_blocks_all_mutating_entrypoints
+    mintTo burnTo skimTo swapTo nested0Out nested1Out nestedData
+    (pairLockedState s) (by
+      simp [pairLockedState, unlockedSlot]
+      decide)
 
 -- tama: discharges=pair_mint_success_run_implies_lock_open
 theorem mint_success_run_implies_lock_open

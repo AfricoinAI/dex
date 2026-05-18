@@ -63,6 +63,7 @@ contract ReentrantCallee {
     uint256 public amount0In;
     uint256 public amount1In;
     bool public reentryRejected;
+    uint256 public rejectedCount;
 
     constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_) {
         pair = pair_;
@@ -73,11 +74,32 @@ contract ReentrantCallee {
     }
 
     function uniswapV2Call(address, uint256, uint256, bytes calldata) external {
-        try pair.sync() {
-            revert("REENTRY_ALLOWED");
+        try pair.mint(address(this)) returns (uint256) {
+            revert("MINT_REENTRY_ALLOWED");
         } catch {
-            reentryRejected = true;
+            rejectedCount++;
         }
+        try pair.burn(address(this)) returns (uint256, uint256) {
+            revert("BURN_REENTRY_ALLOWED");
+        } catch {
+            rejectedCount++;
+        }
+        try pair.swap(0, 1, address(this), "") {
+            revert("SWAP_REENTRY_ALLOWED");
+        } catch {
+            rejectedCount++;
+        }
+        try pair.skim(address(this)) {
+            revert("SKIM_REENTRY_ALLOWED");
+        } catch {
+            rejectedCount++;
+        }
+        try pair.sync() {
+            revert("SYNC_REENTRY_ALLOWED");
+        } catch {
+            rejectedCount++;
+        }
+        reentryRejected = rejectedCount == 5;
         if (amount0In > 0) require(token0.transfer(msg.sender, amount0In), "REENTER_TRANSFER0");
         if (amount1In > 0) require(token1.transfer(msg.sender, amount1In), "REENTER_TRANSFER1");
     }
@@ -458,6 +480,8 @@ contract UniswapV2CoreTest is Test {
         assertEq(pair.kLast(), 0);
     }
 
+    // tama: mirrors=pair_flash_callback_runs_while_pair_is_locked
+    // tama: mirrors=pair_flash_callback_reentry_attempts_revert_locked
     function testFuzzFlashSwapCallbackCannotReenterPair() public {
         seed(10_000, 10_000);
         uint256 requiredIn = getAmountIn(1_000, 10_000, 10_000);
@@ -469,6 +493,7 @@ contract UniswapV2CoreTest is Test {
         pair.swap(1_000, 0, address(callee), abi.encode(uint256(1)));
 
         assertTrue(callee.reentryRejected());
+        assertEq(callee.rejectedCount(), 5);
     }
 
     function testFuzzSkimAndSync() public {

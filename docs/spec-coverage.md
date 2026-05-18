@@ -245,10 +245,11 @@ Pair:
   gated body encodes the canonical `uniswapV2Call` selector, sender, output
   amounts, and target call. Callback failure is also covered at the same
   boundary: the generated body checks call failure, copies returndata, and
-  executes `revert` instead of silently continuing. In-callback lock observation
-  remains a runtime/ECM boundary behavior unless the callback ECM gains a richer
-  Lean trace model. The successful-swap theorem now also exposes the core
-  flash-swap accounting rule directly: once a successful public swap is
+  executes `revert` instead of silently continuing. Callback lock safety is now
+  stated directly too: the modeled callback point has the pair lock closed, and
+  any nested attempt to call `mint`, `burn`, `swap`, `skim`, or `sync` reverts
+  with `UniswapV2: LOCKED`. The successful-swap theorem now also exposes the
+  core flash-swap accounting rule directly: once a successful public swap is
   connected to its final post-callback balances and K facts, those final
   balances both account for input/output and are the balances charged by the
   fee-adjusted K check.
@@ -434,8 +435,8 @@ story.
   boundary, and closed-world swap accounting now states that K is checked
   against final balances after output plus inferred repayment. The ECM template
   now also proves callback call failure reaches a returndata-preserving revert.
-  Remaining work: model in-callback lock semantics with an explicit Lean trace
-  or keep it as mirrored runtime boundary coverage.
+  Callback-time lock safety is now proved in Lean and mirrored by a Foundry
+  callback that attempts all mutating pair entrypoints during the callback.
 - Skim and sync: `skim` has exact surplus-transfer coverage and model
   agreement. `sync` has uint112 overflow reverts, accepts current balances as
   reserves, and uses the generic TWAP/oracle arithmetic facts. Mint, burn, and

@@ -411,7 +411,7 @@ git commit -m "Prove swap uses final balances"
 - Modify: `docs/agent-progress.md`
 - Test: `test/verity/UniswapV2Core.t.sol`
 
-- [ ] **Step 1: Inspect current callback ECM trace hooks**
+- [x] **Step 1: Inspect current callback ECM trace hooks**
 
 Run:
 
@@ -421,7 +421,7 @@ rg -n "uniswapV2CallbackModule|callback|uniswapV2Call|trace" verity/src verity/c
 
 Expected: locate the callback ECM and existing compile-template proofs.
 
-- [ ] **Step 2: Add a proof record for callback-time lock state**
+- [x] **Step 2: Add a proof record for callback-time lock state**
 
 In `verity/common/TamaUniV2/Common/UniswapV2PairConcrete.lean`, add a proof-only event predicate that records the lock value immediately before the callback ECM:
 
@@ -446,7 +446,7 @@ def pairCallbackObservationForSwap
 
 This is proof-only bookkeeping, not contract storage or ABI.
 
-- [ ] **Step 3: Add public flash-callback lock spec**
+- [x] **Step 3: Add public flash-callback lock spec**
 
 Add:
 
@@ -467,7 +467,7 @@ def pair_flash_callback_runs_while_pair_is_locked
 
 If `ByteArray.size` is not the right accessor in this codebase, use the same data-length accessor already used by the callback ECM proof.
 
-- [ ] **Step 4: Prove flash-callback lock spec**
+- [x] **Step 4: Prove flash-callback lock spec**
 
 ```lean
 -- tama: discharges=pair_flash_callback_runs_while_pair_is_locked
@@ -479,7 +479,7 @@ theorem flash_callback_runs_while_pair_is_locked
   rfl
 ```
 
-- [ ] **Step 5: Add callback reentry blocked spec**
+- [x] **Step 5: Add callback reentry blocked spec**
 
 State the direct fact for all mutating Pair entrypoints:
 
@@ -509,7 +509,7 @@ def pair_flash_callback_reentry_attempts_revert_locked
 
 If `pairLockedState` is currently private in the proof file, move a non-invasive proof-model copy to `UniswapV2PairConcrete.lean` or define a public spec-local locked-state helper. Do not modify contract source.
 
-- [ ] **Step 6: Prove callback reentry blocked spec**
+- [x] **Step 6: Prove callback reentry blocked spec**
 
 Reuse the existing `reentrancy_guard_blocks_all_mutating_entrypoints` theorem by applying it to `callbackState`.
 
@@ -529,7 +529,7 @@ theorem flash_callback_reentry_attempts_revert_locked
     (pairLockedState s) (by simp [pairLockedState, unlockedSlot])
 ```
 
-- [ ] **Step 7: Add/confirm Foundry mirror**
+- [x] **Step 7: Add/confirm Foundry mirror**
 
 Confirm existing Foundry test:
 
@@ -539,9 +539,10 @@ rg -n "CallbackCannotReenter|reenter|LOCKED" test/verity/UniswapV2Core.t.sol
 
 Expected: existing test `testFuzzFlashSwapCallbackCannotReenterPair`.
 
-If missing, add a mirror that attempts `mint`, `burn`, `swap`, `skim`, and `sync` from the callback and checks `LOCKED`.
+The mirror now attempts `mint`, `burn`, `swap`, `skim`, and `sync` from the
+callback and confirms all five attempts are rejected.
 
-- [ ] **Step 8: Verify and commit**
+- [x] **Step 8: Verify and commit**
 
 Run full verification and commit. Do not add normal spec obligations to
 `tama.toml`; the spec `def`s are obligations automatically.
