@@ -1953,6 +1953,41 @@ def pair_swap_success_run_never_decreases_k_from_run
                           PairWorldK before ≤ PairWorldK after
 
 /--
+Executable swap reserve-write fact. The swap's K check is charged against final
+post-output, post-callback balances, and the successful path then caches those
+same final balances as reserves.
+-/
+def pair_swap_success_run_updates_reserves_to_balances_from_run
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  let after := pairWorldAfterSwapRun balance0Now balance1Now s
+  let amount0In := swapAmount0In amount0Out balance0Now s
+  let amount1In := swapAmount1In amount1Out balance1Now s
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      amount0Out < s.storage reserve0Slot.slot →
+        amount1Out < s.storage reserve1Slot.slot →
+          (amount0In > 0 ∨ amount1In > 0) →
+            balance0Now.val =
+                (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
+              balance1Now.val =
+                  (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
+                balance0Now ≤ maxUint112 →
+                  balance1Now ≤ maxUint112 →
+                    amount0In.val * feeAdjustmentNat ≤
+                        balance0Now.val * feeDenominatorNat →
+                      amount1In.val * feeAdjustmentNat ≤
+                          balance1Now.val * feeDenominatorNat →
+                        feeAdjustedBalance balance0Now.val amount0In.val *
+                            feeAdjustedBalance balance1Now.val amount1In.val ≥
+                          requiredK
+                            (s.storage reserve0Slot.slot).val
+                            (s.storage reserve1Slot.slot).val →
+                          after.reserve0 = after.balance0 ∧
+                            after.reserve1 = after.balance1
+
+/--
 Public swap bridge to caller no-profit.
 
 The executable swap bridge above connects a successful public run to a modeled

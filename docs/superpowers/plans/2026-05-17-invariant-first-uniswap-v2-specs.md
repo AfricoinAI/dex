@@ -218,6 +218,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   public `mint` runs now state directly that cached reserves are set to the
   observed token balances once connected to their arithmetic facts.
 
+  2026-05-17 18:24 PDT checkpoint: split out the executable swap reserve-write
+  fact from the larger swap oracle bridge. Successful public `swap` runs now
+  state directly that the final post-output, post-callback balances are cached
+  as reserves once the final-balance/K facts are supplied.
+
   2026-05-17 07:59 PDT checkpoint: added the reserve-change classifier. Cached
   reserves can change only through mint, burn, swap, or sync; share
   bookkeeping, direct donation, and skim cannot secretly rewrite router-visible
