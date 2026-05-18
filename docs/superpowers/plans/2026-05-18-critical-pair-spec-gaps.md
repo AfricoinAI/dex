@@ -52,6 +52,7 @@ Therefore no finite sequence of modeled Pair interactions by one caller can crea
 **Files:**
 - Modify: `verity/spec/TamaUniV2/Spec/UniswapV2PairSpec.lean`
 - Modify: `verity/proof/TamaUniV2/Proof/UniswapV2PairProof.lean`
+- Modify: `tama.toml`
 - Modify: `docs/spec-coverage.md`
 - Modify: `docs/agent-progress.md`
 
@@ -545,7 +546,10 @@ callback and confirms all five attempts are rejected.
 - [x] **Step 8: Verify and commit**
 
 Run full verification and commit. Do not add normal spec obligations to
-`tama.toml`; the spec `def`s are obligations automatically.
+`tama.toml`; the spec `def`s are obligations automatically. The single-caller
+wallet facts are model-only Lean theorems, so they receive
+`coverage.proof_only` explanations rather than Foundry mirrors or trust
+entries.
 
 ```bash
 git add verity/common/TamaUniV2/Common/UniswapV2PairConcrete.lean \
@@ -563,6 +567,14 @@ tokens, and the pair. The key theorem should not assume the caller finishes with
 the same LP balance or that total LP supply is unchanged. Instead, the caller's
 portfolio value includes their LP claim on the pool.
 
+**Implementation correction from review:** the final model assumes the single
+caller owns all LP supply except the permanent minimum-liquidity lock. That is
+the precise “only one actor” condition needed to make the theorem true. Fresh
+token transfers into the pair are represented by `callerDonate`; `mint` and
+`swap` consume already-visible surplus, because the real pair contract reads
+token balances already held by the pair and does not take token-input
+arguments.
+
 **Files:**
 - Modify: `verity/common/TamaUniV2/Common/UniswapV2PairGhost.lean`
 - Modify: `verity/spec/TamaUniV2/Spec/UniswapV2PairSpec.lean`
@@ -570,7 +582,7 @@ portfolio value includes their LP claim on the pool.
 - Modify: `docs/spec-coverage.md`
 - Modify: `docs/agent-progress.md`
 
-- [ ] **Step 1: Add caller-and-pair state**
+- [x] **Step 1: Add caller-and-pair state**
 
 Add to `UniswapV2PairGhost.lean` after `PairWorldState`:
 
@@ -608,7 +620,7 @@ The denominator is `w.pair.totalSupply`. Keeping the value as a numerator avoids
 division and lets the theorem compare states even when mint or burn changes LP
 total supply.
 
-- [ ] **Step 2: Add single-caller actions**
+- [x] **Step 2: Add single-caller actions**
 
 Do not include a generic “someone changed the pair” action. The whole point of
 this model is that there is exactly one actor.
@@ -628,7 +640,7 @@ Later, if we need full LP ERC20 coverage here, add caller-only LP transfer
 actions that can reduce or preserve `callerLp`; do not add an action that gives
 the caller LP from an unmodeled outside address.
 
-- [ ] **Step 3: Say how each single-caller action changes balances**
+- [x] **Step 3: Say how each single-caller action changes balances**
 
 ```lean
 def PairWalletStep
@@ -652,20 +664,20 @@ def PairWalletStep
       after.callerToken1 = before.callerToken1 + amount1 ∧
       after.callerLp = before.callerLp
   | PairWalletAction.callerSwap amount0In amount1In amount0Out amount1Out =>
-      before.callerToken0 ≥ amount0In ∧
-      before.callerToken1 ≥ amount1In ∧
       PairWorldStep
         (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
         before.pair after.pair ∧
-      after.callerToken0 = before.callerToken0 - amount0In + amount0Out ∧
-      after.callerToken1 = before.callerToken1 - amount1In + amount1Out ∧
+      amount0In = PairWorldSurplus0 before.pair ∧
+      amount1In = PairWorldSurplus1 before.pair ∧
+      after.callerToken0 = before.callerToken0 + amount0Out ∧
+      after.callerToken1 = before.callerToken1 + amount1Out ∧
       after.callerLp = before.callerLp
   | PairWalletAction.callerMint amount0 amount1 liquidity =>
-      before.callerToken0 ≥ amount0 ∧
-      before.callerToken1 ≥ amount1 ∧
       PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before.pair after.pair ∧
-      after.callerToken0 = before.callerToken0 - amount0 ∧
-      after.callerToken1 = before.callerToken1 - amount1 ∧
+      amount0 = PairWorldSurplus0 before.pair ∧
+      amount1 = PairWorldSurplus1 before.pair ∧
+      after.callerToken0 = before.callerToken0 ∧
+      after.callerToken1 = before.callerToken1 ∧
       after.callerLp = before.callerLp + liquidity
   | PairWalletAction.callerBurn amount0 amount1 liquidity =>
       before.callerLp ≥ liquidity ∧
@@ -680,7 +692,7 @@ def PairWalletStep
       after.callerLp = before.callerLp
 ```
 
-- [ ] **Step 4: Add finite single-caller histories**
+- [x] **Step 4: Add finite single-caller histories**
 
 ```lean
 inductive PairWalletHistory : PairWalletWorldState → PairWalletWorldState → Prop where
@@ -695,7 +707,7 @@ Because the only actions are caller actions, this history relation is the
 single-actor assumption. No separate “same LP balance,” “same LP supply,” or
 “no outside value enters” premise should appear in the final theorem.
 
-- [ ] **Step 5: Prove one-step portfolio facts**
+- [x] **Step 5: Prove one-step portfolio facts**
 
 Add short specs for the one-step facts the history proof needs:
 
@@ -705,7 +717,7 @@ the starting spot price. -/
 def pair_wallet_swap_does_not_increase_portfolio_value
     (amount0In amount1In amount0Out amount1Out : Nat)
     (before after : PairWalletWorldState) : Prop :=
-  PairWorldReachable before.pair →
+  PairWalletGood before →
     0 < before.pair.totalSupply →
       0 < before.pair.reserve0 →
         0 < before.pair.reserve1 →
@@ -723,7 +735,7 @@ cannot create value. -/
 def pair_wallet_mint_does_not_increase_portfolio_value
     (amount0 amount1 liquidity : Nat)
     (before after : PairWalletWorldState) : Prop :=
-  PairWorldReachable before.pair →
+  PairWalletGood before →
     0 < before.pair.totalSupply →
       0 < before.pair.reserve0 →
         0 < before.pair.reserve1 →
@@ -741,7 +753,7 @@ pool's pro-rata redemption rule. -/
 def pair_wallet_burn_does_not_increase_portfolio_value
     (amount0 amount1 liquidity : Nat)
     (before after : PairWalletWorldState) : Prop :=
-  PairWorldReachable before.pair →
+  PairWalletGood before →
     0 < before.pair.totalSupply →
       0 < before.pair.reserve0 →
         0 < before.pair.reserve1 →
@@ -758,7 +770,7 @@ surplus was already counted as caller-controlled value, `skim` cannot increase
 portfolio value. -/
 def pair_wallet_skim_does_not_increase_portfolio_value
     (before after : PairWalletWorldState) : Prop :=
-  PairWorldReachable before.pair →
+  PairWalletGood before →
     0 < before.pair.totalSupply →
       0 < before.pair.reserve0 →
         0 < before.pair.reserve1 →
@@ -779,7 +791,7 @@ def pair_wallet_passive_action_does_not_increase_portfolio_value
   (action = PairWalletAction.callerApprove ∨
     action = PairWalletAction.callerSync ∨
     ∃ amount0 amount1, action = PairWalletAction.callerDonate amount0 amount1) →
-    PairWorldReachable before.pair →
+    PairWalletGood before →
       0 < before.pair.totalSupply →
         0 < before.pair.reserve0 →
           0 < before.pair.reserve1 →
@@ -793,7 +805,7 @@ def pair_wallet_passive_action_does_not_increase_portfolio_value
 Each spec should be a short statement about one action. The comments should
 explain the economic reason in reader language, not proof machinery language.
 
-- [ ] **Step 6: Prove arbitrary single-caller no-profit theorem**
+- [x] **Step 6: Prove arbitrary single-caller no-profit theorem**
 
 This is the central theorem and replaces the previous weaker theorem that only
 worked when LP balances and LP supply ended unchanged.
@@ -802,9 +814,10 @@ worked when LP balances and LP supply ended unchanged.
 /--
 Single-caller portfolio no-profit theorem.
 
-Assume the pool is reachable and has a meaningful starting spot price. If one
-caller is the only actor in a finite history, then after any sequence of valid
-pair interactions, the caller's portfolio value at the initial spot price is no
+Assume the caller owns all LP supply except the permanently locked minimum
+liquidity and the pool has a meaningful starting spot price. If that caller is
+the only actor in a finite history, then after any sequence of valid pair
+interactions, the caller's portfolio value at the initial spot price is no
 greater than it was at the start.
 
 The portfolio includes wallet tokens, the caller's LP claim on cached reserves,
@@ -814,7 +827,7 @@ pool's total LP supply is unchanged.
 -/
 def pair_wallet_single_caller_history_no_portfolio_profit
     (before after : PairWalletWorldState) : Prop :=
-  PairWorldReachable before.pair →
+  PairWalletGood before →
     0 < before.pair.totalSupply →
       0 < before.pair.reserve0 →
         0 < before.pair.reserve1 →
@@ -835,7 +848,7 @@ portfolio facts from Step 5 and existing pair facts:
 - donation moves wallet value into pair value and cannot increase the caller's
   LP-adjusted portfolio.
 
-- [ ] **Step 7: Verify and commit**
+- [x] **Step 7: Verify and commit**
 
 Run:
 
@@ -854,7 +867,7 @@ Commit:
 ```bash
 git add verity/common/TamaUniV2/Common/UniswapV2PairGhost.lean \
   verity/spec/TamaUniV2/Spec/UniswapV2PairSpec.lean \
-  verity/proof/TamaUniV2/Proof/UniswapV2PairProof.lean \
+  verity/proof/TamaUniV2/Proof/UniswapV2PairProof.lean tama.toml \
   docs/spec-coverage.md docs/agent-progress.md
 git commit -m "Add caller wallet no-profit model"
 ```

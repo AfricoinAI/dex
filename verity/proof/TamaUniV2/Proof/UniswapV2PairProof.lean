@@ -5523,6 +5523,269 @@ theorem closed_world_reachable_path_lp_share_backing_never_decreases
   exact pairWorldPath_k_per_supply_never_decreases
     (pairWorldReachable_good before h_reachable) h_positive h_path
 
+private theorem pairWalletStep_pairPath
+    {action : PairWalletAction} {before after : PairWalletWorldState} :
+  PairWalletStep action before after →
+    PairWorldPath before.pair after.pair := by
+  intro h_step
+  cases action <;>
+    simp [PairWalletStep] at h_step
+  · subst after
+    exact PairWorldPath.refl before.pair
+  · exact PairWorldPath.step _ (PairWorldPath.refl before.pair) h_step.2.2.1
+  · exact PairWorldPath.step _ (PairWorldPath.refl before.pair) h_step.1
+  · exact PairWorldPath.step _ (PairWorldPath.refl before.pair) h_step.1
+  · exact PairWorldPath.step _ (PairWorldPath.refl before.pair) h_step.1
+  · exact PairWorldPath.step _ (PairWorldPath.refl before.pair) h_step.2.1
+  · exact PairWorldPath.step _ (PairWorldPath.refl before.pair) h_step.1
+
+private theorem pairWalletHistory_pairPath
+    {before after : PairWalletWorldState} :
+  PairWalletHistory before after →
+    PairWorldPath before.pair after.pair := by
+  intro h_history
+  induction h_history with
+  | refl => exact PairWorldPath.refl before.pair
+  | step action h_prefix h_step ih =>
+      cases action <;>
+        simp [PairWalletStep] at h_step
+      · simpa [h_step] using ih
+      · exact PairWorldPath.step (PairWorldAction.donate _ _) ih h_step.2.2.1
+      · exact PairWorldPath.step PairWorldAction.skim ih h_step.1
+      · exact PairWorldPath.step
+          (PairWorldAction.swap _ _ _ _) ih h_step.1
+      · exact PairWorldPath.step
+          (PairWorldAction.mint _ _ _) ih h_step.1
+      · exact PairWorldPath.step
+          (PairWorldAction.burn _ _ _) ih h_step.2.1
+      · exact PairWorldPath.step PairWorldAction.sync ih h_step.1
+
+private theorem pairWalletStep_total_value_conserved
+    (spot : PairWorldState) {action : PairWalletAction}
+    {before after : PairWalletWorldState} :
+  PairWalletGood before →
+    PairWalletStep action before after →
+      PairWalletTotalTokenValueAtSpot spot before =
+        PairWalletTotalTokenValueAtSpot spot after := by
+  intro h_good h_step
+  rcases h_good with ⟨h_pair_good, _h_wallet⟩
+  rcases h_pair_good with ⟨h_back0, h_back1, _h_bound0, _h_bound1, _h_supply⟩
+  cases action <;>
+    simp [PairWalletStep, PairWorldStep, PairWorldMintStep, PairWorldBurnStep,
+      PairWorldSwapStep, PairWorldSkimStep, PairWorldSyncStep] at h_step
+  · subst after
+    rfl
+  · rcases h_step with ⟨h_token0, h_token1, h_pair, h_caller0, h_caller1, _h_lp⟩
+    rename_i amount0 amount1
+    rcases h_pair with ⟨h_balance0, h_balance1, _h_reserve0, _h_reserve1,
+      _h_supply, _h_locked⟩
+    have h_caller0_add : after.callerToken0 + amount0 = before.callerToken0 := by
+      rw [h_caller0]
+      omega
+    have h_caller1_add : after.callerToken1 + amount1 = before.callerToken1 := by
+      rw [h_caller1]
+      omega
+    unfold PairWalletTotalTokenValueAtSpot PairWalletCallerTokenValueAtSpot
+      PairWorldBalanceSpotValueNum
+    rw [h_balance0, h_balance1]
+    nlinarith
+  · rcases h_step with ⟨h_pair, h_amount0, h_amount1, h_caller0, h_caller1, _h_lp⟩
+    rcases h_pair with ⟨h_balance0, h_balance1, _h_reserve0, _h_reserve1,
+      _h_supply, _h_locked⟩
+    have h_surplus0 :
+        before.pair.balance0 =
+          before.pair.reserve0 + PairWorldSurplus0 before.pair := by
+      unfold PairWorldSurplus0
+      omega
+    have h_surplus1 :
+        before.pair.balance1 =
+          before.pair.reserve1 + PairWorldSurplus1 before.pair := by
+      unfold PairWorldSurplus1
+      omega
+    unfold PairWalletTotalTokenValueAtSpot PairWalletCallerTokenValueAtSpot
+      PairWorldBalanceSpotValueNum
+    rw [h_caller0, h_caller1, h_balance0, h_balance1, h_amount0, h_amount1,
+      h_surplus0, h_surplus1]
+    nlinarith
+  · rcases h_step with ⟨h_pair, h_amount0In, h_amount1In, h_caller0,
+      h_caller1, _h_lp⟩
+    rename_i amount0In amount1In amount0Out amount1Out
+    rcases h_pair with ⟨_h_output, _h_liq0, _h_liq1, h_enough0, h_enough1,
+      _h_input, h_balance0, h_balance1, _h_reserve0, _h_reserve1, _h_bound0,
+      _h_bound1, _h_supply, _h_locked, _h_fee0, _h_fee1, _h_k⟩
+    have h_before_balance0 :
+        before.pair.balance0 = before.pair.reserve0 + amount0In := by
+      rw [h_amount0In]
+      unfold PairWorldSurplus0
+      omega
+    have h_before_balance1 :
+        before.pair.balance1 = before.pair.reserve1 + amount1In := by
+      rw [h_amount1In]
+      unfold PairWorldSurplus1
+      omega
+    have h_after_plus0 :
+        after.pair.balance0 + amount0Out = before.pair.reserve0 + amount0In := by
+      rw [h_balance0, Nat.sub_add_cancel h_enough0]
+    have h_after_plus1 :
+        after.pair.balance1 + amount1Out = before.pair.reserve1 + amount1In := by
+      rw [h_balance1, Nat.sub_add_cancel h_enough1]
+    unfold PairWalletTotalTokenValueAtSpot PairWalletCallerTokenValueAtSpot
+      PairWorldBalanceSpotValueNum
+    rw [h_caller0, h_caller1, h_before_balance0, h_before_balance1]
+    nlinarith
+  · rcases h_step with ⟨h_pair, _h_amount0, _h_amount1, h_caller0,
+      h_caller1, _h_lp⟩
+    rcases h_pair with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+      _h_balance0_before, _h_balance1_before, h_balance0, h_balance1,
+      _h_reserve0, _h_reserve1, _h_bound0, _h_bound1, _h_supply, _h_locked,
+      _h_ratio⟩
+    unfold PairWalletTotalTokenValueAtSpot PairWalletCallerTokenValueAtSpot
+      PairWorldBalanceSpotValueNum
+    rw [h_caller0, h_caller1, h_balance0, h_balance1]
+  · rcases h_step with ⟨_h_lp_enough, h_pair, h_caller0, h_caller1, _h_lp⟩
+    rename_i amount0 amount1 liquidity
+    rcases h_pair with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+      _h_supply_pos, h_amount0_le, h_amount1_le, _h_liq_le, _h_locked_le,
+      h_balance0, h_balance1, _h_reserve0, _h_reserve1, _h_bound0, _h_bound1,
+      _h_supply, _h_locked, _h_ratio0, _h_ratio1⟩
+    have h_balance0_add : after.pair.balance0 + amount0 = before.pair.balance0 := by
+      rw [h_balance0]
+      omega
+    have h_balance1_add : after.pair.balance1 + amount1 = before.pair.balance1 := by
+      rw [h_balance1]
+      omega
+    unfold PairWalletTotalTokenValueAtSpot PairWalletCallerTokenValueAtSpot
+      PairWorldBalanceSpotValueNum
+    rw [h_caller0, h_caller1]
+    nlinarith
+  · rcases h_step with ⟨h_pair, h_caller0, h_caller1, _h_lp⟩
+    rcases h_pair with ⟨_h_bound0, _h_bound1, h_balance0, h_balance1,
+      _h_reserve0, _h_reserve1, _h_supply, _h_locked⟩
+    unfold PairWalletTotalTokenValueAtSpot PairWalletCallerTokenValueAtSpot
+      PairWorldBalanceSpotValueNum
+    rw [h_caller0, h_caller1, h_balance0, h_balance1]
+
+private theorem pairWorldGood_positive_supply_locked_pos
+    {w : PairWorldState} :
+  PairWorldGood w →
+    0 < w.totalSupply →
+      0 < w.lockedLiquidity := by
+  intro h_good h_positive
+  rcases h_good with ⟨_h_back0, _h_back1, _h_bound0, _h_bound1, h_supply_good⟩
+  rcases h_supply_good with h_empty | h_nonempty
+  · omega
+  · rcases h_nonempty with ⟨_h_supply, h_locked, _h_min⟩
+    rw [h_locked]
+    norm_num [minimumLiquidityNat]
+
+private theorem pairWalletStep_preserves_good_and_positive
+    {action : PairWalletAction} {before after : PairWalletWorldState} :
+  PairWalletGood before →
+    0 < before.pair.totalSupply →
+      PairWalletStep action before after →
+        PairWalletGood after ∧
+          0 < after.pair.totalSupply ∧
+          after.pair.lockedLiquidity = before.pair.lockedLiquidity := by
+  intro h_good h_positive h_step
+  rcases h_good with ⟨h_pair_good, h_wallet⟩
+  cases action <;>
+    simp [PairWalletStep, PairWorldStep, PairWorldMintStep, PairWorldBurnStep,
+      PairWorldSwapStep, PairWorldSkimStep, PairWorldSyncStep] at h_step
+  · subst after
+    exact ⟨⟨h_pair_good, h_wallet⟩, h_positive, rfl⟩
+  · rcases h_step with ⟨_h_token0, _h_token1, h_pair, _h_caller0, _h_caller1,
+      h_lp⟩
+    rename_i amount0 amount1
+    have h_pair_step :
+        PairWorldStep (PairWorldAction.donate amount0 amount1) before.pair after.pair := by
+      simpa [PairWorldStep] using h_pair
+    rcases h_pair with ⟨_h_balance0, _h_balance1, _h_reserve0, _h_reserve1,
+      h_supply, h_locked⟩
+    have h_pair_good_after := pairWorldStep_preserves_good h_pair_good h_pair_step
+    constructor
+    · constructor
+      · exact h_pair_good_after
+      · omega
+    · omega
+  · rcases h_step with ⟨h_pair, _h_amount0, _h_amount1, _h_caller0, _h_caller1,
+      h_lp⟩
+    have h_pair_step : PairWorldStep PairWorldAction.skim before.pair after.pair := by
+      simpa [PairWorldStep, PairWorldSkimStep] using h_pair
+    rcases h_pair with ⟨_h_balance0, _h_balance1, _h_reserve0, _h_reserve1,
+      h_supply, h_locked⟩
+    have h_pair_good_after := pairWorldStep_preserves_good h_pair_good h_pair_step
+    constructor
+    · constructor
+      · exact h_pair_good_after
+      · omega
+    · omega
+  · rcases h_step with ⟨h_pair, _h_amount0In, _h_amount1In, _h_caller0,
+      _h_caller1, h_lp⟩
+    rename_i amount0In amount1In amount0Out amount1Out
+    have h_pair_step :
+        PairWorldStep
+          (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+          before.pair after.pair := by
+      simpa [PairWorldStep, PairWorldSwapStep] using h_pair
+    rcases h_pair with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0, _h_enough1,
+      _h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0,
+      _h_bound1, h_supply, h_locked, _h_fee0, _h_fee1, _h_k⟩
+    have h_pair_good_after := pairWorldStep_preserves_good h_pair_good h_pair_step
+    constructor
+    · constructor
+      · exact h_pair_good_after
+      · omega
+    · omega
+  · rcases h_step with ⟨h_pair, _h_amount0, _h_amount1, _h_caller0,
+      _h_caller1, h_lp⟩
+    rename_i amount0 amount1 liquidity
+    have h_pair_step :
+        PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity)
+          before.pair after.pair := by
+      simpa [PairWorldStep, PairWorldMintStep] using h_pair
+    rcases h_pair with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+      _h_balance0_before, _h_balance1_before, _h_balance0, _h_balance1,
+      _h_reserve0, _h_reserve1, _h_bound0, _h_bound1, h_supply, h_locked,
+      _h_ratio⟩
+    rw [if_neg (Nat.ne_of_gt h_positive)] at h_supply
+    rw [if_neg (Nat.ne_of_gt h_positive)] at h_locked
+    have h_pair_good_after := pairWorldStep_preserves_good h_pair_good h_pair_step
+    constructor
+    · constructor
+      · exact h_pair_good_after
+      · omega
+    · omega
+  · rcases h_step with ⟨h_lp_enough, h_pair, _h_caller0, _h_caller1, h_lp⟩
+    rename_i amount0 amount1 liquidity
+    have h_pair_step :
+        PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity)
+          before.pair after.pair := by
+      simpa [PairWorldStep, PairWorldBurnStep] using h_pair
+    rcases h_pair with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+      _h_supply_pos, _h_amount0_le, _h_amount1_le, _h_liq_le, h_locked_le,
+      _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0, _h_bound1,
+      h_supply, h_locked, _h_ratio0, _h_ratio1⟩
+    have h_pair_good_after := pairWorldStep_preserves_good h_pair_good h_pair_step
+    have h_locked_pos := pairWorldGood_positive_supply_locked_pos h_pair_good h_positive
+    constructor
+    · constructor
+      · exact h_pair_good_after
+      · omega
+    · constructor
+      · omega
+      · exact h_locked
+  · rcases h_step with ⟨h_pair, _h_caller0, _h_caller1, h_lp⟩
+    have h_pair_step : PairWorldStep PairWorldAction.sync before.pair after.pair := by
+      simpa [PairWorldStep, PairWorldSyncStep] using h_pair
+    rcases h_pair with ⟨_h_bound0, _h_bound1, _h_balance0, _h_balance1,
+      _h_reserve0, _h_reserve1, h_supply, h_locked⟩
+    have h_pair_good_after := pairWorldStep_preserves_good h_pair_good h_pair_step
+    constructor
+    · constructor
+      · exact h_pair_good_after
+      · omega
+    · omega
+
 -- tama: discharges=pair_closed_world_same_supply_path_never_decreases_k
 theorem closed_world_same_supply_path_never_decreases_k
     (before after : PairWorldState) :
@@ -5790,6 +6053,245 @@ private theorem pairWorldBalanceSpotValue_eq_spot_plus_surplus
     PairWorldSurplusSpotValueNum
   rw [h_balance0, h_balance1]
   nlinarith
+
+private theorem pairWalletHistory_preserves_good_and_positive
+    {before after : PairWalletWorldState} :
+  PairWalletGood before →
+    0 < before.pair.totalSupply →
+      PairWalletHistory before after →
+        PairWalletGood after ∧
+          0 < after.pair.totalSupply ∧
+          after.pair.lockedLiquidity = before.pair.lockedLiquidity := by
+  intro h_good h_positive h_history
+  revert h_good h_positive
+  induction h_history with
+  | refl =>
+      intro h_good h_positive
+      exact ⟨h_good, h_positive, rfl⟩
+  | step action h_prefix h_step ih =>
+      intro h_good h_positive
+      rcases ih h_good h_positive with
+        ⟨h_mid_good, h_mid_positive, h_mid_locked⟩
+      rcases pairWalletStep_preserves_good_and_positive
+          h_mid_good h_mid_positive h_step with
+        ⟨h_after_good, h_after_positive, h_after_locked⟩
+      exact ⟨h_after_good, h_after_positive, by rw [h_after_locked, h_mid_locked]⟩
+
+private theorem pairWalletHistory_total_value_conserved
+    (spot : PairWorldState) {before after : PairWalletWorldState} :
+  PairWalletGood before →
+    0 < before.pair.totalSupply →
+      PairWalletHistory before after →
+        PairWalletTotalTokenValueAtSpot spot before =
+          PairWalletTotalTokenValueAtSpot spot after := by
+  intro h_good h_positive h_history
+  revert h_good h_positive
+  induction h_history with
+  | refl =>
+      intro _h_good _h_positive
+      rfl
+  | step action h_prefix h_step ih =>
+      intro h_good h_positive
+      have h_prefix_value := ih h_good h_positive
+      rcases pairWalletHistory_preserves_good_and_positive
+          h_good h_positive h_prefix with
+        ⟨h_mid_good, _h_mid_positive, _h_mid_locked⟩
+      have h_step_value :=
+        pairWalletStep_total_value_conserved spot h_mid_good h_step
+      exact h_prefix_value.trans h_step_value
+
+private theorem pairWalletPortfolio_plus_locked_eq_total
+    (spot : PairWorldState) (w : PairWalletWorldState) :
+  PairWalletGood w →
+    PairWalletPortfolioValueNumeratorAtSpot spot w +
+        w.pair.lockedLiquidity * PairWorldSpotValueNum spot w.pair =
+      PairWalletTotalTokenValueAtSpot spot w * w.pair.totalSupply := by
+  intro h_good
+  rcases h_good with ⟨h_pair_good, h_wallet⟩
+  have h_balance_eq :=
+    pairWorldBalanceSpotValue_eq_spot_plus_surplus
+      (spot := spot) (pool := w.pair) h_pair_good
+  unfold PairWalletPortfolioValueNumeratorAtSpot PairWalletTotalTokenValueAtSpot
+    PairWalletCallerTokenValueAtSpot PairWalletSkimmableValueAtSpot
+  rw [h_balance_eq]
+  nlinarith
+
+private theorem pairWorldKPerSupply_spot_value_per_supply
+    {spot after : PairWorldState} :
+  0 < spot.totalSupply →
+    0 < after.totalSupply →
+      0 < spot.reserve0 →
+        0 < spot.reserve1 →
+          PairWorldKPerSupplyNondecreasing spot after →
+            PairWorldSpotValueNum spot spot * after.totalSupply ≤
+              PairWorldSpotValueNum spot after * spot.totalSupply := by
+  intro h_spot_supply h_after_supply h_reserve0 h_reserve1 h_k_scaled
+  unfold PairWorldKPerSupplyNondecreasing PairWorldSpotValueNum PairWorldK at *
+  by_contra h_not
+  have h_lt :
+      (after.reserve0 * spot.reserve1 + after.reserve1 * spot.reserve0) *
+          spot.totalSupply <
+        (spot.reserve0 * spot.reserve1 + spot.reserve1 * spot.reserve0) *
+          after.totalSupply :=
+    Nat.lt_of_not_ge h_not
+  have h_reserve0_int : (0 : Int) < spot.reserve0 := by
+    exact_mod_cast h_reserve0
+  have h_reserve1_int : (0 : Int) < spot.reserve1 := by
+    exact_mod_cast h_reserve1
+  have h_spot_supply_int : (0 : Int) < spot.totalSupply := by
+    exact_mod_cast h_spot_supply
+  have h_after_supply_int : (0 : Int) < after.totalSupply := by
+    exact_mod_cast h_after_supply
+  let a : Int := spot.reserve0
+  let b : Int := spot.reserve1
+  let c : Int := after.reserve0
+  let d : Int := after.reserve1
+  let s0 : Int := spot.totalSupply
+  let s1 : Int := after.totalSupply
+  have ha : 0 < a := by simpa [a] using h_reserve0_int
+  have hb : 0 < b := by simpa [b] using h_reserve1_int
+  have hc : 0 ≤ c := by
+    dsimp [c]
+    exact_mod_cast Nat.zero_le after.reserve0
+  have hd : 0 ≤ d := by
+    dsimp [d]
+    exact_mod_cast Nat.zero_le after.reserve1
+  have hs0 : 0 < s0 := by simpa [s0] using h_spot_supply_int
+  have hs1 : 0 < s1 := by simpa [s1] using h_after_supply_int
+  have hk :
+      a * b * s1 * s1 ≤ c * d * s0 * s0 := by
+    dsimp [a, b, c, d, s0, s1]
+    exact_mod_cast h_k_scaled
+  have hlt :
+      (c * b + d * a) * s0 < (a * b + b * a) * s1 := by
+    dsimp [a, b, c, d, s0, s1]
+    exact_mod_cast h_lt
+  have hsq : 0 ≤ (c * b * s0 - d * a * s0) ^ 2 := sq_nonneg _
+  have hamgm :
+      4 * c * d * a * b * s0 * s0 ≤
+        ((c * b + d * a) * s0) ^ 2 := by
+    nlinarith [hsq]
+  have hab_pos : 0 < a * b := by
+    nlinarith [ha, hb]
+  have hkscaled :
+      4 * a * b * a * b * s1 * s1 ≤
+        4 * c * d * a * b * s0 * s0 := by
+    nlinarith [hk, hab_pos]
+  have hsum_nonneg : 0 ≤ (c * b + d * a) * s0 := by
+    have hcb_nonneg : 0 ≤ c * b := mul_nonneg hc (le_of_lt hb)
+    have hda_nonneg : 0 ≤ d * a := mul_nonneg hd (le_of_lt ha)
+    exact mul_nonneg (add_nonneg hcb_nonneg hda_nonneg) (le_of_lt hs0)
+  have htarget_pos : 0 < (a * b + b * a) * s1 := by
+    have hab_pos' : 0 < a * b := mul_pos ha hb
+    have hba_pos : 0 < b * a := mul_pos hb ha
+    exact mul_pos (add_pos hab_pos' hba_pos) hs1
+  have hlt_sq :
+      ((c * b + d * a) * s0) ^ 2 <
+        ((a * b + b * a) * s1) ^ 2 := by
+    nlinarith [hlt, hsum_nonneg, htarget_pos]
+  nlinarith [hamgm, hkscaled, hlt_sq]
+
+private theorem pairWalletHistory_no_portfolio_profit
+    {before after : PairWalletWorldState} :
+  PairWalletGood before →
+    0 < before.pair.totalSupply →
+      0 < before.pair.reserve0 →
+        0 < before.pair.reserve1 →
+          PairWalletHistory before after →
+            PairWalletPortfolioValueNumeratorAtSpot before.pair after *
+                before.pair.totalSupply ≤
+              PairWalletPortfolioValueNumeratorAtSpot before.pair before *
+                after.pair.totalSupply := by
+  intro h_good h_supply h_reserve0 h_reserve1 h_history
+  have h_path := pairWalletHistory_pairPath h_history
+  rcases pairWalletHistory_preserves_good_and_positive
+      h_good h_supply h_history with
+    ⟨h_good_after, h_supply_after, h_locked_after⟩
+  have h_total :=
+    pairWalletHistory_total_value_conserved before.pair
+      h_good h_supply h_history
+  have h_k_scaled :=
+    pairWorldPath_k_per_supply_never_decreases
+      h_good.1 h_supply h_path
+  have h_spot_per_supply :=
+    pairWorldKPerSupply_spot_value_per_supply
+      h_supply h_supply_after h_reserve0 h_reserve1 h_k_scaled
+  have h_before_identity :=
+    pairWalletPortfolio_plus_locked_eq_total before.pair before h_good
+  have h_after_identity :=
+    pairWalletPortfolio_plus_locked_eq_total before.pair after h_good_after
+  rw [← h_total] at h_after_identity
+  rw [h_locked_after] at h_after_identity
+  have h_locked_spot :=
+    Nat.mul_le_mul_left before.pair.lockedLiquidity h_spot_per_supply
+  nlinarith [h_before_identity, h_after_identity, h_locked_spot]
+
+-- tama: discharges=pair_wallet_single_caller_history_no_portfolio_profit
+theorem wallet_single_caller_history_no_portfolio_profit
+    (before after : PairWalletWorldState) :
+  pair_wallet_single_caller_history_no_portfolio_profit before after := by
+  exact pairWalletHistory_no_portfolio_profit
+
+-- tama: discharges=pair_wallet_swap_does_not_increase_portfolio_value
+theorem wallet_swap_does_not_increase_portfolio_value
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWalletWorldState) :
+  pair_wallet_swap_does_not_increase_portfolio_value
+    amount0In amount1In amount0Out amount1Out before after := by
+  intro h_good h_supply h_reserve0 h_reserve1 h_step
+  exact pairWalletHistory_no_portfolio_profit
+    h_good h_supply h_reserve0 h_reserve1
+    (PairWalletHistory.step
+      (PairWalletAction.callerSwap amount0In amount1In amount0Out amount1Out)
+      (PairWalletHistory.refl before) h_step)
+
+-- tama: discharges=pair_wallet_mint_does_not_increase_portfolio_value
+theorem wallet_mint_does_not_increase_portfolio_value
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWalletWorldState) :
+  pair_wallet_mint_does_not_increase_portfolio_value
+    amount0 amount1 liquidity before after := by
+  intro h_good h_supply h_reserve0 h_reserve1 h_step
+  exact pairWalletHistory_no_portfolio_profit
+    h_good h_supply h_reserve0 h_reserve1
+    (PairWalletHistory.step
+      (PairWalletAction.callerMint amount0 amount1 liquidity)
+      (PairWalletHistory.refl before) h_step)
+
+-- tama: discharges=pair_wallet_burn_does_not_increase_portfolio_value
+theorem wallet_burn_does_not_increase_portfolio_value
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWalletWorldState) :
+  pair_wallet_burn_does_not_increase_portfolio_value
+    amount0 amount1 liquidity before after := by
+  intro h_good h_supply h_reserve0 h_reserve1 h_step
+  exact pairWalletHistory_no_portfolio_profit
+    h_good h_supply h_reserve0 h_reserve1
+    (PairWalletHistory.step
+      (PairWalletAction.callerBurn amount0 amount1 liquidity)
+      (PairWalletHistory.refl before) h_step)
+
+-- tama: discharges=pair_wallet_skim_does_not_increase_portfolio_value
+theorem wallet_skim_does_not_increase_portfolio_value
+    (before after : PairWalletWorldState) :
+  pair_wallet_skim_does_not_increase_portfolio_value before after := by
+  intro h_good h_supply h_reserve0 h_reserve1 h_step
+  exact pairWalletHistory_no_portfolio_profit
+    h_good h_supply h_reserve0 h_reserve1
+    (PairWalletHistory.step
+      (PairWalletAction.callerSkimReceive
+        (PairWorldSurplus0 before.pair)
+        (PairWorldSurplus1 before.pair))
+      (PairWalletHistory.refl before) h_step)
+
+-- tama: discharges=pair_wallet_passive_action_does_not_increase_portfolio_value
+theorem wallet_passive_action_does_not_increase_portfolio_value
+    (action : PairWalletAction) (before after : PairWalletWorldState) :
+  pair_wallet_passive_action_does_not_increase_portfolio_value action before after := by
+  intro _h_passive h_good h_supply h_reserve0 h_reserve1 h_step
+  exact pairWalletHistory_no_portfolio_profit
+    h_good h_supply h_reserve0 h_reserve1
+    (PairWalletHistory.step action (PairWalletHistory.refl before) h_step)
 
 -- tama: discharges=pair_closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_initial_surplus
 theorem closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_initial_surplus

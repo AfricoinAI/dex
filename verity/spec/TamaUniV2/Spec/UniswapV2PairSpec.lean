@@ -4170,6 +4170,138 @@ def pair_closed_world_reachable_path_lp_share_backing_never_decreases
       PairWorldPath before after →
         PairWorldKPerSupplyNondecreasing before after
 
+/-!
+### 8. Single-Caller Portfolio Safety
+
+The pool-side invariant above says LP-normalized reserve backing cannot be
+diluted. This section turns that into the user-facing claim: when there is one
+caller and that caller owns every LP token except the permanently locked
+minimum liquidity, no finite sequence of valid interactions can make the
+caller richer at the initial spot price.
+
+The model counts wallet token balances, the caller's LP claim on cached
+reserves, and surplus above cached reserves that the sole caller can
+immediately skim. Fresh token transfers into the pair are modeled as
+`callerDonate`; later `mint` and `swap` actions consume already-visible
+surplus. That matches the contract: public `mint` and `swap` do not take token
+input arguments, they read ERC20 balances already held by the pair.
+-/
+
+/-- A valid single-caller swap cannot increase the caller's portfolio value at
+the starting spot price. -/
+def pair_wallet_swap_does_not_increase_portfolio_value
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWalletWorldState) : Prop :=
+  PairWalletGood before →
+    0 < before.pair.totalSupply →
+      0 < before.pair.reserve0 →
+        0 < before.pair.reserve1 →
+          PairWalletStep
+              (PairWalletAction.callerSwap amount0In amount1In amount0Out amount1Out)
+              before after →
+            PairWalletPortfolioValueNumeratorAtSpot before.pair after *
+                before.pair.totalSupply ≤
+              PairWalletPortfolioValueNumeratorAtSpot before.pair before *
+                after.pair.totalSupply
+
+/-- A valid single-caller mint cannot increase the caller's portfolio value at
+the starting spot price. It converts already-visible surplus into LP ownership
+using the pool's pro-rata mint rule. -/
+def pair_wallet_mint_does_not_increase_portfolio_value
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWalletWorldState) : Prop :=
+  PairWalletGood before →
+    0 < before.pair.totalSupply →
+      0 < before.pair.reserve0 →
+        0 < before.pair.reserve1 →
+          PairWalletStep
+              (PairWalletAction.callerMint amount0 amount1 liquidity)
+              before after →
+            PairWalletPortfolioValueNumeratorAtSpot before.pair after *
+                before.pair.totalSupply ≤
+              PairWalletPortfolioValueNumeratorAtSpot before.pair before *
+                after.pair.totalSupply
+
+/-- A valid single-caller burn cannot increase the caller's portfolio value at
+the starting spot price. It turns LP ownership into wallet tokens using the
+pool's pro-rata redemption rule. -/
+def pair_wallet_burn_does_not_increase_portfolio_value
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWalletWorldState) : Prop :=
+  PairWalletGood before →
+    0 < before.pair.totalSupply →
+      0 < before.pair.reserve0 →
+        0 < before.pair.reserve1 →
+          PairWalletStep
+              (PairWalletAction.callerBurn amount0 amount1 liquidity)
+              before after →
+            PairWalletPortfolioValueNumeratorAtSpot before.pair after *
+                before.pair.totalSupply ≤
+              PairWalletPortfolioValueNumeratorAtSpot before.pair before *
+                after.pair.totalSupply
+
+/-- `skim` moves already-skimmable surplus into the caller wallet. Because that
+surplus was already counted as caller-controlled value, `skim` cannot increase
+portfolio value. -/
+def pair_wallet_skim_does_not_increase_portfolio_value
+    (before after : PairWalletWorldState) : Prop :=
+  PairWalletGood before →
+    0 < before.pair.totalSupply →
+      0 < before.pair.reserve0 →
+        0 < before.pair.reserve1 →
+          PairWalletStep
+              (PairWalletAction.callerSkimReceive
+                (PairWorldSurplus0 before.pair)
+                (PairWorldSurplus1 before.pair))
+              before after →
+            PairWalletPortfolioValueNumeratorAtSpot before.pair after *
+                before.pair.totalSupply ≤
+              PairWalletPortfolioValueNumeratorAtSpot before.pair before *
+                after.pair.totalSupply
+
+/-- `approve`, direct donations, and `sync` cannot increase caller portfolio
+value. Donations only move wallet value into skimmable surplus, and `sync` can
+only move surplus into reserves where the caller owns no more than the unlocked
+LP share. -/
+def pair_wallet_passive_action_does_not_increase_portfolio_value
+    (action : PairWalletAction) (before after : PairWalletWorldState) : Prop :=
+  (action = PairWalletAction.callerApprove ∨
+    action = PairWalletAction.callerSync ∨
+    ∃ amount0 amount1, action = PairWalletAction.callerDonate amount0 amount1) →
+    PairWalletGood before →
+      0 < before.pair.totalSupply →
+        0 < before.pair.reserve0 →
+          0 < before.pair.reserve1 →
+            PairWalletStep action before after →
+              PairWalletPortfolioValueNumeratorAtSpot before.pair after *
+                  before.pair.totalSupply ≤
+                PairWalletPortfolioValueNumeratorAtSpot before.pair before *
+                  after.pair.totalSupply
+
+/--
+Single-caller portfolio no-profit theorem.
+
+Assume the caller is the only LP owner other than the permanent minimum
+liquidity lock. After any finite sequence of valid caller actions, the caller's
+portfolio value at the initial spot price is no greater than it was at the
+start.
+
+The theorem does not assume the caller's LP balance or the pool's total LP
+supply is unchanged. Mint and burn may change both; their ratio discipline is
+handled by the LP-normalized reserve-backing invariant above.
+-/
+def pair_wallet_single_caller_history_no_portfolio_profit
+    (before after : PairWalletWorldState) : Prop :=
+  PairWalletGood before →
+    0 < before.pair.totalSupply →
+      0 < before.pair.reserve0 →
+        0 < before.pair.reserve1 →
+          PairWalletHistory before after →
+            PairWalletPortfolioValueNumeratorAtSpot before.pair after *
+                before.pair.totalSupply ≤
+              PairWalletPortfolioValueNumeratorAtSpot before.pair before *
+                after.pair.totalSupply
+
 /- If a finite path returns to the same LP supply, LP normalization cancels.
 The pool's raw reserve product therefore cannot be lower than where it began. -/
 def pair_closed_world_same_supply_path_never_decreases_k

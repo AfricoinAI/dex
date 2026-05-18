@@ -233,6 +233,102 @@ inductive PairWorldPath : PairWorldState → PairWorldState → Prop where
       PairWorldStep action before after →
       PairWorldPath start after
 
+structure PairWalletWorldState where
+  pair : PairWorldState
+  callerToken0 : Nat
+  callerToken1 : Nat
+  callerLp : Nat
+  deriving Repr, BEq
+
+def PairWalletGood (w : PairWalletWorldState) : Prop :=
+  PairWorldGood w.pair ∧
+    w.callerLp + w.pair.lockedLiquidity = w.pair.totalSupply
+
+def PairWalletCallerTokenValueAtSpot
+    (spot : PairWorldState) (w : PairWalletWorldState) : Nat :=
+  w.callerToken0 * spot.reserve1 +
+    w.callerToken1 * spot.reserve0
+
+def PairWalletSkimmableValueAtSpot
+    (spot : PairWorldState) (w : PairWalletWorldState) : Nat :=
+  PairWorldSurplusSpotValueNum spot w.pair
+
+def PairWalletPortfolioValueNumeratorAtSpot
+    (spot : PairWorldState) (w : PairWalletWorldState) : Nat :=
+  PairWalletCallerTokenValueAtSpot spot w * w.pair.totalSupply +
+    w.callerLp * PairWorldSpotValueNum spot w.pair +
+    PairWalletSkimmableValueAtSpot spot w * w.pair.totalSupply
+
+def PairWalletTotalTokenValueAtSpot
+    (spot : PairWorldState) (w : PairWalletWorldState) : Nat :=
+  PairWalletCallerTokenValueAtSpot spot w +
+    PairWorldBalanceSpotValueNum spot w.pair
+
+inductive PairWalletAction where
+  | callerApprove
+  | callerDonate (amount0 amount1 : Nat)
+  | callerSkimReceive (amount0 amount1 : Nat)
+  | callerSwap (amount0In amount1In amount0Out amount1Out : Nat)
+  | callerMint (amount0 amount1 liquidity : Nat)
+  | callerBurn (amount0 amount1 liquidity : Nat)
+  | callerSync
+  deriving Repr, BEq
+
+def PairWalletStep
+    (action : PairWalletAction)
+    (before after : PairWalletWorldState) : Prop :=
+  match action with
+  | PairWalletAction.callerApprove =>
+      after = before
+  | PairWalletAction.callerDonate amount0 amount1 =>
+      before.callerToken0 ≥ amount0 ∧
+      before.callerToken1 ≥ amount1 ∧
+      PairWorldStep (PairWorldAction.donate amount0 amount1) before.pair after.pair ∧
+      after.callerToken0 = before.callerToken0 - amount0 ∧
+      after.callerToken1 = before.callerToken1 - amount1 ∧
+      after.callerLp = before.callerLp
+  | PairWalletAction.callerSkimReceive amount0 amount1 =>
+      PairWorldStep PairWorldAction.skim before.pair after.pair ∧
+      amount0 = PairWorldSurplus0 before.pair ∧
+      amount1 = PairWorldSurplus1 before.pair ∧
+      after.callerToken0 = before.callerToken0 + amount0 ∧
+      after.callerToken1 = before.callerToken1 + amount1 ∧
+      after.callerLp = before.callerLp
+  | PairWalletAction.callerSwap amount0In amount1In amount0Out amount1Out =>
+      PairWorldStep
+        (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+        before.pair after.pair ∧
+      amount0In = PairWorldSurplus0 before.pair ∧
+      amount1In = PairWorldSurplus1 before.pair ∧
+      after.callerToken0 = before.callerToken0 + amount0Out ∧
+      after.callerToken1 = before.callerToken1 + amount1Out ∧
+      after.callerLp = before.callerLp
+  | PairWalletAction.callerMint amount0 amount1 liquidity =>
+      PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before.pair after.pair ∧
+      amount0 = PairWorldSurplus0 before.pair ∧
+      amount1 = PairWorldSurplus1 before.pair ∧
+      after.callerToken0 = before.callerToken0 ∧
+      after.callerToken1 = before.callerToken1 ∧
+      after.callerLp = before.callerLp + liquidity
+  | PairWalletAction.callerBurn amount0 amount1 liquidity =>
+      before.callerLp ≥ liquidity ∧
+      PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before.pair after.pair ∧
+      after.callerToken0 = before.callerToken0 + amount0 ∧
+      after.callerToken1 = before.callerToken1 + amount1 ∧
+      after.callerLp = before.callerLp - liquidity
+  | PairWalletAction.callerSync =>
+      PairWorldStep PairWorldAction.sync before.pair after.pair ∧
+      after.callerToken0 = before.callerToken0 ∧
+      after.callerToken1 = before.callerToken1 ∧
+      after.callerLp = before.callerLp
+
+inductive PairWalletHistory : PairWalletWorldState → PairWalletWorldState → Prop where
+  | refl (w : PairWalletWorldState) : PairWalletHistory w w
+  | step {start before after : PairWalletWorldState} (action : PairWalletAction) :
+      PairWalletHistory start before →
+      PairWalletStep action before after →
+      PairWalletHistory start after
+
 inductive PairWorldPathNoBurn : PairWorldState → PairWorldState → Prop where
   | refl (w : PairWorldState) : PairWorldPathNoBurn w w
   | step {start before after : PairWorldState} (action : PairWorldAction) :

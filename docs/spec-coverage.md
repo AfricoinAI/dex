@@ -343,6 +343,18 @@ Pair:
   histories end with balances equal to reserves and cannot reduce actual
   token-balance value; the paired caller theorem adds the same no-profit
   conclusion under the explicit caller-plus-pair redistribution premise.
+- Single-caller portfolio safety is now modeled directly rather than through a
+  fixed-LP-supply shortcut. The model tracks one caller's wallet tokens, LP
+  tokens, and the pair state, with the caller owning all LP supply except the
+  permanently locked minimum liquidity. Fresh token transfers into the pair are
+  modeled separately from public `mint` and `swap`, matching the real pair API:
+  those calls consume token balances already held by the pair. The central
+  theorem states that after any finite sequence of valid single-caller actions,
+  the caller's full portfolio value at the initial spot price cannot increase.
+  The portfolio counts wallet tokens, the caller's LP claim on cached reserves,
+  and surplus above cached reserves that the single caller can immediately
+  skim. One-step versions expose the same no-profit conclusion for swap, mint,
+  burn, skim, and passive actions.
 
 Factory:
 
@@ -415,11 +427,14 @@ successful public calls establish more of the arithmetic facts used by that
 story.
 
 - Direct arithmetic from successful calls: successful first and later `mint`
-  now state directly that the deposited amounts are the pair's token balance
-  increases above cached reserves. The next security gain is to give `burn` and
-  `swap` the same treatment: successful burns should expose their LP source and
-  remaining balances, and successful swaps should expose their final-balance
-  input and K facts.
+  state directly that deposited amounts are the pair's token balance increases
+  above cached reserves. Successful `burn` now exposes the LP source used for
+  redemption and the remaining token balances after redemption. Successful
+  `swap` now exposes inferred input from final post-output/post-callback
+  balances and states that the fee-adjusted K check is charged against those
+  same final balances. The next gain is to connect more successful public runs
+  into the single-caller wallet model rather than adding larger per-function
+  restatements.
 - Concrete success-path restoration and events: Foundry mirrors cover Mint,
   Burn, Swap, Sync, and lock restoration at runtime. Lean should expose only
   short obligations here, preferably via factored proof-local adapters for the
@@ -453,17 +468,13 @@ story.
   the next Lean route should factor those prefixes privately first.
 - Sequence-level economics: same-LP-supply reachable histories cannot reduce
   pool value at the initial spot price, and LP-normalized K explains why
-  mint/burn round trips are covered. The actual token-balance theorem requires
-  either a balanced/zero-surplus start state or the surplus-bounded form:
-  pre-existing donated surplus is an external gift that `skim` can legitimately
-  remove, but any actual-balance value loss is bounded by that starting surplus.
-  The caller no-profit theorem is now stated as the explicit external-wallet
-  consequence: if caller value plus pair token-balance value is unchanged except
-  for redistribution between them, the caller cannot finish with more value.
-  The common no-mint/no-burn form derives the same caller conclusion without a
-  separate same-supply premise, and the clean no-donation/no-mint/no-burn form
-  also proves the endpoint remains balanced. Only add a richer external-wallet
-  model if it tracks real action-level token and LP ownership changes.
+  mint/burn round trips are covered. The richer single-caller wallet model now
+  tracks action-level token and LP ownership changes and proves the intended
+  no-profit statement without assuming the caller's LP balance or total LP
+  supply is unchanged. Remaining work is to connect successful public
+  `mint`, `burn`, `swap`, `skim`, and `sync` runs to the corresponding
+  caller-wallet actions so this portfolio theorem is visibly tied to concrete
+  entrypoints.
 - Donation surplus: the closed-world model now tracks token-side reserve
   surplus directly. Donations increase surplus exactly, and finite successful
   histories with no donation step cannot create new surplus. The reader-facing
