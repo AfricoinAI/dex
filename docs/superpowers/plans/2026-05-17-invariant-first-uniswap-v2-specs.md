@@ -199,6 +199,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   closed-world strict supply-increase theorem, and successful public `burn`
   runs connect to exact LP-supply reduction by the burned liquidity.
 
+  2026-05-17 18:08 PDT checkpoint: added the executable successful-swap K
+  bridge. A successful public `swap`, once connected to the same final-balance
+  and fee-adjusted-K facts used by the swap transition, now proves raw cached K
+  cannot decrease.
+
   2026-05-17 07:59 PDT checkpoint: added the reserve-change classifier. Cached
   reserves can change only through mint, burn, swap, or sync; share
   bookkeeping, direct donation, and skim cannot secretly rewrite router-visible

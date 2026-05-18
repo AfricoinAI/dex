@@ -181,7 +181,9 @@ Pair:
   fee-adjusted K for swaps plus the arithmetic theorem that the fee-adjusted
   check implies raw cached-K
   nondecrease once reserves equal final balances, positive-input/output and
-  output-below-reserve swap facts, the one-swap economic consequence that a
+  output-below-reserve swap facts, an executable successful-swap bridge that
+  states the same raw cached-K nondecrease from the real public run once the
+  final-balance/K facts are supplied, the one-swap economic consequence that a
   valid swap from a good live pool cannot reduce pool value at the starting spot
   price, and the reader-facing reachable form of that same swap theorem,
   post-output plus inferred-input balance accounting for swaps, an explicit
