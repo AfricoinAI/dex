@@ -354,7 +354,10 @@ Pair:
   The portfolio counts wallet tokens, the caller's LP claim on cached reserves,
   and surplus above cached reserves that the single caller can immediately
   skim. One-step versions expose the same no-profit conclusion for swap, mint,
-  burn, skim, and passive actions.
+  burn, skim, and passive actions. Successful public calls are now linked into
+  that wallet model: first mint, later mint, burn, prepaid-input swap, skim,
+  and sync each expose the corresponding caller-wallet step once their existing
+  public-call accounting facts are known.
 
 Factory:
 
@@ -471,10 +474,11 @@ story.
   mint/burn round trips are covered. The richer single-caller wallet model now
   tracks action-level token and LP ownership changes and proves the intended
   no-profit statement without assuming the caller's LP balance or total LP
-  supply is unchanged. Remaining work is to connect successful public
-  `mint`, `burn`, `swap`, `skim`, and `sync` runs to the corresponding
-  caller-wallet actions so this portfolio theorem is visibly tied to concrete
-  entrypoints.
+  supply is unchanged. Successful public `mint`, `burn`, prepaid-input `swap`,
+  `skim`, and `sync` runs are now connected to the corresponding caller-wallet
+  actions. Flash-swap repayment timing is intentionally not collapsed into the
+  prepaid-input one-step theorem; it should be represented by composing the
+  caller's token movement with the same pair swap accounting rule.
 - Donation surplus: the closed-world model now tracks token-side reserve
   surplus directly. Donations increase surplus exactly, and finite successful
   histories with no donation step cannot create new surplus. The reader-facing

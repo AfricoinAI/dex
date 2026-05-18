@@ -4302,6 +4302,202 @@ def pair_wallet_single_caller_history_no_portfolio_profit
               PairWalletPortfolioValueNumeratorAtSpot before.pair before *
                 after.pair.totalSupply
 
+/-!
+### 9. Successful Calls As Caller-Wallet Steps
+
+The previous section is a caller-facing theorem over finite modeled histories.
+This section states the small links from successful public calls into that
+model. Each fact has the same shape: once an already-proved public-call
+accounting rule identifies the pair transition, and the caller wallet fields
+are updated in the corresponding way, the result is one caller-wallet step.
+
+For swaps, the one-step link is intentionally the prepaid-input case: the input
+inferred by the pair must already be visible as surplus over cached reserves at
+call entry. That is the exact path used by ordinary swaps. Flash repayment is
+handled by composing caller token movement with the same pair swap rule, not by
+pretending the one-step prepaid-input fact covers every possible callback
+timing.
+-/
+
+/-- A successful first `mint`, after its public-call accounting facts are known,
+is one caller-wallet mint step. -/
+def pair_successful_first_mint_matches_caller_wallet_mint
+    (toAddr : Address) (s : ContractState) (result : ContractResult Uint256)
+    (before after : PairWalletWorldState) : Prop :=
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  let liquidity := mintFirstLiquidity s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      s.storage totalSupplySlot.slot = 0 →
+        s.storage reserve0Slot.slot ≤ observedBalance0 s →
+          s.storage reserve1Slot.slot ≤ observedBalance1 s →
+            amount0 > 0 →
+              amount1 > 0 →
+                (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
+                  mintFirstRoot s > minimumLiquidity →
+                    before.pair = pairWorldBeforeMintRun s →
+                      after.pair = pairWorldAfterFirstMintRun s →
+                        amount0.val = PairWorldSurplus0 before.pair →
+                          amount1.val = PairWorldSurplus1 before.pair →
+                            after.callerToken0 = before.callerToken0 →
+                              after.callerToken1 = before.callerToken1 →
+                                after.callerLp = before.callerLp + liquidity.val →
+                                  PairWalletStep
+                                    (PairWalletAction.callerMint
+                                      amount0.val amount1.val liquidity.val)
+                                    before after
+
+/-- A successful later `mint`, after its public-call accounting facts are known,
+is one caller-wallet mint step. -/
+def pair_successful_subsequent_mint_matches_caller_wallet_mint
+    (toAddr : Address) (s : ContractState) (result : ContractResult Uint256)
+    (liquidity : Uint256) (before after : PairWalletWorldState) : Prop :=
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      0 < (s.storage totalSupplySlot.slot).val →
+        s.storage reserve0Slot.slot > 0 →
+          s.storage reserve1Slot.slot > 0 →
+            s.storage reserve0Slot.slot ≤ observedBalance0 s →
+              s.storage reserve1Slot.slot ≤ observedBalance1 s →
+                amount0 > 0 →
+                  amount1 > 0 →
+                    liquidity > 0 →
+                      liquidity.val * (s.storage reserve0Slot.slot).val ≤
+                          amount0.val * (s.storage totalSupplySlot.slot).val →
+                        liquidity.val * (s.storage reserve1Slot.slot).val ≤
+                            amount1.val * (s.storage totalSupplySlot.slot).val →
+                          before.pair = pairWorldBeforeMintRun s →
+                            after.pair = pairWorldAfterSubsequentMintRun liquidity s →
+                              amount0.val = PairWorldSurplus0 before.pair →
+                                amount1.val = PairWorldSurplus1 before.pair →
+                                  after.callerToken0 = before.callerToken0 →
+                                    after.callerToken1 = before.callerToken1 →
+                                      after.callerLp = before.callerLp + liquidity.val →
+                                        PairWalletStep
+                                          (PairWalletAction.callerMint
+                                            amount0.val amount1.val liquidity.val)
+                                          before after
+
+/-- A successful `burn`, after its public-call accounting facts are known, is
+one caller-wallet burn step. -/
+def pair_successful_burn_matches_caller_wallet_burn
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256))
+    (before after : PairWalletWorldState) : Prop :=
+  let liquidity := burnLiquidity s
+  let amount0 := burnAmount0 s
+  let amount1 := burnAmount1 s
+  result = (burn toAddr).run s →
+    result = ContractResult.success (amount0, amount1) result.snd →
+      0 < liquidity.val →
+        0 < (burnSupply s).val →
+          liquidity.val ≤ (burnSupply s).val →
+            minimumLiquidityNat ≤ (burnSupply s).val - liquidity.val →
+              amount0 > 0 →
+                amount1 > 0 →
+                  amount0 ≤ observedBalance0 s →
+                    amount1 ≤ observedBalance1 s →
+                      burnBalance0After s ≤ maxUint112 →
+                        burnBalance1After s ≤ maxUint112 →
+                          amount0.val * (burnSupply s).val ≤
+                              liquidity.val * (observedBalance0 s).val →
+                            amount1.val * (burnSupply s).val ≤
+                                liquidity.val * (observedBalance1 s).val →
+                              before.pair = pairWorldFromConcreteState s →
+                                after.pair = pairWorldAfterBurnRun s →
+                                  before.callerLp ≥ liquidity.val →
+                                    after.callerToken0 =
+                                        before.callerToken0 + amount0.val →
+                                      after.callerToken1 =
+                                          before.callerToken1 + amount1.val →
+                                        after.callerLp =
+                                            before.callerLp - liquidity.val →
+                                          PairWalletStep
+                                            (PairWalletAction.callerBurn
+                                              amount0.val amount1.val liquidity.val)
+                                            before after
+
+/-- A successful prepaid-input `swap`, after its public-call accounting facts
+are known, is one caller-wallet swap step. -/
+def pair_successful_swap_matches_caller_wallet_swap
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState)
+    (result : ContractResult Unit)
+    (before after : PairWalletWorldState) : Prop :=
+  let amount0In := swapAmount0In amount0Out balance0Now s
+  let amount1In := swapAmount1In amount1Out balance1Now s
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      amount0Out < s.storage reserve0Slot.slot →
+        amount1Out < s.storage reserve1Slot.slot →
+          (amount0In > 0 ∨ amount1In > 0) →
+            balance0Now.val =
+                (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
+              balance1Now.val =
+                  (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
+                balance0Now ≤ maxUint112 →
+                  balance1Now ≤ maxUint112 →
+                    amount0In.val * feeAdjustmentNat ≤
+                        balance0Now.val * feeDenominatorNat →
+                      amount1In.val * feeAdjustmentNat ≤
+                          balance1Now.val * feeDenominatorNat →
+                        feeAdjustedBalance balance0Now.val amount0In.val *
+                            feeAdjustedBalance balance1Now.val amount1In.val ≥
+                          requiredK
+                            (s.storage reserve0Slot.slot).val
+                            (s.storage reserve1Slot.slot).val →
+                          before.pair = pairWorldFromConcreteState s →
+                            after.pair = pairWorldAfterSwapRun balance0Now balance1Now s →
+                              amount0In.val = PairWorldSurplus0 before.pair →
+                                amount1In.val = PairWorldSurplus1 before.pair →
+                                  after.callerToken0 =
+                                      before.callerToken0 + amount0Out.val →
+                                    after.callerToken1 =
+                                        before.callerToken1 + amount1Out.val →
+                                      after.callerLp = before.callerLp →
+                                        PairWalletStep
+                                          (PairWalletAction.callerSwap
+                                            amount0In.val amount1In.val
+                                            amount0Out.val amount1Out.val)
+                                          before after
+
+/-- A successful `skim` is one caller-wallet skim step: it moves already-counted
+surplus to the caller wallet. -/
+def pair_successful_skim_matches_caller_wallet_skim
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit)
+    (before after : PairWalletWorldState) : Prop :=
+  result = (skim toAddr).run s →
+    result = ContractResult.success () result.snd →
+      before.pair = pairWorldFromConcreteState s →
+        after.pair = pairWorldAfterSkimRun s →
+          after.callerToken0 =
+              before.callerToken0 + PairWorldSurplus0 before.pair →
+            after.callerToken1 =
+                before.callerToken1 + PairWorldSurplus1 before.pair →
+              after.callerLp = before.callerLp →
+                PairWalletStep
+                  (PairWalletAction.callerSkimReceive
+                    (PairWorldSurplus0 before.pair)
+                    (PairWorldSurplus1 before.pair))
+                  before after
+
+/-- A successful `sync` is one caller-wallet sync step: token balances stay in
+the pair and the caller wallet is unchanged. -/
+def pair_successful_sync_matches_caller_wallet_sync
+    (s : ContractState) (result : ContractResult Unit)
+    (before after : PairWalletWorldState) : Prop :=
+  result = (sync).run s →
+    result = ContractResult.success () result.snd →
+      before.pair = pairWorldFromConcreteState s →
+        after.pair = pairWorldAfterSyncRun s →
+          after.callerToken0 = before.callerToken0 →
+            after.callerToken1 = before.callerToken1 →
+              after.callerLp = before.callerLp →
+                PairWalletStep PairWalletAction.callerSync before after
+
 /- If a finite path returns to the same LP supply, LP normalization cancels.
 The pool's raw reserve product therefore cannot be lower than where it began. -/
 def pair_closed_world_same_supply_path_never_decreases_k

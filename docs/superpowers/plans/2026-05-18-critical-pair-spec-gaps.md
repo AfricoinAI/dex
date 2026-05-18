@@ -882,7 +882,7 @@ git commit -m "Add caller wallet no-profit model"
 - Modify: `docs/spec-coverage.md`
 - Modify: `docs/agent-progress.md`
 
-- [ ] **Step 1: Add successful-swap caller-wallet spec**
+- [x] **Step 1: Add successful-swap caller-wallet spec**
 
 ```lean
 /--
@@ -913,7 +913,13 @@ before.callerToken0 ≥ (swapAmount0In amount0Out balance0Now s).val →
 before.callerToken1 ≥ (swapAmount1In amount1Out balance1Now s).val →
 ```
 
-- [ ] **Step 2: Add matching mint/burn/skim/sync caller-wallet specs**
+Implementation correction: the proven swap link is explicitly the prepaid-input
+case. It requires the inferred input to already be visible as pair surplus at
+call entry, which is the one-step wallet shape used by ordinary swaps. Flash
+repayment timing should be represented by composing value movement with the
+same pair swap rule, not by making this one-step theorem overclaim.
+
+- [x] **Step 2: Add matching mint/burn/skim/sync caller-wallet specs**
 
 Add these four public specs with the same shape as the swap spec:
 
@@ -922,6 +928,10 @@ Add these four public specs with the same shape as the swap spec:
 - `pair_successful_skim_matches_caller_wallet_skim`
 - `pair_successful_sync_matches_caller_wallet_sync`
 
+The mint link is split into first-mint and later-mint variants because the
+canonical pair has different public accounting rules for initial liquidity and
+subsequent liquidity.
+
 Each should state only one sentence of behavior:
 
 - mint: caller spends token0/token1 and receives LP liquidity.
@@ -929,17 +939,19 @@ Each should state only one sentence of behavior:
 - skim: caller receives surplus.
 - sync: caller wallet is unchanged.
 
-- [ ] **Step 3: Prove caller-wallet links by composing existing pair-state proofs**
+- [x] **Step 3: Prove caller-wallet links by composing existing pair-state proofs**
 
 Each proof should reuse the existing successful-call-to-pair-state theorem for
 the same function. Do not unfold public entrypoints directly.
 
 
-- [ ] **Step 4: Update docs, verify, and commit**
+- [x] **Step 4: Update docs, verify, and commit**
 
 Update `docs/spec-coverage.md` and append a timestamped progress note. Do not
 add normal spec obligations to `tama.toml`; the spec `def`s are obligations
-automatically.
+automatically. These model-link specs are Lean-only coverage facts, so they use
+`coverage.proof_only` explanations rather than Foundry mirrors or trust
+entries.
 
 Run full verification and commit:
 
