@@ -460,7 +460,7 @@ story.
   history. The zero-surplus corollary states the exact clean-start invariant:
   no-donation histories preserve zero skimmable surplus on both token sides,
   and the endpoint-balance corollary states the same fact in direct accounting
-  form: balances equal reserves at the end. This is the Tamago-style premise
+  form: balances equal reserves at the end. This is the clean-start premise
   that makes the balanced-start token-balance no-profit theorem honest: `skim`
   can remove an external gift, but ordinary pair mechanics cannot manufacture
   that gift internally.
