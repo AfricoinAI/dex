@@ -284,7 +284,12 @@ Pair:
   initial spot price. The same section now includes the caller-value
   consequence: when a caller ledger's spot-priced value plus the pair's
   spot-priced token-balance value is unchanged except for redistribution
-  between them, the caller cannot finish with more value.
+  between them, the caller cannot finish with more value. A clean non-liquidity
+  theorem now composes the no-donation and no-mint/no-burn premises in the
+  form a reader usually wants: starting from a reachable clean pool, such
+  histories end with balances equal to reserves and cannot reduce actual
+  token-balance value; the paired caller theorem adds the same no-profit
+  conclusion under the explicit caller-plus-pair redistribution premise.
 
 Factory:
 
@@ -397,8 +402,9 @@ the executable bridge from canonical public entrypoints to that story.
   consequence: if caller value plus pair token-balance value is unchanged except
   for redistribution between them, the caller cannot finish with more value.
   The common no-mint/no-burn form derives the same caller conclusion without a
-  separate same-supply premise. Only add a richer external-wallet model if it
-  tracks real action-level token and LP ownership changes.
+  separate same-supply premise, and the clean no-donation/no-mint/no-burn form
+  also proves the endpoint remains balanced. Only add a richer external-wallet
+  model if it tracks real action-level token and LP ownership changes.
 - Donation surplus: the closed-world model now tracks token-side reserve
   surplus directly. Donations increase surplus exactly, and finite successful
   histories with no donation step cannot create new surplus. The zero-surplus

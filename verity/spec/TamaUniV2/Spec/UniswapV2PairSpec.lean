@@ -3699,6 +3699,56 @@ def pair_closed_world_reachable_zero_surplus_no_mint_burn_path_no_caller_token_b
               callerValueAfter ≤ callerValueBefore
 
 /--
+Clean non-liquidity histories preserve the whole accounting story.
+
+This is the everyday successful-operation case stated without extra machinery:
+start from a reachable pool whose actual token balances match its cached
+reserves, run any finite history with no direct token donation into the pair and
+no mint or burn, and the endpoint is still balanced. In the same trace, the
+pair's actual token balances cannot be worth less at the initial spot price.
+
+The two premises rule out the two ways this statement could otherwise be
+misread. `NoDonation` excludes new surplus that later `skim` could transfer
+away; `NoMintBurn` excludes intentional liquidity provision or redemption.
+-/
+def pair_closed_world_reachable_zero_surplus_no_donation_no_mint_burn_path_balanced_and_no_token_balance_value_extraction
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldSurplus0 before = 0 →
+        PairWorldSurplus1 before = 0 →
+          PairWorldPathNoDonation before after →
+            PairWorldPathNoMintBurn before after →
+              after.balance0 = after.reserve0 ∧
+              after.balance1 = after.reserve1 ∧
+              PairWorldBalanceSpotValueNum before before ≤
+                PairWorldBalanceSpotValueNum before after
+
+/--
+Caller-facing form of the clean non-liquidity theorem.
+
+The previous theorem is pool-side: the pair stays balanced and does not lose
+spot-priced token-balance value. This short consequence says what that means
+for an external caller ledger. If the caller's value plus the pair's actual
+token-balance value is merely redistributed across such a clean non-liquidity
+history, then the caller cannot finish richer.
+-/
+def pair_closed_world_reachable_zero_surplus_no_donation_no_mint_burn_path_balanced_and_no_caller_token_balance_profit
+    (before after : PairWorldState)
+    (callerValueBefore callerValueAfter : Nat) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldSurplus0 before = 0 →
+        PairWorldSurplus1 before = 0 →
+          PairWorldPathNoDonation before after →
+            PairWorldPathNoMintBurn before after →
+              callerValueBefore + PairWorldBalanceSpotValueNum before before =
+                callerValueAfter + PairWorldBalanceSpotValueNum before after →
+                after.balance0 = after.reserve0 ∧
+                after.balance1 = after.reserve1 ∧
+                callerValueAfter ≤ callerValueBefore
+
+/--
 Common operational caller no-profit over cached reserve value.
 
 Most live pair activity that is not liquidity provision or redemption leaves LP

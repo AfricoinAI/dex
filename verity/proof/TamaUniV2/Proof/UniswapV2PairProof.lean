@@ -5450,6 +5450,38 @@ theorem closed_world_reachable_zero_surplus_no_mint_burn_path_no_caller_token_ba
     h_reachable h_positive h_surplus0 h_surplus1
     (pairWorldPath_of_noMintBurn h_path) h_supply.symm h_total_value
 
+-- tama: discharges=pair_closed_world_reachable_zero_surplus_no_donation_no_mint_burn_path_balanced_and_no_token_balance_value_extraction
+theorem closed_world_reachable_zero_surplus_no_donation_no_mint_burn_path_balanced_and_no_token_balance_value_extraction
+    (before after : PairWorldState) :
+  pair_closed_world_reachable_zero_surplus_no_donation_no_mint_burn_path_balanced_and_no_token_balance_value_extraction
+    before after := by
+  intro h_reachable h_positive h_surplus0 h_surplus1 h_no_donation h_no_mint_burn
+  have h_balanced :=
+    closed_world_reachable_zero_surplus_no_donation_path_ends_balanced
+      before after h_reachable h_surplus0 h_surplus1 h_no_donation
+  have h_value :=
+    closed_world_reachable_zero_surplus_no_mint_burn_path_no_token_balance_value_extraction
+      before after h_reachable h_positive h_surplus0 h_surplus1 h_no_mint_burn
+  exact ⟨h_balanced.1, h_balanced.2, h_value⟩
+
+-- tama: discharges=pair_closed_world_reachable_zero_surplus_no_donation_no_mint_burn_path_balanced_and_no_caller_token_balance_profit
+theorem closed_world_reachable_zero_surplus_no_donation_no_mint_burn_path_balanced_and_no_caller_token_balance_profit
+    (before after : PairWorldState)
+    (callerValueBefore callerValueAfter : Nat) :
+  pair_closed_world_reachable_zero_surplus_no_donation_no_mint_burn_path_balanced_and_no_caller_token_balance_profit
+    before after callerValueBefore callerValueAfter := by
+  intro h_reachable h_positive h_surplus0 h_surplus1 h_no_donation
+    h_no_mint_burn h_total_value
+  have h_balanced :=
+    closed_world_reachable_zero_surplus_no_donation_path_ends_balanced
+      before after h_reachable h_surplus0 h_surplus1 h_no_donation
+  have h_caller :=
+    closed_world_reachable_zero_surplus_no_mint_burn_path_no_caller_token_balance_profit
+      before after callerValueBefore callerValueAfter
+      h_reachable h_positive h_surplus0 h_surplus1 h_no_mint_burn
+      h_total_value
+  exact ⟨h_balanced.1, h_balanced.2, h_caller⟩
+
 -- tama: discharges=pair_closed_world_reachable_no_mint_burn_path_no_caller_spot_profit
 theorem closed_world_reachable_no_mint_burn_path_no_caller_spot_profit
     (before after : PairWorldState)
