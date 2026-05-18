@@ -143,9 +143,11 @@ Pair:
   now also exposes the reserve-write conclusion directly: it caches the current
   observed token balances as reserves. The shared concrete reserve-write bridge
   packages the same facts for any mint, burn, swap, or sync transition from a
-  concrete state. Remaining work is deriving more of the arithmetic premises
-  directly from successful mint, burn, and swap runs where that can be done with
-  small adapters.
+  concrete state. The executable bridge layer now also exposes core-invariant
+  preservation for first mint, later mint, burn, swap, skim, and sync once each
+  call is connected to its existing closed-world transition facts. Remaining
+  work is deriving more of the arithmetic premises directly from successful
+  mint, burn, and swap runs where that can be done with small adapters.
 - Closed-world `PairWorldGood` preservation for one step and all finite
   reachable traces, finite-path preservation from any good state, and
   reachability closure for appending finite successful paths. The
@@ -363,9 +365,10 @@ the executable bridge from canonical public entrypoints to that story.
   are supplied. Successful swaps derive the zero-output guard, prove LP supply
   and locked liquidity are unchanged, and connect directly to the one-swap
   caller no-profit theorem once final-balance/K facts are supplied. Successful
-  `skim` and `sync` now also expose the LP-supply preservation and core
-  `PairWorldGood` preservation conclusions directly from successful runs. The
-  remaining bridge work is to derive more of
+  first mint, later mint, burn, swap, skim, and sync now also expose core
+  `PairWorldGood` preservation at the executable boundary once their existing
+  transition facts are supplied; `skim` and `sync` need no extra arithmetic
+  premises beyond success. The remaining bridge work is to derive more of
   the arithmetic premises directly from successful public runs, in small
   prefix/suffix lemmas rather than one aggregate function summary.
 - Concrete success-path restoration and events: Foundry mirrors cover Mint,

@@ -4566,6 +4566,40 @@ theorem closed_world_mint_preserves_good
   pair_closed_world_mint_preserves_good amount0 amount1 liquidity before after := by
   exact pairWorldStep_preserves_good
 
+-- tama: discharges=pair_mint_first_success_run_preserves_good_from_run
+theorem mint_first_success_run_preserves_good_from_run
+    (toAddr : Address) (s : ContractState) :
+  pair_mint_first_success_run_preserves_good_from_run
+    toAddr s ((mint toAddr).run s) := by
+  intro h_good _h_run h_success h_supply_zero h_reserve0 h_reserve1
+    h_amount0 h_amount1 h_product h_root
+  have h_step :=
+    mint_first_success_run_refines_closed_world_from_run toAddr s
+      rfl h_success h_supply_zero h_reserve0 h_reserve1
+      h_amount0 h_amount1 h_product h_root
+  exact closed_world_mint_preserves_good
+    (mintAmount0 s).val (mintAmount1 s).val (mintFirstLiquidity s).val
+    (pairWorldBeforeMintRun s) (pairWorldAfterFirstMintRun s)
+    h_good h_step
+
+-- tama: discharges=pair_mint_subsequent_success_run_preserves_good_from_run
+theorem mint_subsequent_success_run_preserves_good_from_run
+    (toAddr : Address) (s : ContractState)
+    (liquidity : Uint256) :
+  pair_mint_subsequent_success_run_preserves_good_from_run
+    toAddr s ((mint toAddr).run s) liquidity := by
+  intro h_good _h_run h_success h_supply_pos h_reserve0_pos h_reserve1_pos
+    h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
+  have h_step :=
+    mint_subsequent_success_run_refines_closed_world_from_run
+      toAddr s liquidity rfl h_success h_supply_pos h_reserve0_pos
+      h_reserve1_pos h_reserve0 h_reserve1 h_amount0 h_amount1
+      h_liquidity h_ratio0 h_ratio1
+  exact closed_world_mint_preserves_good
+    (mintAmount0 s).val (mintAmount1 s).val liquidity.val
+    (pairWorldBeforeMintRun s) (pairWorldAfterSubsequentMintRun liquidity s)
+    h_good h_step
+
 -- tama: discharges=pair_closed_world_mint_updates_reserves_to_balances
 theorem closed_world_mint_updates_reserves_to_balances
     (amount0 amount1 liquidity : Nat)
@@ -4714,6 +4748,24 @@ theorem closed_world_burn_preserves_good
   pair_closed_world_burn_preserves_good amount0 amount1 liquidity before after := by
   exact pairWorldStep_preserves_good
 
+-- tama: discharges=pair_burn_success_run_preserves_good_from_run
+theorem burn_success_run_preserves_good_from_run
+    (toAddr : Address) (s : ContractState) :
+  pair_burn_success_run_preserves_good_from_run
+    toAddr s ((burn toAddr).run s) := by
+  intro h_good _h_run h_success h_liquidity_pos h_supply_pos
+    h_liquidity_le h_locked_remaining h_amount0 h_amount1 h_amount0_le
+    h_amount1_le h_bound0 h_bound1 h_ratio0 h_ratio1
+  have h_step :=
+    burn_success_run_refines_closed_world toAddr s rfl h_success
+      h_liquidity_pos h_supply_pos h_liquidity_le h_locked_remaining
+      h_amount0 h_amount1 h_amount0_le h_amount1_le h_bound0 h_bound1
+      h_ratio0 h_ratio1
+  exact closed_world_burn_preserves_good
+    (burnAmount0 s).val (burnAmount1 s).val (burnLiquidity s).val
+    (pairWorldFromConcreteState s) (pairWorldAfterBurnRun s)
+    h_good h_step
+
 -- tama: discharges=pair_closed_world_burn_updates_reserves_to_balances
 theorem closed_world_burn_updates_reserves_to_balances
     (amount0 amount1 liquidity : Nat)
@@ -4794,6 +4846,28 @@ theorem closed_world_swap_preserves_good
   pair_closed_world_swap_preserves_good
     amount0In amount1In amount0Out amount1Out before after := by
   exact pairWorldStep_preserves_good
+
+-- tama: discharges=pair_swap_success_run_preserves_good_from_run
+theorem swap_success_run_preserves_good_from_run
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState) :
+  pair_swap_success_run_preserves_good_from_run
+    amount0Out amount1Out toAddr data balance0Now balance1Now s
+    ((swap amount0Out amount1Out toAddr data).run s) := by
+  intro h_good _h_run h_success h_liq0 h_liq1 h_input h_balance0
+    h_balance1 h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
+  have h_step :=
+    swap_success_run_refines_closed_world_from_run
+      amount0Out amount1Out toAddr data balance0Now balance1Now s
+      rfl h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
+      h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
+  exact closed_world_swap_preserves_good
+    (swapAmount0In amount0Out balance0Now s).val
+    (swapAmount1In amount1Out balance1Now s).val
+    amount0Out.val amount1Out.val
+    (pairWorldFromConcreteState s)
+    (pairWorldAfterSwapRun balance0Now balance1Now s)
+    h_good h_step
 
 -- tama: discharges=pair_closed_world_swap_updates_reserves_to_balances
 theorem closed_world_swap_updates_reserves_to_balances

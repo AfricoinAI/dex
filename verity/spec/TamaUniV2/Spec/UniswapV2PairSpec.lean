@@ -1470,6 +1470,32 @@ def pair_mint_first_success_run_refines_closed_world_from_run
                       (pairWorldAfterFirstMintRun s)
 
 /--
+Executable first-mint core-invariant bridge. Once a successful initial `mint`
+is connected to the closed-world first-mint transition, a good projected
+pre-state remains good: the minted state still has backed reserves, uint112
+reserve bounds, and the minimum-liquidity lock shape.
+-/
+def pair_mint_first_success_run_preserves_good_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  let before := pairWorldBeforeMintRun s
+  let after := pairWorldAfterFirstMintRun s
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  let liquidity := mintFirstLiquidity s
+  PairWorldGood before →
+    result = (mint toAddr).run s →
+      result = ContractResult.success liquidity result.snd →
+        s.storage totalSupplySlot.slot = 0 →
+          s.storage reserve0Slot.slot ≤ observedBalance0 s →
+            s.storage reserve1Slot.slot ≤ observedBalance1 s →
+              amount0 > 0 →
+                amount1 > 0 →
+                  (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
+                    mintFirstRoot s > minimumLiquidity →
+                      PairWorldGood after
+
+/--
 Executable first-mint supply fact. Once a successful public `mint` is identified
 as the initial-liquidity case, the closed-world mint theorem gives the
 reader-facing conclusion: LP total supply strictly increases.
@@ -1606,6 +1632,35 @@ def pair_mint_subsequent_success_run_refines_closed_world_from_run
                             (PairWorldAction.mint amount0.val amount1.val liquidity.val)
                             (pairWorldBeforeMintRun s)
                             (pairWorldAfterSubsequentMintRun liquidity s)
+
+/--
+Executable later-mint core-invariant bridge. A successful non-initial `mint`
+that satisfies the canonical pro-rata arithmetic facts is one closed-world mint
+step, so it preserves the core pair invariant from any good projected pre-state.
+-/
+def pair_mint_subsequent_success_run_preserves_good_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
+  let before := pairWorldBeforeMintRun s
+  let after := pairWorldAfterSubsequentMintRun liquidity s
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  PairWorldGood before →
+    result = (mint toAddr).run s →
+      result = ContractResult.success liquidity result.snd →
+        0 < (s.storage totalSupplySlot.slot).val →
+          s.storage reserve0Slot.slot > 0 →
+            s.storage reserve1Slot.slot > 0 →
+              s.storage reserve0Slot.slot ≤ observedBalance0 s →
+                s.storage reserve1Slot.slot ≤ observedBalance1 s →
+                  amount0 > 0 →
+                    amount1 > 0 →
+                      liquidity > 0 →
+                        liquidity.val * (s.storage reserve0Slot.slot).val ≤
+                            amount0.val * (s.storage totalSupplySlot.slot).val →
+                          liquidity.val * (s.storage reserve1Slot.slot).val ≤
+                              amount1.val * (s.storage totalSupplySlot.slot).val →
+                            PairWorldGood after
 
 /--
 Executable later-mint supply fact. In a nonempty pool, a successful public
@@ -1752,6 +1807,39 @@ def pair_burn_success_run_refines_closed_world
   result = (burn toAddr).run s →
     result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
       pair_burn_expected_refines_closed_world s
+
+/--
+Executable burn core-invariant bridge. A successful burn connected to its
+redemption arithmetic facts is a closed-world burn step; from a good projected
+pre-state, the post-burn model still has backed reserves, uint112 reserve
+bounds, and coherent locked LP supply.
+-/
+def pair_burn_success_run_preserves_good_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) : Prop :=
+  let before := pairWorldFromConcreteState s
+  let after := pairWorldAfterBurnRun s
+  let liquidity := burnLiquidity s
+  let amount0 := burnAmount0 s
+  let amount1 := burnAmount1 s
+  PairWorldGood before →
+    result = (burn toAddr).run s →
+      result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
+        0 < liquidity.val →
+          0 < (burnSupply s).val →
+            liquidity.val ≤ (burnSupply s).val →
+              minimumLiquidityNat ≤ (burnSupply s).val - liquidity.val →
+                amount0 > 0 →
+                  amount1 > 0 →
+                    amount0 ≤ observedBalance0 s →
+                      amount1 ≤ observedBalance1 s →
+                        burnBalance0After s ≤ maxUint112 →
+                          burnBalance1After s ≤ maxUint112 →
+                            amount0.val * (burnSupply s).val ≤
+                                liquidity.val * (observedBalance0 s).val →
+                              amount1.val * (burnSupply s).val ≤
+                                  liquidity.val * (observedBalance1 s).val →
+                                PairWorldGood after
 
 /--
 Executable burn supply fact. A successful public `burn`, once connected to its
@@ -1926,6 +2014,42 @@ def pair_swap_success_run_refines_closed_world_from_run
                               amount0Out.val amount1Out.val)
                             (pairWorldFromConcreteState s)
                             (pairWorldAfterSwapRun balance0Now balance1Now s)
+
+/--
+Executable swap core-invariant bridge. A successful `swap` connected to its
+final-balance and fee-adjusted-K facts is a closed-world swap step, so the
+resulting modeled state keeps the core invariant package.
+-/
+def pair_swap_success_run_preserves_good_from_run
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  let before := pairWorldFromConcreteState s
+  let after := pairWorldAfterSwapRun balance0Now balance1Now s
+  let amount0In := swapAmount0In amount0Out balance0Now s
+  let amount1In := swapAmount1In amount1Out balance1Now s
+  PairWorldGood before →
+    result = (swap amount0Out amount1Out toAddr data).run s →
+      result = ContractResult.success () result.snd →
+        amount0Out < s.storage reserve0Slot.slot →
+          amount1Out < s.storage reserve1Slot.slot →
+            (amount0In > 0 ∨ amount1In > 0) →
+              balance0Now.val =
+                  (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
+                balance1Now.val =
+                    (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
+                  balance0Now ≤ maxUint112 →
+                    balance1Now ≤ maxUint112 →
+                      amount0In.val * feeAdjustmentNat ≤
+                          balance0Now.val * feeDenominatorNat →
+                        amount1In.val * feeAdjustmentNat ≤
+                            balance1Now.val * feeDenominatorNat →
+                          feeAdjustedBalance balance0Now.val amount0In.val *
+                              feeAdjustedBalance balance1Now.val amount1In.val ≥
+                            requiredK
+                              (s.storage reserve0Slot.slot).val
+                              (s.storage reserve1Slot.slot).val →
+                            PairWorldGood after
 
 /--
 Executable non-liquidity invariant for swaps. A successful public `swap` may
