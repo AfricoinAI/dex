@@ -4038,6 +4038,28 @@ theorem mint_subsequent_success_run_strictly_increases_supply_from_run
     (pairWorldBeforeMintRun s) (pairWorldAfterSubsequentMintRun liquidity s)
     h_step
 
+-- tama: discharges=pair_mint_subsequent_success_run_preserves_locked_liquidity_from_run
+theorem mint_subsequent_success_run_preserves_locked_liquidity_from_run
+    (toAddr : Address) (s : ContractState)
+    (liquidity : Uint256) :
+  pair_mint_subsequent_success_run_preserves_locked_liquidity_from_run
+    toAddr s ((mint toAddr).run s) liquidity := by
+  intro _h_run h_success h_supply_pos h_reserve0_pos h_reserve1_pos
+    h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
+  have h_step :=
+    mint_subsequent_success_run_refines_closed_world_from_run
+      toAddr s liquidity rfl h_success h_supply_pos h_reserve0_pos
+      h_reserve1_pos h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity
+      h_ratio0 h_ratio1
+  have h_before_supply_pos : 0 < (pairWorldBeforeMintRun s).totalSupply := by
+    simpa [pairWorldBeforeMintRun] using h_supply_pos
+  have h_subsequent : (pairWorldBeforeMintRun s).totalSupply ≠ 0 := by
+    omega
+  exact closed_world_subsequent_mint_preserves_locked_liquidity
+    (mintAmount0 s).val (mintAmount1 s).val liquidity.val
+    (pairWorldBeforeMintRun s) (pairWorldAfterSubsequentMintRun liquidity s)
+    h_step h_subsequent
+
 -- tama: discharges=pair_closed_world_burn_reduces_supply_by_liquidity
 theorem closed_world_burn_reduces_supply_by_liquidity
     (amount0 amount1 liquidity : Nat)

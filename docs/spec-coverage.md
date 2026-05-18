@@ -250,7 +250,9 @@ Pair:
   liquidity. Successful first mints also expose the concrete
   `MINIMUM_LIQUIDITY` lock at the public-call boundary: total supply is the
   locked floor plus returned user liquidity, so the first LP receives less than
-  total LP supply. Successful initial and later mints now also expose the matching
+  total LP supply. Successful later mints expose the companion fact that locked
+  liquidity is unchanged and total supply is old supply plus returned user
+  liquidity. Successful initial and later mints now also expose the matching
   reserve-write and raw cached-K facts directly: once connected to their
   arithmetic facts, each public mint path caches observed token balances as
   reserves and cannot decrease the cached reserve product.
