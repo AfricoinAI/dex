@@ -247,7 +247,9 @@ Pair:
   available. The same executable layer also exposes the supply-movement facts
   directly: successful initial and later mints strictly increase LP total
   supply, and successful burns reduce LP total supply exactly by the burned
-  liquidity. Successful first mints also expose the concrete
+  liquidity. Successful burns also expose that the permanently locked liquidity
+  remains covered by post-burn supply and is preserved exactly. Successful first
+  mints also expose the concrete
   `MINIMUM_LIQUIDITY` lock at the public-call boundary: total supply is the
   locked floor plus returned user liquidity, so the first LP receives less than
   total LP supply. Successful later mints expose the companion fact that locked

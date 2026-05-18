@@ -4122,6 +4122,24 @@ theorem closed_world_burn_cannot_redeem_locked_liquidity
   rw [h_supply]
   exact ⟨h_locked_remaining, h_locked⟩
 
+-- tama: discharges=pair_burn_success_run_cannot_redeem_locked_liquidity_from_run
+theorem burn_success_run_cannot_redeem_locked_liquidity_from_run
+    (toAddr : Address) (s : ContractState) :
+  pair_burn_success_run_cannot_redeem_locked_liquidity_from_run
+    toAddr s ((burn toAddr).run s) := by
+  intro _h_run h_success h_liquidity_pos h_supply_pos h_liquidity_le
+    h_locked_remaining h_amount0 h_amount1 h_amount0_le h_amount1_le
+    h_bound0 h_bound1 h_ratio0 h_ratio1
+  have h_step :=
+    burn_success_run_refines_closed_world toAddr s
+      rfl h_success h_liquidity_pos h_supply_pos h_liquidity_le
+      h_locked_remaining h_amount0 h_amount1 h_amount0_le h_amount1_le
+      h_bound0 h_bound1 h_ratio0 h_ratio1
+  exact closed_world_burn_cannot_redeem_locked_liquidity
+    (burnAmount0 s).val (burnAmount1 s).val (burnLiquidity s).val
+    (pairWorldFromConcreteState s) (pairWorldAfterBurnRun s)
+    h_step
+
 -- tama: discharges=pair_closed_world_burn_preserves_positive_balances
 theorem closed_world_burn_preserves_positive_balances
     (amount0 amount1 liquidity : Nat)
