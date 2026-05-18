@@ -559,6 +559,26 @@ def factory_concrete_same_length_create_path_preserves_world
           (sAfter.storage allPairsLengthSlot.slot).val →
           wAfter = wBefore
 
+/--
+Concrete same-length histories preserve the reconstructed lookup relation.
+This is the router-facing reading of the no-op theorem above: if a real
+successful create history leaves `allPairsLength` unchanged, then the
+reconstructed unordered lookup table contains exactly the same pairs at both
+endpoints. No hidden create, overwrite, or deletion can be hiding behind an
+unchanged public pair count.
+-/
+def factory_concrete_same_length_create_path_preserves_reconstructed_lookups
+    (sBefore sAfter : ContractState)
+    (wBefore wAfter : FactoryWorldState) : Prop :=
+  FactoryWorldGood wBefore →
+    FactoryWorldMatchesStorage sBefore wBefore →
+      FactoryConcreteCreatePath sBefore wBefore sAfter wAfter →
+        (sBefore.storage allPairsLengthSlot.slot).val =
+          (sAfter.storage allPairsLengthSlot.slot).val →
+          ∀ tokenA tokenB pair,
+            FactoryWorldContainsPair wAfter tokenA tokenB pair ↔
+              FactoryWorldContainsPair wBefore tokenA tokenB pair
+
 /-!
 ## Closed-World Factory Invariants
 

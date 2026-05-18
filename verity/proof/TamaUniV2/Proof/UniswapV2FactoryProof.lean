@@ -1452,6 +1452,19 @@ theorem concrete_same_length_create_path_preserves_world
           subst countAfter
           rfl
 
+-- tama: discharges=factory_concrete_same_length_create_path_preserves_reconstructed_lookups
+theorem concrete_same_length_create_path_preserves_reconstructed_lookups
+    (sBefore sAfter : ContractState)
+    (wBefore wAfter : FactoryWorldState) :
+  factory_concrete_same_length_create_path_preserves_reconstructed_lookups
+    sBefore sAfter wBefore wAfter := by
+  intro h_good h_match h_path h_same_length tokenA tokenB pair
+  have h_world_eq :=
+    concrete_same_length_create_path_preserves_world
+      sBefore sAfter wBefore wAfter h_good h_match h_path h_same_length
+  subst wAfter
+  rfl
+
 -- tama: discharges=factory_closed_world_step_preserves_good
 theorem closed_world_step_preserves_good
     (action : FactoryWorldAction)
