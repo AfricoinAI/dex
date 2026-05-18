@@ -406,6 +406,16 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   focused Pair proof, whole `lake build TamaUniV2.Proof`, `tama check`, `tama
   build`, `tama test` (26/26), `tama audit` (0 issues), and `git diff --check`.
 
+  2026-05-17 17:10 PDT checkpoint: next bridge target is the direct
+  composition of that fact into swap refinement/oracle specs, so readers no
+  longer need to supply the nonzero-output premise separately for successful
+  real swaps.
+
+  2026-05-17 17:15 PDT checkpoint: implemented and verified that target.
+  Successful swap-to-model and swap-oracle bridge statements now discharge the
+  nonzero-output guard from the actual run while keeping the post-callback
+  balance and K facts explicit.
+
 - [x] **5. Add TWAP/oracle specs**
 
   For every reserve-update path, prove cumulative prices update exactly when

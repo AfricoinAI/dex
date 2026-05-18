@@ -1533,6 +1533,43 @@ def pair_swap_success_run_refines_closed_world
       pair_swap_expected_refines_closed_world
         amount0Out amount1Out balance0Now balance1Now s
 
+/-- Successful-run swap refinement with the zero-output guard discharged by the
+actual executable run. The remaining premises are the post-callback balance,
+input, reserve-bound, and K facts that describe the state observed after any
+optimistic transfer and callback repayment. -/
+def pair_swap_success_run_refines_closed_world_from_run
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  let amount0In := swapAmount0In amount0Out balance0Now s
+  let amount1In := swapAmount1In amount1Out balance1Now s
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      amount0Out < s.storage reserve0Slot.slot →
+        amount1Out < s.storage reserve1Slot.slot →
+          (amount0In > 0 ∨ amount1In > 0) →
+            balance0Now.val =
+                (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
+              balance1Now.val =
+                  (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
+                balance0Now ≤ maxUint112 →
+                  balance1Now ≤ maxUint112 →
+                    amount0In.val * feeAdjustmentNat ≤
+                        balance0Now.val * feeDenominatorNat →
+                      amount1In.val * feeAdjustmentNat ≤
+                          balance1Now.val * feeDenominatorNat →
+                        feeAdjustedBalance balance0Now.val amount0In.val *
+                            feeAdjustedBalance balance1Now.val amount1In.val ≥
+                          requiredK
+                            (s.storage reserve0Slot.slot).val
+                            (s.storage reserve1Slot.slot).val →
+                            PairWorldStep
+                              (PairWorldAction.swap
+                                amount0In.val amount1In.val
+                                amount0Out.val amount1Out.val)
+                              (pairWorldFromConcreteState s)
+                              (pairWorldAfterSwapRun balance0Now balance1Now s)
+
 /--
 Public swap bridge to caller no-profit.
 
@@ -1749,6 +1786,44 @@ def pair_swap_success_run_uses_oracle_rule
                               pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives s ∧
                               pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
                               pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
+
+/-- Swap reserve/oracle bridge with the zero-output guard discharged from the
+successful run. The caller still supplies the final-balance and K facts because
+those describe the post-callback token balances that the executable swap reads
+before updating reserves. -/
+def pair_swap_success_run_uses_oracle_rule_from_run
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  let amount0In := swapAmount0In amount0Out balance0Now s
+  let amount1In := swapAmount1In amount1Out balance1Now s
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      amount0Out < s.storage reserve0Slot.slot →
+        amount1Out < s.storage reserve1Slot.slot →
+          (amount0In > 0 ∨ amount1In > 0) →
+            balance0Now.val =
+                (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
+              balance1Now.val =
+                  (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
+                balance0Now ≤ maxUint112 →
+                  balance1Now ≤ maxUint112 →
+                    amount0In.val * feeAdjustmentNat ≤
+                        balance0Now.val * feeDenominatorNat →
+                      amount1In.val * feeAdjustmentNat ≤
+                          balance1Now.val * feeDenominatorNat →
+                        feeAdjustedBalance balance0Now.val amount0In.val *
+                            feeAdjustedBalance balance1Now.val amount1In.val ≥
+                          requiredK
+                            (s.storage reserve0Slot.slot).val
+                            (s.storage reserve1Slot.slot).val →
+                          (pairWorldAfterSwapRun balance0Now balance1Now s).reserve0 =
+                              (pairWorldAfterSwapRun balance0Now balance1Now s).balance0 ∧
+                            (pairWorldAfterSwapRun balance0Now balance1Now s).reserve1 =
+                              (pairWorldAfterSwapRun balance0Now balance1Now s).balance1 ∧
+                            pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives s ∧
+                            pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
+                            pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s
 
 /-!
 ## Closed-World Economic Invariants

@@ -61,6 +61,19 @@ private theorem uint256_bne_true_of_ne {a b : Uint256} (h : a ≠ b) :
     (a != b) = true := by
   simpa [bne_iff_ne] using h
 
+private theorem uint256_pos_of_ne_zero {a : Uint256} (h : a ≠ 0) :
+    a > 0 := by
+  change 0 < a.val
+  by_contra h_not_pos
+  have h_val_zero : a.val = 0 := by
+    omega
+  apply h
+  cases a with
+  | mk val isLt =>
+      simp at h_val_zero
+      subst val
+      rfl
+
 private theorem addressOfNat_toNat_mod_uint256 (a : Address) :
     Core.Address.ofNat (Core.Address.toNat a % Core.Uint256.modulus) = a := by
   apply Core.Address.toNat_injective
@@ -2546,6 +2559,28 @@ theorem swap_success_run_refines_closed_world
   intro _h_run _h_success
   exact swap_expected_refines_closed_world
     amount0Out amount1Out balance0Now balance1Now s
+
+-- tama: discharges=pair_swap_success_run_refines_closed_world_from_run
+theorem swap_success_run_refines_closed_world_from_run
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState) :
+  pair_swap_success_run_refines_closed_world_from_run
+    amount0Out amount1Out toAddr data balance0Now balance1Now s
+    ((swap amount0Out amount1Out toAddr data).run s) := by
+  intro _h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
+    h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
+  have h_nonzero :=
+    swap_success_run_implies_nonzero_output
+      amount0Out amount1Out toAddr data s
+      ((swap amount0Out amount1Out toAddr data).run s) rfl h_success
+  have h_output : amount0Out > 0 ∨ amount1Out > 0 := by
+    rcases h_nonzero with h_amount0 | h_amount1
+    · exact Or.inl (uint256_pos_of_ne_zero h_amount0)
+    · exact Or.inr (uint256_pos_of_ne_zero h_amount1)
+  exact swap_expected_refines_closed_world
+    amount0Out amount1Out balance0Now balance1Now s h_output
+    h_liq0 h_liq1 h_input h_balance0 h_balance1 h_bound0 h_bound1
+    h_fee0 h_fee1 h_adjusted_k
 
 private theorem pairWorldStep_preserves_good
     {action : PairWorldAction} {before after : PairWorldState} :
@@ -5698,6 +5733,57 @@ theorem swap_success_run_uses_oracle_rule
     swap_success_run_refines_closed_world
       amount0Out amount1Out toAddr data balance0Now balance1Now s
       rfl h_success h_output h_liq0 h_liq1 h_input h_balance0 h_balance1
+      h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
+  have h_action :
+      ((∃ amount0 amount1 liquidity,
+          PairWorldAction.swap
+              (swapAmount0In amount0Out balance0Now s).val
+              (swapAmount1In amount1Out balance1Now s).val
+              amount0Out.val amount1Out.val =
+            PairWorldAction.mint amount0 amount1 liquidity) ∨
+        (∃ amount0 amount1 liquidity,
+          PairWorldAction.swap
+              (swapAmount0In amount0Out balance0Now s).val
+              (swapAmount1In amount1Out balance1Now s).val
+              amount0Out.val amount1Out.val =
+            PairWorldAction.burn amount0 amount1 liquidity) ∨
+        (∃ amount0In amount1In amount0Out' amount1Out',
+          PairWorldAction.swap
+              (swapAmount0In amount0Out balance0Now s).val
+              (swapAmount1In amount1Out balance1Now s).val
+              amount0Out.val amount1Out.val =
+            PairWorldAction.swap amount0In amount1In amount0Out' amount1Out') ∨
+        PairWorldAction.swap
+            (swapAmount0In amount0Out balance0Now s).val
+            (swapAmount1In amount1Out balance1Now s).val
+            amount0Out.val amount1Out.val =
+          PairWorldAction.sync) := by
+    right
+    right
+    left
+    exact ⟨(swapAmount0In amount0Out balance0Now s).val,
+      (swapAmount1In amount1Out balance1Now s).val,
+      amount0Out.val, amount1Out.val, rfl⟩
+  exact reserve_write_step_uses_oracle_rule
+    (PairWorldAction.swap
+      (swapAmount0In amount0Out balance0Now s).val
+      (swapAmount1In amount1Out balance1Now s).val amount0Out.val amount1Out.val)
+    (pairWorldFromConcreteState s)
+    (pairWorldAfterSwapRun balance0Now balance1Now s) s h_action h_step
+
+-- tama: discharges=pair_swap_success_run_uses_oracle_rule_from_run
+theorem swap_success_run_uses_oracle_rule_from_run
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState) :
+  pair_swap_success_run_uses_oracle_rule_from_run
+    amount0Out amount1Out toAddr data balance0Now balance1Now s
+    ((swap amount0Out amount1Out toAddr data).run s) := by
+  intro _h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
+    h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
+  have h_step :=
+    swap_success_run_refines_closed_world_from_run
+      amount0Out amount1Out toAddr data balance0Now balance1Now s
+      rfl h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
       h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
   have h_action :
       ((∃ amount0 amount1 liquidity,
