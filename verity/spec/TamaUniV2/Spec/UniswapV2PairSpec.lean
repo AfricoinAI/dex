@@ -3373,6 +3373,17 @@ def pair_closed_world_reachable_no_donation_path_never_increases_surplus
       PairWorldSurplus0 after ≤ PairWorldSurplus0 before ∧
       PairWorldSurplus1 after ≤ PairWorldSurplus1 before
 
+/-- New skimmable surplus requires donation. If either token side ends with
+more `balance - reserve` surplus than it started with, then a no-donation
+history cannot explain that endpoint. This is the trace-level firewall behind
+the no-profit theorems that allow `skim` to remove only pre-existing gifts. -/
+def pair_closed_world_reachable_surplus_increase_requires_donation
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    (PairWorldSurplus0 before < PairWorldSurplus0 after ∨
+      PairWorldSurplus1 before < PairWorldSurplus1 after) →
+      ¬ PairWorldPathNoDonation before after
+
 /-- Spot-valued form of the same surplus isolation. The previous theorem is
 token-side; this one states the economic consequence at the starting pool's
 spot price. Along a no-donation history, the token1-denominated value of

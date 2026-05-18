@@ -211,7 +211,8 @@ Pair:
   flash-swap theorem that the fee-adjusted K check uses those final
   post-repayment balances, donation
   reserve/K framing, exact donation-created reserve surplus, finite-history
-  no-donation surplus isolation, zero-surplus preservation for no-donation
+  no-donation surplus isolation, the reader-facing surplus classifier proving
+  new skimmable surplus requires a donation step, zero-surplus preservation for no-donation
   histories, clean-start no-donation endpoint balance, LP-supply preservation
   for swap/skim/sync,
   the action classifier that only mint/burn can change LP total supply, the K-direction
