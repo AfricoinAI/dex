@@ -266,6 +266,12 @@ already prove that the formulas are safe once the arithmetic facts are known;
 the missing strength is proving that a successful public `mint` established
 those facts itself.
 
+**Reviewed execution note:** Do not make the public theorem assume the formula
+it is supposed to prove. The right shape follows Tamago's ERC4626 success-path
+pattern: first prove a private helper that reduces the relevant `mint` branch
+under explicit success preconditions, then expose a short public claim whose
+conclusion is the canonical liquidity formula.
+
 **Files:**
 - Modify: `verity/spec/TamaUniV2/Spec/UniswapV2PairSpec.lean`
 - Modify: `verity/proof/TamaUniV2/Proof/UniswapV2PairProof.lean`
@@ -273,7 +279,25 @@ those facts itself.
 - Modify: `docs/spec-coverage.md`
 - Test mirror if needed: `test/verity/UniswapV2Core.t.sol`
 
-- [ ] **Step 1: Add first-mint formula claim**
+- [ ] **Step 1: Add private first-mint success-path helper**
+
+  Add an unregistered helper in `UniswapV2PairProof.lean` that follows the
+  Tamago ERC4626 `deposit_properties_after_run` pattern. Under the first-mint
+  success preconditions, it should prove the actual public run returns
+  `mintFirstLiquidity s` and writes the first-mint LP accounting cells needed by
+  the public claim.
+
+  Required preconditions:
+  - lock is open;
+  - `totalSupply == 0`;
+  - observed balances fit uint112;
+  - observed balances are at least cached reserves;
+  - both deposited amounts are positive;
+  - `amount0 * amount1` did not overflow;
+  - Tamago sqrt result is greater than `MINIMUM_LIQUIDITY`;
+  - adding returned liquidity to the recipient LP balance does not overflow.
+
+- [ ] **Step 2: Add first-mint formula claim**
 
   Add a public claim named
   `pair_first_mint_success_uses_canonical_liquidity_formula` in the mint
@@ -291,13 +315,30 @@ those facts itself.
   ```
 
   The proposition must quantify `toAddr : Address`, `s : ContractState`, and
-  `result : ContractResult Uint256`; assume `result = (mint toAddr).run s` and
-  a successful returned liquidity value; conclude the existing first-mint
-  arithmetic equalities already used by the current
+  `result : ContractResult Uint256`; assume the first-mint success preconditions
+  above, not the formula itself; conclude the existing first-mint arithmetic
+  equalities already used by the current
   `pair_mint_first_success_run_locks_minimum_liquidity_from_run` and
   `pair_mint_first_success_run_keeps_locked_share_from_run` proofs.
 
-- [ ] **Step 2: Add later-mint formula claim**
+- [ ] **Step 3: Add private later-mint success-path helper**
+
+  Add an unregistered helper for the later-mint branch. Under the later-mint
+  success preconditions, it should prove the actual public run returns
+  `min(amount0 * supply / reserve0, amount1 * supply / reserve1)` and writes the
+  later-mint LP accounting cells needed by the public claim.
+
+  Required preconditions:
+  - lock is open;
+  - existing supply and both cached reserves are positive;
+  - observed balances fit uint112;
+  - observed balances are at least cached reserves;
+  - both deposited amounts are positive;
+  - both `amount * supply` products did not overflow;
+  - computed liquidity is positive;
+  - adding liquidity to total supply and recipient balance does not overflow.
+
+- [ ] **Step 4: Add later-mint formula claim**
 
   Add a public claim named
   `pair_later_mint_success_uses_minimum_pro_rata_liquidity`. Its comment must
@@ -314,19 +355,19 @@ those facts itself.
   ```
 
   The proposition must quantify `toAddr : Address`, `s : ContractState`, and
-  `result : ContractResult Uint256`; assume `result = (mint toAddr).run s`, a
-  successful returned liquidity value, nonzero existing supply, and existing
-  reserves; conclude the same min-pro-rata relationship already used by
+  `result : ContractResult Uint256`; assume the later-mint success preconditions
+  above, not the formula itself; conclude the same min-pro-rata relationship
+  already used by
   `pair_mint_subsequent_success_run_preserves_existing_lp_share`.
 
-- [ ] **Step 3: Prove both from existing mint execution facts**
+- [ ] **Step 5: Prove both from the private success-path helpers**
 
   In `UniswapV2PairProof.lean`, prove each theorem by composing existing
   mint-success facts. Do not unfold the whole contract body if that reproduces
   kernel-depth failures. If a small private helper is needed, put it near the
   mint proofs and keep it unregistered in `tama.toml`.
 
-- [ ] **Step 4: Verify and commit**
+- [ ] **Step 6: Verify and commit**
 
   Run the full command set from Task 2 Step 5.
 
