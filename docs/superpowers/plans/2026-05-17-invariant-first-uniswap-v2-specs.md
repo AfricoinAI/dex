@@ -208,6 +208,11 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   bridges. Successful public `mint` runs now prove raw cached K cannot decrease
   once connected to their first-mint or pro-rata later-mint arithmetic facts.
 
+  2026-05-17 18:16 PDT checkpoint: split out the executable burn reserve-write
+  fact from the larger burn oracle bridge. Successful public `burn` runs now
+  state directly that cached reserves are set to post-transfer token balances
+  once connected to their redemption arithmetic facts.
+
   2026-05-17 07:59 PDT checkpoint: added the reserve-change classifier. Cached
   reserves can change only through mint, burn, swap, or sync; share
   bookkeeping, direct donation, and skim cannot secretly rewrite router-visible

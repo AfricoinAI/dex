@@ -1685,6 +1685,37 @@ def pair_burn_success_run_reduces_supply_by_liquidity_from_run
                                 before.totalSupply - liquidity.val
 
 /--
+Executable burn reserve-write fact. After a successful burn transfers redeemed
+tokens out, the pair rereads both token balances and caches exactly those
+post-transfer balances as reserves.
+-/
+def pair_burn_success_run_updates_reserves_to_balances_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) : Prop :=
+  let after := pairWorldAfterBurnRun s
+  let liquidity := burnLiquidity s
+  let amount0 := burnAmount0 s
+  let amount1 := burnAmount1 s
+  result = (burn toAddr).run s →
+    result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
+      0 < liquidity.val →
+        0 < (burnSupply s).val →
+          liquidity.val ≤ (burnSupply s).val →
+            minimumLiquidityNat ≤ (burnSupply s).val - liquidity.val →
+              amount0 > 0 →
+                amount1 > 0 →
+                  amount0 ≤ observedBalance0 s →
+                    amount1 ≤ observedBalance1 s →
+                      burnBalance0After s ≤ maxUint112 →
+                        burnBalance1After s ≤ maxUint112 →
+                          amount0.val * (burnSupply s).val ≤
+                              liquidity.val * (observedBalance0 s).val →
+                            amount1.val * (burnSupply s).val ≤
+                                liquidity.val * (observedBalance1 s).val →
+                              after.reserve0 = after.balance0 ∧
+                                after.reserve1 = after.balance1
+
+/--
 Successful-burn economic bridge. A burn may reduce raw reserves because assets
 leave the pair, but it must not over-extract from the LPs that remain. Once the
 real public run is connected to its concrete redemption facts, the closed-world
