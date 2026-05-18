@@ -204,6 +204,10 @@ protocol-fee minting, `feeTo`, `feeToSetter`, LP `name`, LP `symbol`, and
   and fee-adjusted-K facts used by the swap transition, now proves raw cached K
   cannot decrease.
 
+  2026-05-17 18:11 PDT checkpoint: added executable first/subsequent mint K
+  bridges. Successful public `mint` runs now prove raw cached K cannot decrease
+  once connected to their first-mint or pro-rata later-mint arithmetic facts.
+
   2026-05-17 07:59 PDT checkpoint: added the reserve-change classifier. Cached
   reserves can change only through mint, burn, swap, or sync; share
   bookkeeping, direct donation, and skim cannot secretly rewrite router-visible

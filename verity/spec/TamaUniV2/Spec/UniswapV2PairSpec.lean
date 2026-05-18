@@ -1445,6 +1445,30 @@ def pair_mint_first_success_run_strictly_increases_supply_from_run
                   mintFirstRoot s > minimumLiquidity →
                     before.totalSupply < after.totalSupply
 
+/--
+Executable first-mint K fact. Initial liquidity deposits add token balances and
+cache those balances as reserves; once the successful public run is connected
+to that first-mint transition, raw cached K cannot decrease.
+-/
+def pair_mint_first_success_run_never_decreases_k_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  let before := pairWorldBeforeMintRun s
+  let after := pairWorldAfterFirstMintRun s
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  let liquidity := mintFirstLiquidity s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      s.storage totalSupplySlot.slot = 0 →
+        s.storage reserve0Slot.slot ≤ observedBalance0 s →
+          s.storage reserve1Slot.slot ≤ observedBalance1 s →
+            amount0 > 0 →
+              amount1 > 0 →
+                (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
+                  mintFirstRoot s > minimumLiquidity →
+                    PairWorldK before ≤ PairWorldK after
+
 /-!
 The remaining bridge specs keep the same shape. Each one is a one-step
 simulation fact: a successful public call, together with the arithmetic facts
@@ -1538,6 +1562,34 @@ def pair_mint_subsequent_success_run_strictly_increases_supply_from_run
                         liquidity.val * (s.storage reserve1Slot.slot).val ≤
                             amount1.val * (s.storage totalSupplySlot.slot).val →
                           before.totalSupply < after.totalSupply
+
+/--
+Executable later-mint K fact. Later liquidity deposits add balances on both
+token sides before reserves are updated, so connecting a successful public
+`mint` to its pro-rata transition proves raw cached K cannot decrease.
+-/
+def pair_mint_subsequent_success_run_never_decreases_k_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
+  let before := pairWorldBeforeMintRun s
+  let after := pairWorldAfterSubsequentMintRun liquidity s
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      0 < (s.storage totalSupplySlot.slot).val →
+        s.storage reserve0Slot.slot > 0 →
+          s.storage reserve1Slot.slot > 0 →
+            s.storage reserve0Slot.slot ≤ observedBalance0 s →
+              s.storage reserve1Slot.slot ≤ observedBalance1 s →
+                amount0 > 0 →
+                  amount1 > 0 →
+                    liquidity > 0 →
+                      liquidity.val * (s.storage reserve0Slot.slot).val ≤
+                          amount0.val * (s.storage totalSupplySlot.slot).val →
+                        liquidity.val * (s.storage reserve1Slot.slot).val ≤
+                            amount1.val * (s.storage totalSupplySlot.slot).val →
+                          PairWorldK before ≤ PairWorldK after
 
 /--
 Successful later mints cannot dilute existing LPs. Once a real `mint` succeeds

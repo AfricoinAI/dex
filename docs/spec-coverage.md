@@ -228,7 +228,9 @@ Pair:
   available. The same executable layer also exposes the supply-movement facts
   directly: successful initial and later mints strictly increase LP total
   supply, and successful burns reduce LP total supply exactly by the burned
-  liquidity.
+  liquidity. Successful initial and later mints now also expose the matching
+  raw cached-K fact directly: once connected to their arithmetic facts, neither
+  public mint path can decrease the cached reserve product.
 - Same-LP-supply spot-value no-profit projection from reserve-product
   nondecrease. The stronger closed-world LP-normalized K theorem now covers
   arbitrary finite paths from good positive-supply states: each step preserves
