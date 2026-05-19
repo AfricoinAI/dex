@@ -35,69 +35,83 @@ than their foundations, but they are what the file ultimately proves.
 
 H1. Single-caller portfolio no-profit. From any reachable state, no finite
     sequence of valid modeled actions can increase the lone caller's
-    initial-spot-price portfolio value.
+    initial-spot-price portfolio value (wallet tokens + LP-claimed reserves
+    + skimmable surplus).
     → `pair_wallet_single_caller_history_no_portfolio_profit`
 
-H2. Same-LP-supply paths cannot extract spot value from a positive-supply pool.
+H2. Pool spot value (over cached reserves) cannot decrease across same-LP-supply
+    paths. This is the same theorem written two ways: pool-facing ("value never
+    decreases") and caller-facing ("no value extraction"). Both forms are kept
+    because routers and auditors cite them differently.
+    → `pair_closed_world_reachable_same_supply_path_pool_value_never_decreases`
     → `pair_closed_world_reachable_positive_supply_same_supply_path_no_spot_value_extraction`
 
-H3. Non-liquidity histories (no mint, no burn) cannot extract spot value.
+    Common operational corollary: histories with no mint and no burn are a
+    subset of same-LP-supply (by the LP-supply firewall, H8), so the same
+    statement holds with that easier premise.
     → `pair_closed_world_reachable_positive_supply_no_mint_burn_path_no_spot_value_extraction`
 
-H4. Same-supply paths cannot reduce the pool's spot value at the initial price.
-    → `pair_closed_world_reachable_same_supply_path_pool_value_never_decreases`
-
-H5. K can only fall via burn. Any cached-K decrease across a finite history
-    requires that history to contain a burn step.
+H3. K direction. Any cached-K decrease across a reachable finite history must
+    contain a burn step. Equivalently, no-burn finite histories never decrease
+    cached K. This is what guarantees that swaps cannot extract — every swap
+    increases or holds K.
     → `pair_closed_world_k_decrease_requires_burn`
     → `pair_closed_world_reachable_no_burn_path_never_decreases_k`
     → `pair_closed_world_reachable_k_decrease_excludes_burn_free_path`
 
-H6. Donated-surplus exception coverage. The actual token-balance loss along
-    a same-LP-supply or no-mint-no-burn path is bounded by the initial surplus
-    above cached reserves; with no surplus and no donation, value is preserved
-    exactly.
+H4. Actual token-balance value picture (the donation-aware version of H2).
+    H2 talks about cached reserves; this headline talks about actual ERC20
+    balances held by the pair, which include donated surplus above the cached
+    reserves. `skim` may reduce actual-balance value (by removing surplus)
+    without reducing pool spot value, so the actual-balance picture is
+    strictly weaker than H2 and is the right one for routers reasoning about
+    real wallet outcomes.
+
+    Bound: across a same-LP-supply or no-mint-no-burn path, actual
+    token-balance value loss is bounded by the initial surplus above cached
+    reserves. With zero surplus and no donation step, the path preserves
+    actual-balance value exactly.
     → `pair_closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_initial_surplus`
     → `pair_closed_world_reachable_no_mint_burn_path_caller_token_balance_profit_bounded_by_initial_surplus`
     → `pair_closed_world_reachable_zero_surplus_no_donation_no_mint_burn_path_balanced_and_no_caller_token_balance_profit`
 
 ### Tier 2 — Structural invariants
 
-H7. Reserve backing across all finite reachable histories: cached reserves
+H5. Reserve backing across all finite reachable histories: cached reserves
     are always covered by actual ERC20 balances held by the pair.
     → `pair_closed_world_reachable_path_reserves_backed`
 
-H8. uint112 reserve domain: cached reserves never exceed the 2^112 bound.
+H6. uint112 reserve domain: cached reserves never exceed the 2^112 bound.
     → `pair_closed_world_reachable_path_reserves_fit_uint112`
 
-H9. Minimum-liquidity lock: once positive LP supply exists, the permanently
+H7. Minimum-liquidity lock: once positive LP supply exists, the permanently
     locked `MINIMUM_LIQUIDITY` floor is monotone non-decreasing and never
     redeemable.
     → `pair_closed_world_reachable_path_minimum_liquidity_lock`
     → `pair_closed_world_reachable_path_locked_liquidity_never_decreases`
     → `pair_closed_world_burn_cannot_redeem_locked_liquidity`
 
-H10. LP supply changes only on mint or burn; non-liquidity actions preserve
+H8. LP supply changes only on mint or burn; non-liquidity actions preserve
      it exactly.
      → `pair_closed_world_reachable_supply_change_requires_mint_or_burn`
      → `pair_closed_world_reachable_supply_increase_requires_mint`
      → `pair_closed_world_reachable_supply_decrease_requires_burn`
 
-H11. Reentrancy lock blocks all mutating entrypoints. Once a callback closes
+H9. Reentrancy lock blocks all mutating entrypoints. Once a callback closes
      the lock, every later mint/burn/swap/skim/sync attempt reverts before
      durable side effects.
      → `pair_reentrancy_guard_blocks_all_mutating_entrypoints`
      → `pair_flash_callback_runs_while_pair_is_locked`
      → `pair_flash_callback_reentry_attempts_revert_locked`
 
-H12. Donations are the only source of skimmable surplus. No internal action
+H10. Donations are the only source of skimmable surplus. No internal action
      can manufacture excess token balance above cached reserves.
      → `pair_closed_world_reachable_surplus_increase_requires_donation`
      → `pair_closed_world_donation_increases_surplus_exactly`
 
 ### Tier 3 — Boundary mechanics
 
-H13. Per-call public accounting rules connect each successful public call to
+H11. Per-call public accounting rules connect each successful public call to
      a closed-world transition, so the closed-world theorems above apply at
      the contract boundary. Mint, burn, swap, skim, sync each have a canonical
      `_success_run_matches_closed_world_step` form plus the public-call
@@ -105,29 +119,29 @@ H13. Per-call public accounting rules connect each successful public call to
      `_strictly_increases_supply_from_run`, etc.).
      → `pair_{mint_first,mint_subsequent,burn,swap,skim,sync}_success_run_matches_closed_world_step{,_from_run}`
 
-H14. Exact-revert guard framing: every guarded failure has a known canonical
+H12. Exact-revert guard framing: every guarded failure has a known canonical
      revert payload and leaves the pre-call state unchanged.
      → `pair_*_run_revert_*` family and `pair_*_revert_keeps_pair_state` /
        `pair_*_revert_keeps_token_balances` families.
 
-H15. ERC20 transfer trace boundary: token movement is modeled by explicit
+H13. ERC20 transfer trace boundary: token movement is modeled by explicit
      pair-local trace events, not by pretending ERC20 contracts are local
      storage.
      → `pair_safeTransfer_traces_token_transfer`
      → `pair_safeTransfer_event_replay_moves_token_balance`
      → `pair_two_safeTransfer_events_replay_move_distinct_token_balances`
 
-H16. LP ERC20 share ledger is conservative. Approve, transfer, and
+H14. LP ERC20 share ledger is conservative. Approve, transfer, and
      transferFrom move LP claims only; they leave AMM state, reserves, and
      token balances unchanged.
      → `pair_{approve,transfer,transferFrom}_*` family (success, frame,
        event, and revert specs).
 
-H17. Initialization is factory-only and one-shot. After the first successful
+H15. Initialization is factory-only and one-shot. After the first successful
      initialize, token identities are fixed forever.
      → `pair_initialize_*` family.
 
-H18. Views read exactly one storage cell (or constant) without mutating
+H16. Views read exactly one storage cell (or constant) without mutating
      state.
      → `pair_*_run_success_frames_state` family across the twelve public reads.
 
@@ -149,34 +163,34 @@ Listed in source order. Each section's "Supports" line names the headlines
 its specs anchor; "Required by" lists the downstream sections that build on
 it.
 
-1. Views — Supports: H18. Required by: nothing.
-2. ERC20 Boundary Traces — Supports: H15. Required by: revert frames, skim
+1. Views — Supports: H16. Required by: nothing.
+2. ERC20 Boundary Traces — Supports: H13. Required by: revert frames, skim
    success, mint/burn/swap public-call accounting.
-3. Revert Frames — Supports: H14. Required by: closed-world invariants.
-4. LP Bookkeeping Frame — Supports: H16. Required by: closed-world invariants.
-5. Local Entry Points — Supports: H16, H17, H14 (LP-side guards). Required by:
+3. Revert Frames — Supports: H12. Required by: closed-world invariants.
+4. LP Bookkeeping Frame — Supports: H14. Required by: closed-world invariants.
+5. Local Entry Points — Supports: H14, H15, H12 (LP-side guards). Required by:
    exact guard runs.
-6. Exact Guard Runs — Supports: H11 (lock branch), H14. Required by:
+6. Exact Guard Runs — Supports: H9 (lock branch), H12. Required by:
    public-call accounting.
-7. Skim And Sync (public) — Supports: H11 (lock), H13. Required by:
+7. Skim And Sync (public) — Supports: H9 (lock), H11. Required by:
    closed-world invariants.
-8. Oracle/TWAP — Supports: nothing user-facing; foundational for H13's oracle
+8. Oracle/TWAP — Supports: nothing user-facing; foundational for H11's oracle
    facts. Required by: mint/burn/swap public-call accounting.
-9. Flash-Swap Boundary — Supports: H11, H13. Required by: closed-world
+9. Flash-Swap Boundary — Supports: H9, H11. Required by: closed-world
    invariants.
-10. Mint, Burn, And Swap (public) — Supports: H13. Required by: closed-world
+10. Mint, Burn, And Swap (public) — Supports: H11. Required by: closed-world
     invariants.
-11. Closed-World Economic Invariants — Supports: H1–H12. Numbered subsections:
-    1. Reachability Invariants — H7, H8.
-    2. Concrete-State Projections — H7, H8.
-    3. LP Supply Discipline — H9, H10.
-    4. Token Inflow Without Accounting (Donations) — H12.
-    5. Liquidity Creation And Redemption — H9, H10.
-    6. Swap Safety — H4, H5.
-    7. Sequence-Level Economic Consequences — H2, H3, H4, H5, H6.
+11. Closed-World Economic Invariants — Supports: H1–H10. Numbered subsections:
+    1. Reachability Invariants — H5, H6.
+    2. Concrete-State Projections — H5, H6.
+    3. LP Supply Discipline — H7, H8.
+    4. Token Inflow Without Accounting (Donations) — H10.
+    5. Liquidity Creation And Redemption — H7, H8.
+    6. Swap Safety — H2 (via swap step), H3.
+    7. Sequence-Level Economic Consequences — H2, H3, H4.
     8. Single-Caller Portfolio Safety — H1.
     9. Successful Calls As Caller-Wallet Steps — H1 bridge.
-    10. Surplus And Reserve Synchronization (Model) — H12.
+    10. Surplus And Reserve Synchronization (Model) — H10.
 
 Future additions follow the same rule: add a short proposition when it
 closes a visible correctness or security step toward a named headline, not
@@ -186,7 +200,7 @@ merely because a proof helper exists.
 /-!
 ## Views
 
-Supports headlines: H18.
+Supports headlines: H16.
 
 Each public view is pinned to the storage value or constant it is supposed to
 expose by a single `_run_success_frames_state` spec: the actual public read
@@ -286,7 +300,7 @@ def pair_kLast_run_success_frames_state
 /-!
 ## ERC20 Boundary Traces
 
-Supports headlines: H15.
+Supports headlines: H13.
 
 The pair can only affect token balances through ERC20 transfer ECMs. The
 `pair_safeTransfer_traces_token_transfer` spec records a ghost event for each
@@ -346,7 +360,7 @@ def pair_two_safeTransfer_events_replay_move_distinct_token_balances
 /-!
 ## Revert Frames
 
-Supports headlines: H14.
+Supports headlines: H12.
 
 On revert, Verity restores the pair state and emits no successful transfer
 trace. These specs keep ERC20 balance accounting separate from the pair's local
@@ -395,7 +409,7 @@ def pair_sync_revert_keeps_token_balances
 /-!
 ## LP Bookkeeping Frame
 
-Supports headlines: H16.
+Supports headlines: H14.
 
 LP-token bookkeeping never calls the underlying ERC20 tokens. The LP `Transfer`
 and `Approval` events are local share-ledger events, not token0/token1
@@ -473,7 +487,7 @@ def pair_sync_revert_keeps_pair_state
 /-!
 ## Local Entry Points
 
-Supports headlines: H16, H17, H14 (LP-side guards).
+Supports headlines: H14, H15, H12 (LP-side guards).
 
 This layer is about the pair's local authority and LP-token accounting before
 we talk about AMM economics.
@@ -782,7 +796,7 @@ def pair_sync_reverts_when_locked
 /-!
 ## Exact Guard Runs
 
-Supports headlines: H11 (lock branch), H14.
+Supports headlines: H9 (lock branch), H12.
 
 This section pins the contract's failure boundaries to exact public-call
 results.
@@ -931,7 +945,7 @@ def pair_skim_run_revert_balance1_below_reserve
 /-!
 ## Skim And Sync — Public Calls
 
-Supports headlines: H11 (lock), H13.
+Supports headlines: H9 (lock), H11.
 
 `skim` and `sync` are the direct calls for reconciling token balances with
 cached reserves. Skim sends only balances above cached reserves and leaves
@@ -1297,7 +1311,7 @@ def pair_sync_success_run_updates_reserves_to_balances_from_run
 /-!
 ## Oracle/TWAP
 
-Supports headlines: foundational for H13's oracle facts.
+Supports headlines: foundational for H11's oracle facts.
 
 Cumulative prices are not a separate asset ledger; they are an accounting
 consequence of a reserve update. These obligations pin that rule in small
@@ -1427,7 +1441,7 @@ def pair_closed_world_concrete_reserve_write_uses_oracle_rule
 /-!
 ## Flash-Swap Boundary
 
-Supports headlines: H11, H13.
+Supports headlines: H9, H11.
 
 Flash swaps are verify-after swaps: the pair may optimistically send output,
 optionally call the recipient, then read final token balances and enforce the K
@@ -1533,7 +1547,7 @@ def pair_flash_callback_module_bubbles_callback_failure : Prop :=
 /-!
 ## Mint, Burn, And Swap — Public Calls
 
-Supports headlines: H13.
+Supports headlines: H11.
 
 The closed-world model below is where the main invariant and economic theorems
 live. The claims in this section say what successful public calls establish in
@@ -2995,7 +3009,7 @@ def pair_swap_success_run_uses_oracle_rule_from_run
 /-!
 ## Closed-World Economic Invariants
 
-Supports headlines: H1–H12 (the heart of the security argument).
+Supports headlines: H1–H10 (the heart of the security argument).
 
 These specs mirror Tamago's ERC4626 trace-wide style. They quantify over every
 finite successful transition sequence in `PairWorldReachable`; external ERC20
@@ -3049,7 +3063,7 @@ That is where the contract-level security claims live.
 /-!
 ### 1. Reachability Invariants
 
-Supports headlines: H7, H8.
+Supports headlines: H5, H6.
 
 The first layer is deliberately boring: define the states that can exist and
 show that the definition is stable under both one step and arbitrary finite
@@ -3178,7 +3192,7 @@ def pair_closed_world_reachable_positive_supply_path_has_positive_token_balances
 /-!
 ### 2. Concrete-State Projections
 
-Supports headlines: H7, H8 (concrete-state form).
+Supports headlines: H5, H6 (concrete-state form).
 
 The closed-world invariant is expressed over a small mathematical model. These
 specs say what the invariant means when projected back to a Verity
@@ -3240,7 +3254,7 @@ def pair_closed_world_reachable_reserves_fit_uint112
 /-!
 ### 3. LP Supply Discipline
 
-Supports headlines: H9, H10.
+Supports headlines: H7, H8.
 
 Uniswap V2 LP shares are not allowed to become an implicit source or sink of
 pool assets. Share-only actions leave the pool model exactly unchanged; mint and
@@ -3536,7 +3550,7 @@ def pair_closed_world_reachable_positive_supply_burn_preserves_positive_balances
 /-!
 ### 4. Token Inflow Without Accounting (Donations)
 
-Supports headlines: H12.
+Supports headlines: H10.
 
 Anyone may transfer tokens directly into a pair. That donation must not silently
 alter cached reserves, LP supply, or cached K. The only way to account for the
@@ -3643,7 +3657,7 @@ def pair_closed_world_reachable_zero_surplus_no_donation_path_ends_balanced
 /-!
 ### 5. Liquidity Creation And Redemption
 
-Supports headlines: H9, H10 (mint/burn discipline), H13.
+Supports headlines: H7, H8 (mint/burn discipline), H11.
 
 Mint and burn are the only transitions that intentionally reshape LP supply.
 The mint side updates reserves to the token balances and grants no more than the
@@ -3729,7 +3743,8 @@ def pair_closed_world_burn_does_not_dilute_remaining_lp_share
 /-!
 ### 6. Swap Safety
 
-Supports headlines: H4, H5 (K direction for swap), H13.
+Supports headlines: H2 (same-supply pool value, via the swap step), H3 (K
+direction), H11 (per-call swap accounting).
 
 A successful swap must actually send output, must receive input, must keep each
 output below the cached reserve, and must satisfy both the fee-adjusted K check
@@ -3936,7 +3951,8 @@ def pair_closed_world_reachable_zero_surplus_swap_no_caller_token_balance_profit
 /-!
 ### 7. Sequence-Level Economic Consequences
 
-Supports headlines: H2, H3, H4, H5, H6.
+Supports headlines: H2 (same-supply pool value), H3 (K direction across
+paths), H4 (donation-aware actual-balance picture).
 
 The reserve-product facts above compose across finite traces. For no-burn
 histories, K never decreases. If such a history also begins and ends with the
@@ -4725,7 +4741,7 @@ def pair_closed_world_reachable_k_decrease_excludes_burn_free_path
 /-!
 ### 10. Surplus And Reserve Synchronization (Model)
 
-Supports headlines: H12 (donation framing), plus the H9 LP-supply preservation
+Supports headlines: H10 (donation framing), plus the H8 LP-supply preservation
 side of skim/sync.
 
 This subsection appears here, after the single-caller bridge in § 9, because it
