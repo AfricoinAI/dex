@@ -43,12 +43,12 @@ protocol-fee minting, LP `name`, LP `symbol`, and `permit`.
 
 Pair:
 
-- Storage-backed view specs for LP balances, allowances, reserves, cumulative
-  prices, factory, tokens, `MINIMUM_LIQUIDITY`, decimals, and fee-off `kLast`.
-- Exact Pair view success/frame coverage now states that the actual public
-  reads for LP supply, LP balances, allowances, factory, token identities,
+- Exact Pair view success/frame coverage states that the actual public reads
+  for LP supply, LP balances, allowances, factory, token identities,
   `MINIMUM_LIQUIDITY`, cumulative prices, decimals, and fee-off `kLast` return
-  the expected observable value without mutating pair state.
+  the expected observable value without mutating pair state. The
+  `_run_success_frames_state` form is the canonical statement: it both pins the
+  returned value to the corresponding storage cell and frames pair state.
 - Exact `getReserves` success coverage now states the router-facing reserve
   read returns cached reserve0/reserve1/timestamp and frames pair state.
 - Pair-token transfer boundary coverage now proves both sides of the trace

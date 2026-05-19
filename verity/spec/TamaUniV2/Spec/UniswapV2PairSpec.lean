@@ -80,17 +80,11 @@ only because the actual view returns the expected value and frames
 pair state.
 -/
 
-def pair_decimals_spec (result : Uint256) : Prop :=
-  result = 18
-
 /-- `decimals` is a pure LP-token display constant and cannot mutate pair
 state. -/
 def pair_decimals_run_success_frames_state
     (s : ContractState) : Prop :=
   (decimals).run s = ContractResult.success 18 s
-
-def pair_totalSupply_spec (result : Uint256) (s : ContractState) : Prop :=
-  result = s.storage totalSupplySlot.slot
 
 /-- `totalSupply` exposes exactly the LP supply cell. It is the public read that
 anchors every LP-supply and no-profit theorem below. -/
@@ -99,17 +93,11 @@ def pair_totalSupply_run_success_frames_state
   (totalSupply).run s =
     ContractResult.success (s.storage totalSupplySlot.slot) s
 
-def pair_balanceOf_spec (account : Address) (result : Uint256) (s : ContractState) : Prop :=
-  result = s.storageMap balancesSlot.slot account
-
 /-- `balanceOf` exposes exactly one LP balance cell and has no side effects. -/
 def pair_balanceOf_run_success_frames_state
     (account : Address) (s : ContractState) : Prop :=
   (balanceOf account).run s =
     ContractResult.success (s.storageMap balancesSlot.slot account) s
-
-def pair_allowance_spec (owner spender : Address) (result : Uint256) (s : ContractState) : Prop :=
-  result = s.storageMap2 allowancesSlot.slot owner spender
 
 /-- `allowance` exposes exactly one delegated-LP-spend cell and has no side
 effects. -/
@@ -118,18 +106,12 @@ def pair_allowance_run_success_frames_state
   (allowance owner spender).run s =
     ContractResult.success (s.storageMap2 allowancesSlot.slot owner spender) s
 
-def pair_factory_spec (result : Address) (s : ContractState) : Prop :=
-  result = s.storageAddr factorySlot.slot
-
 /-- `factory` exposes the immutable creator/initializer authority stored for
 the pair and has no side effects. -/
 def pair_factory_run_success_frames_state
     (s : ContractState) : Prop :=
   (factory).run s =
     ContractResult.success (s.storageAddr factorySlot.slot) s
-
-def pair_token0_spec (result : Address) (s : ContractState) : Prop :=
-  result = s.storageAddr token0Slot.slot
 
 /-- `token0` exposes the first market token identity recorded at initialization
 and has no side effects. -/
@@ -138,9 +120,6 @@ def pair_token0_run_success_frames_state
   (token0).run s =
     ContractResult.success (s.storageAddr token0Slot.slot) s
 
-def pair_token1_spec (result : Address) (s : ContractState) : Prop :=
-  result = s.storageAddr token1Slot.slot
-
 /-- `token1` exposes the second market token identity recorded at initialization
 and has no side effects. -/
 def pair_token1_run_success_frames_state
@@ -148,22 +127,12 @@ def pair_token1_run_success_frames_state
   (token1).run s =
     ContractResult.success (s.storageAddr token1Slot.slot) s
 
-def pair_minimumLiquidity_spec (result : Uint256) : Prop :=
-  result = minimumLiquidity
-
 /-- `MINIMUM_LIQUIDITY` exposes the permanent lock constant used by the
 finite-history liquidity-lock theorems. -/
 def pair_minimumLiquidity_run_success_frames_state
     (s : ContractState) : Prop :=
   (MINIMUM_LIQUIDITY).run s =
     ContractResult.success minimumLiquidity s
-
-def pair_getReserves_spec
-    (result : Uint256 × Uint256 × Uint256) (s : ContractState) : Prop :=
-  result =
-    (s.storage reserve0Slot.slot,
-      s.storage reserve1Slot.slot,
-      s.storage blockTimestampLastSlot.slot)
 
 /-- `getReserves` is the reserve oracle boundary exposed to routers and users.
 It is an exact state-framing read of cached reserve0, cached reserve1, and the
@@ -177,9 +146,6 @@ def pair_getReserves_run_success_frames_state
         s.storage blockTimestampLastSlot.slot)
       s
 
-def pair_price0CumulativeLast_spec (result : Uint256) (s : ContractState) : Prop :=
-  result = s.storage price0CumulativeLastSlot.slot
-
 /-- `price0CumulativeLast` exposes exactly the cached token0 TWAP accumulator
 and has no side effects. -/
 def pair_price0CumulativeLast_run_success_frames_state
@@ -187,18 +153,12 @@ def pair_price0CumulativeLast_run_success_frames_state
   (price0CumulativeLast).run s =
     ContractResult.success (s.storage price0CumulativeLastSlot.slot) s
 
-def pair_price1CumulativeLast_spec (result : Uint256) (s : ContractState) : Prop :=
-  result = s.storage price1CumulativeLastSlot.slot
-
 /-- `price1CumulativeLast` exposes exactly the cached token1 TWAP accumulator
 and has no side effects. -/
 def pair_price1CumulativeLast_run_success_frames_state
     (s : ContractState) : Prop :=
   (price1CumulativeLast).run s =
     ContractResult.success (s.storage price1CumulativeLastSlot.slot) s
-
-def pair_kLast_spec (result : Uint256) : Prop :=
-  result = 0
 
 /-- The fee-off Pair never uses protocol-fee accounting, so `kLast()` is the
 constant zero read and cannot mutate state. -/
