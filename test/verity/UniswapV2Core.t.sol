@@ -264,6 +264,22 @@ abstract contract PairFixture is Test {
         return pair.token0() == address(tokenA) ? (amountA, amountB) : (amountB, amountA);
     }
 
+    function lpBalanceSlot(address account) internal pure returns (bytes32) {
+        return keccak256(abi.encode(account, uint256(9)));
+    }
+
+    function lpAllowanceSlot(address owner, address spender) internal pure returns (bytes32) {
+        return keccak256(abi.encode(spender, keccak256(abi.encode(owner, uint256(10)))));
+    }
+
+    function setLpBalance(address account, uint256 amount) internal {
+        vm.store(address(pair), lpBalanceSlot(account), bytes32(amount));
+    }
+
+    function setLpAllowance(address owner, address spender, uint256 amount) internal {
+        vm.store(address(pair), lpAllowanceSlot(owner, spender), bytes32(amount));
+    }
+
     function getAmountIn(uint256 amountOut, uint256 reserveIn, uint256 reserveOut) internal pure returns (uint256) {
         return (reserveIn * amountOut * 1000) / ((reserveOut - amountOut) * 997) + 1;
     }
