@@ -1942,20 +1942,12 @@ def pair_closed_world_reachable_positive_supply_path_has_positive_token_balances
 /-!
 ## Oracle/TWAP
 
-Cumulative prices are not a separate asset ledger; they are an accounting
-consequence of a reserve update. These obligations pin that rule in small
-pieces. If the 32-bit timestamp has not advanced, the cumulative prices
-are unchanged. If time has advanced and both old reserves are nonzero, each
-cumulative price increases by the canonical Uniswap V2 UQ112x112 encoded price
-times the elapsed time. If the timestamp branch is entered but elapsed time or
-either old reserve is zero, cumulatives stay unchanged.
-
-The arithmetic is contract-level reserve-update behavior, shared by mint, burn,
-swap, and sync. The formulas are factored outside the contract source so the
-spec can discuss the rule directly without adding public or internal Pair
-functions for proof convenience. The first three specs state the generic rule;
-the `sync`-named obligations keep the simplest public-call form visible until
-the mint/burn/swap reserve-update paths are connected to the same facts.
+Cumulative prices are an accounting consequence of a reserve update. If
+the 32-bit timestamp has not advanced, the cumulatives are unchanged. If
+time has advanced and both old reserves are nonzero, each cumulative gains
+the canonical UQ112x112 encoded price times elapsed time. If the timestamp
+branch is entered but elapsed time or either old reserve is zero, the
+cumulatives stay unchanged.
 -/
 
 /-- Reserve updates in the same 32-bit timestamp window do not move the TWAP
@@ -2008,17 +2000,8 @@ def pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives
 /-!
 ## Mint, Burn, And Swap — Public Calls
 
-The closed-world model below is where the main invariant and economic theorems
-live. The claims in this section say what successful public calls establish in
-that model: if a real call succeeds and the relevant arithmetic facts hold, then
-the corresponding mint, burn, or swap rule is available. The public specs stay
-short on purpose. They do not copy whole function bodies; they state the
-accounting rule needed by the invariant section.
-
-These claims are not substitutes for the invariant section. The reason each
-action is safe comes later, where the model proves reserve backing, K behavior,
-LP-share discipline, and no-profit consequences across arbitrary finite
-histories.
+When a real mint/burn/swap call succeeds and the relevant arithmetic
+facts hold, the corresponding closed-world transition rule is available.
 -/
 
 
@@ -3255,12 +3238,9 @@ def pair_swap_success_run_no_caller_token_balance_profit_from_run
 /-!
 ## Skim And Sync — Public Calls
 
-`skim` and `sync` are the direct calls for reconciling token balances with
-cached reserves. Skim sends only balances above cached reserves and leaves
-reserves unchanged. Sync accepts the observed balances as the new reserves, but
-only if they fit the uint112 reserve domain. The claims below say what those
-public calls guarantee and how they connect to the closed-world skim/sync
-transitions in § 11.10 (Surplus And Reserve Synchronization — Model).
+`skim` sends balances above cached reserves and leaves reserves unchanged.
+`sync` writes the currently observed balances as new reserves, subject to
+the uint112 reserve domain.
 -/
 
 def pair_skim_run_success_transfers_excess_and_restores_unlocked
@@ -3619,16 +3599,9 @@ def pair_sync_success_run_updates_reserves_to_balances_from_run
 /-!
 ## Flash-Swap Boundary
 
-Flash swaps are verify-after swaps: the pair may optimistically send output,
-optionally call the recipient, then read final token balances and enforce the K
-rule against the balances after any callback-visible repayment. The callback
-itself is an external boundary, so the Lean source model does not pretend to
-execute recipient code. The spec suite therefore separates two facts:
-
-* The compiled callback ECM is gated by nonempty calldata, matching canonical
-  Uniswap V2 flash-swap behavior.
-* The closed-world swap transition below charges the K check against final
-  balances, not against balances before the recipient has a chance to repay.
+A swap optimistically sends output, optionally calls the recipient, then
+reads final balances and enforces K against the post-callback balances.
+The compiled callback ECM is gated by nonempty calldata.
 -/
 
 def pair_flash_callback_module_gates_nonempty_data : Prop :=
@@ -3723,20 +3696,12 @@ def pair_flash_callback_module_bubbles_callback_failure : Prop :=
 /-!
 ## Exact Guard Runs
 
-This section pins the contract's failure boundaries to exact public-call
-results.
-Each statement has the same shape: once the hypotheses establish that earlier
-guards have either failed or passed in the intended order, the actual public
-entrypoint returns the canonical revert string and the pre-call state.
-
-These are intentionally branch facts rather than full function summaries. They
-are useful because guard order is security-relevant: before any ERC20 transfer,
-callback, reserve update, or LP accounting write can become durable, the
-matching public call must fail with the expected reason and frame.
-
-The section should stay narrow. If proving a later guard requires unfolding the
-whole function tail, the right move is to factor a proof-local prefix adapter
-first, then expose a short public guard fact here.
+Each statement: once the hypotheses establish that earlier guards have
+failed or passed in the intended order, the public entrypoint returns the
+canonical revert string and the pre-call state. Guard order is
+security-relevant — every guarded failure must happen before any ERC20
+transfer, callback, reserve update, or LP accounting write becomes
+durable.
 -/
 
 def pair_initialize_run_revert_non_factory
@@ -3870,12 +3835,8 @@ def pair_skim_run_revert_balance1_below_reserve
 /-!
 ## Revert Frames
 
-On revert, Verity restores the pair state and emits no successful transfer
-trace. These specs keep ERC20 balance accounting separate from the pair's local
-storage rules: a caller supplies the token-balance world obtained by replaying
-the call's transfer events, and the spec says reverted pair calls leave that
-world unchanged. The pair-local frame specs then state the matching storage and
-event-log atomicity for each mutating Pair entrypoint.
+A reverted pair call leaves the replayed token-balance world unchanged and
+preserves the pair's storage and event log.
 -/
 
 def pair_mint_revert_keeps_token_balances
@@ -3917,10 +3878,9 @@ def pair_sync_revert_keeps_token_balances
 /-!
 ## LP Bookkeeping Frame
 
-LP-token bookkeeping never calls the underlying ERC20 tokens. The LP `Transfer`
-and `Approval` events are local share-ledger events, not token0/token1
-movements, so replaying the pair-local ERC20 transfer trace across these calls
-must leave the token-balance world unchanged.
+Approve, transfer, and transferFrom do not call the underlying token
+contracts; replaying the pair-local ERC20 transfer trace across these
+calls leaves the token-balance world unchanged.
 -/
 
 def pair_approve_run_keeps_token_balances
@@ -3993,10 +3953,9 @@ def pair_sync_revert_keeps_pair_state
 /-!
 ## ERC20 Boundary Traces
 
-The pair can only affect token balances through ERC20 transfer ECMs. The
-`pair_safeTransfer_traces_token_transfer` spec records a ghost event for each
-successful token transfer so later frame and transition specs can reason about
-token movement without pretending the ERC20 contract is local storage.
+The pair affects token balances only through ERC20 transfer ECMs. A
+successful safe-transfer records a ghost event whose replay moves exactly
+that token amount in the pair-local token-balance world.
 -/
 
 def pair_safeTransfer_traces_token_transfer
@@ -4051,16 +4010,11 @@ def pair_two_safeTransfer_events_replay_move_distinct_token_balances
 /-!
 ## Local Entry Points
 
-This layer is about the pair's local authority and LP-token accounting before
-we talk about AMM economics.
-
-The reader should be able to check three things from this section. First,
-initialization is factory-only and one-shot, so the pair's token identity cannot
-be changed after creation. Second, LP-token approval and transfer behavior is
-ordinary ERC20 accounting: balances move only on transfer, total supply does not
-move, finite allowances are consumed, max allowance is stable, and events are
-present. Third, the result-parameter guard specs give reusable branch facts for
-the exact-run obligations that follow.
+Initialization is factory-only and one-shot: token identities are fixed
+after the first `initialize`. LP approve/transfer/transferFrom are
+ordinary ERC20 share accounting; balances move only on transfer, total
+supply is constant, finite allowances are consumed, and max allowance is
+stable.
 -/
 
 /-- Initialization either rejects non-factory callers, rejects a second
@@ -4358,13 +4312,9 @@ def pair_sync_reverts_when_locked
 /-!
 ## Views
 
-Each public view is pinned to the storage value or constant it is supposed to
-expose by a single `_run_success_frames_state` spec: the actual public read
-returns the expected value AND frames pair state on success. These are the
-observable-state layer of the assurance argument — routers, LPs, and proofs
-below trust these reads because the run-level frame holds, not because of a
-separate ABI equality claim. The fee-off variant deliberately fixes `kLast()`
-at zero.
+Each public read returns the expected storage cell (or constant) and frames
+pair state on success. With the protocol fee mint off, `kLast()` is the
+constant zero read.
 -/
 
 /-- `decimals` is a pure LP-token display constant and cannot mutate pair
