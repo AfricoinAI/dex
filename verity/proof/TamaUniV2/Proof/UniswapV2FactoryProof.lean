@@ -941,24 +941,26 @@ theorem createPair_success_preserves_concrete_world_match
       simpa using congrArg wordToAddress h_new_array
 private theorem createPair_success_adds_decoded_lookup_aux
     (tokenA tokenB : Address) (s : ContractState) :
-    let token0Value := factoryToken0 tokenA tokenB
-    let token1Value := factoryToken1 tokenA tokenB
-    let pair := wordToAddress (factoryCreate2Word tokenA tokenB)
     tokenA ≠ tokenB →
       tokenA ≠ zeroAddress →
         tokenB ≠ zeroAddress →
-          s.storageMap2 pairForSlot.slot token0Value token1Value = 0 →
-            pair ≠ zeroAddress →
+          s.storageMap2 pairForSlot.slot
+              (factoryToken0 tokenA tokenB) (factoryToken1 tokenA tokenB) = 0 →
+            wordToAddress (factoryCreate2Word tokenA tokenB) ≠ zeroAddress →
               (s.storage allPairsLengthSlot.slot).val + 1 ≤
                 Verity.Stdlib.Math.MAX_UINT256 →
                 (createPair tokenA tokenB).run s =
-                  ContractResult.success pair ((createPair tokenA tokenB).run s).snd →
+                  ContractResult.success
+                    (wordToAddress (factoryCreate2Word tokenA tokenB))
+                    ((createPair tokenA tokenB).run s).snd →
                   wordToAddress
                       (((createPair tokenA tokenB).run s).snd.storageMap2
-                        pairForSlot.slot tokenA tokenB) = pair ∧
+                        pairForSlot.slot tokenA tokenB) =
+                      wordToAddress (factoryCreate2Word tokenA tokenB) ∧
                   wordToAddress
                       (((createPair tokenA tokenB).run s).snd.storageMap2
-                        pairForSlot.slot tokenB tokenA) = pair := by
+                        pairForSlot.slot tokenB tokenA) =
+                      wordToAddress (factoryCreate2Word tokenA tokenB) := by
   intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_absent
     h_pair_nonzero h_len_ok _h_run
   have h_success :=
