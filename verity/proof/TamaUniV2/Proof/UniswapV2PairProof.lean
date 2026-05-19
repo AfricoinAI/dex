@@ -1747,8 +1747,15 @@ theorem sync_run_revert_balance1_overflow (s : ContractState) :
     observedBalance1, pairToken0, pairToken1, pairSelf, TamaUniV2.erc20BalanceOf,
     h_unlocked_raw, h_require_false_raw]
 
--- tama: discharges=pair_sync_expected_matches_closed_world_step
-theorem sync_expected_matches_closed_world_step (s : ContractState) :
+private def pair_sync_expected_matches_closed_world_step
+    (s : ContractState) : Prop :=
+  observedBalance0 s ≤ maxUint112 →
+    observedBalance1 s ≤ maxUint112 →
+      PairWorldStep PairWorldAction.sync
+        (pairWorldFromConcreteState s)
+        (pairWorldAfterSyncRun s)
+
+private theorem sync_expected_matches_closed_world_step (s : ContractState) :
   pair_sync_expected_matches_closed_world_step s := by
   intro h_bound0 h_bound1
   simp [pair_sync_expected_matches_closed_world_step, PairWorldStep,
@@ -2069,8 +2076,27 @@ theorem flash_callback_module_bubbles_callback_failure :
   refine ⟨_, h_stmts.symm, ?_⟩
   simp
 
--- tama: discharges=pair_mint_first_expected_matches_closed_world_step
-theorem mint_first_expected_matches_closed_world_step (toAddr : Address) (s : ContractState) :
+private def pair_mint_first_expected_matches_closed_world_step
+    (toAddr : Address) (s : ContractState) : Prop :=
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  let liquidity := mintFirstLiquidity s
+  s.storage unlockedSlot.slot = 1 →
+    s.storage totalSupplySlot.slot = 0 →
+      observedBalance0 s ≤ maxUint112 →
+        observedBalance1 s ≤ maxUint112 →
+          s.storage reserve0Slot.slot ≤ observedBalance0 s →
+            s.storage reserve1Slot.slot ≤ observedBalance1 s →
+              amount0 > 0 →
+                amount1 > 0 →
+                  (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
+                    mintFirstRoot s > minimumLiquidity →
+                      PairWorldStep
+                        (PairWorldAction.mint amount0.val amount1.val liquidity.val)
+                        (pairWorldBeforeMintRun s)
+                        (pairWorldAfterFirstMintRun s)
+
+private theorem mint_first_expected_matches_closed_world_step (toAddr : Address) (s : ContractState) :
   pair_mint_first_expected_matches_closed_world_step toAddr s := by
   dsimp [pair_mint_first_expected_matches_closed_world_step]
   intro h_unlocked h_supply_zero h_bound0 h_bound1 h_reserve0 h_reserve1

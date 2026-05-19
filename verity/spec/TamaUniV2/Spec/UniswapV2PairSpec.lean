@@ -1066,14 +1066,6 @@ def pair_sync_run_revert_balance1_overflow
       (sync).run s =
         ContractResult.revert "UniswapV2: OVERFLOW" s
 
-def pair_sync_expected_matches_closed_world_step
-    (s : ContractState) : Prop :=
-  observedBalance0 s ≤ maxUint112 →
-    observedBalance1 s ≤ maxUint112 →
-      PairWorldStep PairWorldAction.sync
-        (pairWorldFromConcreteState s)
-        (pairWorldAfterSyncRun s)
-
 def pair_sync_success_run_matches_closed_world_step
     (s : ContractState) (result : ContractResult Unit) : Prop :=
   result = (sync).run s →
@@ -1437,26 +1429,6 @@ action is safe comes later, where the model proves reserve backing, K behavior,
 LP-share discipline, and no-profit consequences across arbitrary finite
 histories.
 -/
-
-def pair_mint_first_expected_matches_closed_world_step
-    (toAddr : Address) (s : ContractState) : Prop :=
-  let amount0 := mintAmount0 s
-  let amount1 := mintAmount1 s
-  let liquidity := mintFirstLiquidity s
-  s.storage unlockedSlot.slot = 1 →
-    s.storage totalSupplySlot.slot = 0 →
-      observedBalance0 s ≤ maxUint112 →
-        observedBalance1 s ≤ maxUint112 →
-          s.storage reserve0Slot.slot ≤ observedBalance0 s →
-            s.storage reserve1Slot.slot ≤ observedBalance1 s →
-              amount0 > 0 →
-                amount1 > 0 →
-                  (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
-                    mintFirstRoot s > minimumLiquidity →
-                      PairWorldStep
-                        (PairWorldAction.mint amount0.val amount1.val liquidity.val)
-                        (pairWorldBeforeMintRun s)
-                        (pairWorldAfterFirstMintRun s)
 
 def pair_mint_first_success_run_matches_closed_world_step
     (toAddr : Address) (s : ContractState)
