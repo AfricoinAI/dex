@@ -72,12 +72,13 @@ one-line formal version of that paragraph's claim.
 /-!
 ## Views
 
-These specs pin each public view to the storage value or constant it is supposed
-to expose. The fee-off variant deliberately fixes `kLast()` at zero. The
-run-level facts are not API-parity checks; they are the observable-state layer
-of the assurance argument. Routers, LPs, and proofs below can trust these reads
-only because the actual view returns the expected value and frames
-pair state.
+Each public view is pinned to the storage value or constant it is supposed to
+expose by a single `_run_success_frames_state` spec: the actual public read
+returns the expected value AND frames pair state on success. These are the
+observable-state layer of the assurance argument — routers, LPs, and proofs
+below trust these reads because the run-level frame holds, not because of a
+separate ABI equality claim. The fee-off variant deliberately fixes `kLast()`
+at zero.
 -/
 
 /-- `decimals` is a pure LP-token display constant and cannot mutate pair
