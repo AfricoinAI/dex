@@ -2017,27 +2017,6 @@ def pair_closed_world_path_preserves_reachability
     PairWorldPath before after →
       PairWorldReachable after
 
-/-- Reachability packages the good-state precondition above. In the form users
-care about, any nonempty reachable pool remains nonempty after any finite
-successful modeled history. -/
-def pair_closed_world_reachable_positive_supply_path_remains_positive
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    0 < before.totalSupply →
-      PairWorldPath before after →
-        0 < after.totalSupply
 
-/-- The finite-history version of the same nondegeneracy invariant. Starting
-from any reachable nonempty pool, every finite sequence of successful modeled
-actions leaves both reserves positive, so later economic theorems can rely on a
-defined initial and final two-token pool rather than carrying that fact as an
-unexplained side condition. -/
-def pair_closed_world_reachable_positive_supply_path_has_positive_reserves
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    0 < before.totalSupply →
-      PairWorldPath before after →
-        0 < after.reserve0 ∧
-        0 < after.reserve1
 
 end TamaUniV2.Spec.UniswapV2PairSpec

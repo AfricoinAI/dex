@@ -3346,13 +3346,6 @@ theorem closed_world_path_preserves_reachability
 
 
 
--- tama: discharges=pair_closed_world_reachable_positive_supply_path_remains_positive
-theorem closed_world_reachable_positive_supply_path_remains_positive
-    (before after : PairWorldState) :
-  pair_closed_world_reachable_positive_supply_path_remains_positive before after := by
-  intro h_reachable h_positive h_path
-  exact pairWorldPath_positive_supply_preserved
-    (pairWorldReachable_good before h_reachable) h_positive h_path
 
 -- tama: discharges=pair_concrete_state_reserves_backed
 theorem concrete_state_reserves_backed (s : ContractState) :
@@ -4229,18 +4222,6 @@ private theorem pairWorldPath_positive_reserves_preserved
         h_good_before h_supply_before
         h_reserves_before.1 h_reserves_before.2 h_step
 
-
--- tama: discharges=pair_closed_world_reachable_positive_supply_path_has_positive_reserves
-theorem closed_world_reachable_positive_supply_path_has_positive_reserves
-    (before after : PairWorldState) :
-  pair_closed_world_reachable_positive_supply_path_has_positive_reserves
-    before after := by
-  intro h_reachable h_positive h_path
-  have h_before_reserves :=
-    pairWorldReachable_positive_supply_positive_reserves h_reachable h_positive
-  exact pairWorldPath_positive_reserves_preserved
-    (pairWorldReachable_good before h_reachable)
-    h_positive h_before_reserves.1 h_before_reserves.2 h_path
 
 
 -- tama: discharges=pair_closed_world_donate_preserves_reserves_and_supply
