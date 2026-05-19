@@ -1,0 +1,330 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import {Test} from "forge-std/Test.sol";
+import {UniswapV2FactoryDeployer} from "../../src/generated/verity/UniswapV2FactoryDeployer.sol";
+import {UniswapV2FactoryIface} from "../../src/generated/verity/UniswapV2FactoryIface.sol";
+import {UniswapV2PairIface} from "../../src/generated/verity/UniswapV2PairIface.sol";
+
+contract MockERC20 {
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+    uint256 public totalSupply;
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+        totalSupply += amount;
+        emit Transfer(address(0), to, amount);
+    }
+
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        return true;
+    }
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        require(balanceOf[msg.sender] >= amount, "BALANCE");
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        emit Transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+        uint256 allowed = allowance[from][msg.sender];
+        require(allowed >= amount, "ALLOWANCE");
+        if (allowed != type(uint256).max) {
+            allowance[from][msg.sender] = allowed - amount;
+        }
+        require(balanceOf[from] >= amount, "BALANCE");
+        balanceOf[from] -= amount;
+        balanceOf[to] += amount;
+        emit Transfer(from, to, amount);
+        return true;
+    }
+}
+
+contract FlashCallee {
+    MockERC20 public token0;
+    MockERC20 public token1;
+
+    function uniswapV2Call(address, uint256 amount0Out, uint256 amount1Out, bytes calldata data) external {
+        uint256 amount0In;
+        uint256 amount1In;
+        (token0, token1, amount0In, amount1In) = abi.decode(data, (MockERC20, MockERC20, uint256, uint256));
+        if (amount0In > 0) require(token0.transfer(msg.sender, amount0In), "FLASH_TRANSFER0");
+        if (amount1In > 0) require(token1.transfer(msg.sender, amount1In), "FLASH_TRANSFER1");
+        amount0Out;
+        amount1Out;
+    }
+}
+
+contract TrackingFlashCallee {
+    bool public called;
+    address public lastSender;
+    uint256 public lastAmount0Out;
+    uint256 public lastAmount1Out;
+    bytes public lastData;
+
+    function uniswapV2Call(address sender, uint256 amount0Out, uint256 amount1Out, bytes calldata data) external {
+        called = true;
+        lastSender = sender;
+        lastAmount0Out = amount0Out;
+        lastAmount1Out = amount1Out;
+        lastData = data;
+        (MockERC20 payToken, uint256 payAmount) = abi.decode(data, (MockERC20, uint256));
+        if (payAmount > 0) require(payToken.transfer(msg.sender, payAmount), "PAY");
+    }
+}
+
+contract RevertingFlashCallee {
+    function uniswapV2Call(address, uint256, uint256, bytes calldata) external pure {
+        revert("FLASH_FAIL");
+    }
+}
+
+contract MintReentrantCallee {
+    UniswapV2PairIface public pair;
+    MockERC20 public token0;
+    MockERC20 public token1;
+    uint256 public amount0In;
+    uint256 public amount1In;
+    bool public reentryRejected;
+
+    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_) {
+        pair = pair_;
+        token0 = token0_;
+        token1 = token1_;
+        amount0In = amount0In_;
+        amount1In = amount1In_;
+    }
+
+    function uniswapV2Call(address, uint256, uint256, bytes calldata) external {
+        try pair.mint(address(this)) returns (uint256) {
+            revert("MINT_REENTRY_ALLOWED");
+        } catch {
+            reentryRejected = true;
+        }
+        if (amount0In > 0) require(token0.transfer(msg.sender, amount0In), "PAY0");
+        if (amount1In > 0) require(token1.transfer(msg.sender, amount1In), "PAY1");
+    }
+}
+
+contract BurnReentrantCallee {
+    UniswapV2PairIface public pair;
+    MockERC20 public token0;
+    MockERC20 public token1;
+    uint256 public amount0In;
+    uint256 public amount1In;
+    bool public reentryRejected;
+
+    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_) {
+        pair = pair_;
+        token0 = token0_;
+        token1 = token1_;
+        amount0In = amount0In_;
+        amount1In = amount1In_;
+    }
+
+    function uniswapV2Call(address, uint256, uint256, bytes calldata) external {
+        try pair.burn(address(this)) returns (uint256, uint256) {
+            revert("BURN_REENTRY_ALLOWED");
+        } catch {
+            reentryRejected = true;
+        }
+        if (amount0In > 0) require(token0.transfer(msg.sender, amount0In), "PAY0");
+        if (amount1In > 0) require(token1.transfer(msg.sender, amount1In), "PAY1");
+    }
+}
+
+contract SwapReentrantCallee {
+    UniswapV2PairIface public pair;
+    MockERC20 public token0;
+    MockERC20 public token1;
+    uint256 public amount0In;
+    uint256 public amount1In;
+    bool public reentryRejected;
+
+    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_) {
+        pair = pair_;
+        token0 = token0_;
+        token1 = token1_;
+        amount0In = amount0In_;
+        amount1In = amount1In_;
+    }
+
+    function uniswapV2Call(address, uint256, uint256, bytes calldata) external {
+        try pair.swap(0, 1, address(this), "") {
+            revert("SWAP_REENTRY_ALLOWED");
+        } catch {
+            reentryRejected = true;
+        }
+        if (amount0In > 0) require(token0.transfer(msg.sender, amount0In), "PAY0");
+        if (amount1In > 0) require(token1.transfer(msg.sender, amount1In), "PAY1");
+    }
+}
+
+contract SkimReentrantCallee {
+    UniswapV2PairIface public pair;
+    MockERC20 public token0;
+    MockERC20 public token1;
+    uint256 public amount0In;
+    uint256 public amount1In;
+    bool public reentryRejected;
+
+    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_) {
+        pair = pair_;
+        token0 = token0_;
+        token1 = token1_;
+        amount0In = amount0In_;
+        amount1In = amount1In_;
+    }
+
+    function uniswapV2Call(address, uint256, uint256, bytes calldata) external {
+        try pair.skim(address(this)) {
+            revert("SKIM_REENTRY_ALLOWED");
+        } catch {
+            reentryRejected = true;
+        }
+        if (amount0In > 0) require(token0.transfer(msg.sender, amount0In), "PAY0");
+        if (amount1In > 0) require(token1.transfer(msg.sender, amount1In), "PAY1");
+    }
+}
+
+contract SyncReentrantCallee {
+    UniswapV2PairIface public pair;
+    MockERC20 public token0;
+    MockERC20 public token1;
+    uint256 public amount0In;
+    uint256 public amount1In;
+    bool public reentryRejected;
+
+    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_) {
+        pair = pair_;
+        token0 = token0_;
+        token1 = token1_;
+        amount0In = amount0In_;
+        amount1In = amount1In_;
+    }
+
+    function uniswapV2Call(address, uint256, uint256, bytes calldata) external {
+        try pair.sync() {
+            revert("SYNC_REENTRY_ALLOWED");
+        } catch {
+            reentryRejected = true;
+        }
+        if (amount0In > 0) require(token0.transfer(msg.sender, amount0In), "PAY0");
+        if (amount1In > 0) require(token1.transfer(msg.sender, amount1In), "PAY1");
+    }
+}
+
+abstract contract PairFixture is Test {
+    MockERC20 internal tokenA;
+    MockERC20 internal tokenB;
+    UniswapV2FactoryIface internal factory;
+    UniswapV2PairIface internal pair;
+
+    uint256 internal constant MAX_UINT112 = 5192296858534827628530496329220095;
+
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Mint(address indexed sender, uint256 amount0, uint256 amount1);
+    event Burn(address indexed sender, uint256 amount0, uint256 amount1, address indexed to);
+    event Swap(
+        address indexed sender,
+        uint256 amount0In,
+        uint256 amount1In,
+        uint256 amount0Out,
+        uint256 amount1Out,
+        address indexed to
+    );
+    event Sync(uint256 reserve0, uint256 reserve1);
+    event PairCreated(address indexed token0, address indexed token1, address pair, uint256 allPairsLength);
+
+    function setUp() public virtual {
+        tokenA = new MockERC20();
+        tokenB = new MockERC20();
+        factory = UniswapV2FactoryDeployer.deploy();
+        pair = UniswapV2PairIface(factory.createPair(address(tokenA), address(tokenB)));
+    }
+
+    function seed(uint256 amountA, uint256 amountB) internal {
+        tokenA.mint(address(pair), amountA);
+        tokenB.mint(address(pair), amountB);
+        pair.mint(address(this));
+    }
+
+    function sortedTokens() internal view returns (MockERC20 t0, MockERC20 t1) {
+        return pair.token0() == address(tokenA) ? (tokenA, tokenB) : (tokenB, tokenA);
+    }
+
+    function sortedAmounts(uint256 amountA, uint256 amountB) internal view returns (uint256 amount0, uint256 amount1) {
+        return pair.token0() == address(tokenA) ? (amountA, amountB) : (amountB, amountA);
+    }
+
+    function lpBalanceSlot(address account) internal pure returns (bytes32) {
+        return keccak256(abi.encode(account, uint256(9)));
+    }
+
+    function lpAllowanceSlot(address owner, address spender) internal pure returns (bytes32) {
+        return keccak256(abi.encode(spender, keccak256(abi.encode(owner, uint256(10)))));
+    }
+
+    function setLpBalance(address account, uint256 amount) internal {
+        vm.store(address(pair), lpBalanceSlot(account), bytes32(amount));
+    }
+
+    function setLpAllowance(address owner, address spender, uint256 amount) internal {
+        vm.store(address(pair), lpAllowanceSlot(owner, spender), bytes32(amount));
+    }
+
+    function getAmountIn(uint256 amountOut, uint256 reserveIn, uint256 reserveOut) internal pure returns (uint256) {
+        return (reserveIn * amountOut * 1000) / ((reserveOut - amountOut) * 997) + 1;
+    }
+
+    function getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) internal pure returns (uint256) {
+        uint256 amountInWithFee = amountIn * 997;
+        return (amountInWithFee * reserveOut) / (reserveIn * 1000 + amountInWithFee);
+    }
+}
+
+abstract contract FactoryFixture is Test {
+    MockERC20 internal tokenA;
+    MockERC20 internal tokenB;
+    UniswapV2FactoryIface internal factory;
+    UniswapV2PairIface internal pair;
+
+    event PairCreated(address indexed token0, address indexed token1, address pair, uint256 allPairsLength);
+
+    function setUp() public virtual {
+        tokenA = new MockERC20();
+        tokenB = new MockERC20();
+        factory = UniswapV2FactoryDeployer.deploy();
+        pair = UniswapV2PairIface(factory.createPair(address(tokenA), address(tokenB)));
+    }
+
+    function sortedAddresses(address x, address y) internal pure returns (address a0, address a1) {
+        return x < y ? (x, y) : (y, x);
+    }
+
+    function pairCreationCodeHex() internal view returns (string memory) {
+        bytes memory raw = bytes(vm.readFile("artifacts/bytecode/UniswapV2Pair.bin"));
+        uint256 length = raw.length;
+        if (length > 0 && raw[length - 1] == 0x0a) {
+            length -= 1;
+        }
+        bytes memory trimmed = new bytes(length);
+        for (uint256 i = 0; i < length; i++) {
+            trimmed[i] = raw[i];
+        }
+        return string.concat("0x", string(trimmed));
+    }
+
+    function expectedCreate2Pair(address token0, address token1) internal view returns (address) {
+        bytes memory creationCode = vm.parseBytes(pairCreationCodeHex());
+        bytes32 salt = keccak256(abi.encodePacked(token0, token1));
+        return address(uint160(uint256(keccak256(abi.encodePacked(hex"ff", address(factory), salt, keccak256(creationCode))))));
+    }
+}
