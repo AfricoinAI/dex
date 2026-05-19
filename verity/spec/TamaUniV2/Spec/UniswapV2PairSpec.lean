@@ -27,9 +27,7 @@ introduce why each claim matters and how it composes with neighbors.
 
 ## Headline Properties
 
-Listed in decreasing reader-facing importance. Each anchor names the canonical
-spec; Lean's dependency order forces these to be DEFINED later in the file
-than their foundations, but they are what the file ultimately proves.
+Listed in decreasing reader-facing importance.
 
 ### Tier 1 — Economic safety
 
@@ -144,57 +142,6 @@ H15. Initialization is factory-only and one-shot. After the first successful
 H16. Views read exactly one storage cell (or constant) without mutating
      state.
      → `pair_*_run_success_frames_state` family across the twelve public reads.
-
-## How this file is organized
-
-Lean requires defs in dependency order: a def can only reference symbols
-already in scope. The headline list above runs IMPORTANCE-DESCENDING; the
-file body below runs DEPENDENCY-DESCENDING (foundations first, headlines
-last). The two orderings are reverse of each other. To navigate:
-
-* For a top-down assurance argument, read the Headline Properties block
-  above and follow the `→ pair_X` anchors via grep or jump-to-def.
-* For a bottom-up proof construction, read the file in source order. Each
-  section docstring explains how its claims compose into the headlines.
-
-## Section index
-
-Listed in source order. Each section's "Supports" line names the headlines
-its specs anchor; "Required by" lists the downstream sections that build on
-it.
-
-1. Views — Supports: H16. Required by: nothing.
-2. ERC20 Boundary Traces — Supports: H13. Required by: revert frames, skim
-   success, mint/burn/swap public-call accounting.
-3. Revert Frames — Supports: H12. Required by: closed-world invariants.
-4. LP Bookkeeping Frame — Supports: H14. Required by: closed-world invariants.
-5. Local Entry Points — Supports: H14, H15, H12 (LP-side guards). Required by:
-   exact guard runs.
-6. Exact Guard Runs — Supports: H9 (lock branch), H12. Required by:
-   public-call accounting.
-7. Skim And Sync (public) — Supports: H9 (lock), H11. Required by:
-   closed-world invariants.
-8. Oracle/TWAP — Supports: nothing user-facing; foundational for H11's oracle
-   facts. Required by: mint/burn/swap public-call accounting.
-9. Flash-Swap Boundary — Supports: H9, H11. Required by: closed-world
-   invariants.
-10. Mint, Burn, And Swap (public) — Supports: H11. Required by: closed-world
-    invariants.
-11. Closed-World Economic Invariants — Supports: H1–H10. Numbered subsections:
-    1. Reachability Invariants — H5, H6.
-    2. Concrete-State Projections — H5, H6.
-    3. LP Supply Discipline — H7, H8.
-    4. Token Inflow Without Accounting (Donations) — H10.
-    5. Liquidity Creation And Redemption — H7, H8.
-    6. Swap Safety — H2 (via swap step), H3.
-    7. Sequence-Level Economic Consequences — H2, H3, H4.
-    8. Single-Caller Portfolio Safety — H1.
-    9. Successful Calls As Caller-Wallet Steps — H1 bridge.
-    10. Surplus And Reserve Synchronization (Model) — H10.
-
-Future additions follow the same rule: add a short proposition when it
-closes a visible correctness or security step toward a named headline, not
-merely because a proof helper exists.
 -/
 
 /-!
@@ -252,952 +199,7 @@ That is where the contract-level security claims live.
 -/
 
 /-!
-### 1. Reachability Invariants
-
-Supports headlines: H5, H6.
-
-The first layer is deliberately boring: define the states that can exist and
-show that the definition is stable under both one step and arbitrary finite
-paths. This is the base of the argument. Every later economic theorem is only
-useful if it applies to all successful histories, not just to hand-picked
-examples.
--/
-
-
-def pair_closed_world_path_preserves_good
-    (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    PairWorldPath before after →
-      PairWorldGood after
-
-def pair_closed_world_reachable_good
-    (w : PairWorldState) : Prop :=
-  PairWorldReachable w →
-    PairWorldGood w
-
-/--
-The core invariant over all finite modeled histories.
-
-`PairWorldGood` is the compact name for the safety facts that must never be
-lost: cached reserves are backed by actual token balances, cached reserves fit
-the `uint112` domain, and LP supply obeys the permanent minimum-liquidity lock.
-This theorem says those facts hold after any finite successful modeled history
-starting from any reachable Pair state.
--/
-def pair_closed_world_reachable_path_good
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    PairWorldPath before after →
-      PairWorldGood after
-
-/-- Reachability is stable under finite successful histories. This is the
-trace-level closure fact that lets the rest of the section talk about "any
-later reachable state" rather than only states built directly from the initial
-pool. -/
-def pair_closed_world_path_preserves_reachability
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    PairWorldPath before after →
-      PairWorldReachable after
-
-def pair_closed_world_reachable_supply_good
-    (w : PairWorldState) : Prop :=
-  PairWorldReachable w →
-    PairWorldSupplyGood w
-
-def pair_closed_world_path_supply_good
-    (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    PairWorldPath before after →
-      PairWorldSupplyGood after
-
-def pair_closed_world_path_reserves_fit_uint112
-    (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    PairWorldPath before after →
-      after.reserve0 ≤ maxUint112Nat ∧
-      after.reserve1 ≤ maxUint112Nat
-
-def pair_closed_world_path_locked_liquidity_never_exceeds_supply
-    (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    PairWorldPath before after →
-      after.lockedLiquidity ≤ after.totalSupply
-
-/-- Once a good pool has positive LP supply, the permanent liquidity lock keeps
-every finite successful path from returning total supply to zero. -/
-def pair_closed_world_positive_supply_path_remains_positive
-    (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    0 < before.totalSupply →
-      PairWorldPath before after →
-        0 < after.totalSupply
-
-/-- Reachability packages the good-state precondition above. In the form users
-care about, any nonempty reachable pool remains nonempty after any finite
-successful modeled history. -/
-def pair_closed_world_reachable_positive_supply_path_remains_positive
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    0 < before.totalSupply →
-      PairWorldPath before after →
-        0 < after.totalSupply
-
-/-- A reachable pool with LP supply is not allowed to be a degenerate
-one-sided or zero-reserve pool. In Uniswap V2 the first mint deposits both
-tokens, later burns cannot redeem the permanently locked floor, and swaps keep
-outputs below reserves; this invariant packages that story as the precondition
-needed for a meaningful spot price. -/
-def pair_closed_world_reachable_positive_supply_has_positive_reserves
-    (w : PairWorldState) : Prop :=
-  PairWorldReachable w →
-    0 < w.totalSupply →
-      0 < w.reserve0 ∧
-      0 < w.reserve1
-
-/-- The finite-history version of the same nondegeneracy invariant. Starting
-from any reachable nonempty pool, every finite sequence of successful modeled
-actions leaves both reserves positive, so later economic theorems can rely on a
-defined initial and final two-token pool rather than carrying that fact as an
-unexplained side condition. -/
-def pair_closed_world_reachable_positive_supply_path_has_positive_reserves
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    0 < before.totalSupply →
-      PairWorldPath before after →
-        0 < after.reserve0 ∧
-        0 < after.reserve1
-
-/-- Token-side positive-balance invariant. The positive-reserve theorem says cached
-reserves stay nonzero; reserve backing then says the actual ERC20 balances held
-by the pair are also nonzero. Thus no finite successful modeled history from a
-reachable nonempty pool can leave either token balance at zero. -/
-def pair_closed_world_reachable_positive_supply_path_has_positive_token_balances
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    0 < before.totalSupply →
-      PairWorldPath before after →
-        0 < after.balance0 ∧
-        0 < after.balance1
-
-/-!
-### 2. Concrete-State Projections
-
-Supports headlines: H5, H6 (concrete-state form).
-
-The closed-world invariant is expressed over a small mathematical model. These
-specs say what the invariant means when projected back to a Verity
-`ContractState`: cached reserves are covered by observed ERC20 balances and fit
-inside the canonical uint112 reserve domain.
--/
-
-def pair_concrete_state_reserves_backed
-    (s : ContractState) : Prop :=
-  PairWorldGood (pairWorldFromConcreteState s) →
-    (s.storage reserve0Slot.slot).val ≤ (observedBalance0 s).val ∧
-    (s.storage reserve1Slot.slot).val ≤ (observedBalance1 s).val
-
-def pair_concrete_state_uint112_reserves
-    (s : ContractState) : Prop :=
-  PairWorldGood (pairWorldFromConcreteState s) →
-    (s.storage reserve0Slot.slot).val ≤ maxUint112Nat ∧
-    (s.storage reserve1Slot.slot).val ≤ maxUint112Nat
-
-def pair_closed_world_reachable_reserves_backed
-    (w : PairWorldState) : Prop :=
-  PairWorldReachable w →
-    w.reserve0 ≤ w.balance0 ∧
-    w.reserve1 ≤ w.balance1
-
-def pair_closed_world_path_reserves_backed
-    (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    PairWorldPath before after →
-      after.reserve0 ≤ after.balance0 ∧
-      after.reserve1 ≤ after.balance1
-
-/-- The reserve-backing invariant in its most useful reader-facing form:
-from any reachable pool state, after any finite sequence of successful modeled
-calls, the cached reserves are still covered by the pair's token balances. -/
-def pair_closed_world_reachable_path_reserves_backed
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    PairWorldPath before after →
-      after.reserve0 ≤ after.balance0 ∧
-      after.reserve1 ≤ after.balance1
-
-/-- The reserve-domain invariant in the same finite-history form: a reachable
-pool can never reach a successful modeled state whose cached reserves exceed
-Uniswap V2's `uint112` reserve domain. -/
-def pair_closed_world_reachable_path_reserves_fit_uint112
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    PairWorldPath before after →
-      after.reserve0 ≤ maxUint112Nat ∧
-      after.reserve1 ≤ maxUint112Nat
-
-def pair_closed_world_reachable_reserves_fit_uint112
-    (w : PairWorldState) : Prop :=
-  PairWorldReachable w →
-    w.reserve0 ≤ maxUint112Nat ∧
-    w.reserve1 ≤ maxUint112Nat
-
-/-!
-### 3. LP Supply Discipline
-
-Supports headlines: H7, H8.
-
-Uniswap V2 LP shares are not allowed to become an implicit source or sink of
-pool assets. Share-only actions leave the pool model exactly unchanged; mint and
-burn are the only transitions that can change total LP supply; the first mint
-permanently locks `MINIMUM_LIQUIDITY`; and burn cannot redeem that locked
-liquidity.
--/
-
-def pair_closed_world_nonzero_supply_locks_minimum_liquidity
-    (w : PairWorldState) : Prop :=
-  PairWorldReachable w →
-    w.totalSupply ≠ 0 →
-      w.lockedLiquidity = minimumLiquidityNat ∧
-      minimumLiquidityNat ≤ w.totalSupply
-
-def pair_closed_world_zero_supply_has_no_locked_liquidity
-    (w : PairWorldState) : Prop :=
-  PairWorldReachable w →
-    w.totalSupply = 0 →
-      w.lockedLiquidity = 0
-
-def pair_closed_world_locked_liquidity_never_exceeds_supply
-    (w : PairWorldState) : Prop :=
-  PairWorldReachable w →
-    w.lockedLiquidity ≤ w.totalSupply
-
-/-- The minimum-liquidity lock as a trace invariant. Starting from any reachable
-pool and following any finite successful modeled history, the final state is
-either still empty with no locked liquidity or has the canonical permanently
-locked `MINIMUM_LIQUIDITY` amount covered by total LP supply. -/
-def pair_closed_world_reachable_path_minimum_liquidity_lock
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    PairWorldPath before after →
-      (after.totalSupply = 0 ∧ after.lockedLiquidity = 0) ∨
-        (0 < after.totalSupply ∧
-          after.lockedLiquidity = minimumLiquidityNat ∧
-          minimumLiquidityNat ≤ after.totalSupply)
-
-/-- "Permanent" liquidity is monotone. From a good modeled state, a successful
-single action can establish the locked floor on first mint or preserve the
-current lock, but it cannot reduce the locked amount. -/
-def pair_closed_world_step_locked_liquidity_never_decreases
-    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    PairWorldStep action before after →
-      before.lockedLiquidity ≤ after.lockedLiquidity
-
-
-/-- Reader-facing reachable form: in every reachable pool history, the locked
-liquidity amount is monotone. Once the first mint installs
-`MINIMUM_LIQUIDITY`, later mint, burn, swap, skim, sync, donation, and share
-bookkeeping actions cannot reduce it. -/
-def pair_closed_world_reachable_path_locked_liquidity_never_decreases
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    PairWorldPath before after →
-      before.lockedLiquidity ≤ after.lockedLiquidity
-
-def pair_closed_world_supply_changes_only_on_mint_or_burn
-    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
-  PairWorldStep action before after →
-    after.totalSupply ≠ before.totalSupply →
-      (∃ amount0 amount1 liquidity,
-        action = PairWorldAction.mint amount0 amount1 liquidity) ∨
-      (∃ amount0 amount1 liquidity,
-        action = PairWorldAction.burn amount0 amount1 liquidity)
-
-/-- Cached reserve movement is isolated to reserve-update actions. Share
-bookkeeping may move LP ownership, direct donations may raise token balances,
-and `skim` may remove surplus, but none of those actions can rewrite the
-router-visible reserves. If either cached reserve changes in one valid action,
-the step must be mint, burn, swap, or sync. -/
-def pair_closed_world_reserve_changes_only_on_reserve_update_actions
-    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
-  PairWorldStep action before after →
-    (after.reserve0 ≠ before.reserve0 ∨
-      after.reserve1 ≠ before.reserve1) →
-      (∃ amount0 amount1 liquidity,
-        action = PairWorldAction.mint amount0 amount1 liquidity) ∨
-      (∃ amount0 amount1 liquidity,
-        action = PairWorldAction.burn amount0 amount1 liquidity) ∨
-      (∃ amount0In amount1In amount0Out amount1Out,
-        action = PairWorldAction.swap amount0In amount1In amount0Out amount1Out) ∨
-      action = PairWorldAction.sync
-
-
-/-- Cached reserve movement requires a reserve-update action. If either cached
-reserve differs at the endpoint, then the endpoint cannot be produced by a
-successful history made only of LP bookkeeping, direct donations, and skim.
-Some mint, burn, swap, or sync step must be present in the history. -/
-def pair_closed_world_reachable_reserve_change_requires_reserve_update
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    (after.reserve0 ≠ before.reserve0 ∨
-      after.reserve1 ≠ before.reserve1) →
-      ¬ PairWorldPathNoReserveUpdate before after
-
-
-/-- Reachable-state form of the same supply firewall. Starting from any
-reachable pool, every finite successful history made only of share transfers,
-approvals, donations, swaps, skim, and sync preserves LP supply exactly. -/
-def pair_closed_world_reachable_no_mint_burn_path_preserves_supply
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    PairWorldPathNoMintBurn before after →
-      after.totalSupply = before.totalSupply ∧
-      after.lockedLiquidity = before.lockedLiquidity
-
-
-/-- Reader-facing reachable form: from any reachable pool state, every finite
-successful no-burn history preserves or increases LP supply. This pairs with
-the no-burn K theorem below: without LP redemption, neither supply nor cached K
-can move in the extraction direction. -/
-def pair_closed_world_reachable_no_burn_path_never_decreases_supply
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    PairWorldPathNoBurn before after →
-      before.totalSupply ≤ after.totalSupply
-
-
-/-- Reader-facing reachable form: from any reachable pool state, every finite
-successful no-mint history preserves or decreases LP supply. Together with the
-no-burn theorem, this pins LP supply movement to the two liquidity entrypoints:
-mint creates shares and burn redeems them. -/
-def pair_closed_world_reachable_no_mint_path_never_increases_supply
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    PairWorldPathNoMint before after →
-      after.totalSupply ≤ before.totalSupply
-
-/-- LP issuance requires mint. This is the same supply invariant stated in the
-direction an auditor usually wants: if an endpoint has more LP supply than the
-reachable starting state, then no successful history without a mint can produce
-that endpoint. -/
-def pair_closed_world_reachable_supply_increase_requires_mint
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    before.totalSupply < after.totalSupply →
-      ¬ PairWorldPathNoMint before after
-
-/-- LP redemption requires burn. If an endpoint has less LP supply than the
-reachable starting state, then no successful history without a burn can produce
-that endpoint. -/
-def pair_closed_world_reachable_supply_decrease_requires_burn
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    after.totalSupply < before.totalSupply →
-      ¬ PairWorldPathNoBurn before after
-
-/-- Any LP-supply change requires a liquidity operation. Histories made only of
-approvals, LP transfers, donations, swaps, skim, and sync preserve total supply,
-so an endpoint with different LP supply cannot be reached by a history that has
-neither mint nor burn. -/
-def pair_closed_world_reachable_supply_change_requires_mint_or_burn
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    after.totalSupply ≠ before.totalSupply →
-      ¬ PairWorldPathNoMintBurn before after
-
-def pair_closed_world_approve_preserves_pool
-    (ownerAddr spender : Address) (amount : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.approve ownerAddr spender amount) before after →
-    after = before
-
-def pair_closed_world_transfer_preserves_pool
-    (fromAddr toAddr : Address) (amount : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.transfer fromAddr toAddr amount) before after →
-    after = before
-
-def pair_closed_world_transferFrom_preserves_pool
-    (spender fromAddr toAddr : Address) (amount : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.transferFrom spender fromAddr toAddr amount) before after →
-    after = before
-
-
-def pair_closed_world_first_mint_locks_minimum_liquidity
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
-    before.totalSupply = 0 →
-      after.lockedLiquidity = minimumLiquidityNat ∧
-      after.totalSupply = minimumLiquidityNat + liquidity
-
-/-- First-mint locking is also an ownership-security fact. A valid first mint
-creates positive user liquidity, but total supply is strictly larger than that
-user liquidity because `MINIMUM_LIQUIDITY` is already locked. The first LP can
-therefore never own the entire pool supply in the closed-world model. -/
-def pair_closed_world_first_mint_keeps_locked_share
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
-    before.totalSupply = 0 →
-      after.lockedLiquidity < after.totalSupply ∧
-      liquidity < after.totalSupply
-
-def pair_closed_world_subsequent_mint_preserves_locked_liquidity
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
-    before.totalSupply ≠ 0 →
-      after.lockedLiquidity = before.lockedLiquidity ∧
-      after.totalSupply = before.totalSupply + liquidity
-
-/-- Every valid mint creates positive user liquidity, and the first mint also
-locks `MINIMUM_LIQUIDITY`; either way total LP supply strictly increases. -/
-def pair_closed_world_mint_strictly_increases_supply
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
-    before.totalSupply < after.totalSupply
-
-/--
-Mint reserve accounting is exact in the closed-world model.
-
-A valid mint observes token balances that exceed cached reserves by
-`amount0` and `amount1`, then caches those balances. Equivalently, the new
-cached reserves are the old cached reserves plus exactly the deposited amounts.
--/
-def pair_closed_world_mint_adds_exact_deposits_to_reserves
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
-    after.reserve0 = before.reserve0 + amount0 ∧
-    after.reserve1 = before.reserve1 + amount1
-
-def pair_closed_world_burn_reduces_supply_by_liquidity
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
-    after.totalSupply = before.totalSupply - liquidity
-
-/--
-Burn token accounting is exact in the closed-world model.
-
-A valid burn pays `amount0` and `amount1` out of the pair's token balances, then
-caches the remaining balances as reserves. No additional token amount can
-disappear from the pool through the modeled burn step.
--/
-def pair_closed_world_burn_removes_exact_redemptions_from_balances
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
-    after.balance0 + amount0 = before.balance0 ∧
-    after.balance1 + amount1 = before.balance1 ∧
-    after.reserve0 = after.balance0 ∧
-    after.reserve1 = after.balance1
-
-/-- Burning destroys LP liquidity. The exact reduction is specified separately;
-this consequence says no burn can increase total LP supply. -/
-def pair_closed_world_burn_never_increases_supply
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
-    after.totalSupply ≤ before.totalSupply
-
-def pair_closed_world_burn_cannot_redeem_locked_liquidity
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
-    before.lockedLiquidity ≤ after.totalSupply ∧
-    after.lockedLiquidity = before.lockedLiquidity
-
-/-- The minimum-liquidity lock is not just an LP-supply accounting fact. From a
-good state with positive token balances, a valid burn cannot redeem every unit
-of either token; some token backing must remain with the locked liquidity. -/
-def pair_closed_world_burn_preserves_positive_balances
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
-      0 < before.balance0 →
-        0 < before.balance1 →
-          0 < after.balance0 ∧
-          0 < after.balance1
-
-/-- Reachable burn positive-balance theorem. In the form a maintainer should cite, a
-valid burn from any reachable nonempty pool cannot empty either token side. The
-reachable invariant supplies the pre-burn positive balances; the burn theorem
-uses the locked minimum liquidity to show some token backing must remain. -/
-def pair_closed_world_reachable_positive_supply_burn_preserves_positive_balances
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    0 < before.totalSupply →
-      PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
-        0 < after.balance0 ∧
-        0 < after.balance1
-
-/-!
-### 4. Token Inflow Without Accounting (Donations)
-
-Supports headlines: H10.
-
-Anyone may transfer tokens directly into a pair. That donation must not silently
-alter cached reserves, LP supply, or cached K. The only way to account for the
-extra token balance is through later mint/swap/sync behavior.
-
-This is the Uniswap V2 analogue of Tamago's ERC4626 donation-surplus layer.
-The model tracks reserve surplus as `balance - reserve` on each token side.
-Direct donations are allowed to create that surplus, but histories with no
-donation step cannot manufacture more of it. That is the missing premise behind
-the actual-token-balance no-profit theorem: `skim` may remove an external gift,
-but the pair cannot create that gift internally.
--/
-
-def pair_closed_world_donate_preserves_reserves_and_supply
-    (amount0 amount1 : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.donate amount0 amount1) before after →
-    after.reserve0 = before.reserve0 ∧
-    after.reserve1 = before.reserve1 ∧
-    after.totalSupply = before.totalSupply ∧
-    after.lockedLiquidity = before.lockedLiquidity
-
-def pair_closed_world_donate_preserves_k
-    (amount0 amount1 : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.donate amount0 amount1) before after →
-    PairWorldK after = PairWorldK before
-
-/-- Donations are exactly the source of new unaccounted reserve surplus. From a
-reserve-backed state, a direct token0/token1 inflow increases each token-side
-surplus by exactly the donated amount while cached reserves remain unchanged. -/
-def pair_closed_world_donation_increases_surplus_exactly
-    (amount0 amount1 : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    PairWorldStep (PairWorldAction.donate amount0 amount1) before after →
-      PairWorldSurplus0 after = PairWorldSurplus0 before + amount0 ∧
-      PairWorldSurplus1 after = PairWorldSurplus1 before + amount1
-
-
-/-- Reader-facing reachable form of surplus isolation. Starting from an
-actually reachable PairWorld state, any finite successful no-donation history
-cannot create new unaccounted reserve surplus. Any later `skim` profit must
-come from surplus that was already present, not from the pair's own mechanics. -/
-def pair_closed_world_reachable_no_donation_path_never_increases_surplus
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    PairWorldPathNoDonation before after →
-      PairWorldSurplus0 after ≤ PairWorldSurplus0 before ∧
-      PairWorldSurplus1 after ≤ PairWorldSurplus1 before
-
-/-- New skimmable surplus requires donation. If either token side ends with
-more `balance - reserve` surplus than it started with, then a no-donation
-history cannot explain that endpoint. This is the trace-level firewall behind
-the no-profit theorems that allow `skim` to remove only pre-existing gifts. -/
-def pair_closed_world_reachable_surplus_increase_requires_donation
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    (PairWorldSurplus0 before < PairWorldSurplus0 after ∨
-      PairWorldSurplus1 before < PairWorldSurplus1 after) →
-      ¬ PairWorldPathNoDonation before after
-
-/-- Spot-valued form of the same surplus isolation. The previous theorem is
-token-side; this one states the economic consequence at the starting pool's
-spot price. Along a no-donation history, the token1-denominated value of
-skimmable surplus cannot increase. Any later caller profit from `skim` must be
-paid for by surplus that already existed at the start. -/
-def pair_closed_world_reachable_no_donation_path_surplus_value_never_increases
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    PairWorldPathNoDonation before after →
-      PairWorldSurplusSpotValueNum before after ≤
-        PairWorldSurplusSpotValueNum before before
-
-/-- Clean-start surplus preservation. If a reachable pool starts with no
-unaccounted reserve surplus, then a finite history with no direct donation step
-still has no unaccounted reserve surplus at the end. This is the trace-wide
-invariant behind the informal claim that `skim` cannot find internally-created
-profit; without an external token transfer into the pair, there is no skimmable
-gift to remove. -/
-def pair_closed_world_reachable_zero_surplus_no_donation_path_preserves_zero_surplus
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    PairWorldSurplus0 before = 0 →
-      PairWorldSurplus1 before = 0 →
-        PairWorldPathNoDonation before after →
-          PairWorldSurplus0 after = 0 ∧
-          PairWorldSurplus1 after = 0
-
-/-- Clean-start endpoint balance. The previous theorem says no-donation
-histories preserve zero `balance - reserve` surplus. Combined with the
-reachable-state reserve-backing invariant, that means the endpoint is balanced
-in the direct accounting sense: modeled ERC20 token balances equal cached
-reserves on both sides. -/
-def pair_closed_world_reachable_zero_surplus_no_donation_path_ends_balanced
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    PairWorldSurplus0 before = 0 →
-      PairWorldSurplus1 before = 0 →
-        PairWorldPathNoDonation before after →
-          after.balance0 = after.reserve0 ∧
-          after.balance1 = after.reserve1
-
-/-!
-### 5. Liquidity Creation And Redemption
-
-Supports headlines: H7, H8 (mint/burn discipline), H11.
-
-Mint and burn are the only transitions that intentionally reshape LP supply.
-The mint side updates reserves to the token balances and grants no more than the
-minimum pro-rata LP share on subsequent mints. The burn side redeems no more
-than the caller's pro-rata token balances, updates reserves to the post-transfer
-balances, and keeps the permanently locked minimum liquidity out of circulation.
--/
-
-def pair_closed_world_mint_updates_reserves_to_balances
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
-    after.reserve0 = after.balance0 ∧
-    after.reserve1 = after.balance1
-
-/-- A valid mint adds token balances and then caches those balances as reserves,
-so minting liquidity cannot make the raw reserve product smaller. -/
-def pair_closed_world_mint_never_decreases_k
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
-    PairWorldK before ≤ PairWorldK after
-
-def pair_closed_world_mint_preserves_good
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
-      PairWorldGood after
-
-def pair_closed_world_mint_liquidity_ratio
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
-    before.totalSupply = 0 ∨
-      liquidity * before.reserve0 ≤ amount0 * before.totalSupply ∧
-      liquidity * before.reserve1 ≤ amount1 * before.totalSupply
-
-/-- Once a pool already has LP supply, a valid mint cannot dilute existing LPs:
-measured as reserve product per squared LP supply, the pool is at least as
-strong after the mint as before it. The first mint is excluded because there
-are no preexisting LP shares to dilute. -/
-def pair_closed_world_mint_does_not_dilute_existing_lp_share
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    0 < before.totalSupply →
-      PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
-        PairWorldKPerSupplyNondecreasing before after
-
-def pair_closed_world_burn_updates_reserves_to_balances
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
-    after.reserve0 = after.balance0 ∧
-    after.reserve1 = after.balance1
-
-def pair_closed_world_burn_preserves_good
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
-      PairWorldGood after
-
-def pair_closed_world_burn_liquidity_ratio
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
-    amount0 * before.totalSupply ≤ liquidity * before.balance0 ∧
-    amount1 * before.totalSupply ≤ liquidity * before.balance1
-
-/-- A burn may lower raw K because assets leave the pool, but it cannot extract
-more than the burned LP share is entitled to. The remaining pool's reserve
-product per squared LP supply is therefore at least as strong after the burn. -/
-def pair_closed_world_burn_does_not_dilute_remaining_lp_share
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    0 < before.totalSupply →
-      PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
-        PairWorldKPerSupplyNondecreasing before after
-
-/-!
-### 6. Swap Safety
-
-Supports headlines: H2 (same-supply pool value, via the swap step), H3 (K
-direction), H11 (per-call swap accounting).
-
-A successful swap must actually send output, must receive input, must keep each
-output below the cached reserve, and must satisfy both the fee-adjusted K check
-and raw cached-K nondecrease. This is the heart of the constant-product safety
-argument for the fee-off pair.
--/
-
-def pair_closed_world_swap_updates_reserves_to_balances
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep
-      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-      before after →
-    after.reserve0 = after.balance0 ∧
-    after.reserve1 = after.balance1
-
-def pair_closed_world_swap_respects_fee_adjusted_k
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep
-      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-      before after →
-    feeAdjustedBalance after.balance0 amount0In *
-        feeAdjustedBalance after.balance1 amount1In ≥
-      requiredK before.reserve0 before.reserve1
-
-/-- Canonical Uniswap's swap guard is fee-adjusted, but the surrounding
-economic argument often cites raw reserve-product monotonicity. Once a swap's
-cached reserves are the final balances, the fee-adjusted K check alone implies
-raw cached K cannot decrease.
-The raw-K fact is therefore derived, not an extra assumption about swaps. -/
-def pair_closed_world_fee_adjusted_swap_implies_raw_k
-    (amount0In amount1In : Nat)
-    (before after : PairWorldState) : Prop :=
-  after.reserve0 = after.balance0 →
-    after.reserve1 = after.balance1 →
-      feeAdjustedBalance after.balance0 amount0In *
-          feeAdjustedBalance after.balance1 amount1In ≥
-        requiredK before.reserve0 before.reserve1 →
-        PairWorldK before ≤ PairWorldK after
-
-def pair_closed_world_swap_preserves_good
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    PairWorldStep
-      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-      before after →
-      PairWorldGood after
-
-def pair_closed_world_swap_never_decreases_k
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep
-      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-      before after →
-    PairWorldK before ≤ PairWorldK after
-
-def pair_closed_world_swap_has_input_and_output
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep
-      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-      before after →
-    (0 < amount0Out ∨ 0 < amount1Out) ∧
-    (0 < amount0In ∨ 0 < amount1In)
-
-/-- The final balances used by swap safety are the balances after optimistic
-output and inferred input. This is the closed-world flash-swap accounting rule:
-callback-visible repayment, direct prepayment, and ordinary swaps all reduce to
-the same equation before the fee-adjusted K check is applied. -/
-def pair_closed_world_swap_final_balances_account_for_input_and_output
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep
-      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-      before after →
-    after.balance0 + amount0Out = before.reserve0 + amount0In ∧
-    after.balance1 + amount1Out = before.reserve1 + amount1In
-
-/-- Flash-swap safety depends on the order of the economic check. The K
-inequality is not charged against the balances immediately after optimistic
-output; it is charged against the final balances after direct input or callback
-repayment has arrived. This theorem packages that relationship: the same final
-balances that account for output and inferred input are the balances used by
-the fee-adjusted K check. -/
-def pair_closed_world_swap_k_uses_final_balances
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep
-      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-      before after →
-    after.balance0 + amount0Out = before.reserve0 + amount0In ∧
-    after.balance1 + amount1Out = before.reserve1 + amount1In ∧
-    feeAdjustedBalance after.balance0 amount0In *
-        feeAdjustedBalance after.balance1 amount1In ≥
-      requiredK before.reserve0 before.reserve1
-
-def pair_closed_world_swap_outputs_below_reserves
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep
-      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-      before after →
-    amount0Out < before.reserve0 ∧
-    amount1Out < before.reserve1
-
-def pair_closed_world_swap_preserves_liquidity_supply
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep
-      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-      before after →
-    after.totalSupply = before.totalSupply ∧
-    after.lockedLiquidity = before.lockedLiquidity
-
-/-- A valid swap cannot be a pool-value extraction at the starting spot price.
-The pair may exchange token0 for token1 or token1 for token0, but from a good
-live pool with a defined spot price the final reserves are worth at least the
-starting reserves at that same price. This is the one-swap form of the
-sequence-level no-profit theorem below. -/
-def pair_closed_world_swap_no_spot_value_extraction
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    0 < before.totalSupply →
-      0 < before.reserve0 →
-        0 < before.reserve1 →
-          PairWorldStep
-              (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-              before after →
-            PairWorldSpotValueNum before before ≤
-              PairWorldSpotValueNum before after
-
-/-- Reachable one-swap no-extraction. This is the same economic claim in the
-form a reader usually wants to cite: if the pool is reachable and nonempty, the
-invariant layer already supplies the good-state and positive-reserve facts, so
-a valid swap cannot reduce pool value at the starting spot price. -/
-def pair_closed_world_reachable_positive_supply_swap_no_spot_value_extraction
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    0 < before.totalSupply →
-      PairWorldStep
-          (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-          before after →
-        PairWorldSpotValueNum before before ≤
-          PairWorldSpotValueNum before after
-
-/--
-Caller-facing one-swap no-profit.
-
-The theorem above is stated from the pool's point of view: after a valid swap,
-the pool's reserves are worth at least as much at the starting spot price. This
-short consequence states the same fact from the caller's wallet perspective.
-If the caller's spot-priced token value plus the pool's spot-priced reserve
-value is only redistributed by the swap, then the caller cannot finish with
-more spot-priced value than they started with.
-
-The equality premise is deliberately explicit. The Pair model proves the pool
-cannot be the source of profit; a separate caller ledger or token-world replay
-must establish that the swap merely redistributes value between that caller and
-the pair.
--/
-def pair_closed_world_reachable_positive_supply_swap_no_caller_spot_profit
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState)
-    (callerValueBefore callerValueAfter : Nat) : Prop :=
-  PairWorldReachable before →
-    0 < before.totalSupply →
-      PairWorldStep
-          (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-          before after →
-        callerValueBefore + PairWorldSpotValueNum before before =
-          callerValueAfter + PairWorldSpotValueNum before after →
-          callerValueAfter ≤ callerValueBefore
-
-/--
-Caller-facing one-swap no-profit over actual pair token balances.
-
-The previous theorem measures cached reserve value. This version is the token
-balance statement a user usually wants when the pool starts clean: if there is
-no surplus above cached reserves before the swap, then the pair's actual token
-balances are the value source that matters. A valid swap preserves LP supply,
-so it is a same-supply history; the general same-supply no-profit theorem then
-rules out caller profit under the explicit caller-plus-pair value conservation
-premise.
--/
-def pair_closed_world_reachable_zero_surplus_swap_no_caller_token_balance_profit
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState)
-    (callerValueBefore callerValueAfter : Nat) : Prop :=
-  PairWorldReachable before →
-    0 < before.totalSupply →
-      PairWorldSurplus0 before = 0 →
-        PairWorldSurplus1 before = 0 →
-          PairWorldStep
-              (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-              before after →
-            callerValueBefore + PairWorldBalanceSpotValueNum before before =
-              callerValueAfter + PairWorldBalanceSpotValueNum before after →
-              callerValueAfter ≤ callerValueBefore
-
-/-!
-### 7. Sequence-Level Economic Consequences
-
-Supports headlines: H2 (same-supply pool value), H3 (K direction across
-paths), H4 (donation-aware actual-balance picture).
-
-The reserve-product facts above compose across finite traces. For no-burn
-histories, K never decreases. If such a history also begins and ends with the
-same LP supply, then the pool's final reserves are worth at least the initial
-pool value at the initial spot price. In a closed world with no external gift to
-the caller, that is exactly the condition needed to rule out spot-price profit.
-
-The stronger LP-normalized theorem removes the no-burn restriction. Mint and
-burn may change raw K, but valid pro-rata mint/burn transitions cannot decrease
-`K / totalSupply^2` while LP supply is positive. Therefore any finite path that
-starts and ends with the same positive LP supply cannot reduce K, even if it
-contains mint/burn round trips.
-
-The specs below are intentionally layered. First, one valid action cannot reduce
-LP-normalized K. Second, the same fact composes across arbitrary finite paths.
-Third, if the path starts and ends with the same positive LP supply, the
-normalization cancels and raw K itself cannot fall. Finally, the usual
-constant-product geometry converts that K fact into a spot-value no-profit
-statement.
-
-Properties specified:
-* Every valid action preserves or improves reserve product per squared LP supply
-  once the pool is nonempty.
-* Every finite successful history from a reachable nonempty pool preserves that
-  LP-normalized backing.
-* If a finite history returns to the same LP supply, the final pool value at the
-  initial spot price is at least the starting value.
-* A raw K decrease is classified as liquidity redemption: without a burn step,
-  K cannot decrease.
-
-Security conclusions:
-* Swap-only and no-burn histories cannot empty the pool by weakening K.
-* Mint/burn round trips do not create a hidden extraction path, because the
-  LP-normalized invariant survives the round trip and same supply cancels the
-  normalization.
-* The no-profit theorem is pool-side and closed-world: profit would have to
-  appear as missing spot value from the pool unless it comes from an external
-  gift outside the model.
--/
-
-
-/-- The reachable-state version of the LP-share backing theorem. Starting from
-any actually reachable pool with positive LP supply, every finite successful
-path leaves reserve product per squared LP supply at least as strong as it was
-at the start. This is the global mint/burn ratio guarantee in one sentence. -/
-def pair_closed_world_reachable_path_lp_share_backing_never_decreases
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    0 < before.totalSupply →
-      PairWorldPath before after →
-        PairWorldKPerSupplyNondecreasing before after
-
-/-!
-### 8. Single-Caller Portfolio Safety
+### 1. Single-Caller Portfolio Safety
 
 Supports headlines: H1 (the headline of headlines).
 
@@ -1331,7 +333,7 @@ def pair_wallet_single_caller_history_no_portfolio_profit
                 after.pair.totalSupply
 
 /-!
-### 9. Successful Calls As Caller-Wallet Steps
+### 2. Successful Calls As Caller-Wallet Steps
 
 Supports headlines: H1 bridge (public-call → wallet model).
 
@@ -1930,7 +932,761 @@ def pair_closed_world_reachable_k_decrease_excludes_burn_free_path
 
 
 /-!
-### 10. Surplus And Reserve Synchronization (Model)
+### 3. Sequence-Level Economic Consequences
+
+Supports headlines: H2 (same-supply pool value), H3 (K direction across
+paths), H4 (donation-aware actual-balance picture).
+
+The reserve-product facts above compose across finite traces. For no-burn
+histories, K never decreases. If such a history also begins and ends with the
+same LP supply, then the pool's final reserves are worth at least the initial
+pool value at the initial spot price. In a closed world with no external gift to
+the caller, that is exactly the condition needed to rule out spot-price profit.
+
+The stronger LP-normalized theorem removes the no-burn restriction. Mint and
+burn may change raw K, but valid pro-rata mint/burn transitions cannot decrease
+`K / totalSupply^2` while LP supply is positive. Therefore any finite path that
+starts and ends with the same positive LP supply cannot reduce K, even if it
+contains mint/burn round trips.
+
+The specs below are intentionally layered. First, one valid action cannot reduce
+LP-normalized K. Second, the same fact composes across arbitrary finite paths.
+Third, if the path starts and ends with the same positive LP supply, the
+normalization cancels and raw K itself cannot fall. Finally, the usual
+constant-product geometry converts that K fact into a spot-value no-profit
+statement.
+
+Properties specified:
+* Every valid action preserves or improves reserve product per squared LP supply
+  once the pool is nonempty.
+* Every finite successful history from a reachable nonempty pool preserves that
+  LP-normalized backing.
+* If a finite history returns to the same LP supply, the final pool value at the
+  initial spot price is at least the starting value.
+* A raw K decrease is classified as liquidity redemption: without a burn step,
+  K cannot decrease.
+
+Security conclusions:
+* Swap-only and no-burn histories cannot empty the pool by weakening K.
+* Mint/burn round trips do not create a hidden extraction path, because the
+  LP-normalized invariant survives the round trip and same supply cancels the
+  normalization.
+* The no-profit theorem is pool-side and closed-world: profit would have to
+  appear as missing spot value from the pool unless it comes from an external
+  gift outside the model.
+-/
+
+
+/-- The reachable-state version of the LP-share backing theorem. Starting from
+any actually reachable pool with positive LP supply, every finite successful
+path leaves reserve product per squared LP supply at least as strong as it was
+at the start. This is the global mint/burn ratio guarantee in one sentence. -/
+def pair_closed_world_reachable_path_lp_share_backing_never_decreases
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        PairWorldKPerSupplyNondecreasing before after
+
+/-!
+### 4. Swap Safety
+
+Supports headlines: H2 (same-supply pool value, via the swap step), H3 (K
+direction), H11 (per-call swap accounting).
+
+A successful swap must actually send output, must receive input, must keep each
+output below the cached reserve, and must satisfy both the fee-adjusted K check
+and raw cached-K nondecrease. This is the heart of the constant-product safety
+argument for the fee-off pair.
+-/
+
+def pair_closed_world_swap_updates_reserves_to_balances
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    after.reserve0 = after.balance0 ∧
+    after.reserve1 = after.balance1
+
+def pair_closed_world_swap_respects_fee_adjusted_k
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    feeAdjustedBalance after.balance0 amount0In *
+        feeAdjustedBalance after.balance1 amount1In ≥
+      requiredK before.reserve0 before.reserve1
+
+/-- Canonical Uniswap's swap guard is fee-adjusted, but the surrounding
+economic argument often cites raw reserve-product monotonicity. Once a swap's
+cached reserves are the final balances, the fee-adjusted K check alone implies
+raw cached K cannot decrease.
+The raw-K fact is therefore derived, not an extra assumption about swaps. -/
+def pair_closed_world_fee_adjusted_swap_implies_raw_k
+    (amount0In amount1In : Nat)
+    (before after : PairWorldState) : Prop :=
+  after.reserve0 = after.balance0 →
+    after.reserve1 = after.balance1 →
+      feeAdjustedBalance after.balance0 amount0In *
+          feeAdjustedBalance after.balance1 amount1In ≥
+        requiredK before.reserve0 before.reserve1 →
+        PairWorldK before ≤ PairWorldK after
+
+def pair_closed_world_swap_preserves_good
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+      PairWorldGood after
+
+def pair_closed_world_swap_never_decreases_k
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    PairWorldK before ≤ PairWorldK after
+
+def pair_closed_world_swap_has_input_and_output
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    (0 < amount0Out ∨ 0 < amount1Out) ∧
+    (0 < amount0In ∨ 0 < amount1In)
+
+/-- The final balances used by swap safety are the balances after optimistic
+output and inferred input. This is the closed-world flash-swap accounting rule:
+callback-visible repayment, direct prepayment, and ordinary swaps all reduce to
+the same equation before the fee-adjusted K check is applied. -/
+def pair_closed_world_swap_final_balances_account_for_input_and_output
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    after.balance0 + amount0Out = before.reserve0 + amount0In ∧
+    after.balance1 + amount1Out = before.reserve1 + amount1In
+
+/-- Flash-swap safety depends on the order of the economic check. The K
+inequality is not charged against the balances immediately after optimistic
+output; it is charged against the final balances after direct input or callback
+repayment has arrived. This theorem packages that relationship: the same final
+balances that account for output and inferred input are the balances used by
+the fee-adjusted K check. -/
+def pair_closed_world_swap_k_uses_final_balances
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    after.balance0 + amount0Out = before.reserve0 + amount0In ∧
+    after.balance1 + amount1Out = before.reserve1 + amount1In ∧
+    feeAdjustedBalance after.balance0 amount0In *
+        feeAdjustedBalance after.balance1 amount1In ≥
+      requiredK before.reserve0 before.reserve1
+
+def pair_closed_world_swap_outputs_below_reserves
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    amount0Out < before.reserve0 ∧
+    amount1Out < before.reserve1
+
+def pair_closed_world_swap_preserves_liquidity_supply
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    after.totalSupply = before.totalSupply ∧
+    after.lockedLiquidity = before.lockedLiquidity
+
+/-- A valid swap cannot be a pool-value extraction at the starting spot price.
+The pair may exchange token0 for token1 or token1 for token0, but from a good
+live pool with a defined spot price the final reserves are worth at least the
+starting reserves at that same price. This is the one-swap form of the
+sequence-level no-profit theorem below. -/
+def pair_closed_world_swap_no_spot_value_extraction
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    0 < before.totalSupply →
+      0 < before.reserve0 →
+        0 < before.reserve1 →
+          PairWorldStep
+              (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+              before after →
+            PairWorldSpotValueNum before before ≤
+              PairWorldSpotValueNum before after
+
+/-- Reachable one-swap no-extraction. This is the same economic claim in the
+form a reader usually wants to cite: if the pool is reachable and nonempty, the
+invariant layer already supplies the good-state and positive-reserve facts, so
+a valid swap cannot reduce pool value at the starting spot price. -/
+def pair_closed_world_reachable_positive_supply_swap_no_spot_value_extraction
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldStep
+          (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+          before after →
+        PairWorldSpotValueNum before before ≤
+          PairWorldSpotValueNum before after
+
+/--
+Caller-facing one-swap no-profit.
+
+The theorem above is stated from the pool's point of view: after a valid swap,
+the pool's reserves are worth at least as much at the starting spot price. This
+short consequence states the same fact from the caller's wallet perspective.
+If the caller's spot-priced token value plus the pool's spot-priced reserve
+value is only redistributed by the swap, then the caller cannot finish with
+more spot-priced value than they started with.
+
+The equality premise is deliberately explicit. The Pair model proves the pool
+cannot be the source of profit; a separate caller ledger or token-world replay
+must establish that the swap merely redistributes value between that caller and
+the pair.
+-/
+def pair_closed_world_reachable_positive_supply_swap_no_caller_spot_profit
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState)
+    (callerValueBefore callerValueAfter : Nat) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldStep
+          (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+          before after →
+        callerValueBefore + PairWorldSpotValueNum before before =
+          callerValueAfter + PairWorldSpotValueNum before after →
+          callerValueAfter ≤ callerValueBefore
+
+/--
+Caller-facing one-swap no-profit over actual pair token balances.
+
+The previous theorem measures cached reserve value. This version is the token
+balance statement a user usually wants when the pool starts clean: if there is
+no surplus above cached reserves before the swap, then the pair's actual token
+balances are the value source that matters. A valid swap preserves LP supply,
+so it is a same-supply history; the general same-supply no-profit theorem then
+rules out caller profit under the explicit caller-plus-pair value conservation
+premise.
+-/
+def pair_closed_world_reachable_zero_surplus_swap_no_caller_token_balance_profit
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState)
+    (callerValueBefore callerValueAfter : Nat) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldSurplus0 before = 0 →
+        PairWorldSurplus1 before = 0 →
+          PairWorldStep
+              (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+              before after →
+            callerValueBefore + PairWorldBalanceSpotValueNum before before =
+              callerValueAfter + PairWorldBalanceSpotValueNum before after →
+              callerValueAfter ≤ callerValueBefore
+
+/-!
+### 5. Liquidity Creation And Redemption
+
+Supports headlines: H7, H8 (mint/burn discipline), H11.
+
+Mint and burn are the only transitions that intentionally reshape LP supply.
+The mint side updates reserves to the token balances and grants no more than the
+minimum pro-rata LP share on subsequent mints. The burn side redeems no more
+than the caller's pro-rata token balances, updates reserves to the post-transfer
+balances, and keeps the permanently locked minimum liquidity out of circulation.
+-/
+
+def pair_closed_world_mint_updates_reserves_to_balances
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+    after.reserve0 = after.balance0 ∧
+    after.reserve1 = after.balance1
+
+/-- A valid mint adds token balances and then caches those balances as reserves,
+so minting liquidity cannot make the raw reserve product smaller. -/
+def pair_closed_world_mint_never_decreases_k
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+    PairWorldK before ≤ PairWorldK after
+
+def pair_closed_world_mint_preserves_good
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+      PairWorldGood after
+
+def pair_closed_world_mint_liquidity_ratio
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+    before.totalSupply = 0 ∨
+      liquidity * before.reserve0 ≤ amount0 * before.totalSupply ∧
+      liquidity * before.reserve1 ≤ amount1 * before.totalSupply
+
+/-- Once a pool already has LP supply, a valid mint cannot dilute existing LPs:
+measured as reserve product per squared LP supply, the pool is at least as
+strong after the mint as before it. The first mint is excluded because there
+are no preexisting LP shares to dilute. -/
+def pair_closed_world_mint_does_not_dilute_existing_lp_share
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+        PairWorldKPerSupplyNondecreasing before after
+
+def pair_closed_world_burn_updates_reserves_to_balances
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+    after.reserve0 = after.balance0 ∧
+    after.reserve1 = after.balance1
+
+def pair_closed_world_burn_preserves_good
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+      PairWorldGood after
+
+def pair_closed_world_burn_liquidity_ratio
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+    amount0 * before.totalSupply ≤ liquidity * before.balance0 ∧
+    amount1 * before.totalSupply ≤ liquidity * before.balance1
+
+/-- A burn may lower raw K because assets leave the pool, but it cannot extract
+more than the burned LP share is entitled to. The remaining pool's reserve
+product per squared LP supply is therefore at least as strong after the burn. -/
+def pair_closed_world_burn_does_not_dilute_remaining_lp_share
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+        PairWorldKPerSupplyNondecreasing before after
+
+/-!
+### 6. LP Supply Discipline
+
+Supports headlines: H7, H8.
+
+Uniswap V2 LP shares are not allowed to become an implicit source or sink of
+pool assets. Share-only actions leave the pool model exactly unchanged; mint and
+burn are the only transitions that can change total LP supply; the first mint
+permanently locks `MINIMUM_LIQUIDITY`; and burn cannot redeem that locked
+liquidity.
+-/
+
+def pair_closed_world_nonzero_supply_locks_minimum_liquidity
+    (w : PairWorldState) : Prop :=
+  PairWorldReachable w →
+    w.totalSupply ≠ 0 →
+      w.lockedLiquidity = minimumLiquidityNat ∧
+      minimumLiquidityNat ≤ w.totalSupply
+
+def pair_closed_world_zero_supply_has_no_locked_liquidity
+    (w : PairWorldState) : Prop :=
+  PairWorldReachable w →
+    w.totalSupply = 0 →
+      w.lockedLiquidity = 0
+
+def pair_closed_world_locked_liquidity_never_exceeds_supply
+    (w : PairWorldState) : Prop :=
+  PairWorldReachable w →
+    w.lockedLiquidity ≤ w.totalSupply
+
+/-- The minimum-liquidity lock as a trace invariant. Starting from any reachable
+pool and following any finite successful modeled history, the final state is
+either still empty with no locked liquidity or has the canonical permanently
+locked `MINIMUM_LIQUIDITY` amount covered by total LP supply. -/
+def pair_closed_world_reachable_path_minimum_liquidity_lock
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPath before after →
+      (after.totalSupply = 0 ∧ after.lockedLiquidity = 0) ∨
+        (0 < after.totalSupply ∧
+          after.lockedLiquidity = minimumLiquidityNat ∧
+          minimumLiquidityNat ≤ after.totalSupply)
+
+/-- "Permanent" liquidity is monotone. From a good modeled state, a successful
+single action can establish the locked floor on first mint or preserve the
+current lock, but it cannot reduce the locked amount. -/
+def pair_closed_world_step_locked_liquidity_never_decreases
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep action before after →
+      before.lockedLiquidity ≤ after.lockedLiquidity
+
+
+/-- Reader-facing reachable form: in every reachable pool history, the locked
+liquidity amount is monotone. Once the first mint installs
+`MINIMUM_LIQUIDITY`, later mint, burn, swap, skim, sync, donation, and share
+bookkeeping actions cannot reduce it. -/
+def pair_closed_world_reachable_path_locked_liquidity_never_decreases
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPath before after →
+      before.lockedLiquidity ≤ after.lockedLiquidity
+
+def pair_closed_world_supply_changes_only_on_mint_or_burn
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldStep action before after →
+    after.totalSupply ≠ before.totalSupply →
+      (∃ amount0 amount1 liquidity,
+        action = PairWorldAction.mint amount0 amount1 liquidity) ∨
+      (∃ amount0 amount1 liquidity,
+        action = PairWorldAction.burn amount0 amount1 liquidity)
+
+/-- Cached reserve movement is isolated to reserve-update actions. Share
+bookkeeping may move LP ownership, direct donations may raise token balances,
+and `skim` may remove surplus, but none of those actions can rewrite the
+router-visible reserves. If either cached reserve changes in one valid action,
+the step must be mint, burn, swap, or sync. -/
+def pair_closed_world_reserve_changes_only_on_reserve_update_actions
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldStep action before after →
+    (after.reserve0 ≠ before.reserve0 ∨
+      after.reserve1 ≠ before.reserve1) →
+      (∃ amount0 amount1 liquidity,
+        action = PairWorldAction.mint amount0 amount1 liquidity) ∨
+      (∃ amount0 amount1 liquidity,
+        action = PairWorldAction.burn amount0 amount1 liquidity) ∨
+      (∃ amount0In amount1In amount0Out amount1Out,
+        action = PairWorldAction.swap amount0In amount1In amount0Out amount1Out) ∨
+      action = PairWorldAction.sync
+
+
+/-- Cached reserve movement requires a reserve-update action. If either cached
+reserve differs at the endpoint, then the endpoint cannot be produced by a
+successful history made only of LP bookkeeping, direct donations, and skim.
+Some mint, burn, swap, or sync step must be present in the history. -/
+def pair_closed_world_reachable_reserve_change_requires_reserve_update
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    (after.reserve0 ≠ before.reserve0 ∨
+      after.reserve1 ≠ before.reserve1) →
+      ¬ PairWorldPathNoReserveUpdate before after
+
+
+/-- Reachable-state form of the same supply firewall. Starting from any
+reachable pool, every finite successful history made only of share transfers,
+approvals, donations, swaps, skim, and sync preserves LP supply exactly. -/
+def pair_closed_world_reachable_no_mint_burn_path_preserves_supply
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPathNoMintBurn before after →
+      after.totalSupply = before.totalSupply ∧
+      after.lockedLiquidity = before.lockedLiquidity
+
+
+/-- Reader-facing reachable form: from any reachable pool state, every finite
+successful no-burn history preserves or increases LP supply. This pairs with
+the no-burn K theorem below: without LP redemption, neither supply nor cached K
+can move in the extraction direction. -/
+def pair_closed_world_reachable_no_burn_path_never_decreases_supply
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPathNoBurn before after →
+      before.totalSupply ≤ after.totalSupply
+
+
+/-- Reader-facing reachable form: from any reachable pool state, every finite
+successful no-mint history preserves or decreases LP supply. Together with the
+no-burn theorem, this pins LP supply movement to the two liquidity entrypoints:
+mint creates shares and burn redeems them. -/
+def pair_closed_world_reachable_no_mint_path_never_increases_supply
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPathNoMint before after →
+      after.totalSupply ≤ before.totalSupply
+
+/-- LP issuance requires mint. This is the same supply invariant stated in the
+direction an auditor usually wants: if an endpoint has more LP supply than the
+reachable starting state, then no successful history without a mint can produce
+that endpoint. -/
+def pair_closed_world_reachable_supply_increase_requires_mint
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    before.totalSupply < after.totalSupply →
+      ¬ PairWorldPathNoMint before after
+
+/-- LP redemption requires burn. If an endpoint has less LP supply than the
+reachable starting state, then no successful history without a burn can produce
+that endpoint. -/
+def pair_closed_world_reachable_supply_decrease_requires_burn
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    after.totalSupply < before.totalSupply →
+      ¬ PairWorldPathNoBurn before after
+
+/-- Any LP-supply change requires a liquidity operation. Histories made only of
+approvals, LP transfers, donations, swaps, skim, and sync preserve total supply,
+so an endpoint with different LP supply cannot be reached by a history that has
+neither mint nor burn. -/
+def pair_closed_world_reachable_supply_change_requires_mint_or_burn
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    after.totalSupply ≠ before.totalSupply →
+      ¬ PairWorldPathNoMintBurn before after
+
+def pair_closed_world_approve_preserves_pool
+    (ownerAddr spender : Address) (amount : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.approve ownerAddr spender amount) before after →
+    after = before
+
+def pair_closed_world_transfer_preserves_pool
+    (fromAddr toAddr : Address) (amount : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.transfer fromAddr toAddr amount) before after →
+    after = before
+
+def pair_closed_world_transferFrom_preserves_pool
+    (spender fromAddr toAddr : Address) (amount : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.transferFrom spender fromAddr toAddr amount) before after →
+    after = before
+
+
+def pair_closed_world_first_mint_locks_minimum_liquidity
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+    before.totalSupply = 0 →
+      after.lockedLiquidity = minimumLiquidityNat ∧
+      after.totalSupply = minimumLiquidityNat + liquidity
+
+/-- First-mint locking is also an ownership-security fact. A valid first mint
+creates positive user liquidity, but total supply is strictly larger than that
+user liquidity because `MINIMUM_LIQUIDITY` is already locked. The first LP can
+therefore never own the entire pool supply in the closed-world model. -/
+def pair_closed_world_first_mint_keeps_locked_share
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+    before.totalSupply = 0 →
+      after.lockedLiquidity < after.totalSupply ∧
+      liquidity < after.totalSupply
+
+def pair_closed_world_subsequent_mint_preserves_locked_liquidity
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+    before.totalSupply ≠ 0 →
+      after.lockedLiquidity = before.lockedLiquidity ∧
+      after.totalSupply = before.totalSupply + liquidity
+
+/-- Every valid mint creates positive user liquidity, and the first mint also
+locks `MINIMUM_LIQUIDITY`; either way total LP supply strictly increases. -/
+def pair_closed_world_mint_strictly_increases_supply
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+    before.totalSupply < after.totalSupply
+
+/--
+Mint reserve accounting is exact in the closed-world model.
+
+A valid mint observes token balances that exceed cached reserves by
+`amount0` and `amount1`, then caches those balances. Equivalently, the new
+cached reserves are the old cached reserves plus exactly the deposited amounts.
+-/
+def pair_closed_world_mint_adds_exact_deposits_to_reserves
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+    after.reserve0 = before.reserve0 + amount0 ∧
+    after.reserve1 = before.reserve1 + amount1
+
+def pair_closed_world_burn_reduces_supply_by_liquidity
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+    after.totalSupply = before.totalSupply - liquidity
+
+/--
+Burn token accounting is exact in the closed-world model.
+
+A valid burn pays `amount0` and `amount1` out of the pair's token balances, then
+caches the remaining balances as reserves. No additional token amount can
+disappear from the pool through the modeled burn step.
+-/
+def pair_closed_world_burn_removes_exact_redemptions_from_balances
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+    after.balance0 + amount0 = before.balance0 ∧
+    after.balance1 + amount1 = before.balance1 ∧
+    after.reserve0 = after.balance0 ∧
+    after.reserve1 = after.balance1
+
+/-- Burning destroys LP liquidity. The exact reduction is specified separately;
+this consequence says no burn can increase total LP supply. -/
+def pair_closed_world_burn_never_increases_supply
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+    after.totalSupply ≤ before.totalSupply
+
+def pair_closed_world_burn_cannot_redeem_locked_liquidity
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+    before.lockedLiquidity ≤ after.totalSupply ∧
+    after.lockedLiquidity = before.lockedLiquidity
+
+/-- The minimum-liquidity lock is not just an LP-supply accounting fact. From a
+good state with positive token balances, a valid burn cannot redeem every unit
+of either token; some token backing must remain with the locked liquidity. -/
+def pair_closed_world_burn_preserves_positive_balances
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+      0 < before.balance0 →
+        0 < before.balance1 →
+          0 < after.balance0 ∧
+          0 < after.balance1
+
+/-- Reachable burn positive-balance theorem. In the form a maintainer should cite, a
+valid burn from any reachable nonempty pool cannot empty either token side. The
+reachable invariant supplies the pre-burn positive balances; the burn theorem
+uses the locked minimum liquidity to show some token backing must remain. -/
+def pair_closed_world_reachable_positive_supply_burn_preserves_positive_balances
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+        0 < after.balance0 ∧
+        0 < after.balance1
+
+/-!
+### 7. Token Inflow Without Accounting (Donations)
+
+Supports headlines: H10.
+
+Anyone may transfer tokens directly into a pair. That donation must not silently
+alter cached reserves, LP supply, or cached K. The only way to account for the
+extra token balance is through later mint/swap/sync behavior.
+
+This is the Uniswap V2 analogue of Tamago's ERC4626 donation-surplus layer.
+The model tracks reserve surplus as `balance - reserve` on each token side.
+Direct donations are allowed to create that surplus, but histories with no
+donation step cannot manufacture more of it. That is the missing premise behind
+the actual-token-balance no-profit theorem: `skim` may remove an external gift,
+but the pair cannot create that gift internally.
+-/
+
+def pair_closed_world_donate_preserves_reserves_and_supply
+    (amount0 amount1 : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.donate amount0 amount1) before after →
+    after.reserve0 = before.reserve0 ∧
+    after.reserve1 = before.reserve1 ∧
+    after.totalSupply = before.totalSupply ∧
+    after.lockedLiquidity = before.lockedLiquidity
+
+def pair_closed_world_donate_preserves_k
+    (amount0 amount1 : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.donate amount0 amount1) before after →
+    PairWorldK after = PairWorldK before
+
+/-- Donations are exactly the source of new unaccounted reserve surplus. From a
+reserve-backed state, a direct token0/token1 inflow increases each token-side
+surplus by exactly the donated amount while cached reserves remain unchanged. -/
+def pair_closed_world_donation_increases_surplus_exactly
+    (amount0 amount1 : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep (PairWorldAction.donate amount0 amount1) before after →
+      PairWorldSurplus0 after = PairWorldSurplus0 before + amount0 ∧
+      PairWorldSurplus1 after = PairWorldSurplus1 before + amount1
+
+
+/-- Reader-facing reachable form of surplus isolation. Starting from an
+actually reachable PairWorld state, any finite successful no-donation history
+cannot create new unaccounted reserve surplus. Any later `skim` profit must
+come from surplus that was already present, not from the pair's own mechanics. -/
+def pair_closed_world_reachable_no_donation_path_never_increases_surplus
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPathNoDonation before after →
+      PairWorldSurplus0 after ≤ PairWorldSurplus0 before ∧
+      PairWorldSurplus1 after ≤ PairWorldSurplus1 before
+
+/-- New skimmable surplus requires donation. If either token side ends with
+more `balance - reserve` surplus than it started with, then a no-donation
+history cannot explain that endpoint. This is the trace-level firewall behind
+the no-profit theorems that allow `skim` to remove only pre-existing gifts. -/
+def pair_closed_world_reachable_surplus_increase_requires_donation
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    (PairWorldSurplus0 before < PairWorldSurplus0 after ∨
+      PairWorldSurplus1 before < PairWorldSurplus1 after) →
+      ¬ PairWorldPathNoDonation before after
+
+/-- Spot-valued form of the same surplus isolation. The previous theorem is
+token-side; this one states the economic consequence at the starting pool's
+spot price. Along a no-donation history, the token1-denominated value of
+skimmable surplus cannot increase. Any later caller profit from `skim` must be
+paid for by surplus that already existed at the start. -/
+def pair_closed_world_reachable_no_donation_path_surplus_value_never_increases
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPathNoDonation before after →
+      PairWorldSurplusSpotValueNum before after ≤
+        PairWorldSurplusSpotValueNum before before
+
+/-- Clean-start surplus preservation. If a reachable pool starts with no
+unaccounted reserve surplus, then a finite history with no direct donation step
+still has no unaccounted reserve surplus at the end. This is the trace-wide
+invariant behind the informal claim that `skim` cannot find internally-created
+profit; without an external token transfer into the pair, there is no skimmable
+gift to remove. -/
+def pair_closed_world_reachable_zero_surplus_no_donation_path_preserves_zero_surplus
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldSurplus0 before = 0 →
+      PairWorldSurplus1 before = 0 →
+        PairWorldPathNoDonation before after →
+          PairWorldSurplus0 after = 0 ∧
+          PairWorldSurplus1 after = 0
+
+/-- Clean-start endpoint balance. The previous theorem says no-donation
+histories preserve zero `balance - reserve` surplus. Combined with the
+reachable-state reserve-backing invariant, that means the endpoint is balanced
+in the direct accounting sense: modeled ERC20 token balances equal cached
+reserves on both sides. -/
+def pair_closed_world_reachable_zero_surplus_no_donation_path_ends_balanced
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldSurplus0 before = 0 →
+      PairWorldSurplus1 before = 0 →
+        PairWorldPathNoDonation before after →
+          after.balance0 = after.reserve0 ∧
+          after.balance1 = after.reserve1
+
+/-!
+### 8. Surplus And Reserve Synchronization (Model)
 
 Supports headlines: H10 (donation framing), plus the H8 LP-supply preservation
 side of skim/sync.
@@ -2200,6 +1956,197 @@ def pair_closed_world_sync_k_increase_requires_surplus
       PairWorldK before < PairWorldK after →
         0 < PairWorldSurplus0 before ∨
         0 < PairWorldSurplus1 before
+/-!
+### 9. Concrete-State Projections
+
+Supports headlines: H5, H6 (concrete-state form).
+
+The closed-world invariant is expressed over a small mathematical model. These
+specs say what the invariant means when projected back to a Verity
+`ContractState`: cached reserves are covered by observed ERC20 balances and fit
+inside the canonical uint112 reserve domain.
+-/
+
+def pair_concrete_state_reserves_backed
+    (s : ContractState) : Prop :=
+  PairWorldGood (pairWorldFromConcreteState s) →
+    (s.storage reserve0Slot.slot).val ≤ (observedBalance0 s).val ∧
+    (s.storage reserve1Slot.slot).val ≤ (observedBalance1 s).val
+
+def pair_concrete_state_uint112_reserves
+    (s : ContractState) : Prop :=
+  PairWorldGood (pairWorldFromConcreteState s) →
+    (s.storage reserve0Slot.slot).val ≤ maxUint112Nat ∧
+    (s.storage reserve1Slot.slot).val ≤ maxUint112Nat
+
+def pair_closed_world_reachable_reserves_backed
+    (w : PairWorldState) : Prop :=
+  PairWorldReachable w →
+    w.reserve0 ≤ w.balance0 ∧
+    w.reserve1 ≤ w.balance1
+
+def pair_closed_world_path_reserves_backed
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldPath before after →
+      after.reserve0 ≤ after.balance0 ∧
+      after.reserve1 ≤ after.balance1
+
+/-- The reserve-backing invariant in its most useful reader-facing form:
+from any reachable pool state, after any finite sequence of successful modeled
+calls, the cached reserves are still covered by the pair's token balances. -/
+def pair_closed_world_reachable_path_reserves_backed
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPath before after →
+      after.reserve0 ≤ after.balance0 ∧
+      after.reserve1 ≤ after.balance1
+
+/-- The reserve-domain invariant in the same finite-history form: a reachable
+pool can never reach a successful modeled state whose cached reserves exceed
+Uniswap V2's `uint112` reserve domain. -/
+def pair_closed_world_reachable_path_reserves_fit_uint112
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPath before after →
+      after.reserve0 ≤ maxUint112Nat ∧
+      after.reserve1 ≤ maxUint112Nat
+
+def pair_closed_world_reachable_reserves_fit_uint112
+    (w : PairWorldState) : Prop :=
+  PairWorldReachable w →
+    w.reserve0 ≤ maxUint112Nat ∧
+    w.reserve1 ≤ maxUint112Nat
+
+/-!
+### 10. Reachability Invariants
+
+Supports headlines: H5, H6.
+
+The first layer is deliberately boring: define the states that can exist and
+show that the definition is stable under both one step and arbitrary finite
+paths. This is the base of the argument. Every later economic theorem is only
+useful if it applies to all successful histories, not just to hand-picked
+examples.
+-/
+
+
+def pair_closed_world_path_preserves_good
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldPath before after →
+      PairWorldGood after
+
+def pair_closed_world_reachable_good
+    (w : PairWorldState) : Prop :=
+  PairWorldReachable w →
+    PairWorldGood w
+
+/--
+The core invariant over all finite modeled histories.
+
+`PairWorldGood` is the compact name for the safety facts that must never be
+lost: cached reserves are backed by actual token balances, cached reserves fit
+the `uint112` domain, and LP supply obeys the permanent minimum-liquidity lock.
+This theorem says those facts hold after any finite successful modeled history
+starting from any reachable Pair state.
+-/
+def pair_closed_world_reachable_path_good
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPath before after →
+      PairWorldGood after
+
+/-- Reachability is stable under finite successful histories. This is the
+trace-level closure fact that lets the rest of the section talk about "any
+later reachable state" rather than only states built directly from the initial
+pool. -/
+def pair_closed_world_path_preserves_reachability
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPath before after →
+      PairWorldReachable after
+
+def pair_closed_world_reachable_supply_good
+    (w : PairWorldState) : Prop :=
+  PairWorldReachable w →
+    PairWorldSupplyGood w
+
+def pair_closed_world_path_supply_good
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldPath before after →
+      PairWorldSupplyGood after
+
+def pair_closed_world_path_reserves_fit_uint112
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldPath before after →
+      after.reserve0 ≤ maxUint112Nat ∧
+      after.reserve1 ≤ maxUint112Nat
+
+def pair_closed_world_path_locked_liquidity_never_exceeds_supply
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldPath before after →
+      after.lockedLiquidity ≤ after.totalSupply
+
+/-- Once a good pool has positive LP supply, the permanent liquidity lock keeps
+every finite successful path from returning total supply to zero. -/
+def pair_closed_world_positive_supply_path_remains_positive
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        0 < after.totalSupply
+
+/-- Reachability packages the good-state precondition above. In the form users
+care about, any nonempty reachable pool remains nonempty after any finite
+successful modeled history. -/
+def pair_closed_world_reachable_positive_supply_path_remains_positive
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        0 < after.totalSupply
+
+/-- A reachable pool with LP supply is not allowed to be a degenerate
+one-sided or zero-reserve pool. In Uniswap V2 the first mint deposits both
+tokens, later burns cannot redeem the permanently locked floor, and swaps keep
+outputs below reserves; this invariant packages that story as the precondition
+needed for a meaningful spot price. -/
+def pair_closed_world_reachable_positive_supply_has_positive_reserves
+    (w : PairWorldState) : Prop :=
+  PairWorldReachable w →
+    0 < w.totalSupply →
+      0 < w.reserve0 ∧
+      0 < w.reserve1
+
+/-- The finite-history version of the same nondegeneracy invariant. Starting
+from any reachable nonempty pool, every finite sequence of successful modeled
+actions leaves both reserves positive, so later economic theorems can rely on a
+defined initial and final two-token pool rather than carrying that fact as an
+unexplained side condition. -/
+def pair_closed_world_reachable_positive_supply_path_has_positive_reserves
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        0 < after.reserve0 ∧
+        0 < after.reserve1
+
+/-- Token-side positive-balance invariant. The positive-reserve theorem says cached
+reserves stay nonzero; reserve backing then says the actual ERC20 balances held
+by the pair are also nonzero. Thus no finite successful modeled history from a
+reachable nonempty pool can leave either token balance at zero. -/
+def pair_closed_world_reachable_positive_supply_path_has_positive_token_balances
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        0 < after.balance0 ∧
+        0 < after.balance1
+
 /-!
 ## Oracle/TWAP
 
