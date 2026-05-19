@@ -67,19 +67,9 @@ callbacks, and CREATE2 deployment.
 -/
 
 /-!
-## Closed-World Economic Invariants
-
-Quantification is over every finite successful transition sequence in
-`PairWorldReachable`. External ERC20 movement is represented by explicit
-mint/burn/swap/donate/skim/sync steps; assumptions live only at the ERC20,
-callback, and CREATE2 boundaries.
--/
-
-/-!
 ### 1. Single-Caller Portfolio Safety
 
-The caller may hold any proportion of LP supply (from zero up to all unlocked
-LP). After any finite sequence of valid caller actions, the caller's
+After any finite sequence of valid caller actions, the caller's
 portfolio value at the initial spot price is no greater than it was at the
 start. The portfolio is wallet tokens + LP claim on cached reserves +
 skimmable surplus (which any party, including the caller, could realize by
@@ -105,17 +95,15 @@ def pair_wallet_single_caller_history_no_portfolio_profit
 /-!
 ### 2. Sequence-Level Economic Consequences
 
-No-burn histories never decrease cached K. Mint and burn may change raw K,
-but valid pro-rata transitions cannot decrease `K / totalSupply^2` while LP
-supply is positive, so a finite path starting and ending with the same
-positive LP supply cannot reduce raw K. Constant-product geometry then
-turns that K bound into a spot-value no-profit statement.
+Mint and burn may change raw K, but valid pro-rata transitions cannot
+decrease `K / totalSupply^2` while LP supply is positive. From this every
+same-LP-supply spot-value and no-burn K direction statement follows by
+constant-product geometry.
 -/
 
-/-- The reachable-state version of the LP-share backing theorem. Starting from
-any actually reachable pool with positive LP supply, every finite successful
-path leaves reserve product per squared LP supply at least as strong as it was
-at the start. This is the global mint/burn ratio guarantee in one sentence. -/
+/-- Starting from any reachable pool with positive LP supply, every finite
+successful path leaves reserve product per squared LP supply at least as
+strong as it was at the start. -/
 def pair_closed_world_reachable_path_lp_share_backing_never_decreases
     (before after : PairWorldState) : Prop :=
   PairWorldReachable before →
@@ -126,10 +114,9 @@ def pair_closed_world_reachable_path_lp_share_backing_never_decreases
 /-!
 ### 3. Swap Safety
 
-A successful swap must actually send output, must receive input, must keep each
-output below the cached reserve, and must satisfy both the fee-adjusted K check
-and raw cached-K nondecrease. This is the heart of the constant-product safety
-argument for the fee-off pair.
+A successful swap must send output, receive input, keep each output below the
+cached reserve, and satisfy the fee-adjusted K check against the final
+post-callback balances.
 -/
 
 def pair_closed_world_swap_updates_reserves_to_balances
@@ -659,11 +646,10 @@ def pair_closed_world_reachable_path_reserves_fit_uint112
 /-!
 ### 9. Reachability Invariants
 
-The first layer is deliberately boring: define the states that can exist and
-show that the definition is stable under both one step and arbitrary finite
-paths. This is the base of the argument. Every later economic theorem is only
-useful if it applies to all successful histories, not just to hand-picked
-examples.
+`PairWorldReachable` is closed under finite successful histories. `PairWorldGood`
+(reserve backing + uint112 bounds + minimum-liquidity coherence) is preserved
+across any finite path from a good state. A reachable positive-supply pool stays
+positive-supply with positive reserves.
 -/
 
 def pair_closed_world_path_preserves_good
@@ -853,10 +839,9 @@ def pair_first_mint_success_uses_canonical_liquidity_formula
 /-!
 ### Subsequent mint, burn, and swap
 
-The remaining mint, burn, and swap facts keep the same shape. Each says that a
-successful public call, together with the arithmetic facts computed along that
-path, matches the appropriate model action. The economic content remains in the
-short invariants below, where those actions are composed over paths.
+The remaining mint, burn, and swap facts keep the same shape: a successful
+public call plus the concrete arithmetic facts matches the corresponding
+closed-world transition.
 -/
 
 /-- For later liquidity additions, a successful `mint` already establishes the
@@ -1251,11 +1236,10 @@ def pair_sync_run_revert_locked
       ContractResult.revert "UniswapV2: LOCKED" s
 
 /--
-The Pair lock is a contract-level boundary, not a per-function curiosity. If a
-callback or nested call reaches the pair while the lock is closed, every
-state-changing AMM entrypoint rejects before it can transfer tokens, update
-reserves, or touch LP accounting. This global statement packages the exact
-locked-run facts above into the reentrancy invariant a reader should cite.
+If a callback or nested call reaches the pair while the lock is closed,
+every state-changing AMM entrypoint rejects before it can transfer tokens,
+update reserves, or touch LP accounting. This packages the per-entrypoint
+locked-run reverts into one reentrancy invariant.
 -/
 def pair_reentrancy_guard_blocks_all_mutating_entrypoints
     (mintTo burnTo skimTo swapTo : Address)
@@ -1283,12 +1267,9 @@ def pair_flash_callback_runs_while_pair_is_locked
     (pairCallbackObservationForSwap amount0Out amount1Out toAddr s).lockValue = 0
 
 /--
-Any attempt to mutate the pair during a flash callback is blocked by the normal
-reentrancy guard.
-
-This is the callback-facing version of the global lock invariant above: mint,
-burn, swap, skim, and sync all reject before durable side effects when the
-callback reaches the pair while the lock is closed.
+Any attempt to mutate the pair during a flash callback is blocked by the
+reentrancy guard. Mint, burn, swap, skim, and sync all reject before durable
+side effects when the callback reaches the pair while the lock is closed.
 -/
 def pair_flash_callback_reentry_attempts_revert_locked
     (mintTo burnTo skimTo swapTo : Address)
@@ -1975,8 +1956,7 @@ def pair_decimals_run_success_frames_state
     (s : ContractState) : Prop :=
   (decimals).run s = ContractResult.success 18 s
 
-/-- `totalSupply` exposes exactly the LP supply cell. It is the public read that
-anchors every LP-supply and no-profit theorem below. -/
+/-- `totalSupply` exposes exactly the LP supply cell. -/
 def pair_totalSupply_run_success_frames_state
     (s : ContractState) : Prop :=
   (totalSupply).run s =
@@ -2049,8 +2029,8 @@ def pair_price1CumulativeLast_run_success_frames_state
   (price1CumulativeLast).run s =
     ContractResult.success (s.storage price1CumulativeLastSlot.slot) s
 
-/-- The fee-off Pair never uses protocol-fee accounting, so `kLast()` is the
-constant zero read and cannot mutate state. -/
+/-- With the protocol fee mint disabled, `kLast()` is the constant zero read
+and cannot mutate state. -/
 def pair_kLast_run_success_frames_state
     (s : ContractState) : Prop :=
   (kLast).run s = ContractResult.success 0 s
