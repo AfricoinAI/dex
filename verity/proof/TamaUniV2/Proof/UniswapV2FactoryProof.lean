@@ -39,7 +39,6 @@ private theorem addressToWord_injective {a b : Address} :
   have h_b_mod : b.val % Core.Uint256.modulus = b.val :=
     Nat.mod_eq_of_lt h_b_lt_uint
   simpa [addressToWord, Core.Address.toNat, h_a_mod, h_b_mod] using h_val
-
 private theorem addressToWord_reverse_lt_of_not_lt
     {a b : Address}
     (h_distinct : a ≠ b)
@@ -57,7 +56,6 @@ private theorem addressToWord_reverse_lt_of_not_lt
   have h_rev : (addressToWord b).val < (addressToWord a).val := by
     omega
   simpa [Verity.Core.Uint256.lt_def] using h_rev
-
 private theorem list_get?_some_lt
     {α : Type} {xs : List α} {index : Nat} {entry : α} :
   xs[index]? = some entry →
@@ -76,7 +74,6 @@ private theorem list_get?_some_lt
           simp at h_get
           have h_tail := ih h_get
           simp [h_tail]
-
 private theorem list_get?_append_singleton_cases
     {α : Type} {xs : List α} {x y : α} {index : Nat} :
   (xs ++ [x])[index]? = some y →
@@ -104,7 +101,6 @@ private theorem list_get?_append_singleton_cases
           rcases ih h_get with h_old | ⟨h_index, h_y⟩
           · exact Or.inl (by simp [h_old])
           · exact Or.inr ⟨by simp [h_index], h_y⟩
-
 private theorem list_get?_append_left_of_some
     {α : Type} {xs ys : List α} {index : Nat} {entry : α} :
   xs[index]? = some entry →
@@ -122,7 +118,6 @@ private theorem list_get?_append_left_of_some
       | succ index =>
           simp at h_get ⊢
           exact ih h_get
-
 private theorem uint256_ofNat_ne_of_lt_val
     {index : Nat} {u : Uint256}
     (h_lt : index < u.val) :
@@ -136,7 +131,6 @@ private theorem uint256_ofNat_ne_of_lt_val
   have h_eq_val : index = u.val := by
     simpa [h_mod] using h_val
   omega
-
 private theorem uint256_ofNat_eq_of_eq_val
     {index : Nat} {u : Uint256}
     (h_eq_val : index = u.val) :
@@ -150,7 +144,6 @@ private theorem uint256_ofNat_eq_of_eq_val
   have h_u_mod : u.val % Core.Uint256.modulus = u.val :=
     Nat.mod_eq_of_lt u.isLt
   simp [h_mod, h_eq_val, h_u_mod]
-
 private theorem factoryWorldEntry_not_reverse_pair
     (entry newEntry : FactoryWorldPair)
     (h_entry_good : FactoryWorldPairGood entry)
@@ -177,37 +170,15 @@ private theorem factoryWorldEntry_not_reverse_pair
       simpa [Verity.Core.Uint256.lt_def] using h_new_sorted
     exact False.elim ((Nat.lt_asymm h_new_sorted_val) h_entry_sorted_val)
   · exact Or.inl h_token0
-
--- tama: discharges=factory_getPair_spec
-theorem getPair_meets_spec (tokenA tokenB : Address) (s : ContractState) :
-  factory_getPair_spec tokenA tokenB ((getPair tokenA tokenB).run s).fst s := by
-  rfl
-
--- tama: discharges=factory_allPairsLength_spec
-theorem allPairsLength_meets_spec (s : ContractState) :
-  factory_allPairsLength_spec ((allPairsLength).run s).fst s := by
-  rfl
-
 -- tama: discharges=factory_getPair_run_success_frames_state
 theorem getPair_run_success_frames_state
     (tokenA tokenB : Address) (s : ContractState) :
   factory_getPair_run_success_frames_state tokenA tokenB s := by
   rfl
-
 -- tama: discharges=factory_allPairsLength_run_success_frames_state
 theorem allPairsLength_run_success_frames_state (s : ContractState) :
   factory_allPairsLength_run_success_frames_state s := by
   rfl
-
--- tama: discharges=factory_allPairs_success_spec
-theorem allPairs_meets_spec (index : Uint256) (s : ContractState) :
-  factory_allPairs_success_spec index ((allPairs index).run s).fst s := by
-  intro h
-  have hval : index.val < (s.storage allPairsLengthSlot.slot).val := h
-  simp [allPairs, UniswapV2FactoryBase.allPairs,
-    Verity.getStorage, Verity.getMappingUint, Verity.require, Contract.run,
-    ContractResult.fst, Verity.bind, Bind.bind, Verity.pure, Pure.pure, hval]
-
 -- tama: discharges=factory_allPairs_run_success_in_bounds
 theorem allPairs_run_success_in_bounds (index : Uint256) (s : ContractState) :
   factory_allPairs_run_success_in_bounds index s := by
@@ -217,81 +188,6 @@ theorem allPairs_run_success_in_bounds (index : Uint256) (s : ContractState) :
     UniswapV2FactoryBase.allPairs, Verity.getStorage, Verity.getMappingUint,
     Verity.require, Contract.run, Verity.bind, Bind.bind, Verity.pure,
     Pure.pure, hval]
-
--- tama: discharges=factory_allPairs_reverts_out_of_bounds
-theorem allPairs_reverts_out_of_bounds (index : Uint256) (s : ContractState) :
-  factory_allPairs_reverts_out_of_bounds index s ((allPairs index).run s) := by
-  intro h
-  have hval : ¬ index.val < (s.storage allPairsLengthSlot.slot).val := by
-    simpa using h
-  simp [factory_allPairs_reverts_out_of_bounds, allPairs, UniswapV2FactoryBase.allPairs,
-    Verity.getStorage, Verity.require, Contract.run, Verity.bind, Bind.bind, hval]
-
--- tama: discharges=factory_createPair_rejects_identical_addresses
-theorem createPair_rejects_identical_addresses
-    (tokenA tokenB : Address) (s : ContractState) :
-  factory_createPair_rejects_identical_addresses tokenA tokenB s
-    ((createPair tokenA tokenB).run s) := by
-  intro h_same
-  subst h_same
-  simp [factory_createPair_rejects_identical_addresses, createPair,
-    UniswapV2FactoryBase.createPair, Verity.require, Contract.run,
-    Verity.bind, Bind.bind]
-
--- tama: discharges=factory_createPair_rejects_zero_address
-theorem createPair_rejects_zero_address
-    (tokenA tokenB : Address) (s : ContractState) :
-  factory_createPair_rejects_zero_address tokenA tokenB s
-    ((createPair tokenA tokenB).run s) := by
-  intro h_distinct h_zero
-  rcases h_zero with h_tokenA_zero | h_tokenB_zero
-  · subst h_tokenA_zero
-    have h_not_identical : ¬ (0 : Address) = tokenB := by
-      simpa using h_distinct
-    simp [factory_createPair_rejects_zero_address, createPair,
-      UniswapV2FactoryBase.createPair, Verity.require, Contract.run,
-      Verity.bind, Bind.bind, h_not_identical]
-  · subst h_tokenB_zero
-    have h_not_identical : ¬ tokenA = (0 : Address) := by
-      simpa using h_distinct
-    simp [factory_createPair_rejects_zero_address, createPair,
-      UniswapV2FactoryBase.createPair, Verity.require, Contract.run,
-      Verity.bind, Bind.bind, h_not_identical]
-
--- tama: discharges=factory_createPair_rejects_duplicates
-theorem createPair_rejects_duplicates
-    (tokenA tokenB : Address) (s : ContractState) :
-  factory_createPair_rejects_duplicates tokenA tokenB s
-    ((createPair tokenA tokenB).run s) := by
-  intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_existing
-  have h_tokenA_not_zero : ¬ tokenA = (0 : Address) := by
-    simpa using h_tokenA_nonzero
-  have h_tokenB_not_zero : ¬ tokenB = (0 : Address) := by
-    simpa using h_tokenB_nonzero
-  by_cases h_sort : addressToWord tokenA < addressToWord tokenB
-  · have h_sort_raw :
-        Core.Address.toNat tokenA % Core.Uint256.modulus <
-          Core.Address.toNat tokenB % Core.Uint256.modulus := by
-      simpa [addressToWord] using h_sort
-    have h_existing_branch : s.storageMap2 pairForSlot.slot tokenA tokenB ≠ 0 := by
-      simpa [addressToWord, h_sort_raw] using h_existing
-    simp [factory_createPair_rejects_duplicates, createPair,
-      UniswapV2FactoryBase.createPair, getMapping2, Verity.require, Contract.run,
-      Verity.bind, Bind.bind, Verity.pure, Pure.pure, h_distinct, h_tokenA_nonzero,
-      h_tokenB_nonzero, h_tokenA_not_zero, h_tokenB_not_zero, h_sort, h_sort_raw,
-      h_existing_branch]
-  · have h_sort_raw :
-        ¬ Core.Address.toNat tokenA % Core.Uint256.modulus <
-          Core.Address.toNat tokenB % Core.Uint256.modulus := by
-      simpa [addressToWord] using h_sort
-    have h_existing_branch : s.storageMap2 pairForSlot.slot tokenB tokenA ≠ 0 := by
-      simpa [addressToWord, h_sort_raw] using h_existing
-    simp [factory_createPair_rejects_duplicates, createPair,
-      UniswapV2FactoryBase.createPair, getMapping2, Verity.require, Contract.run,
-      Verity.bind, Bind.bind, Verity.pure, Pure.pure, h_distinct, h_tokenA_nonzero,
-      h_tokenB_nonzero, h_tokenA_not_zero, h_tokenB_not_zero, h_sort, h_sort_raw,
-      h_existing_branch]
-
 -- tama: discharges=factory_createPair_success_updates_storage_and_emits
 theorem createPair_success_updates_storage_and_emits
     (tokenA tokenB : Address) (s : ContractState) :
@@ -353,91 +249,6 @@ theorem createPair_success_updates_storage_and_emits
       Verity.Stdlib.Math.requireSomeUint, h_distinct, h_tokenA_nonzero,
       h_tokenB_nonzero, h_tokenA_not_zero, h_tokenB_not_zero, h_sort, h_sort_raw,
       h_absent_branch, h_pair_nonzero_branch, h_create2_guard, h_safe_len]
-
--- tama: discharges=factory_createPair_success_increments_length_once
-theorem createPair_success_increments_length_once
-    (tokenA tokenB : Address) (s : ContractState) :
-  factory_createPair_success_increments_length_once tokenA tokenB s := by
-  intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_absent
-    h_pair_nonzero h_len_ok
-  have h_success :=
-    createPair_success_updates_storage_and_emits
-      tokenA tokenB s h_distinct h_tokenA_nonzero h_tokenB_nonzero
-      h_absent h_pair_nonzero h_len_ok
-  exact h_success.2.2.2.2.1
-
--- tama: discharges=factory_createPair_success_appends_pair_at_old_length
-theorem createPair_success_appends_pair_at_old_length
-    (tokenA tokenB : Address) (s : ContractState) :
-  factory_createPair_success_appends_pair_at_old_length tokenA tokenB s := by
-  intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_absent
-    h_pair_nonzero h_len_ok
-  have h_success :=
-    createPair_success_updates_storage_and_emits
-      tokenA tokenB s h_distinct h_tokenA_nonzero h_tokenB_nonzero
-      h_absent h_pair_nonzero h_len_ok
-  exact h_success.2.2.2.1
-
--- tama: discharges=factory_createPair_first_success_matches_closed_world_step
-theorem createPair_first_success_matches_closed_world_step
-    (tokenA tokenB : Address) (s : ContractState) :
-  factory_createPair_first_success_matches_closed_world_step tokenA tokenB s := by
-  intro h_distinct h_tokenA_nonzero h_tokenB_nonzero _h_empty
-    _h_absent h_pair_nonzero _h_len_ok _h_run
-  have h_tokenA_not_zero : ¬ tokenA = (0 : Address) := by
-    simpa using h_tokenA_nonzero
-  have h_tokenB_not_zero : ¬ tokenB = (0 : Address) := by
-    simpa using h_tokenB_nonzero
-  by_cases h_sort : addressToWord tokenA < addressToWord tokenB
-  · have h_sort_raw :
-        Core.Address.toNat tokenA % Core.Uint256.modulus <
-          Core.Address.toNat tokenB % Core.Uint256.modulus := by
-      simpa [addressToWord] using h_sort
-    have h_pair_nonzero_branch :
-        wordToAddress (externalCall "uniswapV2PairCreate2" [tokenA, tokenB]) ≠ zeroAddress := by
-      simpa [factoryCreate2Word, factoryToken0, factoryToken1, addressToWord,
-        h_sort, h_sort_raw] using h_pair_nonzero
-    have h_create2_guard :
-        ¬ Core.Address.ofNat
-            ((Contracts.externalCallWords "uniswapV2PairCreate2"
-              [Contracts.ExternalArg.toWord tokenA, Contracts.ExternalArg.toWord tokenB]) : Uint256).val =
-          (0 : Address) := by
-      simpa [wordToAddress] using h_pair_nonzero_branch
-    simp [factory_createPair_first_success_matches_closed_world_step,
-      FactoryWorldStep, FactoryWorldCreatePairStep, FactoryWorldInitial,
-      FactoryWorldPairGood, factoryToken0, factoryToken1, addressToWord,
-      h_sort, h_sort_raw, h_distinct, h_tokenA_nonzero, h_tokenB_nonzero,
-      h_tokenA_not_zero, h_tokenB_not_zero, h_pair_nonzero,
-      h_pair_nonzero_branch, h_create2_guard]
-  · have h_sort_raw :
-        ¬ Core.Address.toNat tokenA % Core.Uint256.modulus <
-          Core.Address.toNat tokenB % Core.Uint256.modulus := by
-      simpa [addressToWord] using h_sort
-    have h_reverse_sort : addressToWord tokenB < addressToWord tokenA :=
-      addressToWord_reverse_lt_of_not_lt h_distinct h_sort
-    have h_reverse_sort_raw :
-        Core.Address.toNat tokenB % Core.Uint256.modulus <
-          Core.Address.toNat tokenA % Core.Uint256.modulus := by
-      simpa [addressToWord] using h_reverse_sort
-    have h_distinct_symm : tokenB ≠ tokenA := by
-      exact fun h => h_distinct h.symm
-    have h_pair_nonzero_branch :
-        wordToAddress (externalCall "uniswapV2PairCreate2" [tokenB, tokenA]) ≠ zeroAddress := by
-      simpa [factoryCreate2Word, factoryToken0, factoryToken1, addressToWord,
-        h_sort, h_sort_raw] using h_pair_nonzero
-    have h_create2_guard :
-        ¬ Core.Address.ofNat
-            ((Contracts.externalCallWords "uniswapV2PairCreate2"
-              [Contracts.ExternalArg.toWord tokenB, Contracts.ExternalArg.toWord tokenA]) : Uint256).val =
-          (0 : Address) := by
-      simpa [wordToAddress] using h_pair_nonzero_branch
-    simp [factory_createPair_first_success_matches_closed_world_step,
-      FactoryWorldStep, FactoryWorldCreatePairStep, FactoryWorldInitial,
-      FactoryWorldPairGood, factoryToken0, factoryToken1, addressToWord,
-      h_sort, h_sort_raw, h_reverse_sort, h_reverse_sort_raw, h_distinct,
-      h_tokenA_nonzero, h_tokenB_nonzero, h_tokenA_not_zero, h_tokenB_not_zero,
-      h_distinct_symm, h_pair_nonzero, h_pair_nonzero_branch, h_create2_guard]
-
 -- tama: discharges=factory_createPair_success_matches_closed_world_step
 theorem createPair_success_matches_closed_world_step
     (tokenA tokenB : Address) (s : ContractState)
@@ -512,38 +323,73 @@ theorem createPair_success_matches_closed_world_step
       h_distinct_symm, h_pair_nonzero, h_pair_nonzero_branch, h_create2_guard,
       h_absent_world, h_absent_world_branch]
     exact h_absent_world_branch
-
 -- tama: discharges=factory_allPairs_run_revert_out_of_bounds
 theorem allPairs_run_revert_out_of_bounds (index : Uint256) (s : ContractState) :
   factory_allPairs_run_revert_out_of_bounds index s := by
-  simpa [factory_allPairs_run_revert_out_of_bounds,
-    factory_allPairs_reverts_out_of_bounds]
-    using allPairs_reverts_out_of_bounds index s
-
+  intro h
+  have hval : ¬ index.val < (s.storage allPairsLengthSlot.slot).val := by
+    simpa using h
+  simp [factory_allPairs_run_revert_out_of_bounds, allPairs, UniswapV2FactoryBase.allPairs,
+    Verity.getStorage, Verity.require, Contract.run, Verity.bind, Bind.bind, hval]
 -- tama: discharges=factory_createPair_run_revert_identical_addresses
 theorem createPair_run_revert_identical_addresses
     (tokenA tokenB : Address) (s : ContractState) :
   factory_createPair_run_revert_identical_addresses tokenA tokenB s := by
-  simpa [factory_createPair_run_revert_identical_addresses,
-    factory_createPair_rejects_identical_addresses]
-    using createPair_rejects_identical_addresses tokenA tokenB s
-
+  intro h_same
+  subst h_same
+  simp [factory_createPair_run_revert_identical_addresses, createPair,
+    UniswapV2FactoryBase.createPair, Verity.require, Contract.run,
+    Verity.bind, Bind.bind]
 -- tama: discharges=factory_createPair_run_revert_zero_address
 theorem createPair_run_revert_zero_address
     (tokenA tokenB : Address) (s : ContractState) :
   factory_createPair_run_revert_zero_address tokenA tokenB s := by
-  simpa [factory_createPair_run_revert_zero_address,
-    factory_createPair_rejects_zero_address]
-    using createPair_rejects_zero_address tokenA tokenB s
-
+  intro h_distinct h_zero
+  rcases h_zero with h_tokenA_zero | h_tokenB_zero
+  · subst h_tokenA_zero
+    have h_not_identical : ¬ (0 : Address) = tokenB := by
+      simpa using h_distinct
+    simp [factory_createPair_run_revert_zero_address, createPair,
+      UniswapV2FactoryBase.createPair, Verity.require, Contract.run,
+      Verity.bind, Bind.bind, h_not_identical]
+  · subst h_tokenB_zero
+    have h_not_identical : ¬ tokenA = (0 : Address) := by
+      simpa using h_distinct
+    simp [factory_createPair_run_revert_zero_address, createPair,
+      UniswapV2FactoryBase.createPair, Verity.require, Contract.run,
+      Verity.bind, Bind.bind, h_not_identical]
 -- tama: discharges=factory_createPair_run_revert_duplicates
 theorem createPair_run_revert_duplicates
     (tokenA tokenB : Address) (s : ContractState) :
   factory_createPair_run_revert_duplicates tokenA tokenB s := by
-  simpa [factory_createPair_run_revert_duplicates,
-    factory_createPair_rejects_duplicates]
-    using createPair_rejects_duplicates tokenA tokenB s
-
+  intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_existing
+  have h_tokenA_not_zero : ¬ tokenA = (0 : Address) := by
+    simpa using h_tokenA_nonzero
+  have h_tokenB_not_zero : ¬ tokenB = (0 : Address) := by
+    simpa using h_tokenB_nonzero
+  by_cases h_sort : addressToWord tokenA < addressToWord tokenB
+  · have h_sort_raw :
+        Core.Address.toNat tokenA % Core.Uint256.modulus <
+          Core.Address.toNat tokenB % Core.Uint256.modulus := by
+      simpa [addressToWord] using h_sort
+    have h_existing_branch : s.storageMap2 pairForSlot.slot tokenA tokenB ≠ 0 := by
+      simpa [addressToWord, h_sort_raw] using h_existing
+    simp [factory_createPair_run_revert_duplicates, createPair,
+      UniswapV2FactoryBase.createPair, getMapping2, Verity.require, Contract.run,
+      Verity.bind, Bind.bind, Verity.pure, Pure.pure, h_distinct, h_tokenA_nonzero,
+      h_tokenB_nonzero, h_tokenA_not_zero, h_tokenB_not_zero, h_sort, h_sort_raw,
+      h_existing_branch]
+  · have h_sort_raw :
+        ¬ Core.Address.toNat tokenA % Core.Uint256.modulus <
+          Core.Address.toNat tokenB % Core.Uint256.modulus := by
+      simpa [addressToWord] using h_sort
+    have h_existing_branch : s.storageMap2 pairForSlot.slot tokenB tokenA ≠ 0 := by
+      simpa [addressToWord, h_sort_raw] using h_existing
+    simp [factory_createPair_run_revert_duplicates, createPair,
+      UniswapV2FactoryBase.createPair, getMapping2, Verity.require, Contract.run,
+      Verity.bind, Bind.bind, Verity.pure, Pure.pure, h_distinct, h_tokenA_nonzero,
+      h_tokenB_nonzero, h_tokenA_not_zero, h_tokenB_not_zero, h_sort, h_sort_raw,
+      h_existing_branch]
 -- tama: discharges=factory_createPair_run_revert_create2_failed
 theorem createPair_run_revert_create2_failed
     (tokenA tokenB : Address) (s : ContractState) :
@@ -584,7 +430,6 @@ theorem createPair_run_revert_create2_failed
       Verity.bind, Bind.bind, Verity.pure, Pure.pure, h_distinct,
       h_tokenA_nonzero, h_tokenB_nonzero, h_tokenA_not_zero, h_tokenB_not_zero,
       h_sort, h_sort_raw, h_absent_branch, h_pair_zero_branch]
-
 -- tama: discharges=factory_createPair_run_revert_pair_count_overflow
 theorem createPair_run_revert_pair_count_overflow
     (tokenA tokenB : Address) (s : ContractState) :
@@ -643,7 +488,6 @@ theorem createPair_run_revert_pair_count_overflow
       Verity.Stdlib.Math.requireSomeUint, h_distinct, h_tokenA_nonzero,
       h_tokenB_nonzero, h_tokenA_not_zero, h_tokenB_not_zero, h_sort, h_sort_raw,
       h_absent_branch, h_pair_nonzero_branch, h_create2_guard, h_safe_len]
-
 -- tama: discharges=factory_createPair_revert_keeps_factory_state
 theorem createPair_revert_keeps_factory_state
     (tokenA tokenB : Address) (s : ContractState)
@@ -653,7 +497,6 @@ theorem createPair_revert_keeps_factory_state
   rcases h_revert with ⟨reason, h_result⟩
   rw [h_result]
   exact ⟨rfl, rfl, rfl, rfl⟩
-
 -- tama: discharges=factory_createPair_success_implies_pre_create_guards
 theorem createPair_success_implies_pre_create_guards
     (tokenA tokenB : Address) (s : ContractState)
@@ -695,19 +538,18 @@ theorem createPair_success_implies_pre_create_guards
     rw [h_revert] at h_success
     cases h_success
   exact ⟨h_distinct, h_tokenA_nonzero, h_tokenB_nonzero, h_absent⟩
-
 -- tama: discharges=factory_concrete_world_length_matches_storage
 theorem concrete_world_length_matches_storage
     (s : ContractState) (w : FactoryWorldState) :
   factory_concrete_world_length_matches_storage s w := by
   intro h_match
   exact h_match.1
-
--- tama: discharges=factory_concrete_world_lookup_matches_storage
-theorem concrete_world_lookup_matches_storage
+private theorem concrete_world_lookup_matches_storage_aux
     (s : ContractState) (w : FactoryWorldState)
     (tokenA tokenB pair : Address) :
-  factory_concrete_world_lookup_matches_storage s w tokenA tokenB pair := by
+    FactoryWorldMatchesStorage s w →
+      FactoryWorldContainsPair w tokenA tokenB pair →
+        wordToAddress (s.storageMap2 pairForSlot.slot tokenA tokenB) = pair := by
   intro h_match h_contains
   rcases h_match with ⟨_h_count, h_entries, _h_array⟩
   rcases h_contains with ⟨entry, h_entry, h_tokens, h_pair⟩
@@ -722,7 +564,6 @@ theorem concrete_world_lookup_matches_storage
     subst tokenB
     subst tokenA
     exact h_reverse
-
 -- tama: discharges=factory_concrete_world_allPairs_matches_storage
 theorem concrete_world_allPairs_matches_storage
     (s : ContractState) (w : FactoryWorldState)
@@ -730,7 +571,6 @@ theorem concrete_world_allPairs_matches_storage
   factory_concrete_world_allPairs_matches_storage s w index entry := by
   intro h_match h_get
   exact h_match.2.2 index entry h_get
-
 private theorem createPair_success_preserves_pair_lookup_decode_of_ne
     (tokenA tokenB x y : Address) (s : ContractState) :
   tokenA ≠ tokenB →
@@ -841,7 +681,6 @@ private theorem createPair_success_preserves_pair_lookup_decode_of_ne
       h_tokenB_not_zero, h_sort, h_sort_raw, h_absent_branch,
       h_pair_nonzero_branch, h_create2_guard, h_safe_len, h_not_forward,
       h_not_reverse]
-
 private theorem createPair_success_preserves_allPairs_index_decode_of_ne
     (tokenA tokenB : Address) (s : ContractState) (index : Nat) :
   tokenA ≠ tokenB →
@@ -916,7 +755,6 @@ private theorem createPair_success_preserves_allPairs_index_decode_of_ne
       h_distinct, h_tokenA_nonzero, h_tokenB_nonzero, h_tokenA_not_zero,
       h_tokenB_not_zero, h_sort, h_sort_raw, h_absent_branch,
       h_pair_nonzero_branch, h_create2_guard, h_safe_len, h_key_ne]
-
 -- tama: discharges=factory_createPair_success_preserves_concrete_world_match
 theorem createPair_success_preserves_concrete_world_match
     (tokenA tokenB : Address) (s : ContractState)
@@ -1101,11 +939,26 @@ theorem createPair_success_preserves_concrete_world_match
           wordToAddress (factoryCreate2Word tokenA tokenB)
       rw [h_key_eq]
       simpa using congrArg wordToAddress h_new_array
-
--- tama: discharges=factory_createPair_success_adds_decoded_lookup
-theorem createPair_success_adds_decoded_lookup
+private theorem createPair_success_adds_decoded_lookup_aux
     (tokenA tokenB : Address) (s : ContractState) :
-  factory_createPair_success_adds_decoded_lookup tokenA tokenB s := by
+    let token0Value := factoryToken0 tokenA tokenB
+    let token1Value := factoryToken1 tokenA tokenB
+    let pair := wordToAddress (factoryCreate2Word tokenA tokenB)
+    tokenA ≠ tokenB →
+      tokenA ≠ zeroAddress →
+        tokenB ≠ zeroAddress →
+          s.storageMap2 pairForSlot.slot token0Value token1Value = 0 →
+            pair ≠ zeroAddress →
+              (s.storage allPairsLengthSlot.slot).val + 1 ≤
+                Verity.Stdlib.Math.MAX_UINT256 →
+                (createPair tokenA tokenB).run s =
+                  ContractResult.success pair ((createPair tokenA tokenB).run s).snd →
+                  wordToAddress
+                      (((createPair tokenA tokenB).run s).snd.storageMap2
+                        pairForSlot.slot tokenA tokenB) = pair ∧
+                  wordToAddress
+                      (((createPair tokenA tokenB).run s).snd.storageMap2
+                        pairForSlot.slot tokenB tokenA) = pair := by
   intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_absent
     h_pair_nonzero h_len_ok _h_run
   have h_success :=
@@ -1138,7 +991,6 @@ theorem createPair_success_adds_decoded_lookup
     · simpa [factoryToken0, factoryToken1, factoryCreate2Word,
         addressToWord, h_sort, h_sort_raw] using
         congrArg wordToAddress h_new_forward
-
 -- tama: discharges=factory_createPair_success_getPair_views_return_new_pair
 theorem createPair_success_getPair_views_return_new_pair
     (tokenA tokenB : Address) (s : ContractState) :
@@ -1146,7 +998,7 @@ theorem createPair_success_getPair_views_return_new_pair
   intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_absent
     h_pair_nonzero h_len_ok h_run
   have h_lookup :=
-    createPair_success_adds_decoded_lookup tokenA tokenB s
+    createPair_success_adds_decoded_lookup_aux tokenA tokenB s
       h_distinct h_tokenA_nonzero h_tokenB_nonzero h_absent
       h_pair_nonzero h_len_ok h_run
   rcases h_lookup with ⟨h_forward, h_reverse⟩
@@ -1157,42 +1009,6 @@ theorem createPair_success_getPair_views_return_new_pair
   · simpa [factory_createPair_success_getPair_views_return_new_pair,
       getPair, UniswapV2FactoryBase.getPair, getMapping2, Contract.run,
       Verity.bind, Bind.bind, Verity.pure, Pure.pure] using h_reverse
-
--- tama: discharges=factory_createPair_success_preserves_existing_decoded_lookup
-theorem createPair_success_preserves_existing_decoded_lookup
-    (tokenA tokenB existing0 existing1 existingPair : Address)
-    (s : ContractState) (before : FactoryWorldState) :
-  factory_createPair_success_preserves_existing_decoded_lookup
-    tokenA tokenB existing0 existing1 existingPair s before := by
-  intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_good h_match
-    h_existing h_absent h_absent_world h_pair_nonzero h_len_ok h_run
-  let token0Value := factoryToken0 tokenA tokenB
-  let token1Value := factoryToken1 tokenA tokenB
-  let pair := wordToAddress (factoryCreate2Word tokenA tokenB)
-  let after : FactoryWorldState :=
-    { pairs := before.pairs ++ [{
-        token0 := token0Value
-        token1 := token1Value
-        pair := pair
-      }]
-      pairCount := before.pairCount + 1 }
-  have h_preserved_match :
-      FactoryWorldMatchesStorage ((createPair tokenA tokenB).run s).snd after := by
-    simpa [after, token0Value, token1Value, pair] using
-      createPair_success_preserves_concrete_world_match tokenA tokenB s before
-        h_distinct h_tokenA_nonzero h_tokenB_nonzero h_good h_match
-        h_absent h_absent_world h_pair_nonzero h_len_ok h_run
-  have h_existing_after :
-      FactoryWorldContainsPair after existing0 existing1 existingPair := by
-    rcases h_existing with ⟨entry, h_entry, h_tokens, h_pair⟩
-    refine ⟨entry, ?_, h_tokens, h_pair⟩
-    simp [after]
-    exact Or.inl h_entry
-  exact concrete_world_lookup_matches_storage
-    ((createPair tokenA tokenB).run s).snd after
-    existing0 existing1 existingPair
-    h_preserved_match h_existing_after
-
 private theorem factoryWorldStep_preserves_good
     (action : FactoryWorldAction)
     (before after : FactoryWorldState) :
@@ -1235,33 +1051,6 @@ private theorem factoryWorldStep_preserves_good
             rw [h_a_new, h_b_new]
       · rw [h_count, h_pairs, h_count_before]
         simp
-
--- tama: discharges=factory_createPair_first_success_preserves_good
-theorem createPair_first_success_preserves_good
-    (tokenA tokenB : Address) (s : ContractState) :
-  factory_createPair_first_success_preserves_good tokenA tokenB s := by
-  dsimp [factory_createPair_first_success_preserves_good]
-  intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_empty
-    h_absent h_pair_nonzero h_len_ok h_run
-  have h_step :=
-    createPair_first_success_matches_closed_world_step tokenA tokenB s
-      h_distinct h_tokenA_nonzero h_tokenB_nonzero h_empty h_absent
-      h_pair_nonzero h_len_ok h_run
-  have h_initial_good : FactoryWorldGood FactoryWorldInitial := by
-    simp [FactoryWorldInitial, FactoryWorldGood,
-      FactoryWorldNoDuplicateSortedPairs]
-  exact factoryWorldStep_preserves_good
-    (FactoryWorldAction.createPair tokenA tokenB
-      (wordToAddress (factoryCreate2Word tokenA tokenB)))
-    FactoryWorldInitial
-    { pairs := [{
-        token0 := factoryToken0 tokenA tokenB
-        token1 := factoryToken1 tokenA tokenB
-        pair := wordToAddress (factoryCreate2Word tokenA tokenB)
-      }]
-      pairCount := 1 }
-    h_initial_good h_step
-
 -- tama: discharges=factory_createPair_success_preserves_good
 theorem createPair_success_preserves_good
     (tokenA tokenB : Address) (s : ContractState)
@@ -1285,7 +1074,6 @@ theorem createPair_success_preserves_good
       }]
       pairCount := before.pairCount + 1 }
     h_good h_step
-
 private theorem factoryWorldReachable_good
     (w : FactoryWorldState) :
   FactoryWorldReachable w → FactoryWorldGood w := by
@@ -1296,7 +1084,6 @@ private theorem factoryWorldReachable_good
         FactoryWorldNoDuplicateSortedPairs]
   | step action h_before h_step ih =>
       exact factoryWorldStep_preserves_good action _ _ ih h_step
-
 private theorem factoryWorldPath_preserves_good
     {before after : FactoryWorldState} :
   FactoryWorldGood before →
@@ -1311,7 +1098,6 @@ private theorem factoryWorldPath_preserves_good
   | step action h_prefix h_step ih =>
       intro h_good
       exact factoryWorldStep_preserves_good action _ _ (ih h_good) h_step
-
 private theorem factoryWorldPath_preserves_reachability
     {before after : FactoryWorldState} :
   FactoryWorldReachable before →
@@ -1323,7 +1109,6 @@ private theorem factoryWorldPath_preserves_reachability
       exact h_reachable
   | step action h_prefix h_step ih =>
       exact FactoryWorldReachable.step action ih h_step
-
 private theorem factoryWorldPath_preserves_existing_pair
     {before after : FactoryWorldState}
     {existing0 existing1 existingPair : Address} :
@@ -1344,7 +1129,6 @@ private theorem factoryWorldPath_preserves_existing_pair
           refine ⟨entry, ?_, h_tokens, h_pair⟩
           rw [h_pairs]
           exact List.mem_append_left _ h_entry
-
 private theorem factoryWorldPath_append_only
     {before after : FactoryWorldState} :
   FactoryWorldPath before after →
@@ -1374,7 +1158,6 @@ private theorem factoryWorldPath_append_only
           · rw [h_count_step, h_count_prefix]
             simp
             omega
-
 private theorem factoryConcreteCreateStep_preserves_world_match
     (tokenA tokenB : Address)
     (sBefore sAfter : ContractState)
@@ -1447,7 +1230,6 @@ private theorem factoryConcreteCreateStep_preserves_world_match
   · exact h_good_after
   · rw [← h_state_eq, h_after_eq]
     exact h_match_after
-
 private theorem factoryConcreteCreatePath_preserves_match
     {sBefore sAfter : ContractState}
     {wBefore wAfter : FactoryWorldState} :
@@ -1465,7 +1247,6 @@ private theorem factoryConcreteCreatePath_preserves_match
       exact factoryConcreteCreateStep_preserves_world_match
         tokenA tokenB _ _ _ _
         h_prefix_result.1 h_prefix_result.2 h_step
-
 private theorem factoryConcreteCreatePath_matches_world_path
     {sBefore sAfter : ContractState}
     {wBefore wAfter : FactoryWorldState} :
@@ -1482,7 +1263,6 @@ private theorem factoryConcreteCreatePath_matches_world_path
         (FactoryWorldAction.createPair tokenA tokenB
           (wordToAddress (factoryCreate2Word tokenA tokenB)))
         ih h_world_step
-
 -- tama: discharges=factory_concrete_create_path_preserves_world_match
 theorem concrete_create_path_preserves_world_match
     (sBefore sAfter : ContractState)
@@ -1490,27 +1270,6 @@ theorem concrete_create_path_preserves_world_match
   factory_concrete_create_path_preserves_world_match
     sBefore sAfter wBefore wAfter := by
   exact factoryConcreteCreatePath_preserves_match
-
--- tama: discharges=factory_concrete_create_path_allPairsLength_never_decreases
-theorem concrete_create_path_allPairsLength_never_decreases
-    (sBefore sAfter : ContractState)
-    (wBefore wAfter : FactoryWorldState) :
-  factory_concrete_create_path_allPairsLength_never_decreases
-    sBefore sAfter wBefore wAfter := by
-  intro h_good h_match h_path
-  have h_final :=
-    factoryConcreteCreatePath_preserves_match
-      h_good h_match h_path
-  have h_world_path :=
-    factoryConcreteCreatePath_matches_world_path h_path
-  rcases factoryWorldPath_append_only h_world_path with
-    ⟨suffix, _h_pairs, h_count⟩
-  have h_before_count := h_match.1
-  have h_after_count := h_final.2.1
-  rw [← h_before_count, ← h_after_count]
-  rw [h_count]
-  omega
-
 -- tama: discharges=factory_concrete_create_path_preserves_existing_decoded_lookup
 theorem concrete_create_path_preserves_existing_decoded_lookup
     (existing0 existing1 existingPair : Address)
@@ -1526,10 +1285,9 @@ theorem concrete_create_path_preserves_existing_decoded_lookup
     factoryConcreteCreatePath_matches_world_path h_path
   have h_existing_after :=
     factoryWorldPath_preserves_existing_pair h_existing h_world_path
-  exact concrete_world_lookup_matches_storage
+  exact concrete_world_lookup_matches_storage_aux
     sAfter wAfter existing0 existing1 existingPair
     h_final.2 h_existing_after
-
 -- tama: discharges=factory_concrete_create_path_preserves_existing_allPairs_entry
 theorem concrete_create_path_preserves_existing_allPairs_entry
     (index : Nat) (entry : FactoryWorldPair)
@@ -1551,7 +1309,6 @@ theorem concrete_create_path_preserves_existing_allPairs_entry
     exact list_get?_append_left_of_some h_get
   exact concrete_world_allPairs_matches_storage
     sAfter wAfter index entry h_final.2 h_get_after
-
 -- tama: discharges=factory_concrete_same_length_create_path_preserves_world
 theorem concrete_same_length_create_path_preserves_world
     (sBefore sAfter : ContractState)
@@ -1586,59 +1343,22 @@ theorem concrete_same_length_create_path_preserves_world
           subst pairsAfter
           subst countAfter
           rfl
-
--- tama: discharges=factory_concrete_same_length_create_path_preserves_reconstructed_lookups
-theorem concrete_same_length_create_path_preserves_reconstructed_lookups
-    (sBefore sAfter : ContractState)
-    (wBefore wAfter : FactoryWorldState) :
-  factory_concrete_same_length_create_path_preserves_reconstructed_lookups
-    sBefore sAfter wBefore wAfter := by
-  intro h_good h_match h_path h_same_length tokenA tokenB pair
-  have h_world_eq :=
-    concrete_same_length_create_path_preserves_world
-      sBefore sAfter wBefore wAfter h_good h_match h_path h_same_length
-  subst wAfter
-  rfl
-
--- tama: discharges=factory_closed_world_step_preserves_good
-theorem closed_world_step_preserves_good
-    (action : FactoryWorldAction)
-    (before after : FactoryWorldState) :
-  factory_closed_world_step_preserves_good action before after := by
-  exact factoryWorldStep_preserves_good action before after
-
--- tama: discharges=factory_closed_world_reachable_good
-theorem closed_world_reachable_good
-    (w : FactoryWorldState) :
-  factory_closed_world_reachable_good w := by
-  exact factoryWorldReachable_good w
-
 -- tama: discharges=factory_closed_world_path_preserves_reachability
 theorem closed_world_path_preserves_reachability
     (before after : FactoryWorldState) :
   factory_closed_world_path_preserves_reachability before after := by
   exact factoryWorldPath_preserves_reachability
-
 -- tama: discharges=factory_closed_world_path_preserves_good
 theorem closed_world_path_preserves_good
     (before after : FactoryWorldState) :
   factory_closed_world_path_preserves_good before after := by
   exact factoryWorldPath_preserves_good
-
 -- tama: discharges=factory_closed_world_created_pairs_are_sorted_and_nonzero
 theorem closed_world_created_pairs_are_sorted_and_nonzero
     (w : FactoryWorldState) :
   factory_closed_world_created_pairs_are_sorted_and_nonzero w := by
   intro h_reachable
   exact (factoryWorldReachable_good w h_reachable).1
-
--- tama: discharges=factory_closed_world_sorted_pair_unique
-theorem closed_world_sorted_pair_unique
-    (w : FactoryWorldState) :
-  factory_closed_world_sorted_pair_unique w := by
-  intro h_reachable
-  exact (factoryWorldReachable_good w h_reachable).2.1
-
 -- tama: discharges=factory_closed_world_lookup_symmetric
 theorem closed_world_lookup_symmetric
     (w : FactoryWorldState) (tokenA tokenB pair : Address) :
@@ -1649,7 +1369,6 @@ theorem closed_world_lookup_symmetric
   rcases h_tokens with h_forward | h_reverse
   · exact Or.inr h_forward
   · exact Or.inl h_reverse
-
 -- tama: discharges=factory_closed_world_reachable_lookup_is_valid
 theorem closed_world_reachable_lookup_is_valid
     (w : FactoryWorldState) (tokenA tokenB pair : Address) :
@@ -1671,7 +1390,6 @@ theorem closed_world_reachable_lookup_is_valid
     subst tokenB
     exact ⟨h_pair_nonzero, (fun h => h_distinct h.symm),
       h_token1_nonzero, h_token0_nonzero⟩
-
 -- tama: discharges=factory_concrete_reachable_lookup_is_valid
 theorem concrete_reachable_lookup_is_valid
     (s : ContractState) (w : FactoryWorldState)
@@ -1679,13 +1397,12 @@ theorem concrete_reachable_lookup_is_valid
   factory_concrete_reachable_lookup_is_valid s w tokenA tokenB pair := by
   intro h_reachable h_match h_contains
   have h_lookup :=
-    concrete_world_lookup_matches_storage s w tokenA tokenB pair
+    concrete_world_lookup_matches_storage_aux s w tokenA tokenB pair
       h_match h_contains
   have h_valid :=
     closed_world_reachable_lookup_is_valid w tokenA tokenB pair
       h_reachable h_contains
   exact ⟨h_lookup, h_valid⟩
-
 -- tama: discharges=factory_concrete_create_path_reachable_lookup_is_valid
 theorem concrete_create_path_reachable_lookup_is_valid
     (tokenA tokenB pair : Address)
@@ -1704,7 +1421,6 @@ theorem concrete_create_path_reachable_lookup_is_valid
     factoryWorldPath_preserves_reachability h_reachable h_world_path
   exact concrete_reachable_lookup_is_valid sAfter wAfter tokenA tokenB pair
     h_reachable_after h_final.2 h_contains
-
 -- tama: discharges=factory_closed_world_unordered_pair_address_unique
 theorem closed_world_unordered_pair_address_unique
     (w : FactoryWorldState) (tokenA tokenB pairA pairB : Address) :
@@ -1759,7 +1475,6 @@ theorem closed_world_unordered_pair_address_unique
     pairA = entryA.pair := h_pair_a.symm
     _ = entryB.pair := by rw [h_entry_eq]
     _ = pairB := h_pair_b
-
 -- tama: discharges=factory_closed_world_create_appends_one_pair
 theorem closed_world_create_appends_one_pair
     (tokenA tokenB pair : Address)
@@ -1773,7 +1488,6 @@ theorem closed_world_create_appends_one_pair
   · rw [h_pairs]
     simp
   · exact h_count
-
 -- tama: discharges=factory_closed_world_create_adds_symmetric_lookup
 theorem closed_world_create_adds_symmetric_lookup
     (tokenA tokenB pair : Address)
@@ -1802,22 +1516,6 @@ theorem closed_world_create_adds_symmetric_lookup
     · rcases h_token_order with h_forward | h_reverse
       · exact Or.inr h_forward
       · exact Or.inl h_reverse
-
--- tama: discharges=factory_closed_world_create_preserves_existing_pairs
-theorem closed_world_create_preserves_existing_pairs
-    (tokenA tokenB pair existing0 existing1 existingPair : Address)
-    (before after : FactoryWorldState) :
-  factory_closed_world_create_preserves_existing_pairs
-    tokenA tokenB pair existing0 existing1 existingPair before after := by
-  intro h_existing h_step
-  rcases h_existing with ⟨entry, h_entry, h_tokens, h_pair⟩
-  simp [FactoryWorldCreatePairStep] at h_step
-  rcases h_step with ⟨_h_distinct, _h_tokenA_nonzero, _h_tokenB_nonzero,
-    _h_token_order, _h_new_good, _h_absent, h_pairs, _h_count⟩
-  refine ⟨entry, ?_, h_tokens, h_pair⟩
-  rw [h_pairs]
-  exact List.mem_append_left _ h_entry
-
 -- tama: discharges=factory_closed_world_path_preserves_existing_pairs
 theorem closed_world_path_preserves_existing_pairs
     (existing0 existing1 existingPair : Address)
@@ -1825,32 +1523,11 @@ theorem closed_world_path_preserves_existing_pairs
   factory_closed_world_path_preserves_existing_pairs
     existing0 existing1 existingPair before after := by
   exact factoryWorldPath_preserves_existing_pair
-
--- tama: discharges=factory_closed_world_reachable_path_preserves_pair_lookup
-theorem closed_world_reachable_path_preserves_pair_lookup
-    (existing0 existing1 existingPair : Address)
-    (before after : FactoryWorldState) :
-  factory_closed_world_reachable_path_preserves_pair_lookup
-    existing0 existing1 existingPair before after := by
-  intro _h_reachable h_existing h_path
-  exact factoryWorldPath_preserves_existing_pair h_existing h_path
-
 -- tama: discharges=factory_closed_world_path_is_append_only
 theorem closed_world_path_is_append_only
     (before after : FactoryWorldState) :
   factory_closed_world_path_is_append_only before after := by
   exact factoryWorldPath_append_only
-
--- tama: discharges=factory_closed_world_path_pair_count_never_decreases
-theorem closed_world_path_pair_count_never_decreases
-    (before after : FactoryWorldState) :
-  factory_closed_world_path_pair_count_never_decreases before after := by
-  intro h_path
-  rcases factoryWorldPath_append_only h_path with
-    ⟨suffix, _h_pairs, h_count⟩
-  rw [h_count]
-  omega
-
 -- tama: discharges=factory_closed_world_same_count_path_preserves_pair_list
 theorem closed_world_same_count_path_preserves_pair_list
     (before after : FactoryWorldState) :
@@ -1865,34 +1542,10 @@ theorem closed_world_same_count_path_preserves_pair_list
     exact List.length_eq_zero_iff.mp h_suffix_length_zero
   rw [h_pairs, h_suffix_nil]
   simp
-
--- tama: discharges=factory_closed_world_same_count_path_preserves_all_lookups
-theorem closed_world_same_count_path_preserves_all_lookups
-    (before after : FactoryWorldState) :
-  factory_closed_world_same_count_path_preserves_all_lookups before after := by
-  intro h_path h_same_count tokenA tokenB pair
-  have h_pairs :
-      after.pairs = before.pairs :=
-    closed_world_same_count_path_preserves_pair_list before after
-      h_path h_same_count
-  constructor
-  · intro h_contains
-    simpa [FactoryWorldContainsPair, h_pairs] using h_contains
-  · intro h_contains
-    simpa [FactoryWorldContainsPair, h_pairs] using h_contains
-
--- tama: discharges=factory_closed_world_length_matches_created_pairs
-theorem closed_world_length_matches_created_pairs
-    (w : FactoryWorldState) :
-  factory_closed_world_length_matches_created_pairs w := by
-  intro h_reachable
-  exact (factoryWorldReachable_good w h_reachable).2.2
-
 -- tama: discharges=factory_closed_world_path_length_matches_created_pairs
 theorem closed_world_path_length_matches_created_pairs
     (before after : FactoryWorldState) :
   factory_closed_world_path_length_matches_created_pairs before after := by
   intro h_good h_path
   exact (factoryWorldPath_preserves_good h_good h_path).2.2
-
 end TamaUniV2.Proof.UniswapV2FactoryProof
