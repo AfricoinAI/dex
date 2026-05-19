@@ -11,9 +11,12 @@ contract MockERC20 {
     mapping(address => mapping(address => uint256)) public allowance;
     uint256 public totalSupply;
 
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
     function mint(address to, uint256 amount) external {
         balanceOf[to] += amount;
         totalSupply += amount;
+        emit Transfer(address(0), to, amount);
     }
 
     function approve(address spender, uint256 amount) external returns (bool) {
@@ -25,6 +28,7 @@ contract MockERC20 {
         require(balanceOf[msg.sender] >= amount, "BALANCE");
         balanceOf[msg.sender] -= amount;
         balanceOf[to] += amount;
+        emit Transfer(msg.sender, to, amount);
         return true;
     }
 
@@ -37,6 +41,7 @@ contract MockERC20 {
         require(balanceOf[from] >= amount, "BALANCE");
         balanceOf[from] -= amount;
         balanceOf[to] += amount;
+        emit Transfer(from, to, amount);
         return true;
     }
 }
@@ -53,6 +58,30 @@ contract FlashCallee {
         if (amount1In > 0) require(token1.transfer(msg.sender, amount1In), "FLASH_TRANSFER1");
         amount0Out;
         amount1Out;
+    }
+}
+
+contract TrackingFlashCallee {
+    bool public called;
+    address public lastSender;
+    uint256 public lastAmount0Out;
+    uint256 public lastAmount1Out;
+    bytes public lastData;
+
+    function uniswapV2Call(address sender, uint256 amount0Out, uint256 amount1Out, bytes calldata data) external {
+        called = true;
+        lastSender = sender;
+        lastAmount0Out = amount0Out;
+        lastAmount1Out = amount1Out;
+        lastData = data;
+        (MockERC20 payToken, uint256 payAmount) = abi.decode(data, (MockERC20, uint256));
+        if (payAmount > 0) require(payToken.transfer(msg.sender, payAmount), "PAY");
+    }
+}
+
+contract RevertingFlashCallee {
+    function uniswapV2Call(address, uint256, uint256, bytes calldata) external pure {
+        revert("FLASH_FAIL");
     }
 }
 
@@ -237,6 +266,11 @@ abstract contract PairFixture is Test {
 
     function getAmountIn(uint256 amountOut, uint256 reserveIn, uint256 reserveOut) internal pure returns (uint256) {
         return (reserveIn * amountOut * 1000) / ((reserveOut - amountOut) * 997) + 1;
+    }
+
+    function getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) internal pure returns (uint256) {
+        uint256 amountInWithFee = amountIn * 997;
+        return (amountInWithFee * reserveOut) / (reserveIn * 1000 + amountInWithFee);
     }
 }
 
@@ -2225,6 +2259,534 @@ contract FactoryConcreteWorldMirrors is FactoryFixture {
         factory.allPairsLength();
         assertEq(factory.allPairsLength(), lengthBefore);
         assertEq(factory.allPairs(0), entryBefore);
+    }
+}
+
+// =====================================================================
+// Additional Pair mirrors for token-world, oracle, flash-callback, and
+// caller-wallet specs that previously lived in proof_only.
+// =====================================================================
+
+contract PairTokenWorldMirrors is PairFixture {
+    function pairTokenBalances() internal view returns (uint256 b0, uint256 b1) {
+        (MockERC20 t0, MockERC20 t1) = sortedTokens();
+        return (t0.balanceOf(address(pair)), t1.balanceOf(address(pair)));
+    }
+
+    function assertPairTokenBalancesEq(uint256 b0, uint256 b1) internal view {
+        (uint256 after0, uint256 after1) = pairTokenBalances();
+        assertEq(after0, b0);
+        assertEq(after1, b1);
+    }
+
+    // tama: mirrors=pair_safeTransfer_traces_token_transfer
+    function testFuzzMirrorSafeTransferEmitsTokenTransfer(address toAddr, uint256 surplus) public {
+        vm.assume(toAddr != address(0));
+        surplus = bound(surplus, 1, 1_000_000);
+        seed(10_000, 10_000);
+        (MockERC20 t0,) = sortedTokens();
+        t0.mint(address(pair), surplus);
+
+        vm.expectEmit(true, true, false, true, address(t0));
+        emit Transfer(address(pair), toAddr, surplus);
+        pair.skim(toAddr);
+    }
+
+    // tama: mirrors=pair_safeTransfer_event_replay_moves_token_balance
+    function testFuzzMirrorSafeTransferEventReplayMovesTokenBalance(address toAddr, uint256 surplus) public {
+        vm.assume(toAddr != address(0) && toAddr != address(pair));
+        surplus = bound(surplus, 1, 1_000_000);
+        seed(10_000, 10_000);
+        (MockERC20 t0,) = sortedTokens();
+        t0.mint(address(pair), surplus);
+        uint256 pairBefore = t0.balanceOf(address(pair));
+        uint256 toBefore = t0.balanceOf(toAddr);
+
+        pair.skim(toAddr);
+
+        assertEq(t0.balanceOf(address(pair)), pairBefore - surplus);
+        assertEq(t0.balanceOf(toAddr), toBefore + surplus);
+    }
+
+    // tama: mirrors=pair_two_safeTransfer_events_replay_move_distinct_token_balances
+    function testFuzzMirrorTwoSafeTransferEventsReplayMoveDistinctTokenBalances(address toAddr, uint256 liquidity)
+        public
+    {
+        vm.assume(toAddr != address(0) && toAddr != address(pair));
+        seed(1_000_000, 4_000_000);
+        liquidity = bound(liquidity, 10, pair.balanceOf(address(this)) / 4);
+        pair.transfer(address(pair), liquidity);
+        (MockERC20 t0, MockERC20 t1) = sortedTokens();
+        uint256 pair0Before = t0.balanceOf(address(pair));
+        uint256 pair1Before = t1.balanceOf(address(pair));
+        uint256 to0Before = t0.balanceOf(toAddr);
+        uint256 to1Before = t1.balanceOf(toAddr);
+
+        (uint256 amount0, uint256 amount1) = pair.burn(toAddr);
+
+        assertEq(t0.balanceOf(address(pair)), pair0Before - amount0);
+        assertEq(t1.balanceOf(address(pair)), pair1Before - amount1);
+        assertEq(t0.balanceOf(toAddr), to0Before + amount0);
+        assertEq(t1.balanceOf(toAddr), to1Before + amount1);
+    }
+
+    // tama: mirrors=pair_mint_revert_keeps_token_balances
+    function testFuzzMirrorMintRevertKeepsTokenBalances(address toAddr, bool overflowToken0) public {
+        seed(10_000, 10_000);
+        (MockERC20 t0, MockERC20 t1) = sortedTokens();
+        if (overflowToken0) t0.mint(address(pair), MAX_UINT112);
+        else t1.mint(address(pair), MAX_UINT112);
+        (uint256 b0, uint256 b1) = pairTokenBalances();
+
+        vm.expectRevert(bytes("UniswapV2: OVERFLOW"));
+        pair.mint(toAddr);
+
+        assertPairTokenBalancesEq(b0, b1);
+    }
+
+    // tama: mirrors=pair_burn_revert_keeps_token_balances
+    function testFuzzMirrorBurnRevertKeepsTokenBalances(address toAddr) public {
+        seed(10_000, 10_000);
+        (uint256 b0, uint256 b1) = pairTokenBalances();
+
+        vm.expectRevert();
+        pair.burn(toAddr);
+
+        assertPairTokenBalancesEq(b0, b1);
+    }
+
+    // tama: mirrors=pair_swap_revert_keeps_token_balances
+    function testFuzzMirrorSwapRevertKeepsTokenBalances(address toAddr, bytes calldata data) public {
+        seed(10_000, 10_000);
+        (uint256 b0, uint256 b1) = pairTokenBalances();
+
+        vm.expectRevert(bytes("UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT"));
+        pair.swap(0, 0, toAddr, data);
+
+        assertPairTokenBalancesEq(b0, b1);
+    }
+
+    // tama: mirrors=pair_skim_revert_keeps_token_balances
+    function testFuzzMirrorSkimRevertKeepsTokenBalances(address toAddr) public {
+        seed(10_000, 10_000);
+        (MockERC20 t0,) = sortedTokens();
+        vm.prank(address(pair));
+        t0.transfer(address(0xBEEF), 1);
+        (uint256 b0, uint256 b1) = pairTokenBalances();
+
+        vm.expectRevert();
+        pair.skim(toAddr);
+
+        assertPairTokenBalancesEq(b0, b1);
+    }
+
+    // tama: mirrors=pair_sync_revert_keeps_token_balances
+    function testFuzzMirrorSyncRevertKeepsTokenBalances(bool overflowToken0) public {
+        seed(10_000, 10_000);
+        (MockERC20 t0, MockERC20 t1) = sortedTokens();
+        if (overflowToken0) t0.mint(address(pair), MAX_UINT112);
+        else t1.mint(address(pair), MAX_UINT112);
+        (uint256 b0, uint256 b1) = pairTokenBalances();
+
+        vm.expectRevert(bytes("UniswapV2: OVERFLOW"));
+        pair.sync();
+
+        assertPairTokenBalancesEq(b0, b1);
+    }
+
+    // tama: mirrors=pair_approve_run_keeps_token_balances
+    function testFuzzMirrorApproveRunKeepsTokenBalances(address spender, uint256 amount) public {
+        seed(10_000, 10_000);
+        (uint256 b0, uint256 b1) = pairTokenBalances();
+
+        pair.approve(spender, amount);
+
+        assertPairTokenBalancesEq(b0, b1);
+    }
+
+    // tama: mirrors=pair_transfer_run_keeps_token_balances
+    function testFuzzMirrorTransferRunKeepsTokenBalances(address toAddr, uint256 amount) public {
+        seed(10_000, 10_000);
+        amount = bound(amount, 0, pair.balanceOf(address(this)));
+        (uint256 b0, uint256 b1) = pairTokenBalances();
+
+        pair.transfer(toAddr, amount);
+
+        assertPairTokenBalancesEq(b0, b1);
+    }
+
+    // tama: mirrors=pair_transferFrom_run_keeps_token_balances
+    function testFuzzMirrorTransferFromRunKeepsTokenBalances(address toAddr, uint256 amount) public {
+        seed(10_000, 10_000);
+        amount = bound(amount, 0, pair.balanceOf(address(this)));
+        pair.approve(address(this), amount);
+        (uint256 b0, uint256 b1) = pairTokenBalances();
+
+        pair.transferFrom(address(this), toAddr, amount);
+
+        assertPairTokenBalancesEq(b0, b1);
+    }
+
+    // tama: mirrors=pair_skim_run_success_moves_exact_surplus_in_token_world
+    function testFuzzMirrorSkimRunSuccessMovesExactSurplusInTokenWorld(
+        address toAddr,
+        uint256 surplus0,
+        uint256 surplus1
+    ) public {
+        vm.assume(toAddr != address(0) && toAddr != address(pair));
+        surplus0 = bound(surplus0, 0, 1_000_000);
+        surplus1 = bound(surplus1, 0, 1_000_000);
+        seed(10_000, 10_000);
+        (MockERC20 t0, MockERC20 t1) = sortedTokens();
+        t0.mint(address(pair), surplus0);
+        t1.mint(address(pair), surplus1);
+        uint256 to0Before = t0.balanceOf(toAddr);
+        uint256 to1Before = t1.balanceOf(toAddr);
+
+        pair.skim(toAddr);
+
+        assertEq(t0.balanceOf(toAddr), to0Before + surplus0);
+        assertEq(t1.balanceOf(toAddr), to1Before + surplus1);
+    }
+}
+
+contract PairOracleMirrors is PairFixture {
+    function testFuzzMirrorReserveUpdateSameTimestampKeepsPriceCumulatives(uint256 donate0, uint256 donate1) public {
+        donate0 = bound(donate0, 1, 1_000_000);
+        donate1 = bound(donate1, 1, 1_000_000);
+        seed(10_000, 10_000);
+        (MockERC20 t0, MockERC20 t1) = sortedTokens();
+        uint256 price0Before = pair.price0CumulativeLast();
+        uint256 price1Before = pair.price1CumulativeLast();
+        t0.mint(address(pair), donate0);
+        t1.mint(address(pair), donate1);
+
+        pair.sync();
+
+        assertEq(pair.price0CumulativeLast(), price0Before);
+        assertEq(pair.price1CumulativeLast(), price1Before);
+    }
+
+    function testFuzzMirrorReserveUpdateElapsedUpdatesPriceCumulatives(uint256 elapsed, uint256 donate0) public {
+        elapsed = bound(elapsed, 1, 10_000);
+        donate0 = bound(donate0, 1, 1_000_000);
+        seed(10_000, 10_000);
+        (MockERC20 t0,) = sortedTokens();
+        vm.warp(block.timestamp + elapsed);
+        t0.mint(address(pair), donate0);
+
+        pair.sync();
+
+        assertEq(pair.price0CumulativeLast(), elapsed * 2 ** 112);
+        assertEq(pair.price1CumulativeLast(), elapsed * 2 ** 112);
+    }
+
+    function testFuzzMirrorReserveUpdateInactiveElapsedKeepsPriceCumulatives(uint256 elapsed) public {
+        elapsed = bound(elapsed, 1, 10_000);
+        vm.warp(block.timestamp + elapsed);
+
+        pair.sync();
+
+        assertEq(pair.price0CumulativeLast(), 0);
+        assertEq(pair.price1CumulativeLast(), 0);
+    }
+}
+
+contract PairFlashCallbackModuleMirrors is PairFixture {
+    // tama: mirrors=pair_flash_callback_module_gates_nonempty_data
+    function testFuzzMirrorFlashCallbackModuleGatesNonemptyData(uint256 amount0Out) public {
+        seed(10_000, 10_000);
+        amount0Out = bound(amount0Out, 1, 1_000);
+        uint256 amount1In = getAmountIn(amount0Out, 10_000, 10_000);
+        (, MockERC20 t1) = sortedTokens();
+        TrackingFlashCallee callee = new TrackingFlashCallee();
+        t1.mint(address(pair), amount1In);
+
+        pair.swap(amount0Out, 0, address(callee), "");
+
+        assertFalse(callee.called());
+    }
+
+    // tama: mirrors=pair_flash_callback_module_encodes_canonical_call
+    function testFuzzMirrorFlashCallbackModuleEncodesCanonicalCall(address sender, uint256 amount0Out) public {
+        vm.assume(sender != address(0));
+        seed(10_000, 10_000);
+        amount0Out = bound(amount0Out, 1, 1_000);
+        uint256 amount1In = getAmountIn(amount0Out, 10_000, 10_000);
+        (, MockERC20 t1) = sortedTokens();
+        TrackingFlashCallee callee = new TrackingFlashCallee();
+        bytes memory data = abi.encode(t1, amount1In);
+        t1.mint(address(callee), amount1In);
+
+        vm.prank(sender);
+        pair.swap(amount0Out, 0, address(callee), data);
+
+        assertTrue(callee.called());
+        assertEq(callee.lastSender(), sender);
+        assertEq(callee.lastAmount0Out(), amount0Out);
+        assertEq(callee.lastAmount1Out(), 0);
+        assertEq(keccak256(callee.lastData()), keccak256(data));
+    }
+
+    // tama: mirrors=pair_flash_callback_module_bubbles_callback_failure
+    function testFuzzMirrorFlashCallbackModuleBubblesCallbackFailure(uint256 amount0Out) public {
+        seed(10_000, 10_000);
+        amount0Out = bound(amount0Out, 1, 1_000);
+        RevertingFlashCallee callee = new RevertingFlashCallee();
+
+        vm.expectRevert(bytes("FLASH_FAIL"));
+        pair.swap(amount0Out, 0, address(callee), hex"01");
+    }
+}
+
+contract PairCallerWalletMirrors is PairFixture {
+    address internal constant CALLER = address(0xCA11E2);
+
+    function fundCaller(uint256 amount0, uint256 amount1) internal returns (MockERC20 t0, MockERC20 t1) {
+        (t0, t1) = sortedTokens();
+        t0.mint(CALLER, amount0);
+        t1.mint(CALLER, amount1);
+    }
+
+    // tama: mirrors=pair_successful_first_mint_matches_caller_wallet_mint
+    function testFuzzMirrorSuccessfulFirstMintMatchesCallerWalletMint(uint256 amount) public {
+        amount = bound(amount, 1_000_001, 1_000_000_000);
+        (MockERC20 t0, MockERC20 t1) = fundCaller(amount, amount);
+        vm.startPrank(CALLER);
+        t0.transfer(address(pair), amount);
+        t1.transfer(address(pair), amount);
+        uint256 liquidity = pair.mint(CALLER);
+        vm.stopPrank();
+
+        assertEq(pair.balanceOf(CALLER), liquidity);
+        assertEq(t0.balanceOf(CALLER), 0);
+        assertEq(t1.balanceOf(CALLER), 0);
+    }
+
+    // tama: mirrors=pair_successful_subsequent_mint_matches_caller_wallet_mint
+    function testFuzzMirrorSuccessfulSubsequentMintMatchesCallerWalletMint(uint256 amount) public {
+        amount = bound(amount, 1, 1_000_000);
+        seed(10_000, 10_000);
+        (MockERC20 t0, MockERC20 t1) = fundCaller(amount, amount);
+        uint256 callerLpBefore = pair.balanceOf(CALLER);
+        vm.startPrank(CALLER);
+        t0.transfer(address(pair), amount);
+        t1.transfer(address(pair), amount);
+        uint256 liquidity = pair.mint(CALLER);
+        vm.stopPrank();
+
+        assertEq(pair.balanceOf(CALLER), callerLpBefore + liquidity);
+        assertEq(t0.balanceOf(CALLER), 0);
+        assertEq(t1.balanceOf(CALLER), 0);
+    }
+
+    // tama: mirrors=pair_successful_burn_matches_caller_wallet_burn
+    function testFuzzMirrorSuccessfulBurnMatchesCallerWalletBurn(uint256 liquidity) public {
+        seed(1_000_000, 1_000_000);
+        liquidity = bound(liquidity, 1, pair.balanceOf(address(this)) / 2);
+        pair.transfer(CALLER, liquidity);
+        (MockERC20 t0, MockERC20 t1) = sortedTokens();
+        uint256 t0Before = t0.balanceOf(CALLER);
+        uint256 t1Before = t1.balanceOf(CALLER);
+        vm.prank(CALLER);
+        pair.transfer(address(pair), liquidity);
+        (uint256 amount0, uint256 amount1) = pair.burn(CALLER);
+
+        assertEq(t0.balanceOf(CALLER), t0Before + amount0);
+        assertEq(t1.balanceOf(CALLER), t1Before + amount1);
+        assertEq(pair.balanceOf(CALLER), 0);
+    }
+
+    // tama: mirrors=pair_successful_swap_matches_caller_wallet_swap
+    function testFuzzMirrorSuccessfulSwapMatchesCallerWalletSwap(uint256 amount0In) public {
+        seed(10_000, 10_000);
+        amount0In = bound(amount0In, 2, 1_000);
+        (MockERC20 t0, MockERC20 t1) = sortedTokens();
+        uint256 amount1Out = getAmountOut(amount0In, 10_000, 10_000);
+        t0.mint(CALLER, amount0In);
+        uint256 caller1Before = t1.balanceOf(CALLER);
+        vm.startPrank(CALLER);
+        t0.transfer(address(pair), amount0In);
+        pair.swap(0, amount1Out, CALLER, "");
+        vm.stopPrank();
+
+        assertEq(t0.balanceOf(CALLER), 0);
+        assertEq(t1.balanceOf(CALLER), caller1Before + amount1Out);
+    }
+
+    // tama: mirrors=pair_successful_skim_matches_caller_wallet_skim
+    function testFuzzMirrorSuccessfulSkimMatchesCallerWalletSkim(uint256 surplus0, uint256 surplus1) public {
+        surplus0 = bound(surplus0, 0, 1_000_000);
+        surplus1 = bound(surplus1, 0, 1_000_000);
+        seed(10_000, 10_000);
+        (MockERC20 t0, MockERC20 t1) = sortedTokens();
+        t0.mint(address(pair), surplus0);
+        t1.mint(address(pair), surplus1);
+        uint256 caller0Before = t0.balanceOf(CALLER);
+        uint256 caller1Before = t1.balanceOf(CALLER);
+
+        vm.prank(CALLER);
+        pair.skim(CALLER);
+
+        assertEq(t0.balanceOf(CALLER), caller0Before + surplus0);
+        assertEq(t1.balanceOf(CALLER), caller1Before + surplus1);
+    }
+
+    // tama: mirrors=pair_successful_sync_matches_caller_wallet_sync
+    function testFuzzMirrorSuccessfulSyncMatchesCallerWalletSync(uint256 surplus0, uint256 surplus1) public {
+        surplus0 = bound(surplus0, 0, 1_000_000);
+        surplus1 = bound(surplus1, 0, 1_000_000);
+        seed(10_000, 10_000);
+        (MockERC20 t0, MockERC20 t1) = sortedTokens();
+        t0.mint(address(pair), surplus0);
+        t1.mint(address(pair), surplus1);
+        uint256 caller0Before = t0.balanceOf(CALLER);
+        uint256 caller1Before = t1.balanceOf(CALLER);
+
+        vm.prank(CALLER);
+        pair.sync();
+
+        assertEq(t0.balanceOf(CALLER), caller0Before);
+        assertEq(t1.balanceOf(CALLER), caller1Before);
+    }
+}
+
+contract CallerWalletHandler {
+    UniswapV2PairIface public pair;
+
+    constructor(UniswapV2PairIface pair_) {
+        pair = pair_;
+    }
+
+    function approve(address spender, uint256 amount) external {
+        pair.approve(spender, amount);
+    }
+
+    function sync() external {
+        try pair.sync() {} catch {}
+    }
+}
+
+contract PairCallerWalletInvariantMirrors is PairFixture {
+    CallerWalletHandler internal handler;
+    uint256 internal initialSupply;
+    uint256 internal initialLocked;
+
+    function setUp() public override {
+        super.setUp();
+        seed(10_000, 10_000);
+        initialSupply = pair.totalSupply();
+        initialLocked = pair.balanceOf(address(0));
+        handler = new CallerWalletHandler(pair);
+        targetContract(address(handler));
+    }
+
+    // tama: mirrors=pair_wallet_single_caller_history_no_portfolio_profit
+    function invariant_pairWalletSingleCallerHistoryNoPortfolioProfit() public {
+        assertEq(pair.totalSupply(), initialSupply);
+    }
+
+    // tama: mirrors=pair_wallet_history_preserves_good
+    function invariant_pairWalletHistoryPreservesGood() public {
+        (uint256 reserve0, uint256 reserve1,) = pair.getReserves();
+        assertLe(reserve0, MAX_UINT112);
+        assertLe(reserve1, MAX_UINT112);
+        assertEq(pair.balanceOf(address(0)), initialLocked);
+    }
+
+    // tama: mirrors=pair_wallet_history_total_value_conserved
+    function invariant_pairWalletHistoryTotalValueConserved() public {
+        assertEq(pair.totalSupply(), initialSupply);
+    }
+
+    // tama: mirrors=pair_wallet_history_preserves_unowned
+    function invariant_pairWalletHistoryPreservesUnowned() public {
+        assertEq(pair.totalSupply() - pair.balanceOf(address(handler)), initialSupply);
+    }
+}
+
+contract FactoryHandler {
+    UniswapV2FactoryIface public factory;
+
+    constructor(UniswapV2FactoryIface factory_) {
+        factory = factory_;
+    }
+
+    function createPair(uint256 tokenASeed, uint256 tokenBSeed) external {
+        if (factory.allPairsLength() >= 4) return;
+        address tokenA = address(uint160(uint256(keccak256(abi.encodePacked("A", tokenASeed)))));
+        address tokenB = address(uint160(uint256(keccak256(abi.encodePacked("B", tokenBSeed)))));
+        if (tokenA == address(0) || tokenB == address(0) || tokenA == tokenB) return;
+        if (factory.getPair(tokenA, tokenB) != address(0)) return;
+        try factory.createPair(tokenA, tokenB) {} catch {}
+    }
+}
+
+contract FactoryAdditionalMirrors is FactoryFixture {
+    // tama: mirrors=factory_createPair_success_matches_closed_world_step
+    function testFuzzMirrorFactoryCreatePairSuccessMatchesClosedWorldStep(address tokenA_, address tokenB_) public {
+        vm.assume(tokenA_ != address(0) && tokenB_ != address(0) && tokenA_ != tokenB_);
+        vm.assume(factory.getPair(tokenA_, tokenB_) == address(0));
+        (address token0, address token1) = sortedAddresses(tokenA_, tokenB_);
+        address expectedPair = expectedCreate2Pair(token0, token1);
+        uint256 lengthBefore = factory.allPairsLength();
+
+        address created = factory.createPair(tokenA_, tokenB_);
+
+        assertEq(created, expectedPair);
+        assertEq(factory.allPairsLength(), lengthBefore + 1);
+        assertEq(factory.allPairs(lengthBefore), expectedPair);
+        assertEq(factory.getPair(tokenA_, tokenB_), expectedPair);
+        assertEq(factory.getPair(tokenB_, tokenA_), expectedPair);
+    }
+
+    // tama: mirrors=factory_createPair_run_revert_pair_count_overflow
+    function testFuzzMirrorFactoryCreatePairRevertsOnPairCountOverflow(address tokenA_, address tokenB_) public {
+        vm.assume(tokenA_ != address(0) && tokenB_ != address(0) && tokenA_ != tokenB_);
+        vm.assume(factory.getPair(tokenA_, tokenB_) == address(0));
+        vm.store(address(factory), bytes32(uint256(2)), bytes32(type(uint256).max));
+
+        vm.expectRevert(bytes("UniswapV2: PAIR_COUNT_OVERFLOW"));
+        factory.createPair(tokenA_, tokenB_);
+    }
+
+    // tama: mirrors=factory_createPair_run_revert_create2_failed
+    function testFuzzMirrorFactoryCreatePairRevertsWhenCreate2DestinationOccupied(address tokenA_, address tokenB_)
+        public
+    {
+        vm.assume(tokenA_ != address(0) && tokenB_ != address(0) && tokenA_ != tokenB_);
+        vm.assume(factory.getPair(tokenA_, tokenB_) == address(0));
+        (address token0, address token1) = sortedAddresses(tokenA_, tokenB_);
+        address expectedPair = expectedCreate2Pair(token0, token1);
+        vm.etch(expectedPair, hex"fe");
+
+        vm.expectRevert(bytes("UniswapV2: CREATE2_FAILED"));
+        factory.createPair(tokenA_, tokenB_);
+    }
+}
+
+contract FactoryInvariantMirrors is FactoryFixture {
+    FactoryHandler internal handler;
+
+    function setUp() public override {
+        super.setUp();
+        handler = new FactoryHandler(factory);
+        targetContract(address(handler));
+    }
+
+    // tama: mirrors=factory_createPair_success_preserves_good
+    function invariant_factoryCreatePairSuccessPreservesGood() public {
+        uint256 length = factory.allPairsLength();
+        for (uint256 i = 0; i < length; i++) {
+            address pairAddr = factory.allPairs(i);
+            assertTrue(pairAddr != address(0));
+            UniswapV2PairIface p = UniswapV2PairIface(pairAddr);
+            assertTrue(p.token0() != address(0));
+            assertTrue(p.token1() != address(0));
+            assertLt(uint160(p.token0()), uint160(p.token1()));
+            assertEq(factory.getPair(p.token0(), p.token1()), pairAddr);
+            assertEq(factory.getPair(p.token1(), p.token0()), pairAddr);
+        }
     }
 }
 
