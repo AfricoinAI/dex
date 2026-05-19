@@ -1508,8 +1508,19 @@ theorem skim_run_success_moves_exact_surplus_in_token_world
     pairToken0, pairToken1, pairSelf, skimExcess0, skimExcess1,
     h_unlocked_raw, h_require_raw_unfold, addressOfNat_toNat_mod_uint256]
 
--- tama: discharges=pair_skim_run_success_matches_closed_world_step
-theorem skim_run_success_matches_closed_world_step
+private def pair_skim_run_success_matches_closed_world_step
+    (toAddr : Address) (s : ContractState) : Prop :=
+  s.storage unlockedSlot.slot = 1 →
+    s.storage reserve0Slot.slot ≤ observedBalance0 s →
+      s.storage reserve1Slot.slot ≤ observedBalance1 s →
+        match (skim toAddr).run s with
+        | ContractResult.success () _post =>
+            PairWorldStep PairWorldAction.skim
+              (pairWorldFromConcreteState s)
+              (pairWorldAfterSkimRun s)
+        | ContractResult.revert _ _ => False
+
+private theorem skim_run_success_matches_closed_world_step
     (toAddr : Address) (s : ContractState) :
   pair_skim_run_success_matches_closed_world_step toAddr s := by
   intro h_unlocked h_balance0 h_balance1
@@ -1765,8 +1776,17 @@ private theorem sync_expected_matches_closed_world_step (s : ContractState) :
   exact ⟨by simpa [maxUint112Nat, maxUint112, UniswapV2PairBase.maxUint112] using h_bound0,
     by simpa [maxUint112Nat, maxUint112, UniswapV2PairBase.maxUint112] using h_bound1⟩
 
--- tama: discharges=pair_sync_success_run_matches_closed_world_step
-theorem sync_success_run_matches_closed_world_step
+private def pair_sync_success_run_matches_closed_world_step
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  result = (sync).run s →
+    result = ContractResult.success () result.snd →
+      observedBalance0 s ≤ maxUint112 →
+        observedBalance1 s ≤ maxUint112 →
+          PairWorldStep PairWorldAction.sync
+            (pairWorldFromConcreteState s)
+            (pairWorldAfterSyncRun s)
+
+private theorem sync_success_run_matches_closed_world_step
     (s : ContractState) (result : ContractResult Unit) :
   pair_sync_success_run_matches_closed_world_step s result := by
   intro _h_run _h_success h_bound0 h_bound1
@@ -2207,8 +2227,30 @@ private theorem mint_first_expected_matches_closed_world_step (toAddr : Address)
     simpa [h_supply_zero_val, h_liquidity_eq, h_min_val] using h_root_eq
   · simp [h_supply_zero_val]
 
--- tama: discharges=pair_mint_first_success_run_matches_closed_world_step
-theorem mint_first_success_run_matches_closed_world_step
+private def pair_mint_first_success_run_matches_closed_world_step
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  let liquidity := mintFirstLiquidity s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      s.storage unlockedSlot.slot = 1 →
+        s.storage totalSupplySlot.slot = 0 →
+          observedBalance0 s ≤ maxUint112 →
+            observedBalance1 s ≤ maxUint112 →
+              s.storage reserve0Slot.slot ≤ observedBalance0 s →
+                s.storage reserve1Slot.slot ≤ observedBalance1 s →
+                  amount0 > 0 →
+                    amount1 > 0 →
+                      (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
+                        mintFirstRoot s > minimumLiquidity →
+                          PairWorldStep
+                            (PairWorldAction.mint amount0.val amount1.val liquidity.val)
+                            (pairWorldBeforeMintRun s)
+                            (pairWorldAfterFirstMintRun s)
+
+private theorem mint_first_success_run_matches_closed_world_step
     (toAddr : Address) (s : ContractState) :
   pair_mint_first_success_run_matches_closed_world_step toAddr s
     ((mint toAddr).run s) := by
@@ -2250,8 +2292,30 @@ theorem first_mint_uses_balance_increase_as_deposit
   intro _h_run _h_success _h_supply_zero _h_reserve0 _h_reserve1
   constructor <;> rfl
 
--- tama: discharges=pair_mint_subsequent_expected_matches_closed_world_step
-theorem mint_subsequent_expected_matches_closed_world_step
+private def pair_mint_subsequent_expected_matches_closed_world_step
+    (s : ContractState) (liquidity : Uint256) : Prop :=
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  0 < (s.storage totalSupplySlot.slot).val →
+    s.storage reserve0Slot.slot > 0 →
+      s.storage reserve1Slot.slot > 0 →
+        observedBalance0 s ≤ maxUint112 →
+          observedBalance1 s ≤ maxUint112 →
+            s.storage reserve0Slot.slot ≤ observedBalance0 s →
+              s.storage reserve1Slot.slot ≤ observedBalance1 s →
+                amount0 > 0 →
+                  amount1 > 0 →
+                    liquidity > 0 →
+                      liquidity.val * (s.storage reserve0Slot.slot).val ≤
+                          amount0.val * (s.storage totalSupplySlot.slot).val →
+                        liquidity.val * (s.storage reserve1Slot.slot).val ≤
+                            amount1.val * (s.storage totalSupplySlot.slot).val →
+                          PairWorldStep
+                            (PairWorldAction.mint amount0.val amount1.val liquidity.val)
+                            (pairWorldBeforeMintRun s)
+                            (pairWorldAfterSubsequentMintRun liquidity s)
+
+private theorem mint_subsequent_expected_matches_closed_world_step
     (s : ContractState) (liquidity : Uint256) :
   pair_mint_subsequent_expected_matches_closed_world_step s liquidity := by
   dsimp [pair_mint_subsequent_expected_matches_closed_world_step]
@@ -2334,8 +2398,14 @@ theorem mint_subsequent_expected_matches_closed_world_step
   · simp [pairWorldLockedLiquidity, totalSupplySlot, h_supply_ne_raw]
   · exact Or.inr ⟨h_ratio0, h_ratio1⟩
 
--- tama: discharges=pair_mint_subsequent_success_run_matches_closed_world_step
-theorem mint_subsequent_success_run_matches_closed_world_step
+private def pair_mint_subsequent_success_run_matches_closed_world_step
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      pair_mint_subsequent_expected_matches_closed_world_step s liquidity
+
+private theorem mint_subsequent_success_run_matches_closed_world_step
     (toAddr : Address) (s : ContractState)
     (liquidity : Uint256) :
   pair_mint_subsequent_success_run_matches_closed_world_step
@@ -2372,8 +2442,31 @@ theorem later_mint_uses_balance_increase_as_deposit
   intro _h_run _h_success _h_supply_pos _h_reserve0 _h_reserve1
   constructor <;> rfl
 
--- tama: discharges=pair_burn_expected_matches_closed_world_step
-theorem burn_expected_matches_closed_world_step
+private def pair_burn_expected_matches_closed_world_step
+    (s : ContractState) : Prop :=
+  let liquidity := burnLiquidity s
+  let amount0 := burnAmount0 s
+  let amount1 := burnAmount1 s
+  0 < liquidity.val →
+    0 < (burnSupply s).val →
+      liquidity.val ≤ (burnSupply s).val →
+        minimumLiquidityNat ≤ (burnSupply s).val - liquidity.val →
+          amount0 > 0 →
+            amount1 > 0 →
+              amount0 ≤ observedBalance0 s →
+                amount1 ≤ observedBalance1 s →
+                  burnBalance0After s ≤ maxUint112 →
+                    burnBalance1After s ≤ maxUint112 →
+                      amount0.val * (burnSupply s).val ≤
+                          liquidity.val * (observedBalance0 s).val →
+                        amount1.val * (burnSupply s).val ≤
+                            liquidity.val * (observedBalance1 s).val →
+                          PairWorldStep
+                            (PairWorldAction.burn amount0.val amount1.val liquidity.val)
+                            (pairWorldFromConcreteState s)
+                            (pairWorldAfterBurnRun s)
+
+private theorem burn_expected_matches_closed_world_step
     (s : ContractState) :
   pair_burn_expected_matches_closed_world_step s := by
   dsimp [pair_burn_expected_matches_closed_world_step]
@@ -2530,8 +2623,38 @@ private theorem feeAdjustedSwap_implies_raw_k
     nlinarith [h_required_le_scaled]
   exact Nat.le_of_mul_le_mul_right h_scaled h_scale_pos
 
--- tama: discharges=pair_swap_expected_matches_closed_world_step
-theorem swap_expected_matches_closed_world_step
+private def pair_swap_expected_matches_closed_world_step
+    (amount0Out amount1Out balance0Now balance1Now : Uint256)
+    (s : ContractState) : Prop :=
+  let amount0In := swapAmount0In amount0Out balance0Now s
+  let amount1In := swapAmount1In amount1Out balance1Now s
+  (amount0Out > 0 ∨ amount1Out > 0) →
+    amount0Out < s.storage reserve0Slot.slot →
+      amount1Out < s.storage reserve1Slot.slot →
+        (amount0In > 0 ∨ amount1In > 0) →
+          balance0Now.val =
+              (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
+            balance1Now.val =
+                (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
+              balance0Now ≤ maxUint112 →
+                balance1Now ≤ maxUint112 →
+                  amount0In.val * feeAdjustmentNat ≤
+                      balance0Now.val * feeDenominatorNat →
+                    amount1In.val * feeAdjustmentNat ≤
+                        balance1Now.val * feeDenominatorNat →
+                      feeAdjustedBalance balance0Now.val amount0In.val *
+                          feeAdjustedBalance balance1Now.val amount1In.val ≥
+                        requiredK
+                          (s.storage reserve0Slot.slot).val
+                          (s.storage reserve1Slot.slot).val →
+                          PairWorldStep
+                            (PairWorldAction.swap
+                              amount0In.val amount1In.val
+                              amount0Out.val amount1Out.val)
+                            (pairWorldFromConcreteState s)
+                            (pairWorldAfterSwapRun balance0Now balance1Now s)
+
+private theorem swap_expected_matches_closed_world_step
     (amount0Out amount1Out balance0Now balance1Now : Uint256)
     (s : ContractState) :
   pair_swap_expected_matches_closed_world_step
@@ -2587,8 +2710,16 @@ theorem swap_expected_matches_closed_world_step
   · exact h_fee1
   · exact h_adjusted_k
 
--- tama: discharges=pair_swap_success_run_matches_closed_world_step
-theorem swap_success_run_matches_closed_world_step
+private def pair_swap_success_run_matches_closed_world_step
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      pair_swap_expected_matches_closed_world_step
+        amount0Out amount1Out balance0Now balance1Now s
+
+private theorem swap_success_run_matches_closed_world_step
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (balance0Now balance1Now : Uint256) (s : ContractState) :
   pair_swap_success_run_matches_closed_world_step
@@ -3451,8 +3582,13 @@ private theorem pairWorldSameSupplyPath_never_decreases_k
   exact Nat.le_of_mul_le_mul_right h_scaled'
     (Nat.mul_pos h_positive h_positive)
 
--- tama: discharges=pair_closed_world_step_preserves_good
-theorem closed_world_step_preserves_good
+private def pair_closed_world_step_preserves_good
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep action before after →
+      PairWorldGood after
+
+private theorem closed_world_step_preserves_good
     (action : PairWorldAction) (before after : PairWorldState) :
   pair_closed_world_step_preserves_good action before after := by
   exact pairWorldStep_preserves_good
@@ -3650,8 +3786,15 @@ theorem closed_world_step_locked_liquidity_never_decreases
   pair_closed_world_step_locked_liquidity_never_decreases action before after := by
   exact pairWorldStep_locked_liquidity_never_decreases
 
--- tama: discharges=pair_closed_world_path_locked_liquidity_never_decreases
-theorem closed_world_path_locked_liquidity_never_decreases
+/-- The finite-history version of permanent locked liquidity. Starting from a
+good pool model, no successful sequence can unwind the locked floor. -/
+private def pair_closed_world_path_locked_liquidity_never_decreases
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldPath before after →
+      before.lockedLiquidity ≤ after.lockedLiquidity
+
+private theorem closed_world_path_locked_liquidity_never_decreases
     (before after : PairWorldState) :
   pair_closed_world_path_locked_liquidity_never_decreases before after := by
   exact pairWorldPath_locked_liquidity_never_decreases
@@ -3758,8 +3901,19 @@ theorem closed_world_reserve_changes_only_on_reserve_update_actions
   | sync =>
       exact Or.inr (Or.inr (Or.inr rfl))
 
--- tama: discharges=pair_closed_world_no_reserve_update_path_preserves_reserves
-theorem closed_world_no_reserve_update_path_preserves_reserves
+/-- Finite-history reserve isolation. A history made only of LP bookkeeping,
+direct donations, and skim may change LP ownership or token balances, but it
+never changes the cached reserves. This is the path-level form of the
+reserve-change classifier above, and it is the invariant a router-facing reader
+can cite when reasoning that cached price state is stable unless a reserve
+update action actually occurs. -/
+private def pair_closed_world_no_reserve_update_path_preserves_reserves
+    (before after : PairWorldState) : Prop :=
+  PairWorldPathNoReserveUpdate before after →
+    after.reserve0 = before.reserve0 ∧
+    after.reserve1 = before.reserve1
+
+private theorem closed_world_no_reserve_update_path_preserves_reserves
     (start finish : PairWorldState) :
   pair_closed_world_no_reserve_update_path_preserves_reserves start finish := by
   intro h_path
@@ -3806,8 +3960,19 @@ theorem closed_world_no_reserve_update_path_preserves_reserves
       exact ⟨by rw [h_step_reserves.1, ih.1],
         by rw [h_step_reserves.2, ih.2]⟩
 
--- tama: discharges=pair_closed_world_no_reserve_update_path_preserves_k_and_spot_value
-theorem closed_world_no_reserve_update_path_preserves_k_and_spot_value
+/-- Economic corollary of finite-history reserve isolation. If no mint, burn,
+swap, or sync occurs, the cached reserve product and reserve-denominated spot
+value are unchanged. This deliberately talks about cached reserves rather than
+actual token balances: direct donations and `skim` may change surplus, but they
+do not change the reserve price state. -/
+private def pair_closed_world_no_reserve_update_path_preserves_k_and_spot_value
+    (before after : PairWorldState) : Prop :=
+  PairWorldPathNoReserveUpdate before after →
+    PairWorldK after = PairWorldK before ∧
+    PairWorldSpotValueNum before after =
+      PairWorldSpotValueNum before before
+
+private theorem closed_world_no_reserve_update_path_preserves_k_and_spot_value
     (before after : PairWorldState) :
   pair_closed_world_no_reserve_update_path_preserves_k_and_spot_value
     before after := by
@@ -3833,8 +3998,21 @@ theorem closed_world_reachable_reserve_change_requires_reserve_update
   · exact h_reserve0_changed h_preserve.1
   · exact h_reserve1_changed h_preserve.2
 
--- tama: discharges=pair_closed_world_non_liquidity_step_preserves_supply
-theorem closed_world_non_liquidity_step_preserves_supply
+/-- The one-step LP-supply firewall. A successful modeled action that is not
+mint and not burn cannot change total LP supply or the permanently locked
+liquidity amount. This is the local fact that the finite-history theorem below
+iterates. -/
+private def pair_closed_world_non_liquidity_step_preserves_supply
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldStep action before after →
+    (∀ amount0 amount1 liquidity,
+      action ≠ PairWorldAction.mint amount0 amount1 liquidity) →
+    (∀ amount0 amount1 liquidity,
+      action ≠ PairWorldAction.burn amount0 amount1 liquidity) →
+      after.totalSupply = before.totalSupply ∧
+      after.lockedLiquidity = before.lockedLiquidity
+
+private theorem closed_world_non_liquidity_step_preserves_supply
     (action : PairWorldAction) (before after : PairWorldState) :
   pair_closed_world_non_liquidity_step_preserves_supply action before after := by
   intro h_step h_not_mint h_not_burn
@@ -3843,8 +4021,16 @@ theorem closed_world_non_liquidity_step_preserves_supply
       (PairWorldPathNoMintBurn.refl before)
       h_step h_not_mint h_not_burn)
 
--- tama: discharges=pair_closed_world_no_mint_burn_path_preserves_supply
-theorem closed_world_no_mint_burn_path_preserves_supply
+/-- The finite-history version of the LP supply firewall. If a successful
+modeled path contains no mint and no burn, then it cannot change total LP supply
+or the permanently locked liquidity amount. -/
+private def pair_closed_world_no_mint_burn_path_preserves_supply
+    (before after : PairWorldState) : Prop :=
+  PairWorldPathNoMintBurn before after →
+    after.totalSupply = before.totalSupply ∧
+    after.lockedLiquidity = before.lockedLiquidity
+
+private theorem closed_world_no_mint_burn_path_preserves_supply
     (before after : PairWorldState) :
   pair_closed_world_no_mint_burn_path_preserves_supply before after := by
   exact pairWorldNoMintBurnPath_preserves_supply
@@ -3856,14 +4042,31 @@ theorem closed_world_reachable_no_mint_burn_path_preserves_supply
   intro _h_reachable h_path
   exact pairWorldNoMintBurnPath_preserves_supply h_path
 
--- tama: discharges=pair_closed_world_non_burn_step_never_decreases_supply
-theorem closed_world_non_burn_step_never_decreases_supply
+/-- The directional LP-supply firewall. A single successful modeled action that
+is not burn cannot destroy LP supply. Mint may create new shares and ordinary
+pool operations may leave supply unchanged, but redemption is the only direction
+that can move supply downward. -/
+private def pair_closed_world_non_burn_step_never_decreases_supply
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldStep action before after →
+    (∀ amount0 amount1 liquidity,
+      action ≠ PairWorldAction.burn amount0 amount1 liquidity) →
+      before.totalSupply ≤ after.totalSupply
+
+private theorem closed_world_non_burn_step_never_decreases_supply
     (action : PairWorldAction) (before after : PairWorldState) :
   pair_closed_world_non_burn_step_never_decreases_supply action before after := by
   exact pairWorldNonBurnStep_never_decreases_supply
 
--- tama: discharges=pair_closed_world_no_burn_path_never_decreases_supply
-theorem closed_world_no_burn_path_never_decreases_supply
+/-- The finite-history version of the same supply direction fact. Along any
+successful modeled history with no burn step, total LP supply cannot decrease.
+This is the trace-level statement that "LP redemption requires burn." -/
+private def pair_closed_world_no_burn_path_never_decreases_supply
+    (before after : PairWorldState) : Prop :=
+  PairWorldPathNoBurn before after →
+    before.totalSupply ≤ after.totalSupply
+
+private theorem closed_world_no_burn_path_never_decreases_supply
     (before after : PairWorldState) :
   pair_closed_world_no_burn_path_never_decreases_supply before after := by
   exact pairWorldNoBurnPath_never_decreases_supply
@@ -3875,14 +4078,31 @@ theorem closed_world_reachable_no_burn_path_never_decreases_supply
   intro _h_reachable h_path
   exact pairWorldNoBurnPath_never_decreases_supply h_path
 
--- tama: discharges=pair_closed_world_non_mint_step_never_increases_supply
-theorem closed_world_non_mint_step_never_increases_supply
+/-- The other direction of LP-supply isolation. A single successful modeled
+action that is not mint cannot create LP supply. Burn may redeem shares and
+ordinary pool operations may leave supply unchanged, but issuance is isolated to
+mint. -/
+private def pair_closed_world_non_mint_step_never_increases_supply
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldStep action before after →
+    (∀ amount0 amount1 liquidity,
+      action ≠ PairWorldAction.mint amount0 amount1 liquidity) →
+      after.totalSupply ≤ before.totalSupply
+
+private theorem closed_world_non_mint_step_never_increases_supply
     (action : PairWorldAction) (before after : PairWorldState) :
   pair_closed_world_non_mint_step_never_increases_supply action before after := by
   exact pairWorldNonMintStep_never_increases_supply
 
--- tama: discharges=pair_closed_world_no_mint_path_never_increases_supply
-theorem closed_world_no_mint_path_never_increases_supply
+/-- The finite-history version of LP issuance isolation. Along any successful
+modeled history with no mint step, total LP supply cannot increase. This is the
+trace-level statement that new LP claims require mint. -/
+private def pair_closed_world_no_mint_path_never_increases_supply
+    (before after : PairWorldState) : Prop :=
+  PairWorldPathNoMint before after →
+    after.totalSupply ≤ before.totalSupply
+
+private theorem closed_world_no_mint_path_never_increases_supply
     (before after : PairWorldState) :
   pair_closed_world_no_mint_path_never_increases_supply before after := by
   exact pairWorldNoMintPath_never_increases_supply
@@ -3975,14 +4195,42 @@ private theorem pairWorldShareBookkeepingPath_preserves_pool_state
       rw [h_step]
       exact ih
 
--- tama: discharges=pair_closed_world_share_bookkeeping_path_preserves_pool_state
-theorem closed_world_share_bookkeeping_path_preserves_pool_state
+/-- LP token bookkeeping is only bookkeeping. Across any finite sequence made
+solely of approvals, direct LP transfers, and delegated LP transfers, the AMM
+state is unchanged: token balances, cached reserves, total LP supply, and the
+permanently locked liquidity amount all end exactly where they started. This is
+the trace-level version of the ERC20-share claim above, and it is what lets the
+economic sections ignore pure share movements as price- or reserve-changing
+actions. -/
+private def pair_closed_world_share_bookkeeping_path_preserves_pool_state
+    (before after : PairWorldState) : Prop :=
+  PairWorldPathShareBookkeeping before after →
+    after.balance0 = before.balance0 ∧
+    after.balance1 = before.balance1 ∧
+    after.reserve0 = before.reserve0 ∧
+    after.reserve1 = before.reserve1 ∧
+    after.totalSupply = before.totalSupply ∧
+    after.lockedLiquidity = before.lockedLiquidity
+
+private theorem closed_world_share_bookkeeping_path_preserves_pool_state
     (before after : PairWorldState) :
   pair_closed_world_share_bookkeeping_path_preserves_pool_state before after := by
   exact pairWorldShareBookkeepingPath_preserves_pool_state
 
--- tama: discharges=pair_closed_world_share_bookkeeping_path_preserves_k_and_value
-theorem closed_world_share_bookkeeping_path_preserves_k_and_value
+/-- Economic corollary of the share-bookkeeping invariant. If a history only
+moves LP approvals or LP balances between accounts, then it cannot change the
+pool's cached K, reserve-denominated spot value, or actual-token-balance spot
+value. Pure ownership bookkeeping is therefore not an AMM profit path. -/
+private def pair_closed_world_share_bookkeeping_path_preserves_k_and_value
+    (before after : PairWorldState) : Prop :=
+  PairWorldPathShareBookkeeping before after →
+    PairWorldK after = PairWorldK before ∧
+    PairWorldSpotValueNum before after =
+      PairWorldSpotValueNum before before ∧
+    PairWorldBalanceSpotValueNum before after =
+      PairWorldBalanceSpotValueNum before before
+
+private theorem closed_world_share_bookkeeping_path_preserves_k_and_value
     (before after : PairWorldState) :
   pair_closed_world_share_bookkeeping_path_preserves_k_and_value before after := by
   intro h_path
@@ -4695,8 +4943,20 @@ theorem closed_world_donation_increases_surplus_exactly
   unfold PairWorldSurplus0 PairWorldSurplus1
   constructor <;> omega
 
--- tama: discharges=pair_closed_world_non_donation_step_never_increases_surplus
-theorem closed_world_non_donation_step_never_increases_surplus
+/-- No non-donation action can create new reserve surplus. Share bookkeeping
+preserves any existing surplus; mint, burn, swap, skim, and sync either account
+for balances as reserves or remove surplus; none of them can increase
+`balance - reserve` without an explicit external token donation. -/
+private def pair_closed_world_non_donation_step_never_increases_surplus
+    (action : PairWorldAction)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep action before after →
+      (∀ amount0 amount1, action ≠ PairWorldAction.donate amount0 amount1) →
+        PairWorldSurplus0 after ≤ PairWorldSurplus0 before ∧
+        PairWorldSurplus1 after ≤ PairWorldSurplus1 before
+
+private theorem closed_world_non_donation_step_never_increases_surplus
     (action : PairWorldAction)
     (before after : PairWorldState) :
   pair_closed_world_non_donation_step_never_increases_surplus
@@ -4780,8 +5040,16 @@ private theorem pairWorldNoDonationPath_never_increases_surplus
       exact ⟨Nat.le_trans h_step_surplus.1 ih.1,
         Nat.le_trans h_step_surplus.2 ih.2⟩
 
--- tama: discharges=pair_closed_world_no_donation_path_never_increases_surplus
-theorem closed_world_no_donation_path_never_increases_surplus
+/-- Trace-level surplus isolation. Across any finite successful history with no
+direct donation step, reserve surplus on either token side cannot increase. -/
+private def pair_closed_world_no_donation_path_never_increases_surplus
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldPathNoDonation before after →
+      PairWorldSurplus0 after ≤ PairWorldSurplus0 before ∧
+      PairWorldSurplus1 after ≤ PairWorldSurplus1 before
+
+private theorem closed_world_no_donation_path_never_increases_surplus
     (before after : PairWorldState) :
   pair_closed_world_no_donation_path_never_increases_surplus before after := by
   exact pairWorldNoDonationPath_never_increases_surplus
@@ -5464,14 +5732,33 @@ theorem swap_success_charges_k_against_final_balances
     h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
     h_bound0 h_bound1 h_fee0 h_fee1 h_k).2.2
 
--- tama: discharges=pair_closed_world_step_k_per_supply_never_decreases
-theorem closed_world_step_k_per_supply_never_decreases
+/- One valid action cannot dilute existing LP shares: measured
+as reserve product per squared LP supply, the pool is at least as strong after
+the step as before it. -/
+private def pair_closed_world_step_k_per_supply_never_decreases
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldStep action before after →
+        PairWorldKPerSupplyNondecreasing before after
+
+private theorem closed_world_step_k_per_supply_never_decreases
     (action : PairWorldAction) (before after : PairWorldState) :
   pair_closed_world_step_k_per_supply_never_decreases action before after := by
   exact pairWorldStep_k_per_supply_never_decreases
 
--- tama: discharges=pair_closed_world_path_k_per_supply_never_decreases
-theorem closed_world_path_k_per_supply_never_decreases
+/- The one-step dilution bound composes over every finite path. This is the
+main sequence invariant: no combination of transfers, donations, mint, burn,
+swap, skim, or sync can reduce LP-normalized K from a good positive-supply
+state. -/
+private def pair_closed_world_path_k_per_supply_never_decreases
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        PairWorldKPerSupplyNondecreasing before after
+
+private theorem closed_world_path_k_per_supply_never_decreases
     (before after : PairWorldState) :
   pair_closed_world_path_k_per_supply_never_decreases before after := by
   exact pairWorldPath_k_per_supply_never_decreases
@@ -5747,14 +6034,36 @@ private theorem pairWalletStep_preserves_good_and_positive
       · omega
     · omega
 
--- tama: discharges=pair_closed_world_same_supply_path_never_decreases_k
-theorem closed_world_same_supply_path_never_decreases_k
+/- If a finite path returns to the same LP supply, LP normalization cancels.
+The pool's raw reserve product therefore cannot be lower than where it began. -/
+private def pair_closed_world_same_supply_path_never_decreases_k
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        before.totalSupply = after.totalSupply →
+          PairWorldK before ≤ PairWorldK after
+
+private theorem closed_world_same_supply_path_never_decreases_k
     (before after : PairWorldState) :
   pair_closed_world_same_supply_path_never_decreases_k before after := by
   exact pairWorldSameSupplyPath_never_decreases_k
 
--- tama: discharges=pair_closed_world_same_supply_path_no_spot_profit
-theorem closed_world_same_supply_path_no_spot_profit
+/- Constant-product arithmetic: once raw K is known not to fall, the final
+reserves cannot be worth less than the initial reserves at the initial spot
+price. This lemma is kept parameterized by the K fact so other sequence
+arguments can reuse the geometric conversion directly. -/
+private def pair_closed_world_same_supply_path_no_spot_profit
+    (before after : PairWorldState) : Prop :=
+  PairWorldPath before after →
+    PairWorldGood before →
+      before.totalSupply = after.totalSupply →
+        0 < before.reserve0 →
+          0 < before.reserve1 →
+            PairWorldK before ≤ PairWorldK after →
+              PairWorldNoSpotProfit before after
+
+private theorem closed_world_same_supply_path_no_spot_profit
     (before after : PairWorldState) :
   pair_closed_world_same_supply_path_no_spot_profit before after := by
   intro _h_path _h_good _h_supply h_reserve0 h_reserve1 h_k
@@ -5801,8 +6110,22 @@ theorem closed_world_same_supply_path_no_spot_profit
     nlinarith [hlt, hsum_nonneg, htarget_pos]
   nlinarith [hamgm, hkscaled, hlt_sq]
 
--- tama: discharges=pair_closed_world_positive_supply_same_supply_path_no_spot_profit
-theorem closed_world_positive_supply_same_supply_path_no_spot_profit
+/- The complete same-supply no-profit theorem for the closed-world pool model:
+from any good positive-supply state with nonzero reserves, every finite path
+that ends with the same LP supply has no spot-price profit. This version allows
+mint/burn round trips because it relies on LP-normalized K rather than the older
+no-burn K theorem. -/
+private def pair_closed_world_positive_supply_same_supply_path_no_spot_profit
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        before.totalSupply = after.totalSupply →
+          0 < before.reserve0 →
+            0 < before.reserve1 →
+              PairWorldNoSpotProfit before after
+
+private theorem closed_world_positive_supply_same_supply_path_no_spot_profit
     (before after : PairWorldState) :
   pair_closed_world_positive_supply_same_supply_path_no_spot_profit before after := by
   intro h_good h_positive h_path h_supply h_reserve0 h_reserve1
@@ -5920,16 +6243,41 @@ theorem swap_success_run_no_caller_spot_profit_from_run
     callerValueBefore callerValueAfter
     h_reachable h_positive h_step h_total_value
 
--- tama: discharges=pair_closed_world_reachable_same_supply_path_never_decreases_k
-theorem closed_world_reachable_same_supply_path_never_decreases_k
+/- The reachable-state version of the same-supply K theorem is the one most
+callers should cite: from any actually reachable nonempty pool, any finite
+successful sequence that returns LP supply to its starting value cannot reduce
+raw reserve product. -/
+private def pair_closed_world_reachable_same_supply_path_never_decreases_k
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        before.totalSupply = after.totalSupply →
+          PairWorldK before ≤ PairWorldK after
+
+private theorem closed_world_reachable_same_supply_path_never_decreases_k
     (before after : PairWorldState) :
   pair_closed_world_reachable_same_supply_path_never_decreases_k before after := by
   intro h_reachable h_positive h_path h_supply
   exact pairWorldSameSupplyPath_never_decreases_k
     (pairWorldReachable_good before h_reachable) h_positive h_path h_supply
 
--- tama: discharges=pair_closed_world_reachable_same_supply_path_no_spot_profit
-theorem closed_world_reachable_same_supply_path_no_spot_profit
+/- The reachable-state no-profit theorem states the economic conclusion in the
+language of the contract user. Starting from any reachable nonempty pool with a
+defined spot price, any finite successful sequence that leaves LP supply
+unchanged leaves the pool worth at least as much at the initial spot price.
+Without an external gift to the caller, that rules out spot-price profit. -/
+private def pair_closed_world_reachable_same_supply_path_no_spot_profit
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        before.totalSupply = after.totalSupply →
+          0 < before.reserve0 →
+            0 < before.reserve1 →
+              PairWorldNoSpotProfit before after
+
+private theorem closed_world_reachable_same_supply_path_no_spot_profit
     (before after : PairWorldState) :
   pair_closed_world_reachable_same_supply_path_no_spot_profit before after := by
   intro h_reachable h_positive h_path h_supply h_reserve0 h_reserve1
@@ -5953,8 +6301,25 @@ theorem closed_world_reachable_same_supply_path_pool_value_never_decreases
   simpa [pair_closed_world_reachable_same_supply_path_pool_value_never_decreases,
     PairWorldNoSpotProfit, h_initial_value] using h_no_profit
 
--- tama: discharges=pair_closed_world_reachable_same_supply_path_no_spot_value_extraction
-theorem closed_world_reachable_same_supply_path_no_spot_value_extraction
+/-- Caller-facing form of the same theorem. `PairWorld` tracks pool-side token
+balances and LP supply, not arbitrary external wallet balances, so the
+closed-world no-profit claim is stated as absence of pool value extraction: if a
+finite successful history returns LP supply to its starting value, the final pool
+cannot be worth less at the initial spot price. Any positive closed-world caller
+profit would have to appear as that missing pool value; external gifts are
+outside this theorem's closed-world premise. -/
+private def pair_closed_world_reachable_same_supply_path_no_spot_value_extraction
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        before.totalSupply = after.totalSupply →
+          0 < before.reserve0 →
+          0 < before.reserve1 →
+            PairWorldSpotValueNum before before ≤
+              PairWorldSpotValueNum before after
+
+private theorem closed_world_reachable_same_supply_path_no_spot_value_extraction
     (before after : PairWorldState) :
   pair_closed_world_reachable_same_supply_path_no_spot_value_extraction before after := by
   simpa [pair_closed_world_reachable_same_supply_path_no_spot_value_extraction]
@@ -6655,8 +7020,21 @@ theorem closed_world_reachable_no_mint_burn_path_no_caller_spot_profit
     before after callerValueBefore callerValueAfter h_reachable h_positive
     (pairWorldPath_of_noMintBurn h_path) h_supply.symm h_total_value
 
--- tama: discharges=pair_closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
-theorem closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
+/-- Non-liquidity histories are the common operational case: swaps, surplus
+management, donations, and LP-token bookkeeping, but no mint and no burn. The
+supply firewall above makes these histories same-supply histories, so the
+same no-extraction conclusion applies directly. -/
+private def pair_closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPathNoMintBurn before after →
+        0 < before.reserve0 →
+          0 < before.reserve1 →
+            PairWorldSpotValueNum before before ≤
+              PairWorldSpotValueNum before after
+
+private theorem closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
     (before after : PairWorldState) :
   pair_closed_world_reachable_no_mint_burn_path_no_spot_value_extraction
     before after := by
@@ -6688,8 +7066,15 @@ theorem closed_world_reachable_no_mint_burn_path_never_decreases_k
     (pairWorldReachable_good before h_reachable)
     (pairWorldNoBurnPath_of_noMintBurn h_path)
 
--- tama: discharges=pair_closed_world_non_burn_step_never_decreases_k
-theorem closed_world_non_burn_step_never_decreases_k
+private def pair_closed_world_non_burn_step_never_decreases_k
+    (action : PairWorldAction) (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep action before after →
+      (∀ amount0 amount1 liquidity,
+        action ≠ PairWorldAction.burn amount0 amount1 liquidity) →
+        PairWorldK before ≤ PairWorldK after
+
+private theorem closed_world_non_burn_step_never_decreases_k
     (action : PairWorldAction) (before after : PairWorldState) :
   pair_closed_world_non_burn_step_never_decreases_k action before after := by
   exact pairWorldNonBurnStep_never_decreases_k
@@ -6712,8 +7097,13 @@ theorem closed_world_k_decrease_requires_burn
       pairWorldNonBurnStep_never_decreases_k h_good h_step h_not_burn
     exact False.elim ((Nat.not_lt_of_ge h_nondec) h_decrease)
 
--- tama: discharges=pair_closed_world_no_burn_path_never_decreases_k
-theorem closed_world_no_burn_path_never_decreases_k
+private def pair_closed_world_no_burn_path_never_decreases_k
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldPathNoBurn before after →
+      PairWorldK before ≤ PairWorldK after
+
+private theorem closed_world_no_burn_path_never_decreases_k
     (before after : PairWorldState) :
   pair_closed_world_no_burn_path_never_decreases_k before after := by
   exact pairWorldNoBurnPath_never_decreases_k
@@ -6737,8 +7127,16 @@ theorem closed_world_reachable_k_decrease_excludes_burn_free_path
       (pairWorldReachable_good before h_reachable) h_no_burn_path
   exact (Nat.not_lt_of_ge h_nondec) h_decrease
 
--- tama: discharges=pair_closed_world_no_burn_same_supply_path_no_spot_profit
-theorem closed_world_no_burn_same_supply_path_no_spot_profit
+private def pair_closed_world_no_burn_same_supply_path_no_spot_profit
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldPathNoBurn before after →
+      before.totalSupply = after.totalSupply →
+        0 < before.reserve0 →
+          0 < before.reserve1 →
+            PairWorldNoSpotProfit before after
+
+private theorem closed_world_no_burn_same_supply_path_no_spot_profit
     (before after : PairWorldState) :
   pair_closed_world_no_burn_same_supply_path_no_spot_profit before after := by
   intro h_good h_path h_supply h_reserve0 h_reserve1
@@ -7587,8 +7985,24 @@ private theorem pairWorldSkimSyncPath_preserves_balanced_pool
       · rw [h_supply_step, h_supply_prefix]
       · rw [h_locked_step, h_locked_prefix]
 
--- tama: discharges=pair_closed_world_balanced_skim_sync_path_preserves_pool
-theorem closed_world_balanced_skim_sync_path_preserves_pool
+/-- The same no-change claim holds for any finite history made only of `skim`
+and `sync`. Starting from a good pool with no excess balances above cached
+reserves, repeated cleanup calls preserve token balances, cached reserves, LP
+supply, and the permanent liquidity lock exactly. -/
+private def pair_closed_world_balanced_skim_sync_path_preserves_pool
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldSurplus0 before = 0 →
+      PairWorldSurplus1 before = 0 →
+        PairWorldPathSkimSync before after →
+          after.balance0 = before.balance0 ∧
+          after.balance1 = before.balance1 ∧
+          after.reserve0 = before.reserve0 ∧
+          after.reserve1 = before.reserve1 ∧
+          after.totalSupply = before.totalSupply ∧
+          after.lockedLiquidity = before.lockedLiquidity
+
+private theorem closed_world_balanced_skim_sync_path_preserves_pool
     (before after : PairWorldState) :
   pair_closed_world_balanced_skim_sync_path_preserves_pool before after := by
   exact pairWorldSkimSyncPath_preserves_balanced_pool
@@ -7688,14 +8102,41 @@ private theorem pairWorldLpBookkeepingSkimSyncPath_preserves_balanced_pool
       · rw [h_supply_step, h_supply_prefix]
       · rw [h_locked_step, h_locked_prefix]
 
--- tama: discharges=pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_pool
-theorem closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_pool
+/-- LP approvals/transfers only move LP-token claims, not pool assets. Combining
+those bookkeeping actions with `skim`/`sync` on a pool that has no excess token
+balances therefore preserves the pool exactly across any finite history made
+only of `approve`, `transfer`, `transferFrom`, `skim`, and `sync`. -/
+private def pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_pool
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldSurplus0 before = 0 →
+      PairWorldSurplus1 before = 0 →
+        PairWorldPathLpBookkeepingSkimSync before after →
+          after.balance0 = before.balance0 ∧
+          after.balance1 = before.balance1 ∧
+          after.reserve0 = before.reserve0 ∧
+          after.reserve1 = before.reserve1 ∧
+          after.totalSupply = before.totalSupply ∧
+          after.lockedLiquidity = before.lockedLiquidity
+
+private theorem closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_pool
     (before after : PairWorldState) :
   pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_pool before after := by
   exact pairWorldLpBookkeepingSkimSyncPath_preserves_balanced_pool
 
--- tama: discharges=pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_k
-theorem closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_k
+/-- The cached reserve product is unchanged by the same histories. Since token
+balances and cached reserves are unchanged, the pool's `reserve0 * reserve1`
+value is unchanged too; this lets economic arguments cite the K consequence
+directly. -/
+private def pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_k
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldSurplus0 before = 0 →
+      PairWorldSurplus1 before = 0 →
+        PairWorldPathLpBookkeepingSkimSync before after →
+          PairWorldK after = PairWorldK before
+
+private theorem closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_k
     (before after : PairWorldState) :
   pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_k before after := by
   intro h_good h_surplus0 h_surplus1 h_path
@@ -7704,8 +8145,19 @@ theorem closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_k
     ⟨_h_balance0, _h_balance1, h_reserve0, h_reserve1, _h_supply, _h_locked⟩
   simp [PairWorldK, h_reserve0, h_reserve1]
 
--- tama: discharges=pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_zero_surplus
-theorem closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_zero_surplus
+/-- Clean pools stay clean under LP bookkeeping plus `skim`/`sync`. Those
+actions cannot create new excess token balances above cached reserves when none
+existed at the start. -/
+private def pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_zero_surplus
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldSurplus0 before = 0 →
+      PairWorldSurplus1 before = 0 →
+        PairWorldPathLpBookkeepingSkimSync before after →
+          PairWorldSurplus0 after = 0 ∧
+          PairWorldSurplus1 after = 0
+
+private theorem closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_zero_surplus
     (before after : PairWorldState) :
   pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_zero_surplus
     before after := by
@@ -7717,8 +8169,21 @@ theorem closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_zero_surpl
   · simpa [PairWorldSurplus0, h_balance0, h_reserve0] using h_surplus0
   · simpa [PairWorldSurplus1, h_balance1, h_reserve1] using h_surplus1
 
--- tama: discharges=pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_token_balance_value
-theorem closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_token_balance_value
+/-- Economic reading of the no-change theorem above. If a clean balanced pool
+only goes through LP approval/transfer bookkeeping plus `skim`/`sync`, the
+actual token balances held by the pool have exactly the same spot-priced value
+at the end as they had at the start. This is the concise no-extraction
+consequence of the stronger state-preservation theorem above. -/
+private def pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_token_balance_value
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldSurplus0 before = 0 →
+      PairWorldSurplus1 before = 0 →
+        PairWorldPathLpBookkeepingSkimSync before after →
+          PairWorldBalanceSpotValueNum before after =
+            PairWorldBalanceSpotValueNum before before
+
+private theorem closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_token_balance_value
     (before after : PairWorldState) :
   pair_closed_world_balanced_lp_bookkeeping_skim_sync_path_preserves_token_balance_value
     before after := by
@@ -7774,8 +8239,17 @@ private theorem pairWorldLpBookkeepingSkimSyncPath_token_balance_value_never_inc
       exact ⟨pairWorldStep_preserves_good h_good_mid h_step,
         Nat.le_trans h_step_value h_value_prefix⟩
 
--- tama: discharges=pair_closed_world_lp_bookkeeping_skim_sync_path_token_balance_value_never_increases
-theorem closed_world_lp_bookkeeping_skim_sync_path_token_balance_value_never_increases
+/-- Without the zero-surplus assumption, LP bookkeeping plus `skim`/`sync` may
+remove donated excess via skim, but it still cannot increase the pair's actual
+token-balance value at the starting spot price. -/
+private def pair_closed_world_lp_bookkeeping_skim_sync_path_token_balance_value_never_increases
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldPathLpBookkeepingSkimSync before after →
+      PairWorldBalanceSpotValueNum before after ≤
+        PairWorldBalanceSpotValueNum before before
+
+private theorem closed_world_lp_bookkeeping_skim_sync_path_token_balance_value_never_increases
     (before after : PairWorldState) :
   pair_closed_world_lp_bookkeeping_skim_sync_path_token_balance_value_never_increases
     before after := by
