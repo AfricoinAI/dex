@@ -172,9 +172,6 @@ contract UniswapV2CoreTest is Test {
         return address(uint160(uint256(keccak256(abi.encodePacked(hex"ff", address(factory), salt, keccak256(creationCode))))));
     }
 
-    // tama: mirrors=factory_createPair_rejects_duplicates
-    // tama: mirrors=factory_createPair_rejects_identical_addresses
-    // tama: mirrors=factory_createPair_rejects_zero_address
     function testFuzzFactorySortsStoresReversePairAndRejectsDuplicates() public {
         (address token0, address token1) =
             address(tokenA) < address(tokenB) ? (address(tokenA), address(tokenB)) : (address(tokenB), address(tokenA));
@@ -195,7 +192,6 @@ contract UniswapV2CoreTest is Test {
         factory.createPair(address(0), address(tokenB));
     }
 
-    // tama: mirrors=factory_allPairs_reverts_out_of_bounds
     function testFuzzFactoryAllPairsOutOfBoundsReverts() public {
         uint256 length = factory.allPairsLength();
         vm.expectRevert();
@@ -356,9 +352,6 @@ contract UniswapV2CoreTest is Test {
         assertEq(pair.balanceOf(address(this)), senderBefore - 100);
     }
 
-    // tama: mirrors=pair_transfer_reverts_when_balance_low
-    // tama: mirrors=pair_transferFrom_reverts_when_allowance_low
-    // tama: mirrors=pair_transferFrom_reverts_when_balance_low
     function testFuzzLpTransferAndTransferFromRevertGuards() public {
         seed(1_000_000, 1_000_000);
 

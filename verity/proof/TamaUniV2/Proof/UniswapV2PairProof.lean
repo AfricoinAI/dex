@@ -462,8 +462,19 @@ theorem initialize_reverts_when_already_initialized
 theorem initialize_run_success_sets_tokens
     (token0Value token1Value : Address) (s : ContractState) :
   pair_initialize_run_success_sets_tokens token0Value token1Value s := by
-  simpa [pair_initialize_run_success_sets_tokens, pair_initialize_sets_tokens]
-    using initialize_sets_tokens token0Value token1Value s
+  intro h_sender h_token0_empty h_token1_empty
+  have h_sender_raw : s.sender = s.storageAddr 0 := by
+    simpa [factorySlot] using h_sender
+  have h_token0_raw : s.storageAddr 1 = (0 : Address) := by
+    simpa [token0Slot] using h_token0_empty
+  have h_token1_raw : s.storageAddr 2 = (0 : Address) := by
+    simpa [token1Slot] using h_token1_empty
+  have h_token_slots_distinct : (1 : Nat) ≠ 2 := by
+    omega
+  simp [pair_initialize_run_success_sets_tokens, «initialize», msgSender,
+    getStorageAddr, setStorageAddr, Verity.require, Contract.run,
+    ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+    h_sender_raw, h_token0_raw, h_token1_raw, h_token_slots_distinct]
 
 -- tama: discharges=pair_initialize_run_success_keeps_amm_accounting
 theorem initialize_run_success_keeps_amm_accounting
@@ -542,17 +553,16 @@ theorem approve_emits_approval (spender : Address) (amount : Uint256) (s : Contr
 
 private theorem transfer_properties_after_run
     (toAddr : Address) (amount : Uint256) (s : ContractState) :
-  pair_transfer_reverts_when_balance_low toAddr amount s ((transfer toAddr amount).run s) ∧
+  pair_transfer_run_revert_balance_low toAddr amount s ∧
   pair_transfer_to_self_keeps_balances toAddr amount s ((transfer toAddr amount).run s) ∧
-  pair_transfer_reverts_when_recipient_balance_would_overflow toAddr amount s
-    ((transfer toAddr amount).run s) ∧
+  pair_transfer_run_revert_recipient_balance_overflow toAddr amount s ∧
   pair_transfer_moves_tokens_between_distinct_accounts toAddr amount s
     ((transfer toAddr amount).run s) ∧
   pair_transfer_keeps_total_supply toAddr amount s ((transfer toAddr amount).run s) ∧
   pair_transfer_emits_transfer toAddr amount s ((transfer toAddr amount).run s) := by
-  unfold pair_transfer_reverts_when_balance_low
+  unfold pair_transfer_run_revert_balance_low
     pair_transfer_to_self_keeps_balances
-    pair_transfer_reverts_when_recipient_balance_would_overflow
+    pair_transfer_run_revert_recipient_balance_overflow
     pair_transfer_moves_tokens_between_distinct_accounts
     pair_transfer_keeps_total_supply
     pair_transfer_emits_transfer
@@ -700,12 +710,9 @@ theorem transfer_emits_transfer
 
 private theorem transferFrom_properties_after_run
     (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState) :
-  pair_transferFrom_reverts_when_allowance_low fromAddr toAddr amount s
-    ((transferFrom fromAddr toAddr amount).run s) ∧
-  pair_transferFrom_reverts_when_balance_low fromAddr toAddr amount s
-    ((transferFrom fromAddr toAddr amount).run s) ∧
-  pair_transferFrom_reverts_when_recipient_balance_would_overflow fromAddr toAddr amount s
-    ((transferFrom fromAddr toAddr amount).run s) ∧
+  pair_transferFrom_run_revert_allowance_low fromAddr toAddr amount s ∧
+  pair_transferFrom_run_revert_balance_low fromAddr toAddr amount s ∧
+  pair_transferFrom_run_revert_recipient_balance_overflow fromAddr toAddr amount s ∧
   pair_transferFrom_to_self_keeps_balances fromAddr toAddr amount s
     ((transferFrom fromAddr toAddr amount).run s) ∧
   pair_transferFrom_moves_tokens_between_distinct_accounts fromAddr toAddr amount s
@@ -718,9 +725,9 @@ private theorem transferFrom_properties_after_run
     ((transferFrom fromAddr toAddr amount).run s) ∧
   pair_transferFrom_emits_transfer fromAddr toAddr amount s
     ((transferFrom fromAddr toAddr amount).run s) := by
-  unfold pair_transferFrom_reverts_when_allowance_low
-    pair_transferFrom_reverts_when_balance_low
-    pair_transferFrom_reverts_when_recipient_balance_would_overflow
+  unfold pair_transferFrom_run_revert_allowance_low
+    pair_transferFrom_run_revert_balance_low
+    pair_transferFrom_run_revert_recipient_balance_overflow
     pair_transferFrom_to_self_keeps_balances
     pair_transferFrom_moves_tokens_between_distinct_accounts
     pair_transferFrom_keeps_total_supply
@@ -1114,48 +1121,40 @@ theorem initialize_run_revert_already_initialized
 theorem transfer_run_revert_balance_low
     (toAddr : Address) (amount : Uint256) (s : ContractState) :
   pair_transfer_run_revert_balance_low toAddr amount s := by
-  simpa [pair_transfer_run_revert_balance_low,
-    pair_transfer_reverts_when_balance_low]
-    using transfer_reverts_when_balance_low toAddr amount s
+  exact (transfer_properties_after_run toAddr amount s).1
 
 -- tama: discharges=pair_transfer_run_revert_recipient_balance_overflow
 theorem transfer_run_revert_recipient_balance_overflow
     (toAddr : Address) (amount : Uint256) (s : ContractState) :
   pair_transfer_run_revert_recipient_balance_overflow toAddr amount s := by
-  simpa [pair_transfer_run_revert_recipient_balance_overflow,
-    pair_transfer_reverts_when_recipient_balance_would_overflow]
-    using transfer_reverts_when_recipient_balance_would_overflow toAddr amount s
+  exact (transfer_properties_after_run toAddr amount s).2.2.1
 
 -- tama: discharges=pair_transferFrom_run_revert_allowance_low
 theorem transferFrom_run_revert_allowance_low
     (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState) :
   pair_transferFrom_run_revert_allowance_low fromAddr toAddr amount s := by
-  simpa [pair_transferFrom_run_revert_allowance_low,
-    pair_transferFrom_reverts_when_allowance_low]
-    using transferFrom_reverts_when_allowance_low fromAddr toAddr amount s
+  exact (transferFrom_properties_after_run fromAddr toAddr amount s).1
 
 -- tama: discharges=pair_transferFrom_run_revert_balance_low
 theorem transferFrom_run_revert_balance_low
     (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState) :
   pair_transferFrom_run_revert_balance_low fromAddr toAddr amount s := by
-  simpa [pair_transferFrom_run_revert_balance_low,
-    pair_transferFrom_reverts_when_balance_low]
-    using transferFrom_reverts_when_balance_low fromAddr toAddr amount s
+  exact (transferFrom_properties_after_run fromAddr toAddr amount s).2.1
 
 -- tama: discharges=pair_transferFrom_run_revert_recipient_balance_overflow
 theorem transferFrom_run_revert_recipient_balance_overflow
     (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState) :
   pair_transferFrom_run_revert_recipient_balance_overflow fromAddr toAddr amount s := by
-  simpa [pair_transferFrom_run_revert_recipient_balance_overflow,
-    pair_transferFrom_reverts_when_recipient_balance_would_overflow]
-    using transferFrom_reverts_when_recipient_balance_would_overflow
-      fromAddr toAddr amount s
+  exact (transferFrom_properties_after_run fromAddr toAddr amount s).2.2.1
 
 -- tama: discharges=pair_mint_run_revert_locked
 theorem mint_run_revert_locked (toAddr : Address) (s : ContractState) :
   pair_mint_run_revert_locked toAddr s := by
-  simpa [pair_mint_run_revert_locked, pair_mint_reverts_when_locked]
-    using mint_reverts_when_locked toAddr s
+  intro h_locked
+  have h_locked_raw : ¬ s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_locked
+  simp [pair_mint_run_revert_locked, mint, unlockedSlot, getStorage,
+    Verity.require, Contract.run, Verity.bind, Bind.bind, h_locked_raw]
 
 -- tama: discharges=pair_mint_run_revert_balance0_overflow
 theorem mint_run_revert_balance0_overflow
@@ -1262,16 +1261,22 @@ theorem mint_run_revert_balance1_overflow
 -- tama: discharges=pair_burn_run_revert_locked
 theorem burn_run_revert_locked (toAddr : Address) (s : ContractState) :
   pair_burn_run_revert_locked toAddr s := by
-  simpa [pair_burn_run_revert_locked, pair_burn_reverts_when_locked]
-    using burn_reverts_when_locked toAddr s
+  intro h_locked
+  have h_locked_raw : ¬ s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_locked
+  simp [pair_burn_run_revert_locked, burn, unlockedSlot, getStorage,
+    Verity.require, Contract.run, Verity.bind, Bind.bind, h_locked_raw]
 
 -- tama: discharges=pair_swap_run_revert_locked
 theorem swap_run_revert_locked
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (s : ContractState) :
   pair_swap_run_revert_locked amount0Out amount1Out toAddr data s := by
-  simpa [pair_swap_run_revert_locked, pair_swap_reverts_when_locked]
-    using swap_reverts_when_locked amount0Out amount1Out toAddr data s
+  intro h_locked
+  have h_locked_raw : ¬ s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_locked
+  simp [pair_swap_run_revert_locked, swap, unlockedSlot, getStorage,
+    Verity.require, Contract.run, Verity.bind, Bind.bind, h_locked_raw]
 
 -- tama: discharges=pair_swap_run_revert_zero_output
 theorem swap_run_revert_zero_output
@@ -1290,24 +1295,65 @@ theorem swap_run_revert_zero_output
 -- tama: discharges=pair_skim_run_revert_locked
 theorem skim_run_revert_locked (toAddr : Address) (s : ContractState) :
   pair_skim_run_revert_locked toAddr s := by
-  simpa [pair_skim_run_revert_locked, pair_skim_reverts_when_locked]
-    using skim_reverts_when_locked toAddr s
+  intro h_locked
+  have h_locked_raw : ¬ s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_locked
+  simp [pair_skim_run_revert_locked, skim, unlockedSlot, getStorage,
+    Verity.require, Contract.run, Verity.bind, Bind.bind, h_locked_raw]
 
 -- tama: discharges=pair_skim_run_revert_balance0_below_reserve
 theorem skim_run_revert_balance0_below_reserve
     (toAddr : Address) (s : ContractState) :
   pair_skim_run_revert_balance0_below_reserve toAddr s := by
-  simpa [pair_skim_run_revert_balance0_below_reserve,
-    pair_skim_reverts_when_balance0_below_reserve]
-    using skim_reverts_when_balance0_below_reserve toAddr s
+  intro h_unlocked h_under
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_unlocked
+  have h_lock_guard :
+      (s.storage UniswapV2PairBase.unlockedSlot.slot == (1 : Uint256)) = true := by
+    simp [UniswapV2PairBase.unlockedSlot, h_unlocked_raw]
+  have h_require_false :
+      ¬ ((s.storage reserve0Slot.slot).val ≤ (observedBalance0 s).val ∧
+        (s.storage reserve1Slot.slot).val ≤ (observedBalance1 s).val) := by
+    intro h
+    exact (Nat.not_le_of_gt (by simpa [Verity.Core.Uint256.lt_def] using h_under)) h.1
+  have h_require_false_raw := h_require_false
+  dsimp [observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run,
+    ContractResult.fst, Verity.pure, Pure.pure] at h_require_false_raw
+  simp [pair_skim_run_revert_balance0_below_reserve, skim, UniswapV2PairBase.skim,
+    unlockedSlot, token0Slot, token1Slot, reserve0Slot, reserve1Slot,
+    getStorage, getStorageAddr, setStorage, Verity.contractAddress,
+    Contracts.balanceOf, Verity.require, Contract.run, Verity.bind, Bind.bind,
+    Verity.pure, Pure.pure, observedBalance0, observedBalance1, pairToken0,
+    pairToken1, pairSelf, TamaUniV2.erc20BalanceOf, h_unlocked_raw,
+    h_lock_guard, h_require_false_raw]
 
 -- tama: discharges=pair_skim_run_revert_balance1_below_reserve
 theorem skim_run_revert_balance1_below_reserve
     (toAddr : Address) (s : ContractState) :
   pair_skim_run_revert_balance1_below_reserve toAddr s := by
-  simpa [pair_skim_run_revert_balance1_below_reserve,
-    pair_skim_reverts_when_balance1_below_reserve]
-    using skim_reverts_when_balance1_below_reserve toAddr s
+  intro h_unlocked h_under
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_unlocked
+  have h_lock_guard :
+      (s.storage UniswapV2PairBase.unlockedSlot.slot == (1 : Uint256)) = true := by
+    simp [UniswapV2PairBase.unlockedSlot, h_unlocked_raw]
+  have h_require_false :
+      ¬ ((s.storage reserve0Slot.slot).val ≤ (observedBalance0 s).val ∧
+        (s.storage reserve1Slot.slot).val ≤ (observedBalance1 s).val) := by
+    intro h
+    exact (Nat.not_le_of_gt (by simpa [Verity.Core.Uint256.lt_def] using h_under)) h.2
+  have h_require_false_raw := h_require_false
+  dsimp [observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run,
+    ContractResult.fst, Verity.pure, Pure.pure] at h_require_false_raw
+  simp [pair_skim_run_revert_balance1_below_reserve, skim, UniswapV2PairBase.skim,
+    unlockedSlot, token0Slot, token1Slot, reserve0Slot, reserve1Slot,
+    getStorage, getStorageAddr, setStorage, Verity.contractAddress,
+    Contracts.balanceOf, Verity.require, Contract.run, Verity.bind, Bind.bind,
+    Verity.pure, Pure.pure, observedBalance0, observedBalance1, pairToken0,
+    pairToken1, pairSelf, TamaUniV2.erc20BalanceOf, h_unlocked_raw,
+    h_lock_guard, h_require_false_raw]
 
 -- tama: discharges=pair_skim_run_success_transfers_excess_and_restores_unlocked
 theorem skim_run_success_transfers_excess_and_restores_unlocked
@@ -1398,8 +1444,11 @@ private theorem skim_run_success_matches_closed_world_step
 -- tama: discharges=pair_sync_run_revert_locked
 theorem sync_run_revert_locked (s : ContractState) :
   pair_sync_run_revert_locked s := by
-  simpa [pair_sync_run_revert_locked, pair_sync_reverts_when_locked]
-    using sync_reverts_when_locked s
+  intro h_locked
+  have h_locked_raw : ¬ s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_locked
+  simp [pair_sync_run_revert_locked, sync, unlockedSlot, getStorage,
+    Verity.require, Contract.run, Verity.bind, Bind.bind, h_locked_raw]
 
 -- tama: discharges=pair_reentrancy_guard_blocks_all_mutating_entrypoints
 theorem reentrancy_guard_blocks_all_mutating_entrypoints
@@ -1440,6 +1489,34 @@ theorem flash_callback_reentry_attempts_revert_locked
     (pairLockedState s) (by
       simp [pairLockedState, unlockedSlot]
       decide)
+
+private theorem swap_success_run_implies_lock_open
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) (result : ContractResult Unit) :
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      s.storage unlockedSlot.slot = 1 := by
+  intro h_run h_success
+  by_contra h_not_open
+  have h_locked : s.storage unlockedSlot.slot != (1 : Uint256) := by
+    simpa using h_not_open
+  have h_revert :=
+    swap_run_revert_locked amount0Out amount1Out toAddr data s h_locked
+  rw [← h_run, h_success] at h_revert
+  cases h_revert
+
+private theorem skim_success_run_implies_lock_open
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) :
+  result = (skim toAddr).run s →
+    result = ContractResult.success () result.snd →
+      s.storage unlockedSlot.slot = 1 := by
+  intro h_run h_success
+  by_contra h_not_open
+  have h_locked : s.storage unlockedSlot.slot != (1 : Uint256) := by
+    simpa using h_not_open
+  have h_revert := skim_run_revert_locked toAddr s h_locked
+  rw [← h_run, h_success] at h_revert
+  cases h_revert
 
 
 
@@ -1571,6 +1648,78 @@ theorem sync_run_revert_balance1_overflow (s : ContractState) :
     observedBalance1, pairToken0, pairToken1, pairSelf, TamaUniV2.erc20BalanceOf,
     h_unlocked_raw, h_require_false_raw]
 
+private theorem sync_success_run_implies_balances_fit_uint112
+    (s : ContractState) (result : ContractResult Unit) :
+  result = (sync).run s →
+    result = ContractResult.success () result.snd →
+      observedBalance0 s ≤ maxUint112 ∧ observedBalance1 s ≤ maxUint112 := by
+  intro h_run h_success
+  have h_unlocked : s.storage unlockedSlot.slot = 1 := by
+    by_contra h_not_open
+    have h_locked : s.storage unlockedSlot.slot != (1 : Uint256) := by
+      simpa using h_not_open
+    have h_revert := sync_run_revert_locked s h_locked
+    rw [← h_run, h_success] at h_revert
+    cases h_revert
+  constructor
+  · by_contra h_not_le
+    have h_gt : observedBalance0 s > maxUint112 := by
+      have h_nat : ¬ (observedBalance0 s).val ≤ maxUint112.val := by
+        simpa [Verity.Core.Uint256.le_def] using h_not_le
+      simpa [Verity.Core.Uint256.lt_def] using Nat.lt_of_not_ge h_nat
+    have h_revert := sync_run_revert_balance0_overflow s h_unlocked h_gt
+    rw [← h_run, h_success] at h_revert
+    cases h_revert
+  · by_contra h_not_le
+    have h_gt : observedBalance1 s > maxUint112 := by
+      have h_nat : ¬ (observedBalance1 s).val ≤ maxUint112.val := by
+        simpa [Verity.Core.Uint256.le_def] using h_not_le
+      simpa [Verity.Core.Uint256.lt_def] using Nat.lt_of_not_ge h_nat
+    have h_revert := sync_run_revert_balance1_overflow s h_unlocked h_gt
+    rw [← h_run, h_success] at h_revert
+    cases h_revert
+
+private theorem mint_success_run_implies_lock_open
+    (toAddr : Address) (s : ContractState) (result : ContractResult Uint256) :
+  result = (mint toAddr).run s →
+    (∃ liquidity, result = ContractResult.success liquidity result.snd) →
+      s.storage unlockedSlot.slot = 1 := by
+  intro h_run h_success_exists
+  rcases h_success_exists with ⟨liquidity, h_success⟩
+  by_contra h_not_open
+  have h_locked : s.storage unlockedSlot.slot != (1 : Uint256) := by
+    simpa using h_not_open
+  have h_revert := mint_run_revert_locked toAddr s h_locked
+  rw [← h_run, h_success] at h_revert
+  cases h_revert
+
+private theorem mint_success_run_implies_balances_fit_uint112
+    (toAddr : Address) (s : ContractState) (result : ContractResult Uint256) :
+  result = (mint toAddr).run s →
+    (∃ liquidity, result = ContractResult.success liquidity result.snd) →
+      observedBalance0 s ≤ maxUint112 ∧ observedBalance1 s ≤ maxUint112 := by
+  intro h_run h_success_exists
+  have h_unlocked :=
+    mint_success_run_implies_lock_open toAddr s result h_run h_success_exists
+  rcases h_success_exists with ⟨liquidity, h_success⟩
+  constructor
+  · by_contra h_not_le
+    have h_gt : observedBalance0 s > maxUint112 := by
+      have h_nat : ¬ (observedBalance0 s).val ≤ maxUint112.val := by
+        simpa [Verity.Core.Uint256.le_def] using h_not_le
+      simpa [Verity.Core.Uint256.lt_def] using Nat.lt_of_not_ge h_nat
+    have h_revert := mint_run_revert_balance0_overflow toAddr s h_unlocked h_gt
+    rw [← h_run, h_success] at h_revert
+    cases h_revert
+  · by_contra h_not_le
+    have h_gt : observedBalance1 s > maxUint112 := by
+      have h_nat : ¬ (observedBalance1 s).val ≤ maxUint112.val := by
+        simpa [Verity.Core.Uint256.le_def] using h_not_le
+      simpa [Verity.Core.Uint256.lt_def] using Nat.lt_of_not_ge h_nat
+    have h_revert := mint_run_revert_balance1_overflow toAddr s h_unlocked h_gt
+    rw [← h_run, h_success] at h_revert
+    cases h_revert
+
 private def pair_sync_expected_matches_closed_world_step
     (s : ContractState) : Prop :=
   observedBalance0 s ≤ maxUint112 →
@@ -1616,126 +1765,6 @@ theorem sync_success_run_matches_closed_world_step_from_run
       s result h_run h_success with
     ⟨h_bound0, h_bound1⟩
   exact sync_expected_matches_closed_world_step s h_bound0 h_bound1
-
--- tama: discharges=pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives
-theorem reserve_update_oracle_same_timestamp_keeps_price_cumulatives
-    (s : ContractState) :
-  pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives s := by
-  intro h_same_timestamp
-  have h_same_raw :
-      Verity.EVM.Uint256.mod s.blockTimestamp uint32Modulus =
-        s.storage 5 := by
-    simpa [timestamp32, blockTimestampLastSlot] using h_same_timestamp
-  have h_same_num :
-      Verity.EVM.Uint256.mod s.blockTimestamp 4294967296 =
-        s.storage 5 := by
-    simpa [uint32Modulus] using h_same_raw
-  have h_same_bne_false :
-      (timestamp32 s != s.storage blockTimestampLastSlot.slot) = false := by
-    simp [timestamp32, blockTimestampLastSlot, uint32Modulus, h_same_num, BEq.beq]
-  simp [pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives,
-    oraclePrice0CumulativeAfterSync, oraclePrice1CumulativeAfterSync,
-    oraclePrice0CumulativeAfterElapsed, oraclePrice1CumulativeAfterElapsed,
-    oraclePrice0Increment, oraclePrice1Increment, oraclePrice0, oraclePrice1,
-    oracleElapsed, timestamp32, blockTimestampLastSlot,
-    reserve0Slot, reserve1Slot, price0CumulativeLastSlot,
-    price1CumulativeLastSlot, uint32Modulus, q112,
-    h_same_raw, h_same_num, h_same_bne_false]
-
-
--- tama: discharges=pair_reserve_update_oracle_elapsed_updates_price_cumulatives
-theorem reserve_update_oracle_elapsed_updates_price_cumulatives
-    (s : ContractState) :
-  pair_reserve_update_oracle_elapsed_updates_price_cumulatives s := by
-  intro h_time_changed h_elapsed h_reserve0 h_reserve1
-  have h_elapsed_branch :
-      oracleElapsed s > 0 ∧
-        s.storage reserve0Slot.slot > 0 ∧
-        s.storage reserve1Slot.slot > 0 :=
-    ⟨h_elapsed, h_reserve0, h_reserve1⟩
-  have h_time_changed_raw :
-      (Verity.EVM.Uint256.mod s.blockTimestamp uint32Modulus !=
-        s.storage 5) = true := by
-    simpa [timestamp32, blockTimestampLastSlot] using h_time_changed
-  have h_time_changed_num :
-      (Verity.EVM.Uint256.mod s.blockTimestamp 4294967296 !=
-        s.storage 5) = true := by
-    simpa [uint32Modulus] using h_time_changed_raw
-  have h_time_neq_num :
-      ¬ Verity.EVM.Uint256.mod s.blockTimestamp 4294967296 =
-        s.storage 5 := by
-    intro h_eq
-    simp [h_eq] at h_time_changed_num
-  have h_elapsed_branch_raw :
-      Verity.EVM.Uint256.mod
-          (Verity.EVM.Uint256.sub
-            (Verity.EVM.Uint256.add
-              (Verity.EVM.Uint256.mod s.blockTimestamp uint32Modulus)
-              uint32Modulus)
-            (s.storage 5))
-          uint32Modulus > 0 ∧
-        s.storage 3 > 0 ∧
-        s.storage 4 > 0 := by
-    exact ⟨by simpa [oracleElapsed, timestamp32, blockTimestampLastSlot] using h_elapsed,
-      by simpa [reserve0Slot] using h_reserve0,
-      by simpa [reserve1Slot] using h_reserve1⟩
-  have h_elapsed_num :
-      0 <
-        (Verity.EVM.Uint256.mod
-          (Verity.EVM.Uint256.sub
-            (Verity.EVM.Uint256.add
-              (Verity.EVM.Uint256.mod s.blockTimestamp 4294967296)
-              4294967296)
-            (s.storage 5))
-          4294967296).val := by
-    simpa [oracleElapsed, timestamp32, blockTimestampLastSlot,
-      uint32Modulus, Verity.Core.Uint256.lt_def] using h_elapsed
-  simp [pair_reserve_update_oracle_elapsed_updates_price_cumulatives,
-    oraclePrice0CumulativeAfterSync, oraclePrice1CumulativeAfterSync,
-    oraclePrice0CumulativeAfterElapsed, oraclePrice1CumulativeAfterElapsed,
-    oraclePrice0Increment, oraclePrice1Increment, oraclePrice0, oraclePrice1,
-    oracleElapsed, timestamp32, blockTimestampLastSlot,
-    reserve0Slot, reserve1Slot, price0CumulativeLastSlot,
-    price1CumulativeLastSlot, uint32Modulus, q112,
-    h_time_changed, h_time_changed_raw, h_time_changed_num, h_time_neq_num,
-    h_elapsed_branch, h_elapsed_branch_raw, h_elapsed_num]
-
-
--- tama: discharges=pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives
-theorem reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives
-    (s : ContractState) :
-  pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s := by
-  intro h_time_changed h_inactive
-  simp [pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives,
-    oraclePrice0CumulativeAfterSync, oraclePrice1CumulativeAfterSync,
-    oraclePrice0CumulativeAfterElapsed, oraclePrice1CumulativeAfterElapsed,
-    oraclePrice0Increment, oraclePrice1Increment, oraclePrice0, oraclePrice1,
-    oracleElapsed, timestamp32, blockTimestampLastSlot,
-    reserve0Slot, reserve1Slot, price0CumulativeLastSlot,
-    price1CumulativeLastSlot, uint32Modulus, q112,
-    h_time_changed]
-  constructor
-  · intro _ h_elapsed_raw h_reserve0_raw h_reserve1_raw
-    exfalso
-    apply h_inactive
-    exact ⟨by
-        simpa [oracleElapsed, timestamp32, blockTimestampLastSlot,
-          uint32Modulus, Verity.Core.Uint256.lt_def] using h_elapsed_raw,
-      by
-        simpa [reserve0Slot, Verity.Core.Uint256.lt_def] using h_reserve0_raw,
-      by
-        simpa [reserve1Slot, Verity.Core.Uint256.lt_def] using h_reserve1_raw⟩
-  · intro _ h_elapsed_raw h_reserve0_raw h_reserve1_raw
-    exfalso
-    apply h_inactive
-    exact ⟨by
-        simpa [oracleElapsed, timestamp32, blockTimestampLastSlot,
-          uint32Modulus, Verity.Core.Uint256.lt_def] using h_elapsed_raw,
-      by
-        simpa [reserve0Slot, Verity.Core.Uint256.lt_def] using h_reserve0_raw,
-      by
-        simpa [reserve1Slot, Verity.Core.Uint256.lt_def] using h_reserve1_raw⟩
-
 
 -- tama: discharges=pair_flash_callback_module_gates_nonempty_data
 theorem flash_callback_module_gates_nonempty_data :
@@ -1823,7 +1852,7 @@ theorem flash_callback_module_bubbles_callback_failure :
   simp
 
 private def pair_mint_first_expected_matches_closed_world_step
-    (toAddr : Address) (s : ContractState) : Prop :=
+    (_toAddr : Address) (s : ContractState) : Prop :=
   let amount0 := mintAmount0 s
   let amount1 := mintAmount1 s
   let liquidity := mintFirstLiquidity s
@@ -3659,8 +3688,8 @@ theorem closed_world_reachable_supply_change_requires_mint_or_burn
   pair_closed_world_reachable_supply_change_requires_mint_or_burn before after := by
   intro h_reachable h_changed h_no_mint_burn
   have h_preserve :=
-    closed_world_reachable_no_mint_burn_path_preserves_supply
-      before after h_reachable h_no_mint_burn
+    closed_world_no_mint_burn_path_preserves_supply
+      before after h_no_mint_burn
   exact h_changed h_preserve.1
 
 -- tama: discharges=pair_closed_world_approve_preserves_pool
@@ -4417,12 +4446,41 @@ theorem swap_success_accounts_for_input_and_output
     ((swap amount0Out amount1Out toAddr data).run s) := by
   intro h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
     h_bound0 h_bound1 h_fee0 h_fee1 h_k
-  have h_final :=
-    swap_success_run_k_uses_final_balances_from_run
-      amount0Out amount1Out toAddr data balance0Now balance1Now s
-      h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
-      h_bound0 h_bound1 h_fee0 h_fee1 h_k
-  exact ⟨h_final.1, h_final.2.1⟩
+  dsimp [pair_swap_success_accounts_for_input_and_output,
+    pairWorldFromConcreteState, pairWorldAfterSwapRun]
+  constructor
+  · have h_cover0 :
+        amount0Out.val ≤
+          (s.storage reserve0Slot.slot).val +
+            (swapAmount0In amount0Out balance0Now s).val := by
+      have h_liq0_val :
+          amount0Out.val < (s.storage reserve0Slot.slot).val := by
+        simpa [Verity.Core.Uint256.lt_def] using h_liq0
+      omega
+    calc
+      balance0Now.val + amount0Out.val
+          = ((s.storage reserve0Slot.slot).val +
+                (swapAmount0In amount0Out balance0Now s).val -
+              amount0Out.val) + amount0Out.val := by rw [h_balance0]
+      _ = (s.storage reserve0Slot.slot).val +
+            (swapAmount0In amount0Out balance0Now s).val := by
+          exact Nat.sub_add_cancel h_cover0
+  · have h_cover1 :
+        amount1Out.val ≤
+          (s.storage reserve1Slot.slot).val +
+            (swapAmount1In amount1Out balance1Now s).val := by
+      have h_liq1_val :
+          amount1Out.val < (s.storage reserve1Slot.slot).val := by
+        simpa [Verity.Core.Uint256.lt_def] using h_liq1
+      omega
+    calc
+      balance1Now.val + amount1Out.val
+          = ((s.storage reserve1Slot.slot).val +
+                (swapAmount1In amount1Out balance1Now s).val -
+              amount1Out.val) + amount1Out.val := by rw [h_balance1]
+      _ = (s.storage reserve1Slot.slot).val +
+            (swapAmount1In amount1Out balance1Now s).val := by
+          exact Nat.sub_add_cancel h_cover1
 
 -- tama: discharges=pair_swap_success_charges_k_against_final_balances
 theorem swap_success_charges_k_against_final_balances
@@ -4433,10 +4491,8 @@ theorem swap_success_charges_k_against_final_balances
     ((swap amount0Out amount1Out toAddr data).run s) := by
   intro h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
     h_bound0 h_bound1 h_fee0 h_fee1 h_k
-  exact (swap_success_run_k_uses_final_balances_from_run
-    amount0Out amount1Out toAddr data balance0Now balance1Now s
-    h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
-    h_bound0 h_bound1 h_fee0 h_fee1 h_k).2.2
+  simpa [pair_swap_success_charges_k_against_final_balances,
+    pairWorldFromConcreteState, pairWorldAfterSwapRun] using h_k
 
 /- One valid action cannot dilute existing LP shares: measured
 as reserve product per squared LP supply, the pool is at least as strong after
@@ -4910,9 +4966,13 @@ private def pair_closed_world_reachable_same_supply_path_no_spot_value_extractio
 private theorem closed_world_reachable_same_supply_path_no_spot_value_extraction
     (before after : PairWorldState) :
   pair_closed_world_reachable_same_supply_path_no_spot_value_extraction before after := by
-  simpa [pair_closed_world_reachable_same_supply_path_no_spot_value_extraction]
-    using closed_world_reachable_same_supply_path_pool_value_never_decreases
-      before after
+  intro h_reachable h_positive h_path h_supply h_reserve0 h_reserve1
+  have h_no_profit :=
+    closed_world_reachable_same_supply_path_no_spot_profit
+      before after h_reachable h_positive h_path h_supply h_reserve0 h_reserve1
+  unfold PairWorldNoSpotProfit PairWorldSpotValueNum PairWorldK at h_no_profit
+  unfold PairWorldSpotValueNum
+  nlinarith
 
 
 
@@ -5543,16 +5603,27 @@ theorem closed_world_reserve_write_sets_reserves_to_balances
   rcases h_action with h_mint | h_burn | h_swap | h_sync
   · rcases h_mint with ⟨amount0, amount1, liquidity, h_action⟩
     subst action
-    exact closed_world_mint_updates_reserves_to_balances
-      amount0 amount1 liquidity before after h_step
+    simp [PairWorldStep, PairWorldMintStep] at h_step
+    rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity,
+      _h_before0, _h_before1, h_balance0, h_balance1, h_reserve0,
+      h_reserve1, _h_bound0, _h_bound1, _h_supply, _h_locked, _h_ratio⟩
+    exact ⟨by rw [h_reserve0, h_balance0], by rw [h_reserve1, h_balance1]⟩
   · rcases h_burn with ⟨amount0, amount1, liquidity, h_action⟩
     subst action
-    exact closed_world_burn_updates_reserves_to_balances
-      amount0 amount1 liquidity before after h_step
+    simp [PairWorldStep, PairWorldBurnStep] at h_step
+    rcases h_step with ⟨_h_amount0, _h_amount1, _h_liquidity,
+      _h_supply_pos, _h_amount0_le, _h_amount1_le, _h_liq_le,
+      _h_locked_le, _h_balance0, _h_balance1, h_reserve0, h_reserve1,
+      _h_bound0, _h_bound1, _h_supply, _h_locked, _h_ratio0, _h_ratio1⟩
+    exact ⟨h_reserve0, h_reserve1⟩
   · rcases h_swap with ⟨amount0In, amount1In, amount0Out, amount1Out, h_action⟩
     subst action
-    exact closed_world_swap_updates_reserves_to_balances
-      amount0In amount1In amount0Out amount1Out before after h_step
+    simp [PairWorldStep, PairWorldSwapStep] at h_step
+    rcases h_step with ⟨_h_output, _h_liq0, _h_liq1, _h_cover0,
+      _h_cover1, _h_input, _h_balance0, _h_balance1, h_reserve0,
+      h_reserve1, _h_bound0, _h_bound1, _h_supply, _h_locked,
+      _h_fee0, _h_fee1, _h_k⟩
+    exact ⟨h_reserve0, h_reserve1⟩
   · subst action
     have h_sync_step := closed_world_sync_sets_reserves_to_balances before after h_step
     constructor
@@ -5560,38 +5631,48 @@ theorem closed_world_reserve_write_sets_reserves_to_balances
     · rw [h_sync_step.2.1, h_sync_step.2.2.2]
 
 
-private theorem reserve_write_step_uses_oracle_rule
-    (action : PairWorldAction) (before after : PairWorldState)
-    (s : ContractState) :
-  ((∃ amount0 amount1 liquidity,
-      action = PairWorldAction.mint amount0 amount1 liquidity) ∨
-    (∃ amount0 amount1 liquidity,
-      action = PairWorldAction.burn amount0 amount1 liquidity) ∨
-    (∃ amount0In amount1In amount0Out amount1Out,
-      action = PairWorldAction.swap amount0In amount1In amount0Out amount1Out) ∨
-    action = PairWorldAction.sync) →
-    PairWorldStep action before after →
-      after.reserve0 = after.balance0 ∧
-      after.reserve1 = after.balance1 ∧
-      pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives s ∧
-      pair_reserve_update_oracle_elapsed_updates_price_cumulatives s ∧
-      pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s := by
-  intro h_action h_step
-  have h_write :=
-    closed_world_reserve_write_sets_reserves_to_balances
-      action before after h_action h_step
-  exact ⟨h_write.1, h_write.2,
-    reserve_update_oracle_same_timestamp_keeps_price_cumulatives s,
-    reserve_update_oracle_elapsed_updates_price_cumulatives s,
-    reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives s⟩
+private theorem closed_world_sync_preserves_token_balance_value
+    (spot before after : PairWorldState) :
+  PairWorldStep PairWorldAction.sync before after →
+    PairWorldBalanceSpotValueNum spot after =
+      PairWorldBalanceSpotValueNum spot before := by
+  intro h_step
+  have h_sync := closed_world_sync_preserves_token_balances before after h_step
+  unfold PairWorldBalanceSpotValueNum
+  rw [h_sync.1, h_sync.2]
 
-
-
-
-
-
-
-
+private theorem closed_world_sync_preserves_balanced_pool
+    (before after : PairWorldState) :
+  PairWorldGood before →
+    PairWorldStep PairWorldAction.sync before after →
+      PairWorldSurplus0 before = 0 →
+        PairWorldSurplus1 before = 0 →
+          after.balance0 = before.balance0 ∧
+          after.balance1 = before.balance1 ∧
+          after.reserve0 = before.reserve0 ∧
+          after.reserve1 = before.reserve1 ∧
+          after.totalSupply = before.totalSupply ∧
+          after.lockedLiquidity = before.lockedLiquidity := by
+  intro h_good h_step h_surplus0 h_surplus1
+  rcases h_good with ⟨h_back0, h_back1, _h_bound0, _h_bound1, _h_supply⟩
+  have h_balance0_before : before.balance0 = before.reserve0 := by
+    unfold PairWorldSurplus0 at h_surplus0
+    omega
+  have h_balance1_before : before.balance1 = before.reserve1 := by
+    unfold PairWorldSurplus1 at h_surplus1
+    omega
+  simp [PairWorldStep, PairWorldSyncStep] at h_step
+  rcases h_step with ⟨_h_bound0, _h_bound1, h_balance0, h_balance1,
+    h_reserve0, h_reserve1, h_supply, h_locked⟩
+  constructor
+  · exact h_balance0
+  constructor
+  · exact h_balance1
+  constructor
+  · rw [h_reserve0, h_balance0_before]
+  constructor
+  · rw [h_reserve1, h_balance1_before]
+  exact ⟨h_supply, h_locked⟩
 
 -- tama: discharges=pair_closed_world_skim_or_sync_token_balance_value_never_increases_at_spot
 theorem closed_world_skim_or_sync_token_balance_value_never_increases_at_spot
