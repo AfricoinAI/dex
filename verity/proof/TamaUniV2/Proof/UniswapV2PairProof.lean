@@ -1573,10 +1573,10 @@ theorem skim_run_success_moves_exact_surplus_in_token_world
     pairToken0, pairToken1, pairSelf, skimExcess0, skimExcess1,
     h_unlocked_raw, h_require_raw_unfold, addressOfNat_toNat_mod_uint256]
 
--- tama: discharges=pair_skim_run_success_refines_closed_world
-theorem skim_run_success_refines_closed_world
+-- tama: discharges=pair_skim_run_success_matches_closed_world_step
+theorem skim_run_success_matches_closed_world_step
     (toAddr : Address) (s : ContractState) :
-  pair_skim_run_success_refines_closed_world toAddr s := by
+  pair_skim_run_success_matches_closed_world_step toAddr s := by
   intro h_unlocked h_balance0 h_balance1
   have h_success :=
     skim_run_success_transfers_excess_and_restores_unlocked
@@ -1584,7 +1584,7 @@ theorem skim_run_success_refines_closed_world
   rcases h_success with ⟨h_run, _h_reserve0, _h_reserve1, _h_unlocked,
     _h_transfer0, _h_transfer1⟩
   rw [h_run]
-  simp [pair_skim_run_success_refines_closed_world, PairWorldStep,
+  simp [pair_skim_run_success_matches_closed_world_step, PairWorldStep,
     PairWorldSkimStep, pairWorldFromConcreteState, pairWorldAfterSkimRun,
     pairWorldLockedLiquidity]
 
@@ -1752,16 +1752,16 @@ theorem skim_success_run_restores_unlocked_from_run
   rw [h_run]
   exact h_restored
 
--- tama: discharges=pair_skim_success_run_refines_closed_world_from_run
-theorem skim_success_run_refines_closed_world_from_run
+-- tama: discharges=pair_skim_success_run_matches_closed_world_step_from_run
+theorem skim_success_run_matches_closed_world_step_from_run
     (toAddr : Address) (s : ContractState) (result : ContractResult Unit) :
-  pair_skim_success_run_refines_closed_world_from_run toAddr s result := by
+  pair_skim_success_run_matches_closed_world_step_from_run toAddr s result := by
   intro h_run h_success
   have h_unlocked := skim_success_run_implies_lock_open toAddr s result h_run h_success
   rcases skim_success_run_implies_balances_back_reserves
       toAddr s result h_run h_success with
     ⟨h_balance0, h_balance1⟩
-  have h_step := skim_run_success_refines_closed_world toAddr s
+  have h_step := skim_run_success_matches_closed_world_step toAddr s
     h_unlocked h_balance0 h_balance1
   rw [← h_run, h_success] at h_step
   exact h_step
@@ -1812,23 +1812,23 @@ theorem sync_run_revert_balance1_overflow (s : ContractState) :
     observedBalance1, pairToken0, pairToken1, pairSelf, TamaUniV2.erc20BalanceOf,
     h_unlocked_raw, h_require_false_raw]
 
--- tama: discharges=pair_sync_expected_refines_closed_world
-theorem sync_expected_refines_closed_world (s : ContractState) :
-  pair_sync_expected_refines_closed_world s := by
+-- tama: discharges=pair_sync_expected_matches_closed_world_step
+theorem sync_expected_matches_closed_world_step (s : ContractState) :
+  pair_sync_expected_matches_closed_world_step s := by
   intro h_bound0 h_bound1
-  simp [pair_sync_expected_refines_closed_world, PairWorldStep,
+  simp [pair_sync_expected_matches_closed_world_step, PairWorldStep,
     PairWorldSyncStep, pairWorldFromConcreteState, pairWorldAfterSyncRun,
     pairWorldLockedLiquidity, maxUint112Nat, maxUint112,
     UniswapV2PairBase.maxUint112]
   exact ⟨by simpa [maxUint112Nat, maxUint112, UniswapV2PairBase.maxUint112] using h_bound0,
     by simpa [maxUint112Nat, maxUint112, UniswapV2PairBase.maxUint112] using h_bound1⟩
 
--- tama: discharges=pair_sync_success_run_refines_closed_world
-theorem sync_success_run_refines_closed_world
+-- tama: discharges=pair_sync_success_run_matches_closed_world_step
+theorem sync_success_run_matches_closed_world_step
     (s : ContractState) (result : ContractResult Unit) :
-  pair_sync_success_run_refines_closed_world s result := by
+  pair_sync_success_run_matches_closed_world_step s result := by
   intro _h_run _h_success h_bound0 h_bound1
-  exact sync_expected_refines_closed_world s h_bound0 h_bound1
+  exact sync_expected_matches_closed_world_step s h_bound0 h_bound1
 
 -- tama: discharges=pair_mint_success_run_implies_balances_fit_uint112
 theorem mint_success_run_implies_balances_fit_uint112
@@ -1904,15 +1904,15 @@ theorem sync_success_run_implies_balances_fit_uint112
     rw [h_revert] at h_success
     cases h_success
 
--- tama: discharges=pair_sync_success_run_refines_closed_world_from_run
-theorem sync_success_run_refines_closed_world_from_run
+-- tama: discharges=pair_sync_success_run_matches_closed_world_step_from_run
+theorem sync_success_run_matches_closed_world_step_from_run
     (s : ContractState) (result : ContractResult Unit) :
-  pair_sync_success_run_refines_closed_world_from_run s result := by
+  pair_sync_success_run_matches_closed_world_step_from_run s result := by
   intro h_run h_success
   rcases sync_success_run_implies_balances_fit_uint112
       s result h_run h_success with
     ⟨h_bound0, h_bound1⟩
-  exact sync_expected_refines_closed_world s h_bound0 h_bound1
+  exact sync_expected_matches_closed_world_step s h_bound0 h_bound1
 
 -- tama: discharges=pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives
 theorem reserve_update_oracle_same_timestamp_keeps_price_cumulatives
@@ -2134,10 +2134,10 @@ theorem flash_callback_module_bubbles_callback_failure :
   refine ⟨_, h_stmts.symm, ?_⟩
   simp
 
--- tama: discharges=pair_mint_first_expected_refines_closed_world
-theorem mint_first_expected_refines_closed_world (toAddr : Address) (s : ContractState) :
-  pair_mint_first_expected_refines_closed_world toAddr s := by
-  dsimp [pair_mint_first_expected_refines_closed_world]
+-- tama: discharges=pair_mint_first_expected_matches_closed_world_step
+theorem mint_first_expected_matches_closed_world_step (toAddr : Address) (s : ContractState) :
+  pair_mint_first_expected_matches_closed_world_step toAddr s := by
+  dsimp [pair_mint_first_expected_matches_closed_world_step]
   intro h_unlocked h_supply_zero h_bound0 h_bound1 h_reserve0 h_reserve1
     h_amount0 h_amount1 h_product h_root
   have h_supply_zero_raw : s.storage 8 = (0 : Uint256) := by
@@ -2246,24 +2246,24 @@ theorem mint_first_expected_refines_closed_world (toAddr : Address) (s : Contrac
     simpa [h_supply_zero_val, h_liquidity_eq, h_min_val] using h_root_eq
   · simp [h_supply_zero_val]
 
--- tama: discharges=pair_mint_first_success_run_refines_closed_world
-theorem mint_first_success_run_refines_closed_world
+-- tama: discharges=pair_mint_first_success_run_matches_closed_world_step
+theorem mint_first_success_run_matches_closed_world_step
     (toAddr : Address) (s : ContractState) :
-  pair_mint_first_success_run_refines_closed_world toAddr s
+  pair_mint_first_success_run_matches_closed_world_step toAddr s
     ((mint toAddr).run s) := by
-  dsimp [pair_mint_first_success_run_refines_closed_world]
+  dsimp [pair_mint_first_success_run_matches_closed_world_step]
   intro _h_actual _h_success h_unlocked h_supply_zero h_bound0 h_bound1
     h_reserve0 h_reserve1 h_amount0 h_amount1 h_product h_root
-  exact mint_first_expected_refines_closed_world toAddr s
+  exact mint_first_expected_matches_closed_world_step toAddr s
     h_unlocked h_supply_zero h_bound0 h_bound1 h_reserve0 h_reserve1
     h_amount0 h_amount1 h_product h_root
 
--- tama: discharges=pair_mint_first_success_run_refines_closed_world_from_run
-theorem mint_first_success_run_refines_closed_world_from_run
+-- tama: discharges=pair_mint_first_success_run_matches_closed_world_step_from_run
+theorem mint_first_success_run_matches_closed_world_step_from_run
     (toAddr : Address) (s : ContractState) :
-  pair_mint_first_success_run_refines_closed_world_from_run toAddr s
+  pair_mint_first_success_run_matches_closed_world_step_from_run toAddr s
     ((mint toAddr).run s) := by
-  dsimp [pair_mint_first_success_run_refines_closed_world_from_run]
+  dsimp [pair_mint_first_success_run_matches_closed_world_step_from_run]
   intro _h_actual h_success h_supply_zero h_reserve0 h_reserve1
     h_amount0 h_amount1 h_product h_root
   have h_success_exists :
@@ -2277,7 +2277,7 @@ theorem mint_first_success_run_refines_closed_world_from_run
   rcases mint_success_run_implies_balances_fit_uint112 toAddr s
       ((mint toAddr).run s) rfl h_success_exists with
     ⟨h_bound0, h_bound1⟩
-  exact mint_first_expected_refines_closed_world toAddr s
+  exact mint_first_expected_matches_closed_world_step toAddr s
     h_unlocked h_supply_zero h_bound0 h_bound1 h_reserve0 h_reserve1
     h_amount0 h_amount1 h_product h_root
 
@@ -2289,11 +2289,11 @@ theorem first_mint_uses_balance_increase_as_deposit
   intro _h_run _h_success _h_supply_zero _h_reserve0 _h_reserve1
   constructor <;> rfl
 
--- tama: discharges=pair_mint_subsequent_expected_refines_closed_world
-theorem mint_subsequent_expected_refines_closed_world
+-- tama: discharges=pair_mint_subsequent_expected_matches_closed_world_step
+theorem mint_subsequent_expected_matches_closed_world_step
     (s : ContractState) (liquidity : Uint256) :
-  pair_mint_subsequent_expected_refines_closed_world s liquidity := by
-  dsimp [pair_mint_subsequent_expected_refines_closed_world]
+  pair_mint_subsequent_expected_matches_closed_world_step s liquidity := by
+  dsimp [pair_mint_subsequent_expected_matches_closed_world_step]
   intro h_supply_pos h_reserve0_pos h_reserve1_pos h_bound0 h_bound1
     h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
   have h_supply_ne :
@@ -2373,22 +2373,22 @@ theorem mint_subsequent_expected_refines_closed_world
   · simp [pairWorldLockedLiquidity, totalSupplySlot, h_supply_ne_raw]
   · exact Or.inr ⟨h_ratio0, h_ratio1⟩
 
--- tama: discharges=pair_mint_subsequent_success_run_refines_closed_world
-theorem mint_subsequent_success_run_refines_closed_world
+-- tama: discharges=pair_mint_subsequent_success_run_matches_closed_world_step
+theorem mint_subsequent_success_run_matches_closed_world_step
     (toAddr : Address) (s : ContractState)
     (liquidity : Uint256) :
-  pair_mint_subsequent_success_run_refines_closed_world
+  pair_mint_subsequent_success_run_matches_closed_world_step
     toAddr s ((mint toAddr).run s) liquidity := by
   intro _h_run _h_success
-  exact mint_subsequent_expected_refines_closed_world s liquidity
+  exact mint_subsequent_expected_matches_closed_world_step s liquidity
 
--- tama: discharges=pair_mint_subsequent_success_run_refines_closed_world_from_run
-theorem mint_subsequent_success_run_refines_closed_world_from_run
+-- tama: discharges=pair_mint_subsequent_success_run_matches_closed_world_step_from_run
+theorem mint_subsequent_success_run_matches_closed_world_step_from_run
     (toAddr : Address) (s : ContractState)
     (liquidity : Uint256) :
-  pair_mint_subsequent_success_run_refines_closed_world_from_run
+  pair_mint_subsequent_success_run_matches_closed_world_step_from_run
     toAddr s ((mint toAddr).run s) liquidity := by
-  dsimp [pair_mint_subsequent_success_run_refines_closed_world_from_run]
+  dsimp [pair_mint_subsequent_success_run_matches_closed_world_step_from_run]
   intro _h_run h_success h_supply_pos h_reserve0_pos h_reserve1_pos
     h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
   have h_success_exists :
@@ -2399,7 +2399,7 @@ theorem mint_subsequent_success_run_refines_closed_world_from_run
   rcases mint_success_run_implies_balances_fit_uint112 toAddr s
       ((mint toAddr).run s) rfl h_success_exists with
     ⟨h_bound0, h_bound1⟩
-  exact mint_subsequent_expected_refines_closed_world s liquidity
+  exact mint_subsequent_expected_matches_closed_world_step s liquidity
     h_supply_pos h_reserve0_pos h_reserve1_pos h_bound0 h_bound1
     h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
 
@@ -2411,11 +2411,11 @@ theorem later_mint_uses_balance_increase_as_deposit
   intro _h_run _h_success _h_supply_pos _h_reserve0 _h_reserve1
   constructor <;> rfl
 
--- tama: discharges=pair_burn_expected_refines_closed_world
-theorem burn_expected_refines_closed_world
+-- tama: discharges=pair_burn_expected_matches_closed_world_step
+theorem burn_expected_matches_closed_world_step
     (s : ContractState) :
-  pair_burn_expected_refines_closed_world s := by
-  dsimp [pair_burn_expected_refines_closed_world]
+  pair_burn_expected_matches_closed_world_step s := by
+  dsimp [pair_burn_expected_matches_closed_world_step]
   intro h_liquidity_pos h_supply_pos h_liquidity_le h_locked_remaining
     h_amount0 h_amount1 h_amount0_le h_amount1_le h_bound0 h_bound1
     h_ratio0 h_ratio1
@@ -2483,12 +2483,12 @@ theorem burn_expected_refines_closed_world
   · exact h_ratio0
   · exact h_ratio1
 
--- tama: discharges=pair_burn_success_run_refines_closed_world
-theorem burn_success_run_refines_closed_world
+-- tama: discharges=pair_burn_success_run_matches_closed_world_step
+theorem burn_success_run_matches_closed_world_step
     (toAddr : Address) (s : ContractState) :
-  pair_burn_success_run_refines_closed_world toAddr s ((burn toAddr).run s) := by
+  pair_burn_success_run_matches_closed_world_step toAddr s ((burn toAddr).run s) := by
   intro _h_run _h_success
-  exact burn_expected_refines_closed_world s
+  exact burn_expected_matches_closed_world_step s
 
 -- tama: discharges=pair_burn_uses_pair_lp_balance_and_total_supply
 theorem burn_uses_pair_lp_balance_and_total_supply
@@ -2569,13 +2569,13 @@ private theorem feeAdjustedSwap_implies_raw_k
     nlinarith [h_required_le_scaled]
   exact Nat.le_of_mul_le_mul_right h_scaled h_scale_pos
 
--- tama: discharges=pair_swap_expected_refines_closed_world
-theorem swap_expected_refines_closed_world
+-- tama: discharges=pair_swap_expected_matches_closed_world_step
+theorem swap_expected_matches_closed_world_step
     (amount0Out amount1Out balance0Now balance1Now : Uint256)
     (s : ContractState) :
-  pair_swap_expected_refines_closed_world
+  pair_swap_expected_matches_closed_world_step
     amount0Out amount1Out balance0Now balance1Now s := by
-  dsimp [pair_swap_expected_refines_closed_world]
+  dsimp [pair_swap_expected_matches_closed_world_step]
   intro h_output h_liq0 h_liq1 h_input h_balance0 h_balance1 h_bound0 h_bound1
     h_fee0 h_fee1 h_adjusted_k
   unfold PairWorldStep PairWorldSwapStep pairWorldFromConcreteState
@@ -2626,15 +2626,15 @@ theorem swap_expected_refines_closed_world
   · exact h_fee1
   · exact h_adjusted_k
 
--- tama: discharges=pair_swap_success_run_refines_closed_world
-theorem swap_success_run_refines_closed_world
+-- tama: discharges=pair_swap_success_run_matches_closed_world_step
+theorem swap_success_run_matches_closed_world_step
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (balance0Now balance1Now : Uint256) (s : ContractState) :
-  pair_swap_success_run_refines_closed_world
+  pair_swap_success_run_matches_closed_world_step
     amount0Out amount1Out toAddr data balance0Now balance1Now s
     ((swap amount0Out amount1Out toAddr data).run s) := by
   intro _h_run _h_success
-  exact swap_expected_refines_closed_world
+  exact swap_expected_matches_closed_world_step
     amount0Out amount1Out balance0Now balance1Now s
 
 -- tama: discharges=pair_swap_uses_final_balances_to_compute_input
@@ -2659,11 +2659,11 @@ theorem swap_checks_k_against_final_balances
   simpa [pair_swap_checks_k_against_final_balances,
     pairWorldAfterSwapRun, pairWorldFromConcreteState] using h_k
 
--- tama: discharges=pair_swap_success_run_refines_closed_world_from_run
-theorem swap_success_run_refines_closed_world_from_run
+-- tama: discharges=pair_swap_success_run_matches_closed_world_step_from_run
+theorem swap_success_run_matches_closed_world_step_from_run
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (balance0Now balance1Now : Uint256) (s : ContractState) :
-  pair_swap_success_run_refines_closed_world_from_run
+  pair_swap_success_run_matches_closed_world_step_from_run
     amount0Out amount1Out toAddr data balance0Now balance1Now s
     ((swap amount0Out amount1Out toAddr data).run s) := by
   intro _h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
@@ -2676,7 +2676,7 @@ theorem swap_success_run_refines_closed_world_from_run
     rcases h_nonzero with h_amount0 | h_amount1
     · exact Or.inl (uint256_pos_of_ne_zero h_amount0)
     · exact Or.inr (uint256_pos_of_ne_zero h_amount1)
-  exact swap_expected_refines_closed_world
+  exact swap_expected_matches_closed_world_step
     amount0Out amount1Out balance0Now balance1Now s h_output
     h_liq0 h_liq1 h_input h_balance0 h_balance1 h_bound0 h_bound1
     h_fee0 h_fee1 h_adjusted_k
@@ -4122,7 +4122,7 @@ theorem mint_first_success_run_strictly_increases_supply_from_run
   intro _h_run h_success h_supply_zero h_reserve0 h_reserve1
     h_amount0 h_amount1 h_product h_root
   have h_step :=
-    mint_first_success_run_refines_closed_world_from_run toAddr s
+    mint_first_success_run_matches_closed_world_step_from_run toAddr s
       rfl h_success h_supply_zero h_reserve0 h_reserve1
       h_amount0 h_amount1 h_product h_root
   exact closed_world_mint_strictly_increases_supply
@@ -4138,7 +4138,7 @@ theorem mint_first_success_run_locks_minimum_liquidity_from_run
   intro _h_run h_success h_supply_zero h_reserve0 h_reserve1
     h_amount0 h_amount1 h_product h_root
   have h_step :=
-    mint_first_success_run_refines_closed_world_from_run toAddr s
+    mint_first_success_run_matches_closed_world_step_from_run toAddr s
       rfl h_success h_supply_zero h_reserve0 h_reserve1
       h_amount0 h_amount1 h_product h_root
   have h_first : (pairWorldBeforeMintRun s).totalSupply = 0 := by
@@ -4158,7 +4158,7 @@ theorem mint_first_success_run_keeps_locked_share_from_run
   intro _h_run h_success h_supply_zero h_reserve0 h_reserve1
     h_amount0 h_amount1 h_product h_root
   have h_step :=
-    mint_first_success_run_refines_closed_world_from_run toAddr s
+    mint_first_success_run_matches_closed_world_step_from_run toAddr s
       rfl h_success h_supply_zero h_reserve0 h_reserve1
       h_amount0 h_amount1 h_product h_root
   have h_first : (pairWorldBeforeMintRun s).totalSupply = 0 := by
@@ -4220,7 +4220,7 @@ theorem mint_subsequent_success_run_strictly_increases_supply_from_run
   intro _h_run h_success h_supply_pos h_reserve0_pos h_reserve1_pos
     h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
   have h_step :=
-    mint_subsequent_success_run_refines_closed_world_from_run
+    mint_subsequent_success_run_matches_closed_world_step_from_run
       toAddr s liquidity rfl h_success h_supply_pos h_reserve0_pos
       h_reserve1_pos h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity
       h_ratio0 h_ratio1
@@ -4238,7 +4238,7 @@ theorem mint_subsequent_success_run_preserves_locked_liquidity_from_run
   intro _h_run h_success h_supply_pos h_reserve0_pos h_reserve1_pos
     h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
   have h_step :=
-    mint_subsequent_success_run_refines_closed_world_from_run
+    mint_subsequent_success_run_matches_closed_world_step_from_run
       toAddr s liquidity rfl h_success h_supply_pos h_reserve0_pos
       h_reserve1_pos h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity
       h_ratio0 h_ratio1
@@ -4294,7 +4294,7 @@ theorem burn_success_run_reduces_supply_by_liquidity_from_run
     h_locked_remaining h_amount0 h_amount1 h_amount0_le h_amount1_le
     h_bound0 h_bound1 h_ratio0 h_ratio1
   have h_step :=
-    burn_success_run_refines_closed_world toAddr s
+    burn_success_run_matches_closed_world_step toAddr s
       rfl h_success h_liquidity_pos h_supply_pos h_liquidity_le
       h_locked_remaining h_amount0 h_amount1 h_amount0_le h_amount1_le
       h_bound0 h_bound1 h_ratio0 h_ratio1
@@ -4342,7 +4342,7 @@ theorem burn_success_run_cannot_redeem_locked_liquidity_from_run
     h_locked_remaining h_amount0 h_amount1 h_amount0_le h_amount1_le
     h_bound0 h_bound1 h_ratio0 h_ratio1
   have h_step :=
-    burn_success_run_refines_closed_world toAddr s
+    burn_success_run_matches_closed_world_step toAddr s
       rfl h_success h_liquidity_pos h_supply_pos h_liquidity_le
       h_locked_remaining h_amount0 h_amount1 h_amount0_le h_amount1_le
       h_bound0 h_bound1 h_ratio0 h_ratio1
@@ -4424,7 +4424,7 @@ theorem burn_success_run_preserves_positive_balances_from_run
     h_amount0 h_amount1 h_amount0_le h_amount1_le
     h_bound0 h_bound1 h_ratio0 h_ratio1
   have h_step :=
-    burn_success_run_refines_closed_world toAddr s
+    burn_success_run_matches_closed_world_step toAddr s
       rfl h_success h_liquidity_pos h_supply_pos h_liquidity_le
       h_locked_remaining h_amount0 h_amount1 h_amount0_le h_amount1_le
       h_bound0 h_bound1 h_ratio0 h_ratio1
@@ -4904,7 +4904,7 @@ theorem mint_first_success_run_preserves_good_from_run
   intro h_good _h_run h_success h_supply_zero h_reserve0 h_reserve1
     h_amount0 h_amount1 h_product h_root
   have h_step :=
-    mint_first_success_run_refines_closed_world_from_run toAddr s
+    mint_first_success_run_matches_closed_world_step_from_run toAddr s
       rfl h_success h_supply_zero h_reserve0 h_reserve1
       h_amount0 h_amount1 h_product h_root
   exact closed_world_mint_preserves_good
@@ -4970,7 +4970,7 @@ theorem mint_subsequent_success_run_preserves_good_from_run
   intro h_good _h_run h_success h_supply_pos h_reserve0_pos h_reserve1_pos
     h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
   have h_step :=
-    mint_subsequent_success_run_refines_closed_world_from_run
+    mint_subsequent_success_run_matches_closed_world_step_from_run
       toAddr s liquidity rfl h_success h_supply_pos h_reserve0_pos
       h_reserve1_pos h_reserve0 h_reserve1 h_amount0 h_amount1
       h_liquidity h_ratio0 h_ratio1
@@ -5002,7 +5002,7 @@ theorem mint_first_success_run_updates_reserves_to_balances_from_run
   intro _h_run h_success h_supply_zero h_reserve0 h_reserve1
     h_amount0 h_amount1 h_product h_root
   have h_step :=
-    mint_first_success_run_refines_closed_world_from_run toAddr s
+    mint_first_success_run_matches_closed_world_step_from_run toAddr s
       rfl h_success h_supply_zero h_reserve0 h_reserve1
       h_amount0 h_amount1 h_product h_root
   exact closed_world_mint_updates_reserves_to_balances
@@ -5019,7 +5019,7 @@ theorem mint_subsequent_success_run_updates_reserves_to_balances_from_run
   intro _h_run h_success h_supply_pos h_reserve0_pos h_reserve1_pos
     h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
   have h_step :=
-    mint_subsequent_success_run_refines_closed_world_from_run
+    mint_subsequent_success_run_matches_closed_world_step_from_run
       toAddr s liquidity rfl h_success h_supply_pos h_reserve0_pos
       h_reserve1_pos h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity
       h_ratio0 h_ratio1
@@ -5053,7 +5053,7 @@ theorem mint_first_success_run_never_decreases_k_from_run
   intro _h_run h_success h_supply_zero h_reserve0 h_reserve1
     h_amount0 h_amount1 h_product h_root
   have h_step :=
-    mint_first_success_run_refines_closed_world_from_run toAddr s
+    mint_first_success_run_matches_closed_world_step_from_run toAddr s
       rfl h_success h_supply_zero h_reserve0 h_reserve1
       h_amount0 h_amount1 h_product h_root
   exact closed_world_mint_never_decreases_k
@@ -5070,7 +5070,7 @@ theorem mint_subsequent_success_run_never_decreases_k_from_run
   intro _h_run h_success h_supply_pos h_reserve0_pos h_reserve1_pos
     h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
   have h_step :=
-    mint_subsequent_success_run_refines_closed_world_from_run
+    mint_subsequent_success_run_matches_closed_world_step_from_run
       toAddr s liquidity rfl h_success h_supply_pos h_reserve0_pos
       h_reserve1_pos h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity
       h_ratio0 h_ratio1
@@ -5111,7 +5111,7 @@ theorem mint_subsequent_success_run_preserves_existing_lp_share
     h_reserve1_pos h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity
     h_ratio0 h_ratio1
   have h_step :=
-    mint_subsequent_success_run_refines_closed_world_from_run
+    mint_subsequent_success_run_matches_closed_world_step_from_run
       toAddr s liquidity rfl h_success h_supply_pos h_reserve0_pos
       h_reserve1_pos h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity
       h_ratio0 h_ratio1
@@ -5136,7 +5136,7 @@ theorem burn_success_run_preserves_good_from_run
     h_liquidity_le h_locked_remaining h_amount0 h_amount1 h_amount0_le
     h_amount1_le h_bound0 h_bound1 h_ratio0 h_ratio1
   have h_step :=
-    burn_success_run_refines_closed_world toAddr s rfl h_success
+    burn_success_run_matches_closed_world_step toAddr s rfl h_success
       h_liquidity_pos h_supply_pos h_liquidity_le h_locked_remaining
       h_amount0 h_amount1 h_amount0_le h_amount1_le h_bound0 h_bound1
       h_ratio0 h_ratio1
@@ -5168,7 +5168,7 @@ theorem burn_success_run_updates_reserves_to_balances_from_run
     h_locked_remaining h_amount0 h_amount1 h_amount0_le h_amount1_le
     h_bound0 h_bound1 h_ratio0 h_ratio1
   have h_step :=
-    burn_success_run_refines_closed_world toAddr s
+    burn_success_run_matches_closed_world_step toAddr s
       rfl h_success h_liquidity_pos h_supply_pos h_liquidity_le
       h_locked_remaining h_amount0 h_amount1 h_amount0_le h_amount1_le
       h_bound0 h_bound1 h_ratio0 h_ratio1
@@ -5229,7 +5229,7 @@ theorem burn_success_run_preserves_remaining_lp_share
     h_liquidity_le h_locked_remaining h_amount0 h_amount1 h_amount0_le
     h_amount1_le h_bound0 h_bound1 h_ratio0 h_ratio1
   have h_step :=
-    burn_success_run_refines_closed_world toAddr s rfl h_success
+    burn_success_run_matches_closed_world_step toAddr s rfl h_success
       h_liquidity_pos h_supply_pos h_liquidity_le h_locked_remaining
       h_amount0 h_amount1 h_amount0_le h_amount1_le h_bound0 h_bound1
       h_ratio0 h_ratio1
@@ -5256,7 +5256,7 @@ theorem swap_success_run_preserves_good_from_run
   intro h_good _h_run h_success h_liq0 h_liq1 h_input h_balance0
     h_balance1 h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
   have h_step :=
-    swap_success_run_refines_closed_world_from_run
+    swap_success_run_matches_closed_world_step_from_run
       amount0Out amount1Out toAddr data balance0Now balance1Now s
       rfl h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
       h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
@@ -5291,7 +5291,7 @@ theorem swap_success_run_updates_reserves_to_balances_from_run
   intro _h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
     h_bound0 h_bound1 h_fee0 h_fee1 h_k
   have h_step :=
-    swap_success_run_refines_closed_world_from_run
+    swap_success_run_matches_closed_world_step_from_run
       amount0Out amount1Out toAddr data balance0Now balance1Now s rfl
       h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
       h_bound0 h_bound1 h_fee0 h_fee1 h_k
@@ -5417,7 +5417,7 @@ theorem swap_success_run_preserves_liquidity_supply_from_run
   intro _h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
     h_bound0 h_bound1 h_fee0 h_fee1 h_k
   have h_step :=
-    swap_success_run_refines_closed_world_from_run
+    swap_success_run_matches_closed_world_step_from_run
       amount0Out amount1Out toAddr data balance0Now balance1Now s rfl
       h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
       h_bound0 h_bound1 h_fee0 h_fee1 h_k
@@ -5439,7 +5439,7 @@ theorem swap_success_run_never_decreases_k_from_run
   intro _h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
     h_bound0 h_bound1 h_fee0 h_fee1 h_k
   have h_step :=
-    swap_success_run_refines_closed_world_from_run
+    swap_success_run_matches_closed_world_step_from_run
       amount0Out amount1Out toAddr data balance0Now balance1Now s rfl
       h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
       h_bound0 h_bound1 h_fee0 h_fee1 h_k
@@ -5461,7 +5461,7 @@ theorem swap_success_run_k_uses_final_balances_from_run
   intro _h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
     h_bound0 h_bound1 h_fee0 h_fee1 h_k
   have h_step :=
-    swap_success_run_refines_closed_world_from_run
+    swap_success_run_matches_closed_world_step_from_run
       amount0Out amount1Out toAddr data balance0Now balance1Now s rfl
       h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
       h_bound0 h_bound1 h_fee0 h_fee1 h_k
@@ -5946,7 +5946,7 @@ theorem swap_success_run_no_caller_spot_profit_from_run
     h_balance0 h_balance1 h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
     h_total_value
   have h_step :=
-    swap_success_run_refines_closed_world_from_run
+    swap_success_run_matches_closed_world_step_from_run
       amount0Out amount1Out toAddr data balance0Now balance1Now s
       rfl h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
       h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
@@ -6308,7 +6308,7 @@ theorem successful_first_mint_matches_caller_wallet_mint
     rw [← h_run]
     exact h_success
   have h_pair_step :=
-    mint_first_success_run_refines_closed_world_from_run toAddr s
+    mint_first_success_run_matches_closed_world_step_from_run toAddr s
       rfl h_success_run h_zero h_balance0 h_balance1 h_amount0 h_amount1
       h_product h_root
   simp [PairWalletStep]
@@ -6332,7 +6332,7 @@ theorem successful_subsequent_mint_matches_caller_wallet_mint
     rw [← h_run]
     exact h_success
   have h_pair_step :=
-    mint_subsequent_success_run_refines_closed_world_from_run
+    mint_subsequent_success_run_matches_closed_world_step_from_run
       toAddr s liquidity rfl h_success_run h_supply h_reserve0
       h_reserve1 h_balance0 h_balance1 h_amount0 h_amount1 h_liquidity
       h_ratio0 h_ratio1
@@ -6360,7 +6360,7 @@ theorem successful_burn_matches_caller_wallet_burn
     rw [← h_run]
     exact h_success
   have h_expected :=
-    burn_success_run_refines_closed_world toAddr s rfl h_success_run
+    burn_success_run_matches_closed_world_step toAddr s rfl h_success_run
   have h_pair_step :=
     h_expected h_liquidity_pos h_supply_pos h_liquidity_le
       h_locked_remaining h_amount0_pos h_amount1_pos h_amount0_le
@@ -6389,7 +6389,7 @@ theorem successful_swap_matches_caller_wallet_swap
     rw [← h_run]
     exact h_success
   have h_pair_step :=
-    swap_success_run_refines_closed_world_from_run
+    swap_success_run_matches_closed_world_step_from_run
       amount0Out amount1Out toAddr data balance0Now balance1Now s
       rfl h_success_run h_liq0 h_liq1 h_input h_balance0 h_balance1
       h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
@@ -6407,7 +6407,7 @@ theorem successful_skim_matches_caller_wallet_skim
     toAddr s result before after := by
   intro h_run h_success h_before_pair h_after_pair h_caller0 h_caller1 h_lp
   have h_pair_step :=
-    skim_success_run_refines_closed_world_from_run toAddr s result
+    skim_success_run_matches_closed_world_step_from_run toAddr s result
       h_run h_success
   change
     PairWorldStep PairWorldAction.skim before.pair after.pair ∧
@@ -6426,7 +6426,7 @@ theorem successful_sync_matches_caller_wallet_sync
   pair_successful_sync_matches_caller_wallet_sync s result before after := by
   intro h_run h_success h_before_pair h_after_pair h_caller0 h_caller1 h_lp
   have h_pair_step :=
-    sync_success_run_refines_closed_world_from_run s result h_run h_success
+    sync_success_run_matches_closed_world_step_from_run s result h_run h_success
   simp [PairWalletStep]
   exact ⟨by simpa [h_before_pair, h_after_pair] using h_pair_step,
     h_caller0, h_caller1, h_lp⟩
@@ -6550,7 +6550,7 @@ theorem swap_success_run_no_caller_token_balance_profit_from_run
     h_liq0 h_liq1 h_input h_balance0 h_balance1 h_bound0 h_bound1 h_fee0
     h_fee1 h_adjusted_k h_total_value
   have h_step :=
-    swap_success_run_refines_closed_world_from_run
+    swap_success_run_matches_closed_world_step_from_run
       amount0Out amount1Out toAddr data balance0Now balance1Now s
       rfl h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
       h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
@@ -6881,7 +6881,7 @@ theorem skim_success_run_no_caller_token_balance_profit_from_run
     toAddr s result callerValueBefore callerValueAfter := by
   intro h_run h_success h_reachable h_surplus0 h_surplus1 h_total_value
   have h_step :=
-    skim_success_run_refines_closed_world_from_run
+    skim_success_run_matches_closed_world_step_from_run
       toAddr s result h_run h_success
   have h_good := pairWorldReachable_good
     (pairWorldFromConcreteState s) h_reachable
@@ -6915,7 +6915,7 @@ theorem skim_success_run_preserves_liquidity_supply_from_run
     toAddr s result := by
   intro h_run h_success
   have h_step :=
-    skim_success_run_refines_closed_world_from_run
+    skim_success_run_matches_closed_world_step_from_run
       toAddr s result h_run h_success
   exact closed_world_skim_preserves_liquidity_supply
     (pairWorldFromConcreteState s) (pairWorldAfterSkimRun s) h_step
@@ -6926,7 +6926,7 @@ theorem skim_success_run_preserves_good_from_run
   pair_skim_success_run_preserves_good_from_run toAddr s result := by
   intro h_good h_run h_success
   have h_step :=
-    skim_success_run_refines_closed_world_from_run
+    skim_success_run_matches_closed_world_step_from_run
       toAddr s result h_run h_success
   exact closed_world_skim_preserves_good
     (pairWorldFromConcreteState s) (pairWorldAfterSkimRun s)
@@ -6955,7 +6955,7 @@ theorem sync_success_run_preserves_good_from_run
   pair_sync_success_run_preserves_good_from_run s result := by
   intro h_good h_run h_success
   have h_step :=
-    sync_success_run_refines_closed_world_from_run s result h_run h_success
+    sync_success_run_matches_closed_world_step_from_run s result h_run h_success
   exact closed_world_sync_preserves_good
     (pairWorldFromConcreteState s) (pairWorldAfterSyncRun s)
     h_good h_step
@@ -7032,7 +7032,7 @@ theorem sync_success_run_uses_oracle_rule
   pair_sync_success_run_uses_oracle_rule s result := by
   intro h_run h_success h_bound0 h_bound1
   have h_step :=
-    sync_success_run_refines_closed_world
+    sync_success_run_matches_closed_world_step
       s result h_run h_success h_bound0 h_bound1
   have h_action :
       ((∃ amount0 amount1 liquidity,
@@ -7056,7 +7056,7 @@ theorem sync_success_run_uses_oracle_rule_from_run
   pair_sync_success_run_uses_oracle_rule_from_run s result := by
   intro h_run h_success
   have h_step :=
-    sync_success_run_refines_closed_world_from_run s result h_run h_success
+    sync_success_run_matches_closed_world_step_from_run s result h_run h_success
   have h_action :
       ((∃ amount0 amount1 liquidity,
           PairWorldAction.sync = PairWorldAction.mint amount0 amount1 liquidity) ∨
@@ -7107,7 +7107,7 @@ theorem mint_first_success_run_uses_oracle_rule
   intro _h_run h_success h_unlocked h_supply_zero h_bound0 h_bound1
     h_reserve0 h_reserve1 h_amount0 h_amount1 h_product h_root
   have h_step :=
-    mint_first_success_run_refines_closed_world toAddr s
+    mint_first_success_run_matches_closed_world_step toAddr s
       rfl h_success h_unlocked h_supply_zero h_bound0 h_bound1
       h_reserve0 h_reserve1 h_amount0 h_amount1 h_product h_root
   have h_action :
@@ -7143,7 +7143,7 @@ theorem mint_first_success_run_uses_oracle_rule_from_run
   intro _h_run h_success h_supply_zero h_reserve0 h_reserve1
     h_amount0 h_amount1 h_product h_root
   have h_step :=
-    mint_first_success_run_refines_closed_world_from_run toAddr s
+    mint_first_success_run_matches_closed_world_step_from_run toAddr s
       rfl h_success h_supply_zero h_reserve0 h_reserve1
       h_amount0 h_amount1 h_product h_root
   have h_action :
@@ -7179,7 +7179,7 @@ theorem mint_subsequent_success_run_uses_oracle_rule
     h_bound0 h_bound1 h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity
     h_ratio0 h_ratio1
   have h_step :=
-    mint_subsequent_success_run_refines_closed_world
+    mint_subsequent_success_run_matches_closed_world_step
       toAddr s liquidity rfl h_success h_supply_pos h_reserve0_pos
       h_reserve1_pos h_bound0 h_bound1 h_reserve0 h_reserve1 h_amount0
       h_amount1 h_liquidity h_ratio0 h_ratio1
@@ -7215,7 +7215,7 @@ theorem mint_subsequent_success_run_uses_oracle_rule_from_run
   intro _h_run h_success h_supply_pos h_reserve0_pos h_reserve1_pos
     h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
   have h_step :=
-    mint_subsequent_success_run_refines_closed_world_from_run
+    mint_subsequent_success_run_matches_closed_world_step_from_run
       toAddr s liquidity rfl h_success h_supply_pos h_reserve0_pos
       h_reserve1_pos h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity
       h_ratio0 h_ratio1
@@ -7251,7 +7251,7 @@ theorem burn_success_run_uses_oracle_rule
     h_locked_remaining h_amount0 h_amount1 h_amount0_le h_amount1_le h_bound0
     h_bound1 h_ratio0 h_ratio1
   have h_step :=
-    burn_success_run_refines_closed_world toAddr s rfl h_success
+    burn_success_run_matches_closed_world_step toAddr s rfl h_success
       h_liquidity_pos h_supply_pos h_liquidity_le h_locked_remaining
       h_amount0 h_amount1 h_amount0_le h_amount1_le h_bound0 h_bound1
       h_ratio0 h_ratio1
@@ -7289,7 +7289,7 @@ theorem swap_success_run_uses_oracle_rule
   intro _h_run h_success h_output h_liq0 h_liq1 h_input h_balance0 h_balance1
     h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
   have h_step :=
-    swap_success_run_refines_closed_world
+    swap_success_run_matches_closed_world_step
       amount0Out amount1Out toAddr data balance0Now balance1Now s
       rfl h_success h_output h_liq0 h_liq1 h_input h_balance0 h_balance1
       h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
@@ -7340,7 +7340,7 @@ theorem swap_success_run_uses_oracle_rule_from_run
   intro _h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
     h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
   have h_step :=
-    swap_success_run_refines_closed_world_from_run
+    swap_success_run_matches_closed_world_step_from_run
       amount0Out amount1Out toAddr data balance0Now balance1Now s
       rfl h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
       h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
@@ -7438,7 +7438,7 @@ theorem sync_success_run_preserves_liquidity_supply_from_run
   pair_sync_success_run_preserves_liquidity_supply_from_run s result := by
   intro h_run h_success
   have h_step :=
-    sync_success_run_refines_closed_world_from_run s result h_run h_success
+    sync_success_run_matches_closed_world_step_from_run s result h_run h_success
   exact closed_world_sync_preserves_liquidity_supply
     (pairWorldFromConcreteState s) (pairWorldAfterSyncRun s) h_step
 
@@ -7448,7 +7448,7 @@ theorem sync_success_run_updates_reserves_to_balances_from_run
   pair_sync_success_run_updates_reserves_to_balances_from_run s result := by
   intro h_run h_success
   have h_step :=
-    sync_success_run_refines_closed_world_from_run s result h_run h_success
+    sync_success_run_matches_closed_world_step_from_run s result h_run h_success
   have h_sync :=
     closed_world_sync_sets_reserves_to_balances
       (pairWorldFromConcreteState s) (pairWorldAfterSyncRun s) h_step
@@ -7519,7 +7519,7 @@ theorem sync_success_run_no_caller_token_balance_profit_from_run
     s result callerValueBefore callerValueAfter := by
   intro h_run h_success h_reachable h_surplus0 h_surplus1 h_total_value
   have h_step :=
-    sync_success_run_refines_closed_world_from_run
+    sync_success_run_matches_closed_world_step_from_run
       s result h_run h_success
   have h_good := pairWorldReachable_good
     (pairWorldFromConcreteState s) h_reachable

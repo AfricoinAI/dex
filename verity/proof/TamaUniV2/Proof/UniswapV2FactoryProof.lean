@@ -378,10 +378,10 @@ theorem createPair_success_appends_pair_at_old_length
       h_absent h_pair_nonzero h_len_ok
   exact h_success.2.2.2.1
 
--- tama: discharges=factory_createPair_first_success_refines_closed_world
-theorem createPair_first_success_refines_closed_world
+-- tama: discharges=factory_createPair_first_success_matches_closed_world_step
+theorem createPair_first_success_matches_closed_world_step
     (tokenA tokenB : Address) (s : ContractState) :
-  factory_createPair_first_success_refines_closed_world tokenA tokenB s := by
+  factory_createPair_first_success_matches_closed_world_step tokenA tokenB s := by
   intro h_distinct h_tokenA_nonzero h_tokenB_nonzero _h_empty
     _h_absent h_pair_nonzero _h_len_ok _h_run
   have h_tokenA_not_zero : ¬ tokenA = (0 : Address) := by
@@ -403,7 +403,7 @@ theorem createPair_first_success_refines_closed_world
               [Contracts.ExternalArg.toWord tokenA, Contracts.ExternalArg.toWord tokenB]) : Uint256).val =
           (0 : Address) := by
       simpa [wordToAddress] using h_pair_nonzero_branch
-    simp [factory_createPair_first_success_refines_closed_world,
+    simp [factory_createPair_first_success_matches_closed_world_step,
       FactoryWorldStep, FactoryWorldCreatePairStep, FactoryWorldInitial,
       FactoryWorldPairGood, factoryToken0, factoryToken1, addressToWord,
       h_sort, h_sort_raw, h_distinct, h_tokenA_nonzero, h_tokenB_nonzero,
@@ -431,18 +431,18 @@ theorem createPair_first_success_refines_closed_world
               [Contracts.ExternalArg.toWord tokenB, Contracts.ExternalArg.toWord tokenA]) : Uint256).val =
           (0 : Address) := by
       simpa [wordToAddress] using h_pair_nonzero_branch
-    simp [factory_createPair_first_success_refines_closed_world,
+    simp [factory_createPair_first_success_matches_closed_world_step,
       FactoryWorldStep, FactoryWorldCreatePairStep, FactoryWorldInitial,
       FactoryWorldPairGood, factoryToken0, factoryToken1, addressToWord,
       h_sort, h_sort_raw, h_reverse_sort, h_reverse_sort_raw, h_distinct,
       h_tokenA_nonzero, h_tokenB_nonzero, h_tokenA_not_zero, h_tokenB_not_zero,
       h_distinct_symm, h_pair_nonzero, h_pair_nonzero_branch, h_create2_guard]
 
--- tama: discharges=factory_createPair_success_refines_closed_world
-theorem createPair_success_refines_closed_world
+-- tama: discharges=factory_createPair_success_matches_closed_world_step
+theorem createPair_success_matches_closed_world_step
     (tokenA tokenB : Address) (s : ContractState)
     (before : FactoryWorldState) :
-  factory_createPair_success_refines_closed_world tokenA tokenB s before := by
+  factory_createPair_success_matches_closed_world_step tokenA tokenB s before := by
   intro h_distinct h_tokenA_nonzero h_tokenB_nonzero _h_good _h_count
     _h_absent h_absent_world h_pair_nonzero _h_len_ok _h_run
   have h_tokenA_not_zero : ¬ tokenA = (0 : Address) := by
@@ -469,7 +469,7 @@ theorem createPair_success_refines_closed_world
           entry.token0 ≠ tokenA ∨ entry.token1 ≠ tokenB := by
       simpa [factoryToken0, factoryToken1, addressToWord, h_sort, h_sort_raw]
         using h_absent_world
-    simp [factory_createPair_success_refines_closed_world,
+    simp [factory_createPair_success_matches_closed_world_step,
       FactoryWorldStep, FactoryWorldCreatePairStep, FactoryWorldInitial,
       FactoryWorldPairGood, factoryToken0, factoryToken1, addressToWord,
       h_sort, h_sort_raw, h_distinct, h_tokenA_nonzero, h_tokenB_nonzero,
@@ -504,7 +504,7 @@ theorem createPair_success_refines_closed_world
           entry.token0 ≠ tokenB ∨ entry.token1 ≠ tokenA := by
       simpa [factoryToken0, factoryToken1, addressToWord, h_sort, h_sort_raw]
         using h_absent_world
-    simp [factory_createPair_success_refines_closed_world,
+    simp [factory_createPair_success_matches_closed_world_step,
       FactoryWorldStep, FactoryWorldCreatePairStep, FactoryWorldInitial,
       FactoryWorldPairGood, factoryToken0, factoryToken1, addressToWord,
       h_sort, h_sort_raw, h_reverse_sort, h_reverse_sort_raw, h_distinct,
@@ -1244,7 +1244,7 @@ theorem createPair_first_success_preserves_good
   intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_empty
     h_absent h_pair_nonzero h_len_ok h_run
   have h_step :=
-    createPair_first_success_refines_closed_world tokenA tokenB s
+    createPair_first_success_matches_closed_world_step tokenA tokenB s
       h_distinct h_tokenA_nonzero h_tokenB_nonzero h_empty h_absent
       h_pair_nonzero h_len_ok h_run
   have h_initial_good : FactoryWorldGood FactoryWorldInitial := by
@@ -1271,7 +1271,7 @@ theorem createPair_success_preserves_good
   intro h_distinct h_tokenA_nonzero h_tokenB_nonzero h_good h_count
     h_absent h_absent_world h_pair_nonzero h_len_ok h_run
   have h_step :=
-    createPair_success_refines_closed_world tokenA tokenB s before
+    createPair_success_matches_closed_world_step tokenA tokenB s before
       h_distinct h_tokenA_nonzero h_tokenB_nonzero h_good h_count
       h_absent h_absent_world h_pair_nonzero h_len_ok h_run
   exact factoryWorldStep_preserves_good
@@ -1466,7 +1466,7 @@ private theorem factoryConcreteCreatePath_preserves_match
         tokenA tokenB _ _ _ _
         h_prefix_result.1 h_prefix_result.2 h_step
 
-private theorem factoryConcreteCreatePath_refines_world_path
+private theorem factoryConcreteCreatePath_matches_world_path
     {sBefore sAfter : ContractState}
     {wBefore wAfter : FactoryWorldState} :
   FactoryConcreteCreatePath sBefore wBefore sAfter wAfter →
@@ -1502,7 +1502,7 @@ theorem concrete_create_path_allPairsLength_never_decreases
     factoryConcreteCreatePath_preserves_match
       h_good h_match h_path
   have h_world_path :=
-    factoryConcreteCreatePath_refines_world_path h_path
+    factoryConcreteCreatePath_matches_world_path h_path
   rcases factoryWorldPath_append_only h_world_path with
     ⟨suffix, _h_pairs, h_count⟩
   have h_before_count := h_match.1
@@ -1523,7 +1523,7 @@ theorem concrete_create_path_preserves_existing_decoded_lookup
     factoryConcreteCreatePath_preserves_match
       h_good h_match h_path
   have h_world_path :=
-    factoryConcreteCreatePath_refines_world_path h_path
+    factoryConcreteCreatePath_matches_world_path h_path
   have h_existing_after :=
     factoryWorldPath_preserves_existing_pair h_existing h_world_path
   exact concrete_world_lookup_matches_storage
@@ -1542,7 +1542,7 @@ theorem concrete_create_path_preserves_existing_allPairs_entry
     factoryConcreteCreatePath_preserves_match
       h_good h_match h_path
   have h_world_path :=
-    factoryConcreteCreatePath_refines_world_path h_path
+    factoryConcreteCreatePath_matches_world_path h_path
   rcases factoryWorldPath_append_only h_world_path with
     ⟨suffix, h_pairs, _h_count⟩
   have h_get_after :
@@ -1563,7 +1563,7 @@ theorem concrete_same_length_create_path_preserves_world
     factoryConcreteCreatePath_preserves_match
       h_good h_match h_path
   have h_world_path :=
-    factoryConcreteCreatePath_refines_world_path h_path
+    factoryConcreteCreatePath_matches_world_path h_path
   have h_same_count :
       wBefore.pairCount = wAfter.pairCount := by
     rw [h_match.1, h_final.2.1]
@@ -1699,7 +1699,7 @@ theorem concrete_create_path_reachable_lookup_is_valid
     factoryConcreteCreatePath_preserves_match
       h_good_before h_match h_path
   have h_world_path :=
-    factoryConcreteCreatePath_refines_world_path h_path
+    factoryConcreteCreatePath_matches_world_path h_path
   have h_reachable_after :=
     factoryWorldPath_preserves_reachability h_reachable h_world_path
   exact concrete_reachable_lookup_is_valid sAfter wAfter tokenA tokenB pair

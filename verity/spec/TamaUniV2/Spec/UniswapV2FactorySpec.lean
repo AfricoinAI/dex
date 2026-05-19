@@ -209,7 +209,7 @@ closed-world factory model. When the concrete guards pass from an empty public
 pair array, the run creates exactly the one modeled sorted pair entry that the
 finite-trace invariants start from.
 -/
-def factory_createPair_first_success_refines_closed_world
+def factory_createPair_first_success_matches_closed_world_step
     (tokenA tokenB : Address) (s : ContractState) : Prop :=
   let token0Value := factoryToken0 tokenA tokenB
   let token1Value := factoryToken1 tokenA tokenB
@@ -263,7 +263,7 @@ def factory_createPair_first_success_preserves_good
 /-- In a nonempty factory, if the modeled state has the same public pair count
 as storage and contains no entry for the sorted token pair, then a successful
 `createPair` run appends exactly that sorted pair entry. -/
-def factory_createPair_success_refines_closed_world
+def factory_createPair_success_matches_closed_world_step
     (tokenA tokenB : Address) (s : ContractState)
     (before : FactoryWorldState) : Prop :=
   let token0Value := factoryToken0 tokenA tokenB

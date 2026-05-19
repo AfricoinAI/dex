@@ -895,7 +895,7 @@ def pair_skim_run_success_moves_exact_surplus_in_token_world
               toAddr
               (skimExcess1 s)
 
-def pair_skim_run_success_refines_closed_world
+def pair_skim_run_success_matches_closed_world_step
     (toAddr : Address) (s : ContractState) : Prop :=
   s.storage unlockedSlot.slot = 1 →
     s.storage reserve0Slot.slot ≤ observedBalance0 s →
@@ -926,7 +926,7 @@ def pair_skim_success_run_restores_unlocked_from_run
 /-- When `skim` succeeds, the lock gate passed and the pair held at least its
 cached reserves, so the call follows the skim rule used by the invariant
 proofs. -/
-def pair_skim_success_run_refines_closed_world_from_run
+def pair_skim_success_run_matches_closed_world_step_from_run
     (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=
   result = (skim toAddr).run s →
     result = ContractResult.success () result.snd →
@@ -1106,7 +1106,7 @@ def pair_sync_run_revert_balance1_overflow
       (sync).run s =
         ContractResult.revert "UniswapV2: OVERFLOW" s
 
-def pair_sync_expected_refines_closed_world
+def pair_sync_expected_matches_closed_world_step
     (s : ContractState) : Prop :=
   observedBalance0 s ≤ maxUint112 →
     observedBalance1 s ≤ maxUint112 →
@@ -1114,7 +1114,7 @@ def pair_sync_expected_refines_closed_world
         (pairWorldFromConcreteState s)
         (pairWorldAfterSyncRun s)
 
-def pair_sync_success_run_refines_closed_world
+def pair_sync_success_run_matches_closed_world_step
     (s : ContractState) (result : ContractResult Unit) : Prop :=
   result = (sync).run s →
     result = ContractResult.success () result.snd →
@@ -1156,7 +1156,7 @@ def pair_sync_success_run_implies_balances_fit_uint112
 
 /-- When `sync` succeeds, the lock gate and reserve-domain checks passed, so
 the call follows the sync rule used by the invariant proofs. -/
-def pair_sync_success_run_refines_closed_world_from_run
+def pair_sync_success_run_matches_closed_world_step_from_run
     (s : ContractState) (result : ContractResult Unit) : Prop :=
   result = (sync).run s →
     result = ContractResult.success () result.snd →
@@ -1478,7 +1478,7 @@ LP-share discipline, and no-profit consequences across arbitrary finite
 histories.
 -/
 
-def pair_mint_first_expected_refines_closed_world
+def pair_mint_first_expected_matches_closed_world_step
     (toAddr : Address) (s : ContractState) : Prop :=
   let amount0 := mintAmount0 s
   let amount1 := mintAmount1 s
@@ -1498,7 +1498,7 @@ def pair_mint_first_expected_refines_closed_world
                         (pairWorldBeforeMintRun s)
                         (pairWorldAfterFirstMintRun s)
 
-def pair_mint_first_success_run_refines_closed_world
+def pair_mint_first_success_run_matches_closed_world_step
     (toAddr : Address) (s : ContractState)
     (result : ContractResult Uint256) : Prop :=
   let amount0 := mintAmount0 s
@@ -1524,7 +1524,7 @@ def pair_mint_first_success_run_refines_closed_world
 /-- When the first `mint` succeeds, the lock gate was open and both observed
 token balances fit the `uint112` reserve domain; the remaining premises identify
 the call as the initial-liquidity path. -/
-def pair_mint_first_success_run_refines_closed_world_from_run
+def pair_mint_first_success_run_matches_closed_world_step_from_run
     (toAddr : Address) (s : ContractState)
     (result : ContractResult Uint256) : Prop :=
   let amount0 := mintAmount0 s
@@ -1765,7 +1765,7 @@ path, matches the appropriate model action. The economic content remains in the
 short invariants below, where those actions are composed over paths.
 -/
 
-def pair_mint_subsequent_expected_refines_closed_world
+def pair_mint_subsequent_expected_matches_closed_world_step
     (s : ContractState) (liquidity : Uint256) : Prop :=
   let amount0 := mintAmount0 s
   let amount1 := mintAmount1 s
@@ -1788,18 +1788,18 @@ def pair_mint_subsequent_expected_refines_closed_world
                             (pairWorldBeforeMintRun s)
                             (pairWorldAfterSubsequentMintRun liquidity s)
 
-def pair_mint_subsequent_success_run_refines_closed_world
+def pair_mint_subsequent_success_run_matches_closed_world_step
     (toAddr : Address) (s : ContractState)
     (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
   result = (mint toAddr).run s →
     result = ContractResult.success liquidity result.snd →
-      pair_mint_subsequent_expected_refines_closed_world s liquidity
+      pair_mint_subsequent_expected_matches_closed_world_step s liquidity
 
 /-- For later liquidity additions, a successful `mint` already establishes the
 shared mint gates; the remaining premises say that supply/reserves are live and
 that the returned LP amount is the canonical minimum of the two pro-rata sides.
 -/
-def pair_mint_subsequent_success_run_refines_closed_world_from_run
+def pair_mint_subsequent_success_run_matches_closed_world_step_from_run
     (toAddr : Address) (s : ContractState)
     (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
   let amount0 := mintAmount0 s
@@ -2010,7 +2010,7 @@ def pair_mint_subsequent_success_run_preserves_existing_lp_share
                                 amount1.val * (s.storage totalSupplySlot.slot).val →
                               PairWorldKPerSupplyNondecreasing before after
 
-def pair_burn_expected_refines_closed_world
+def pair_burn_expected_matches_closed_world_step
     (s : ContractState) : Prop :=
   let liquidity := burnLiquidity s
   let amount0 := burnAmount0 s
@@ -2034,12 +2034,12 @@ def pair_burn_expected_refines_closed_world
                             (pairWorldFromConcreteState s)
                             (pairWorldAfterBurnRun s)
 
-def pair_burn_success_run_refines_closed_world
+def pair_burn_success_run_matches_closed_world_step
     (toAddr : Address) (s : ContractState)
     (result : ContractResult (Uint256 × Uint256)) : Prop :=
   result = (burn toAddr).run s →
     result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
-      pair_burn_expected_refines_closed_world s
+      pair_burn_expected_matches_closed_world_step s
 
 /--
 A successful burn destroys the LP tokens sitting on the pair itself and uses
@@ -2303,7 +2303,7 @@ def pair_burn_success_run_preserves_remaining_lp_share
                                     liquidity.val * (observedBalance1 s).val →
                                   PairWorldKPerSupplyNondecreasing before after
 
-def pair_swap_expected_refines_closed_world
+def pair_swap_expected_matches_closed_world_step
     (amount0Out amount1Out balance0Now balance1Now : Uint256)
     (s : ContractState) : Prop :=
   let amount0In := swapAmount0In amount0Out balance0Now s
@@ -2334,13 +2334,13 @@ def pair_swap_expected_refines_closed_world
                             (pairWorldFromConcreteState s)
                             (pairWorldAfterSwapRun balance0Now balance1Now s)
 
-def pair_swap_success_run_refines_closed_world
+def pair_swap_success_run_matches_closed_world_step
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (balance0Now balance1Now : Uint256) (s : ContractState)
     (result : ContractResult Unit) : Prop :=
   result = (swap amount0Out amount1Out toAddr data).run s →
     result = ContractResult.success () result.snd →
-      pair_swap_expected_refines_closed_world
+      pair_swap_expected_matches_closed_world_step
         amount0Out amount1Out balance0Now balance1Now s
 
 /--
@@ -2399,7 +2399,7 @@ def pair_swap_checks_k_against_final_balances
 premises are the post-callback balance, input, reserve-bound, and K facts that
 describe the state observed after any optimistic transfer and callback
 repayment. -/
-def pair_swap_success_run_refines_closed_world_from_run
+def pair_swap_success_run_matches_closed_world_step_from_run
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (balance0Now balance1Now : Uint256) (s : ContractState)
     (result : ContractResult Unit) : Prop :=
