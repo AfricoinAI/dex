@@ -1266,269 +1266,6 @@ def pair_kLast_run_success_frames_state
   (kLast).run s = ContractResult.success 0 s
 
 /-!
-## Closed-World Foundations
-
-`PairWorldGood` (reserve backing + uint112 bounds +
-minimum-liquidity coherence) is preserved across any finite
-successful path from a good state; reachability is closed under
-appending finite paths; positive-supply reachable pools remain
-positive-supply with positive reserves.
--/
-
-def pair_closed_world_path_preserves_good
-    (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    PairWorldPath before after →
-      PairWorldGood after
-
-/--
-The core invariant over all finite modeled histories.
-
-`PairWorldGood` is the compact name for the safety facts that must never be
-lost: cached reserves are backed by actual token balances, cached reserves fit
-the `uint112` domain, and LP supply obeys the permanent minimum-liquidity lock.
-This theorem says those facts hold after any finite successful modeled history
-starting from any reachable Pair state.
--/
-def pair_closed_world_reachable_path_good
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    PairWorldPath before after →
-      PairWorldGood after
-
-/-- Reachability is stable under finite successful histories. This is the
-trace-level closure fact that lets the rest of the section talk about "any
-later reachable state" rather than only states built directly from the initial
-pool. -/
-def pair_closed_world_path_preserves_reachability
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    PairWorldPath before after →
-      PairWorldReachable after
-
-/-- Reachability packages the good-state precondition above. In the form users
-care about, any nonempty reachable pool remains nonempty after any finite
-successful modeled history. -/
-def pair_closed_world_reachable_positive_supply_path_remains_positive
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    0 < before.totalSupply →
-      PairWorldPath before after →
-        0 < after.totalSupply
-
-/-- The finite-history version of the same nondegeneracy invariant. Starting
-from any reachable nonempty pool, every finite sequence of successful modeled
-actions leaves both reserves positive, so later economic theorems can rely on a
-defined initial and final two-token pool rather than carrying that fact as an
-unexplained side condition. -/
-def pair_closed_world_reachable_positive_supply_path_has_positive_reserves
-    (before after : PairWorldState) : Prop :=
-  PairWorldReachable before →
-    0 < before.totalSupply →
-      PairWorldPath before after →
-        0 < after.reserve0 ∧
-        0 < after.reserve1
-
-/-!
-## Per-Action Closed-World Facts
-
-What each `mint`, `burn`, `swap` step does in the closed-world
-model: reserves catch up to balances, the fee-adjusted K check is
-honored against final post-callback balances, mint and burn obey
-their pro-rata ratio rules, swap reads input from the
-post-output/post-callback balance gap, and `PairWorldGood`
-survives.
--/
-
-def pair_closed_world_swap_updates_reserves_to_balances
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep
-      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-      before after →
-    after.reserve0 = after.balance0 ∧
-    after.reserve1 = after.balance1
-
-def pair_closed_world_swap_respects_fee_adjusted_k
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep
-      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-      before after →
-    feeAdjustedBalance after.balance0 amount0In *
-        feeAdjustedBalance after.balance1 amount1In ≥
-      requiredK before.reserve0 before.reserve1
-
-def pair_closed_world_swap_preserves_good
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    PairWorldStep
-      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-      before after →
-      PairWorldGood after
-
-def pair_closed_world_swap_has_input_and_output
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep
-      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-      before after →
-    (0 < amount0Out ∨ 0 < amount1Out) ∧
-    (0 < amount0In ∨ 0 < amount1In)
-
-/-- The final balances used by swap safety are the balances after optimistic
-output and inferred input. This is the closed-world flash-swap accounting rule:
-callback-visible repayment, direct prepayment, and ordinary swaps all reduce to
-the same equation before the fee-adjusted K check is applied. -/
-def pair_closed_world_swap_final_balances_account_for_input_and_output
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep
-      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-      before after →
-    after.balance0 + amount0Out = before.reserve0 + amount0In ∧
-    after.balance1 + amount1Out = before.reserve1 + amount1In
-
-/-- Flash-swap safety depends on the order of the economic check. The K
-inequality is not charged against the balances immediately after optimistic
-output; it is charged against the final balances after direct input or callback
-repayment has arrived. This theorem packages that relationship: the same final
-balances that account for output and inferred input are the balances used by
-the fee-adjusted K check. -/
-def pair_closed_world_swap_k_uses_final_balances
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep
-      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-      before after →
-    after.balance0 + amount0Out = before.reserve0 + amount0In ∧
-    after.balance1 + amount1Out = before.reserve1 + amount1In ∧
-    feeAdjustedBalance after.balance0 amount0In *
-        feeAdjustedBalance after.balance1 amount1In ≥
-      requiredK before.reserve0 before.reserve1
-
-def pair_closed_world_swap_outputs_below_reserves
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep
-      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-      before after →
-    amount0Out < before.reserve0 ∧
-    amount1Out < before.reserve1
-
-def pair_closed_world_swap_preserves_liquidity_supply
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep
-      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
-      before after →
-    after.totalSupply = before.totalSupply ∧
-    after.lockedLiquidity = before.lockedLiquidity
-
-def pair_closed_world_mint_updates_reserves_to_balances
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
-    after.reserve0 = after.balance0 ∧
-    after.reserve1 = after.balance1
-
-/-- A valid mint adds token balances and then caches those balances as reserves,
-so minting liquidity cannot make the raw reserve product smaller. -/
-def pair_closed_world_mint_never_decreases_k
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
-    PairWorldK before ≤ PairWorldK after
-
-def pair_closed_world_mint_preserves_good
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
-      PairWorldGood after
-
-def pair_closed_world_mint_liquidity_ratio
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
-    before.totalSupply = 0 ∨
-      liquidity * before.reserve0 ≤ amount0 * before.totalSupply ∧
-      liquidity * before.reserve1 ≤ amount1 * before.totalSupply
-
-def pair_closed_world_burn_updates_reserves_to_balances
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
-    after.reserve0 = after.balance0 ∧
-    after.reserve1 = after.balance1
-
-def pair_closed_world_burn_preserves_good
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldGood before →
-    PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
-      PairWorldGood after
-
-def pair_closed_world_burn_liquidity_ratio
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWorldState) : Prop :=
-  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
-    amount0 * before.totalSupply ≤ liquidity * before.balance0 ∧
-    amount1 * before.totalSupply ≤ liquidity * before.balance1
-
-/-!
-## Oracle / TWAP Update Rules
-
-Cumulative prices follow the canonical Uniswap V2 rule. Same-block
-timestamps leave them unchanged; elapsed updates with nonzero
-reserves add the UQ112x112 encoded price times elapsed time; the
-elapsed branch with zero elapsed time or a zero old reserve leaves
-them unchanged.
--/
-
-/-- Reserve updates in the same 32-bit timestamp window do not move the TWAP
-accumulators. This is a contract-level oracle rule shared by mint, burn, swap,
-and sync; the new reserves may change, but no time has elapsed at the old
-price. -/
-def pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives
-    (s : ContractState) : Prop :=
-  timestamp32 s = s.storage blockTimestampLastSlot.slot →
-    oraclePrice0CumulativeAfterSync s =
-      s.storage price0CumulativeLastSlot.slot ∧
-    oraclePrice1CumulativeAfterSync s =
-      s.storage price1CumulativeLastSlot.slot
-
-/-- When a reserve update crosses into a later 32-bit timestamp and both old
-reserves are nonzero, the pair adds exactly the canonical UQ112x112 encoded
-`reserve1 / reserve0` and `reserve0 / reserve1` prices multiplied by elapsed
-time. -/
-def pair_reserve_update_oracle_elapsed_updates_price_cumulatives
-    (s : ContractState) : Prop :=
-  (timestamp32 s != s.storage blockTimestampLastSlot.slot) = true →
-    oracleElapsed s > 0 →
-      s.storage reserve0Slot.slot > 0 →
-        s.storage reserve1Slot.slot > 0 →
-          oraclePrice0CumulativeAfterSync s =
-            oraclePrice0CumulativeAfterElapsed s ∧
-          oraclePrice1CumulativeAfterSync s =
-            oraclePrice1CumulativeAfterElapsed s
-
-/-- A timestamp change alone is not enough to update TWAP accumulators. If the
-elapsed-price branch is inactive because elapsed time or either old reserve is
-zero, both cumulative prices remain unchanged. -/
-def pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives
-    (s : ContractState) : Prop :=
-  (timestamp32 s != s.storage blockTimestampLastSlot.slot) = true →
-    ¬ (oracleElapsed s > 0 ∧
-        s.storage reserve0Slot.slot > 0 ∧
-        s.storage reserve1Slot.slot > 0) →
-      oraclePrice0CumulativeAfterSync s =
-        s.storage price0CumulativeLastSlot.slot ∧
-      oraclePrice1CumulativeAfterSync s =
-        s.storage price1CumulativeLastSlot.slot
-
-/-!
 ## 14. Public-Call Matching
 
 Each successful public mutating call matches its closed-world transition
@@ -2183,5 +1920,268 @@ def pair_successful_sync_matches_caller_wallet_sync
             after.callerToken1 = before.callerToken1 →
               after.callerLp = before.callerLp →
                 PairWalletStep PairWalletAction.callerSync before after
+
+/-!
+## Closed-World Foundations
+
+`PairWorldGood` (reserve backing + uint112 bounds +
+minimum-liquidity coherence) is preserved across any finite
+successful path from a good state; reachability is closed under
+appending finite paths; positive-supply reachable pools remain
+positive-supply with positive reserves.
+-/
+
+def pair_closed_world_path_preserves_good
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldPath before after →
+      PairWorldGood after
+
+/--
+The core invariant over all finite modeled histories.
+
+`PairWorldGood` is the compact name for the safety facts that must never be
+lost: cached reserves are backed by actual token balances, cached reserves fit
+the `uint112` domain, and LP supply obeys the permanent minimum-liquidity lock.
+This theorem says those facts hold after any finite successful modeled history
+starting from any reachable Pair state.
+-/
+def pair_closed_world_reachable_path_good
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPath before after →
+      PairWorldGood after
+
+/-- Reachability is stable under finite successful histories. This is the
+trace-level closure fact that lets the rest of the section talk about "any
+later reachable state" rather than only states built directly from the initial
+pool. -/
+def pair_closed_world_path_preserves_reachability
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    PairWorldPath before after →
+      PairWorldReachable after
+
+/-- Reachability packages the good-state precondition above. In the form users
+care about, any nonempty reachable pool remains nonempty after any finite
+successful modeled history. -/
+def pair_closed_world_reachable_positive_supply_path_remains_positive
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        0 < after.totalSupply
+
+/-- The finite-history version of the same nondegeneracy invariant. Starting
+from any reachable nonempty pool, every finite sequence of successful modeled
+actions leaves both reserves positive, so later economic theorems can rely on a
+defined initial and final two-token pool rather than carrying that fact as an
+unexplained side condition. -/
+def pair_closed_world_reachable_positive_supply_path_has_positive_reserves
+    (before after : PairWorldState) : Prop :=
+  PairWorldReachable before →
+    0 < before.totalSupply →
+      PairWorldPath before after →
+        0 < after.reserve0 ∧
+        0 < after.reserve1
+
+/-!
+## Per-Action Closed-World Facts
+
+What each `mint`, `burn`, `swap` step does in the closed-world
+model: reserves catch up to balances, the fee-adjusted K check is
+honored against final post-callback balances, mint and burn obey
+their pro-rata ratio rules, swap reads input from the
+post-output/post-callback balance gap, and `PairWorldGood`
+survives.
+-/
+
+def pair_closed_world_swap_updates_reserves_to_balances
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    after.reserve0 = after.balance0 ∧
+    after.reserve1 = after.balance1
+
+def pair_closed_world_swap_respects_fee_adjusted_k
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    feeAdjustedBalance after.balance0 amount0In *
+        feeAdjustedBalance after.balance1 amount1In ≥
+      requiredK before.reserve0 before.reserve1
+
+def pair_closed_world_swap_preserves_good
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+      PairWorldGood after
+
+def pair_closed_world_swap_has_input_and_output
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    (0 < amount0Out ∨ 0 < amount1Out) ∧
+    (0 < amount0In ∨ 0 < amount1In)
+
+/-- The final balances used by swap safety are the balances after optimistic
+output and inferred input. This is the closed-world flash-swap accounting rule:
+callback-visible repayment, direct prepayment, and ordinary swaps all reduce to
+the same equation before the fee-adjusted K check is applied. -/
+def pair_closed_world_swap_final_balances_account_for_input_and_output
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    after.balance0 + amount0Out = before.reserve0 + amount0In ∧
+    after.balance1 + amount1Out = before.reserve1 + amount1In
+
+/-- Flash-swap safety depends on the order of the economic check. The K
+inequality is not charged against the balances immediately after optimistic
+output; it is charged against the final balances after direct input or callback
+repayment has arrived. This theorem packages that relationship: the same final
+balances that account for output and inferred input are the balances used by
+the fee-adjusted K check. -/
+def pair_closed_world_swap_k_uses_final_balances
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    after.balance0 + amount0Out = before.reserve0 + amount0In ∧
+    after.balance1 + amount1Out = before.reserve1 + amount1In ∧
+    feeAdjustedBalance after.balance0 amount0In *
+        feeAdjustedBalance after.balance1 amount1In ≥
+      requiredK before.reserve0 before.reserve1
+
+def pair_closed_world_swap_outputs_below_reserves
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    amount0Out < before.reserve0 ∧
+    amount1Out < before.reserve1
+
+def pair_closed_world_swap_preserves_liquidity_supply
+    (amount0In amount1In amount0Out amount1Out : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep
+      (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+      before after →
+    after.totalSupply = before.totalSupply ∧
+    after.lockedLiquidity = before.lockedLiquidity
+
+def pair_closed_world_mint_updates_reserves_to_balances
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+    after.reserve0 = after.balance0 ∧
+    after.reserve1 = after.balance1
+
+/-- A valid mint adds token balances and then caches those balances as reserves,
+so minting liquidity cannot make the raw reserve product smaller. -/
+def pair_closed_world_mint_never_decreases_k
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+    PairWorldK before ≤ PairWorldK after
+
+def pair_closed_world_mint_preserves_good
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+      PairWorldGood after
+
+def pair_closed_world_mint_liquidity_ratio
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before after →
+    before.totalSupply = 0 ∨
+      liquidity * before.reserve0 ≤ amount0 * before.totalSupply ∧
+      liquidity * before.reserve1 ≤ amount1 * before.totalSupply
+
+def pair_closed_world_burn_updates_reserves_to_balances
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+    after.reserve0 = after.balance0 ∧
+    after.reserve1 = after.balance1
+
+def pair_closed_world_burn_preserves_good
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldGood before →
+    PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+      PairWorldGood after
+
+def pair_closed_world_burn_liquidity_ratio
+    (amount0 amount1 liquidity : Nat)
+    (before after : PairWorldState) : Prop :=
+  PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
+    amount0 * before.totalSupply ≤ liquidity * before.balance0 ∧
+    amount1 * before.totalSupply ≤ liquidity * before.balance1
+
+/-!
+## Oracle / TWAP Update Rules
+
+Cumulative prices follow the canonical Uniswap V2 rule. Same-block
+timestamps leave them unchanged; elapsed updates with nonzero
+reserves add the UQ112x112 encoded price times elapsed time; the
+elapsed branch with zero elapsed time or a zero old reserve leaves
+them unchanged.
+-/
+
+/-- Reserve updates in the same 32-bit timestamp window do not move the TWAP
+accumulators. This is a contract-level oracle rule shared by mint, burn, swap,
+and sync; the new reserves may change, but no time has elapsed at the old
+price. -/
+def pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives
+    (s : ContractState) : Prop :=
+  timestamp32 s = s.storage blockTimestampLastSlot.slot →
+    oraclePrice0CumulativeAfterSync s =
+      s.storage price0CumulativeLastSlot.slot ∧
+    oraclePrice1CumulativeAfterSync s =
+      s.storage price1CumulativeLastSlot.slot
+
+/-- When a reserve update crosses into a later 32-bit timestamp and both old
+reserves are nonzero, the pair adds exactly the canonical UQ112x112 encoded
+`reserve1 / reserve0` and `reserve0 / reserve1` prices multiplied by elapsed
+time. -/
+def pair_reserve_update_oracle_elapsed_updates_price_cumulatives
+    (s : ContractState) : Prop :=
+  (timestamp32 s != s.storage blockTimestampLastSlot.slot) = true →
+    oracleElapsed s > 0 →
+      s.storage reserve0Slot.slot > 0 →
+        s.storage reserve1Slot.slot > 0 →
+          oraclePrice0CumulativeAfterSync s =
+            oraclePrice0CumulativeAfterElapsed s ∧
+          oraclePrice1CumulativeAfterSync s =
+            oraclePrice1CumulativeAfterElapsed s
+
+/-- A timestamp change alone is not enough to update TWAP accumulators. If the
+elapsed-price branch is inactive because elapsed time or either old reserve is
+zero, both cumulative prices remain unchanged. -/
+def pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives
+    (s : ContractState) : Prop :=
+  (timestamp32 s != s.storage blockTimestampLastSlot.slot) = true →
+    ¬ (oracleElapsed s > 0 ∧
+        s.storage reserve0Slot.slot > 0 ∧
+        s.storage reserve1Slot.slot > 0) →
+      oraclePrice0CumulativeAfterSync s =
+        s.storage price0CumulativeLastSlot.slot ∧
+      oraclePrice1CumulativeAfterSync s =
+        s.storage price1CumulativeLastSlot.slot
 
 end TamaUniV2.Spec.UniswapV2PairSpec
