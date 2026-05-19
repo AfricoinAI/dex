@@ -48,22 +48,22 @@ callbacks, and CREATE2 deployment.
 
 ### Tier 3 — Boundary mechanics
 
-9. Each successful public mutating call matches its closed-world transition,
-   so the closed-world theorems apply at the contract boundary.
+9. Every guarded failure has a canonical revert payload and leaves the
+   pre-call state unchanged.
 
-10. Every guarded failure has a canonical revert payload and leaves the
-    pre-call state unchanged.
+10. Token movement is modeled by pair-local ERC20 trace events.
 
-11. Token movement is modeled by pair-local ERC20 trace events.
-
-12. LP approve/transfer/transferFrom move share claims only; AMM state,
+11. LP approve/transfer/transferFrom move share claims only; AMM state,
     reserves, and token balances are unchanged.
 
-13. Initialization is factory-only and one-shot; after the first
+12. Initialization is factory-only and one-shot; after the first
     `initialize`, token identities are fixed.
 
-14. Views return exactly one storage cell (or a constant) without mutating
+13. Views return exactly one storage cell (or a constant) without mutating
     state.
+
+14. Each successful public mutating call matches its closed-world transition,
+    so the closed-world theorems apply at the contract boundary.
 -/
 
 /-!
@@ -639,7 +639,7 @@ def pair_closed_world_skim_or_sync_token_balance_value_never_increases_at_spot
           PairWorldBalanceSpotValueNum spot before
 
 /-!
-## 10. Exact-Revert Guards
+## 9. Exact-Revert Guards
 
 Every guarded failure has a canonical revert payload and leaves the
 pre-call state unchanged: pair storage, LP balances and allowances,
@@ -896,7 +896,7 @@ def pair_initialize_reverts_when_already_initialized
       result = ContractResult.revert "UniswapV2: ALREADY_INITIALIZED" s
 
 /-!
-## 11. ERC20 Trace Boundary
+## 10. ERC20 Trace Boundary
 
 The pair affects token balances only through ERC20 transfer ECMs.
 Each successful `safeTransfer` records a pair-local ghost event
@@ -953,7 +953,7 @@ def pair_two_safeTransfer_events_replay_move_distinct_token_balances
         pre token1Value toAddr + amount1
 
 /-!
-## 12. LP ERC20 Share Ledger
+## 11. LP ERC20 Share Ledger
 
 Approve, transfer, and transferFrom are conservative ERC20 share
 accounting: balances move only on transfer, total supply is
@@ -1129,7 +1129,7 @@ def pair_transferFrom_emits_transfer
         pairTraceContains (pairLpTransferEvent fromAddr toAddr amount) result.snd.events
 
 /-!
-## 13. Initialization
+## 12. Initialization
 
 Initialization is factory-only and one-shot. After the first
 successful `initialize`, the pair's token identities are fixed
@@ -1172,7 +1172,7 @@ def pair_initialize_run_success_keeps_amm_accounting
         post.events = s.events
 
 /-!
-## 14. Views
+## 13. Views
 
 Each public read returns the expected storage cell (or a constant)
 and frames pair state on success. With the protocol fee mint
@@ -1715,7 +1715,7 @@ def pair_successful_sync_matches_caller_wallet_sync
                 PairWalletStep PairWalletAction.callerSync before after
 
 /-!
-## 9. Per-Call Public Accounting
+## 14. Per-Call Public Accounting
 
 Each successful public mutating call matches its closed-world
 transition. These specs connect the contract boundary into the
