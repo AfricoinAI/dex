@@ -5209,6 +5209,29 @@ theorem wallet_single_caller_history_no_portfolio_profit
   pair_wallet_single_caller_history_no_portfolio_profit before after := by
   exact pairWalletHistory_no_portfolio_profit
 
+-- tama: discharges=pair_wallet_history_preserves_good
+theorem wallet_history_preserves_good
+    (before after : PairWalletWorldState) :
+  pair_wallet_history_preserves_good before after := by
+  intro h_good h_supply h_hist
+  rcases pairWalletHistory_preserves_good_and_positive h_good h_supply h_hist
+    with ⟨h_after_good, _h_after_supply, _h_after_locked⟩
+  exact h_after_good
+
+-- tama: discharges=pair_wallet_history_total_value_conserved
+theorem wallet_history_total_value_conserved
+    (spot : PairWorldState) (before after : PairWalletWorldState) :
+  pair_wallet_history_total_value_conserved spot before after := by
+  intro h_good h_supply h_hist
+  exact pairWalletHistory_total_value_conserved spot h_good h_supply h_hist
+
+-- tama: discharges=pair_wallet_history_preserves_unowned
+theorem wallet_history_preserves_unowned
+    (before after : PairWalletWorldState) :
+  pair_wallet_history_preserves_unowned before after := by
+  intro h_good h_supply h_hist
+  exact pairWalletHistory_preserves_unowned h_good h_supply h_hist
+
 -- tama: discharges=pair_successful_first_mint_matches_caller_wallet_mint
 theorem successful_first_mint_matches_caller_wallet_mint
     (toAddr : Address) (s : ContractState) (result : ContractResult Uint256)

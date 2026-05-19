@@ -2017,6 +2017,75 @@ def pair_closed_world_path_preserves_reachability
     PairWorldPath before after →
       PairWorldReachable after
 
+/-!
+## Caller-Wallet Foundations
 
+The caller-wallet model layers one caller's token wallet and LP holdings on
+top of `PairWorldState` (the pair-side world). These specs are the
+closed-world assumptions that Property 1's no-profit theorem rests on. Any
+finite sequence of valid caller actions preserves three invariants:
+
+1. `PairWalletGood` (the pair is still well-formed and the caller still
+   owns at most `totalSupply − lockedLiquidity` LP tokens).
+2. Total token value, measured at any fixed reference price, is conserved
+   between caller wallet and pair balance.
+3. The "non-caller LP count" `totalSupply − callerLp` is unchanged.
+-/
+
+def pair_wallet_history_preserves_good
+    (before after : PairWalletWorldState) : Prop :=
+  PairWalletGood before →
+    0 < before.pair.totalSupply →
+      PairWalletHistory before after →
+        PairWalletGood after
+
+/--
+Total token value conservation — the closed-world assumption made
+quantitative.
+
+`PairWalletTotalTokenValueAtSpot spot w` is the sum of the caller's wallet
+tokens and the pair's actual ERC20 balances, priced at the reference
+`PairWorldState spot` (any fixed pool state — not necessarily before or
+after). This sum is invariant across any finite caller history.
+
+Per action: `callerDonate` moves tokens caller → pair; `callerSkimReceive`
+moves pair → caller; `callerMint` moves caller → pair and creates LP claim
+in exchange; `callerBurn` moves pair → caller and destroys LP claim;
+`callerSwap` moves input caller → pair and output pair → caller;
+`callerSync` and `callerApprove` move no tokens. In every case the
+caller-side change and the pair-side change have equal magnitude and
+opposite sign at any fixed spot, so the sum is conserved. LP tokens
+themselves carry no spot value in this sum — they're entitlement; the
+value they back is already counted in the pair balance.
+
+K growth from the 0.3% swap fee does not violate this. The fee stays
+inside the pair as a higher reserve product, which raises LP-claim value
+via Property 2 (LP-share backing) — that is redistribution of who benefits
+from the pair's existing tokens, not new tokens. The wallet-plus-pair
+token sum at the swap's reference spot is unchanged.
+
+Property 1 uses this conservation to identify caller wallet gain with pair
+balance loss and bound that loss via Property 2.
+-/
+def pair_wallet_history_total_value_conserved
+    (spot : PairWorldState) (before after : PairWalletWorldState) : Prop :=
+  PairWalletGood before →
+    0 < before.pair.totalSupply →
+      PairWalletHistory before after →
+        PairWalletTotalTokenValueAtSpot spot before =
+          PairWalletTotalTokenValueAtSpot spot after
+
+/-- Mint and burn change both `callerLp` and `totalSupply` by the same
+`liquidity` amount; every other caller action changes neither. So the
+non-caller LP count `totalSupply − callerLp` is conserved across any finite
+caller history. Property 1's proof uses this to factor the pair-side value
+as caller-owned LP claim plus a constant non-caller share. -/
+def pair_wallet_history_preserves_unowned
+    (before after : PairWalletWorldState) : Prop :=
+  PairWalletGood before →
+    0 < before.pair.totalSupply →
+      PairWalletHistory before after →
+        after.pair.totalSupply - after.callerLp =
+          before.pair.totalSupply - before.callerLp
 
 end TamaUniV2.Spec.UniswapV2PairSpec
