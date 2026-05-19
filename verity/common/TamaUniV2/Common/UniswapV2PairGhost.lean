@@ -242,7 +242,7 @@ structure PairWalletWorldState where
 
 def PairWalletGood (w : PairWalletWorldState) : Prop :=
   PairWorldGood w.pair ∧
-    w.callerLp + w.pair.lockedLiquidity = w.pair.totalSupply
+    w.callerLp + w.pair.lockedLiquidity ≤ w.pair.totalSupply
 
 def PairWalletCallerTokenValueAtSpot
     (spot : PairWorldState) (w : PairWalletWorldState) : Nat :=

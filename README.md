@@ -4,11 +4,7 @@ Active spec guidance:
 
 - `verity/spec/TamaUniV2/Spec/UniswapV2PairSpec.lean` and
   `verity/spec/TamaUniV2/Spec/UniswapV2FactorySpec.lean` are the single source
-  of truth for what is covered and why. Read the top-of-file overview and
-  section docstrings as the assurance argument; each `def pair_*` is the
-  formal version of the paragraph above it.
-- `docs/superpowers/plans/2026-05-17-invariant-first-uniswap-v2-specs.md` is the
-  current forward plan.
+  of truth for what is covered and why.
 - `docs/agent-progress.md` is append-only historical context; use it for
   checkpoints and failed-route lessons, not as the source of the current plan.
 

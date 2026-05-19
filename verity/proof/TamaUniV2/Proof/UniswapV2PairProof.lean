@@ -6270,21 +6270,6 @@ private theorem closed_world_reachable_same_supply_path_no_spot_profit
     (pairWorldReachable_good before h_reachable)
     h_positive h_path h_supply h_reserve0 h_reserve1
 
--- tama: discharges=pair_closed_world_reachable_same_supply_path_pool_value_never_decreases
-theorem closed_world_reachable_same_supply_path_pool_value_never_decreases
-    (before after : PairWorldState) :
-  pair_closed_world_reachable_same_supply_path_pool_value_never_decreases before after := by
-  intro h_reachable h_positive h_path h_supply h_reserve0 h_reserve1
-  have h_no_profit :
-      PairWorldNoSpotProfit before after :=
-    closed_world_reachable_same_supply_path_no_spot_profit before after
-      h_reachable h_positive h_path h_supply h_reserve0 h_reserve1
-  have h_initial_value :
-      PairWorldSpotValueNum before before = 2 * PairWorldK before := by
-    unfold PairWorldSpotValueNum PairWorldK
-    nlinarith
-  simpa [pair_closed_world_reachable_same_supply_path_pool_value_never_decreases,
-    PairWorldNoSpotProfit, h_initial_value] using h_no_profit
 
 /-- Caller-facing form of the same theorem. `PairWorld` tracks pool-side token
 balances and LP supply, not arbitrary external wallet balances, so the
@@ -6311,26 +6296,7 @@ private theorem closed_world_reachable_same_supply_path_no_spot_value_extraction
     using closed_world_reachable_same_supply_path_pool_value_never_decreases
       before after
 
--- tama: discharges=pair_closed_world_reachable_same_supply_path_no_token1_denominated_profit
-theorem closed_world_reachable_same_supply_path_no_token1_denominated_profit
-    (before after : PairWorldState) :
-  pair_closed_world_reachable_same_supply_path_no_token1_denominated_profit
-    before after := by
-  simpa [pair_closed_world_reachable_same_supply_path_no_token1_denominated_profit]
-    using closed_world_reachable_same_supply_path_pool_value_never_decreases
-      before after
 
--- tama: discharges=pair_closed_world_reachable_positive_supply_same_supply_path_no_spot_value_extraction
-theorem closed_world_reachable_positive_supply_same_supply_path_no_spot_value_extraction
-    (before after : PairWorldState) :
-  pair_closed_world_reachable_positive_supply_same_supply_path_no_spot_value_extraction
-    before after := by
-  intro h_reachable h_positive h_path h_supply
-  have h_reserves :=
-    pairWorldReachable_positive_supply_positive_reserves h_reachable h_positive
-  exact closed_world_reachable_same_supply_path_no_spot_value_extraction
-    before after h_reachable h_positive h_path h_supply
-    h_reserves.1 h_reserves.2
 
 private theorem pairWorldSpotValue_le_balanceSpotValue
     {spot pool : PairWorldState} :
@@ -6411,21 +6377,29 @@ private theorem pairWalletHistory_total_value_conserved
         pairWalletStep_total_value_conserved spot h_mid_good h_step
       exact h_prefix_value.trans h_step_value
 
-private theorem pairWalletPortfolio_plus_locked_eq_total
+private theorem pairWalletPortfolio_plus_unowned_eq_total
     (spot : PairWorldState) (w : PairWalletWorldState) :
   PairWalletGood w →
     PairWalletPortfolioValueNumeratorAtSpot spot w +
-        w.pair.lockedLiquidity * PairWorldSpotValueNum spot w.pair =
+        (w.pair.totalSupply - w.callerLp) * PairWorldSpotValueNum spot w.pair =
       PairWalletTotalTokenValueAtSpot spot w * w.pair.totalSupply := by
   intro h_good
   rcases h_good with ⟨h_pair_good, h_wallet⟩
   have h_balance_eq :=
     pairWorldBalanceSpotValue_eq_spot_plus_surplus
       (spot := spot) (pool := w.pair) h_pair_good
+  have h_le : w.callerLp ≤ w.pair.totalSupply := by omega
   unfold PairWalletPortfolioValueNumeratorAtSpot PairWalletTotalTokenValueAtSpot
     PairWalletCallerTokenValueAtSpot PairWalletSkimmableValueAtSpot
   rw [h_balance_eq]
-  nlinarith
+  have h_split :
+      (w.pair.totalSupply - w.callerLp) * PairWorldSpotValueNum spot w.pair +
+          w.callerLp * PairWorldSpotValueNum spot w.pair =
+        w.pair.totalSupply * PairWorldSpotValueNum spot w.pair := by
+    rw [← Nat.add_mul]
+    congr 1
+    omega
+  nlinarith [h_split]
 
 private theorem pairWorldKPerSupply_spot_value_per_supply
     {spot after : PairWorldState} :
@@ -6502,6 +6476,77 @@ private theorem pairWorldKPerSupply_spot_value_per_supply
     nlinarith [hlt, hsum_nonneg, htarget_pos]
   nlinarith [hamgm, hkscaled, hlt_sq]
 
+private theorem pairWalletStep_preserves_unowned
+    {action : PairWalletAction} {before after : PairWalletWorldState} :
+  PairWalletGood before →
+    0 < before.pair.totalSupply →
+      PairWalletStep action before after →
+        after.pair.totalSupply - after.callerLp =
+          before.pair.totalSupply - before.callerLp := by
+  intro h_good h_positive h_step
+  rcases h_good with ⟨_h_pair_good, h_wallet⟩
+  cases action <;>
+    simp [PairWalletStep, PairWorldStep, PairWorldMintStep, PairWorldBurnStep,
+      PairWorldSwapStep, PairWorldSkimStep, PairWorldSyncStep] at h_step
+  · subst after; rfl
+  · rcases h_step with ⟨_h_token0, _h_token1, h_pair, _h_caller0, _h_caller1,
+      h_lp⟩
+    rcases h_pair with ⟨_h_balance0, _h_balance1, _h_reserve0, _h_reserve1,
+      h_supply, _h_locked⟩
+    omega
+  · rcases h_step with ⟨h_pair, _h_amount0, _h_amount1, _h_caller0, _h_caller1,
+      h_lp⟩
+    rcases h_pair with ⟨_h_balance0, _h_balance1, _h_reserve0, _h_reserve1,
+      h_supply, _h_locked⟩
+    omega
+  · rcases h_step with ⟨h_pair, _h_amount0In, _h_amount1In, _h_caller0,
+      _h_caller1, h_lp⟩
+    rcases h_pair with ⟨_h_output, _h_liq0, _h_liq1, _h_enough0, _h_enough1,
+      _h_input, _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0,
+      _h_bound1, h_supply, _h_locked, _h_fee0, _h_fee1, _h_k⟩
+    omega
+  · rcases h_step with ⟨h_pair, _h_amount0, _h_amount1, _h_caller0,
+      _h_caller1, h_lp⟩
+    rcases h_pair with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+      _h_balance0_before, _h_balance1_before, _h_balance0, _h_balance1,
+      _h_reserve0, _h_reserve1, _h_bound0, _h_bound1, h_supply, _h_locked,
+      _h_ratio⟩
+    rw [if_neg (Nat.ne_of_gt h_positive)] at h_supply
+    omega
+  · rcases h_step with ⟨h_lp_enough, h_pair, _h_caller0, _h_caller1, h_lp⟩
+    rcases h_pair with ⟨_h_amount0_pos, _h_amount1_pos, _h_liquidity_pos,
+      _h_supply_pos, _h_amount0_le, _h_amount1_le, h_liq_le, _h_locked_le,
+      _h_balance0, _h_balance1, _h_reserve0, _h_reserve1, _h_bound0, _h_bound1,
+      h_supply, _h_locked, _h_ratio0, _h_ratio1⟩
+    omega
+  · rcases h_step with ⟨h_pair, _h_caller0, _h_caller1, h_lp⟩
+    rcases h_pair with ⟨_h_bound0, _h_bound1, _h_balance0, _h_balance1,
+      _h_reserve0, _h_reserve1, h_supply, _h_locked⟩
+    omega
+
+private theorem pairWalletHistory_preserves_unowned
+    {before after : PairWalletWorldState} :
+  PairWalletGood before →
+    0 < before.pair.totalSupply →
+      PairWalletHistory before after →
+        after.pair.totalSupply - after.callerLp =
+          before.pair.totalSupply - before.callerLp := by
+  intro h_good h_positive h_history
+  revert h_good h_positive
+  induction h_history with
+  | refl =>
+      intro _h_good _h_positive
+      rfl
+  | step action h_prefix h_step ih =>
+      intro h_good h_positive
+      have h_mid := ih h_good h_positive
+      rcases pairWalletHistory_preserves_good_and_positive
+          h_good h_positive h_prefix with
+        ⟨h_mid_good, h_mid_positive, _h_mid_locked⟩
+      have h_step_eq :=
+        pairWalletStep_preserves_unowned h_mid_good h_mid_positive h_step
+      rw [h_step_eq]; exact h_mid
+
 private theorem pairWalletHistory_no_portfolio_profit
     {before after : PairWalletWorldState} :
   PairWalletGood before →
@@ -6517,10 +6562,12 @@ private theorem pairWalletHistory_no_portfolio_profit
   have h_path := pairWalletHistory_pairPath h_history
   rcases pairWalletHistory_preserves_good_and_positive
       h_good h_supply h_history with
-    ⟨h_good_after, h_supply_after, h_locked_after⟩
+    ⟨h_good_after, h_supply_after, _h_locked_after⟩
   have h_total :=
     pairWalletHistory_total_value_conserved before.pair
       h_good h_supply h_history
+  have h_unowned :=
+    pairWalletHistory_preserves_unowned h_good h_supply h_history
   have h_k_scaled :=
     pairWorldPath_k_per_supply_never_decreases
       h_good.1 h_supply h_path
@@ -6528,81 +6575,21 @@ private theorem pairWalletHistory_no_portfolio_profit
     pairWorldKPerSupply_spot_value_per_supply
       h_supply h_supply_after h_reserve0 h_reserve1 h_k_scaled
   have h_before_identity :=
-    pairWalletPortfolio_plus_locked_eq_total before.pair before h_good
+    pairWalletPortfolio_plus_unowned_eq_total before.pair before h_good
   have h_after_identity :=
-    pairWalletPortfolio_plus_locked_eq_total before.pair after h_good_after
+    pairWalletPortfolio_plus_unowned_eq_total before.pair after h_good_after
   rw [← h_total] at h_after_identity
-  rw [h_locked_after] at h_after_identity
-  have h_locked_spot :=
-    Nat.mul_le_mul_left before.pair.lockedLiquidity h_spot_per_supply
-  nlinarith [h_before_identity, h_after_identity, h_locked_spot]
+  rw [h_unowned] at h_after_identity
+  have h_unowned_spot :=
+    Nat.mul_le_mul_left (before.pair.totalSupply - before.callerLp)
+      h_spot_per_supply
+  nlinarith [h_before_identity, h_after_identity, h_unowned_spot]
 
 -- tama: discharges=pair_wallet_single_caller_history_no_portfolio_profit
 theorem wallet_single_caller_history_no_portfolio_profit
     (before after : PairWalletWorldState) :
   pair_wallet_single_caller_history_no_portfolio_profit before after := by
   exact pairWalletHistory_no_portfolio_profit
-
--- tama: discharges=pair_wallet_swap_does_not_increase_portfolio_value
-theorem wallet_swap_does_not_increase_portfolio_value
-    (amount0In amount1In amount0Out amount1Out : Nat)
-    (before after : PairWalletWorldState) :
-  pair_wallet_swap_does_not_increase_portfolio_value
-    amount0In amount1In amount0Out amount1Out before after := by
-  intro h_good h_supply h_reserve0 h_reserve1 h_step
-  exact pairWalletHistory_no_portfolio_profit
-    h_good h_supply h_reserve0 h_reserve1
-    (PairWalletHistory.step
-      (PairWalletAction.callerSwap amount0In amount1In amount0Out amount1Out)
-      (PairWalletHistory.refl before) h_step)
-
--- tama: discharges=pair_wallet_mint_does_not_increase_portfolio_value
-theorem wallet_mint_does_not_increase_portfolio_value
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWalletWorldState) :
-  pair_wallet_mint_does_not_increase_portfolio_value
-    amount0 amount1 liquidity before after := by
-  intro h_good h_supply h_reserve0 h_reserve1 h_step
-  exact pairWalletHistory_no_portfolio_profit
-    h_good h_supply h_reserve0 h_reserve1
-    (PairWalletHistory.step
-      (PairWalletAction.callerMint amount0 amount1 liquidity)
-      (PairWalletHistory.refl before) h_step)
-
--- tama: discharges=pair_wallet_burn_does_not_increase_portfolio_value
-theorem wallet_burn_does_not_increase_portfolio_value
-    (amount0 amount1 liquidity : Nat)
-    (before after : PairWalletWorldState) :
-  pair_wallet_burn_does_not_increase_portfolio_value
-    amount0 amount1 liquidity before after := by
-  intro h_good h_supply h_reserve0 h_reserve1 h_step
-  exact pairWalletHistory_no_portfolio_profit
-    h_good h_supply h_reserve0 h_reserve1
-    (PairWalletHistory.step
-      (PairWalletAction.callerBurn amount0 amount1 liquidity)
-      (PairWalletHistory.refl before) h_step)
-
--- tama: discharges=pair_wallet_skim_does_not_increase_portfolio_value
-theorem wallet_skim_does_not_increase_portfolio_value
-    (before after : PairWalletWorldState) :
-  pair_wallet_skim_does_not_increase_portfolio_value before after := by
-  intro h_good h_supply h_reserve0 h_reserve1 h_step
-  exact pairWalletHistory_no_portfolio_profit
-    h_good h_supply h_reserve0 h_reserve1
-    (PairWalletHistory.step
-      (PairWalletAction.callerSkimReceive
-        (PairWorldSurplus0 before.pair)
-        (PairWorldSurplus1 before.pair))
-      (PairWalletHistory.refl before) h_step)
-
--- tama: discharges=pair_wallet_passive_action_does_not_increase_portfolio_value
-theorem wallet_passive_action_does_not_increase_portfolio_value
-    (action : PairWalletAction) (before after : PairWalletWorldState) :
-  pair_wallet_passive_action_does_not_increase_portfolio_value action before after := by
-  intro _h_passive h_good h_supply h_reserve0 h_reserve1 h_step
-  exact pairWalletHistory_no_portfolio_profit
-    h_good h_supply h_reserve0 h_reserve1
-    (PairWalletHistory.step action (PairWalletHistory.refl before) h_step)
 
 -- tama: discharges=pair_successful_first_mint_matches_caller_wallet_mint
 theorem successful_first_mint_matches_caller_wallet_mint
@@ -6742,91 +6729,10 @@ theorem successful_sync_matches_caller_wallet_sync
   exact ⟨by simpa [h_before_pair, h_after_pair] using h_pair_step,
     h_caller0, h_caller1, h_lp⟩
 
--- tama: discharges=pair_closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_initial_surplus
-theorem closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_initial_surplus
-    (before after : PairWorldState) :
-  pair_closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_initial_surplus
-    before after := by
-  intro h_reachable h_positive h_path h_supply
-  have h_reserve_value :
-      PairWorldSpotValueNum before before ≤
-        PairWorldSpotValueNum before after :=
-    closed_world_reachable_positive_supply_same_supply_path_no_spot_value_extraction
-      before after h_reachable h_positive h_path h_supply
-  have h_after_good :=
-    pairWorldPath_preserves_good
-      (pairWorldReachable_good before h_reachable)
-      h_path
-  have h_spot_to_balance :
-      PairWorldSpotValueNum before before ≤
-        PairWorldBalanceSpotValueNum before after :=
-    Nat.le_trans h_reserve_value
-      (pairWorldSpotValue_le_balanceSpotValue
-        (spot := before) (pool := after) h_after_good)
-  have h_before_eq :=
-    pairWorldBalanceSpotValue_eq_spot_plus_surplus
-      (spot := before) (pool := before)
-      (pairWorldReachable_good before h_reachable)
-  rw [h_before_eq]
-  exact Nat.add_le_add_right h_spot_to_balance
-    (PairWorldSurplusSpotValueNum before before)
 
--- tama: discharges=pair_closed_world_reachable_same_supply_path_caller_token_balance_profit_bounded_by_initial_surplus
-theorem closed_world_reachable_same_supply_path_caller_token_balance_profit_bounded_by_initial_surplus
-    (before after : PairWorldState)
-    (callerValueBefore callerValueAfter : Nat) :
-  pair_closed_world_reachable_same_supply_path_caller_token_balance_profit_bounded_by_initial_surplus
-    before after callerValueBefore callerValueAfter := by
-  intro h_reachable h_positive h_path h_supply h_total_value
-  have h_pair_bound :
-      PairWorldBalanceSpotValueNum before before ≤
-        PairWorldBalanceSpotValueNum before after +
-          PairWorldSurplusSpotValueNum before before :=
-    closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_initial_surplus
-      before after h_reachable h_positive h_path h_supply
-  omega
 
--- tama: discharges=pair_closed_world_reachable_zero_surplus_same_supply_path_no_token_balance_value_extraction
-theorem closed_world_reachable_zero_surplus_same_supply_path_no_token_balance_value_extraction
-    (before after : PairWorldState) :
-  pair_closed_world_reachable_zero_surplus_same_supply_path_no_token_balance_value_extraction
-    before after := by
-  intro h_reachable h_positive h_surplus0 h_surplus1 h_path h_supply
-  have h_bound :=
-    closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_initial_surplus
-      before after h_reachable h_positive h_path h_supply
-  have h_start_surplus_value :
-      PairWorldSurplusSpotValueNum before before = 0 := by
-    simp [PairWorldSurplusSpotValueNum, h_surplus0, h_surplus1]
-  simpa [h_start_surplus_value] using h_bound
 
--- tama: discharges=pair_closed_world_reachable_zero_surplus_same_supply_path_no_caller_token_balance_profit
-theorem closed_world_reachable_zero_surplus_same_supply_path_no_caller_token_balance_profit
-    (before after : PairWorldState)
-    (callerValueBefore callerValueAfter : Nat) :
-  pair_closed_world_reachable_zero_surplus_same_supply_path_no_caller_token_balance_profit
-    before after callerValueBefore callerValueAfter := by
-  intro h_reachable h_positive h_surplus0 h_surplus1 h_path h_supply h_total_value
-  have h_pair_value :
-      PairWorldBalanceSpotValueNum before before ≤
-        PairWorldBalanceSpotValueNum before after :=
-    closed_world_reachable_zero_surplus_same_supply_path_no_token_balance_value_extraction
-      before after h_reachable h_positive h_surplus0 h_surplus1 h_path h_supply
-  omega
 
--- tama: discharges=pair_closed_world_reachable_same_supply_path_no_caller_spot_profit
-theorem closed_world_reachable_same_supply_path_no_caller_spot_profit
-    (before after : PairWorldState)
-    (callerValueBefore callerValueAfter : Nat) :
-  pair_closed_world_reachable_same_supply_path_no_caller_spot_profit
-    before after callerValueBefore callerValueAfter := by
-  intro h_reachable h_positive h_path h_supply h_total_value
-  have h_pool_value :
-      PairWorldSpotValueNum before before ≤
-        PairWorldSpotValueNum before after :=
-    closed_world_reachable_positive_supply_same_supply_path_no_spot_value_extraction
-      before after h_reachable h_positive h_path h_supply
-  omega
 
 -- tama: discharges=pair_closed_world_reachable_zero_surplus_swap_no_caller_token_balance_profit
 theorem closed_world_reachable_zero_surplus_swap_no_caller_token_balance_profit
@@ -6874,136 +6780,14 @@ theorem swap_success_run_no_caller_token_balance_profit_from_run
     callerValueBefore callerValueAfter
     h_reachable h_positive h_surplus0 h_surplus1 h_step h_total_value
 
--- tama: discharges=pair_closed_world_reachable_balanced_same_supply_path_no_token_balance_value_extraction
-theorem closed_world_reachable_balanced_same_supply_path_no_token_balance_value_extraction
-    (before after : PairWorldState) :
-  pair_closed_world_reachable_balanced_same_supply_path_no_token_balance_value_extraction
-    before after := by
-  intro h_reachable h_positive h_balance0 h_balance1 h_path h_supply
-  have h_reserve_value :=
-    closed_world_reachable_positive_supply_same_supply_path_no_spot_value_extraction
-      before after h_reachable h_positive h_path h_supply
-  have h_after_good :=
-    pairWorldPath_preserves_good
-      (pairWorldReachable_good before h_reachable)
-      h_path
-  have h_final_reserve_to_balance :=
-    pairWorldSpotValue_le_balanceSpotValue
-      (spot := before) (pool := after) h_after_good
-  have h_initial_value :
-      PairWorldBalanceSpotValueNum before before =
-        PairWorldSpotValueNum before before := by
-    unfold PairWorldBalanceSpotValueNum PairWorldSpotValueNum
-    rw [h_balance0, h_balance1]
-  rw [h_initial_value]
-  exact Nat.le_trans h_reserve_value h_final_reserve_to_balance
 
--- tama: discharges=pair_closed_world_reachable_balanced_no_mint_burn_path_no_token_balance_value_extraction
-theorem closed_world_reachable_balanced_no_mint_burn_path_no_token_balance_value_extraction
-    (before after : PairWorldState) :
-  pair_closed_world_reachable_balanced_no_mint_burn_path_no_token_balance_value_extraction
-    before after := by
-  intro h_reachable h_positive h_balance0 h_balance1 h_path
-  have h_supply :=
-    (pairWorldNoMintBurnPath_preserves_supply h_path).1
-  exact closed_world_reachable_balanced_same_supply_path_no_token_balance_value_extraction
-    before after h_reachable h_positive h_balance0 h_balance1
-    (pairWorldPath_of_noMintBurn h_path) h_supply.symm
 
--- tama: discharges=pair_closed_world_reachable_no_mint_burn_path_token_balance_loss_bounded_by_initial_surplus
-theorem closed_world_reachable_no_mint_burn_path_token_balance_loss_bounded_by_initial_surplus
-    (before after : PairWorldState) :
-  pair_closed_world_reachable_no_mint_burn_path_token_balance_loss_bounded_by_initial_surplus
-    before after := by
-  intro h_reachable h_positive h_path
-  have h_supply :=
-    (pairWorldNoMintBurnPath_preserves_supply h_path).1
-  exact closed_world_reachable_same_supply_path_token_balance_loss_bounded_by_initial_surplus
-    before after h_reachable h_positive
-    (pairWorldPath_of_noMintBurn h_path) h_supply.symm
 
--- tama: discharges=pair_closed_world_reachable_no_mint_burn_path_caller_token_balance_profit_bounded_by_initial_surplus
-theorem closed_world_reachable_no_mint_burn_path_caller_token_balance_profit_bounded_by_initial_surplus
-    (before after : PairWorldState)
-    (callerValueBefore callerValueAfter : Nat) :
-  pair_closed_world_reachable_no_mint_burn_path_caller_token_balance_profit_bounded_by_initial_surplus
-    before after callerValueBefore callerValueAfter := by
-  intro h_reachable h_positive h_path h_total_value
-  have h_supply := (pairWorldNoMintBurnPath_preserves_supply h_path).1
-  exact closed_world_reachable_same_supply_path_caller_token_balance_profit_bounded_by_initial_surplus
-    before after callerValueBefore callerValueAfter h_reachable h_positive
-    (pairWorldPath_of_noMintBurn h_path) h_supply.symm h_total_value
 
--- tama: discharges=pair_closed_world_reachable_zero_surplus_no_mint_burn_path_no_token_balance_value_extraction
-theorem closed_world_reachable_zero_surplus_no_mint_burn_path_no_token_balance_value_extraction
-    (before after : PairWorldState) :
-  pair_closed_world_reachable_zero_surplus_no_mint_burn_path_no_token_balance_value_extraction
-    before after := by
-  intro h_reachable h_positive h_surplus0 h_surplus1 h_path
-  have h_bound :=
-    closed_world_reachable_no_mint_burn_path_token_balance_loss_bounded_by_initial_surplus
-      before after h_reachable h_positive h_path
-  have h_start_surplus_value :
-      PairWorldSurplusSpotValueNum before before = 0 := by
-    simp [PairWorldSurplusSpotValueNum, h_surplus0, h_surplus1]
-  simpa [h_start_surplus_value] using h_bound
 
--- tama: discharges=pair_closed_world_reachable_zero_surplus_no_mint_burn_path_no_caller_token_balance_profit
-theorem closed_world_reachable_zero_surplus_no_mint_burn_path_no_caller_token_balance_profit
-    (before after : PairWorldState)
-    (callerValueBefore callerValueAfter : Nat) :
-  pair_closed_world_reachable_zero_surplus_no_mint_burn_path_no_caller_token_balance_profit
-    before after callerValueBefore callerValueAfter := by
-  intro h_reachable h_positive h_surplus0 h_surplus1 h_path h_total_value
-  have h_supply := (pairWorldNoMintBurnPath_preserves_supply h_path).1
-  exact closed_world_reachable_zero_surplus_same_supply_path_no_caller_token_balance_profit
-    before after callerValueBefore callerValueAfter
-    h_reachable h_positive h_surplus0 h_surplus1
-    (pairWorldPath_of_noMintBurn h_path) h_supply.symm h_total_value
 
--- tama: discharges=pair_closed_world_reachable_zero_surplus_no_donation_no_mint_burn_path_balanced_and_no_token_balance_value_extraction
-theorem closed_world_reachable_zero_surplus_no_donation_no_mint_burn_path_balanced_and_no_token_balance_value_extraction
-    (before after : PairWorldState) :
-  pair_closed_world_reachable_zero_surplus_no_donation_no_mint_burn_path_balanced_and_no_token_balance_value_extraction
-    before after := by
-  intro h_reachable h_positive h_surplus0 h_surplus1 h_no_donation h_no_mint_burn
-  have h_balanced :=
-    closed_world_reachable_zero_surplus_no_donation_path_ends_balanced
-      before after h_reachable h_surplus0 h_surplus1 h_no_donation
-  have h_value :=
-    closed_world_reachable_zero_surplus_no_mint_burn_path_no_token_balance_value_extraction
-      before after h_reachable h_positive h_surplus0 h_surplus1 h_no_mint_burn
-  exact ⟨h_balanced.1, h_balanced.2, h_value⟩
 
--- tama: discharges=pair_closed_world_reachable_zero_surplus_no_donation_no_mint_burn_path_balanced_and_no_caller_token_balance_profit
-theorem closed_world_reachable_zero_surplus_no_donation_no_mint_burn_path_balanced_and_no_caller_token_balance_profit
-    (before after : PairWorldState)
-    (callerValueBefore callerValueAfter : Nat) :
-  pair_closed_world_reachable_zero_surplus_no_donation_no_mint_burn_path_balanced_and_no_caller_token_balance_profit
-    before after callerValueBefore callerValueAfter := by
-  intro h_reachable h_positive h_surplus0 h_surplus1 h_no_donation
-    h_no_mint_burn h_total_value
-  have h_balanced :=
-    closed_world_reachable_zero_surplus_no_donation_path_ends_balanced
-      before after h_reachable h_surplus0 h_surplus1 h_no_donation
-  have h_caller :=
-    closed_world_reachable_zero_surplus_no_mint_burn_path_no_caller_token_balance_profit
-      before after callerValueBefore callerValueAfter
-      h_reachable h_positive h_surplus0 h_surplus1 h_no_mint_burn
-      h_total_value
-  exact ⟨h_balanced.1, h_balanced.2, h_caller⟩
 
--- tama: discharges=pair_closed_world_reachable_no_mint_burn_path_no_caller_spot_profit
-theorem closed_world_reachable_no_mint_burn_path_no_caller_spot_profit
-    (before after : PairWorldState)
-    (callerValueBefore callerValueAfter : Nat) :
-  pair_closed_world_reachable_no_mint_burn_path_no_caller_spot_profit
-    before after callerValueBefore callerValueAfter := by
-  intro h_reachable h_positive h_path h_total_value
-  have h_supply := (pairWorldNoMintBurnPath_preserves_supply h_path).1
-  exact closed_world_reachable_same_supply_path_no_caller_spot_profit
-    before after callerValueBefore callerValueAfter h_reachable h_positive
-    (pairWorldPath_of_noMintBurn h_path) h_supply.symm h_total_value
 
 /-- Non-liquidity histories are the common operational case: swaps, surplus
 management, donations, and LP-token bookkeeping, but no mint and no burn. The
@@ -7030,26 +6814,7 @@ private theorem closed_world_reachable_no_mint_burn_path_no_spot_value_extractio
     before after h_reachable h_positive
     (pairWorldPath_of_noMintBurn h_path) h_supply.symm h_reserve0 h_reserve1
 
--- tama: discharges=pair_closed_world_reachable_positive_supply_no_mint_burn_path_no_spot_value_extraction
-theorem closed_world_reachable_positive_supply_no_mint_burn_path_no_spot_value_extraction
-    (before after : PairWorldState) :
-  pair_closed_world_reachable_positive_supply_no_mint_burn_path_no_spot_value_extraction
-    before after := by
-  intro h_reachable h_positive h_path
-  have h_supply :=
-    (pairWorldNoMintBurnPath_preserves_supply h_path).1
-  exact closed_world_reachable_positive_supply_same_supply_path_no_spot_value_extraction
-    before after h_reachable h_positive
-    (pairWorldPath_of_noMintBurn h_path) h_supply.symm
 
--- tama: discharges=pair_closed_world_reachable_no_mint_burn_path_never_decreases_k
-theorem closed_world_reachable_no_mint_burn_path_never_decreases_k
-    (before after : PairWorldState) :
-  pair_closed_world_reachable_no_mint_burn_path_never_decreases_k before after := by
-  intro h_reachable h_path
-  exact pairWorldNoBurnPath_never_decreases_k
-    (pairWorldReachable_good before h_reachable)
-    (pairWorldNoBurnPath_of_noMintBurn h_path)
 
 private def pair_closed_world_non_burn_step_never_decreases_k
     (action : PairWorldAction) (before after : PairWorldState) : Prop :=
@@ -7064,23 +6829,6 @@ private theorem closed_world_non_burn_step_never_decreases_k
   pair_closed_world_non_burn_step_never_decreases_k action before after := by
   exact pairWorldNonBurnStep_never_decreases_k
 
--- tama: discharges=pair_closed_world_k_decrease_requires_burn
-theorem closed_world_k_decrease_requires_burn
-    (action : PairWorldAction) (before after : PairWorldState) :
-  pair_closed_world_k_decrease_requires_burn action before after := by
-  intro h_good h_step h_decrease
-  by_cases h_burn :
-      ∃ amount0 amount1 liquidity,
-        action = PairWorldAction.burn amount0 amount1 liquidity
-  · exact h_burn
-  · have h_not_burn :
-        ∀ amount0 amount1 liquidity,
-          action ≠ PairWorldAction.burn amount0 amount1 liquidity := by
-      intro amount0 amount1 liquidity h_eq
-      exact h_burn ⟨amount0, amount1, liquidity, h_eq⟩
-    have h_nondec :=
-      pairWorldNonBurnStep_never_decreases_k h_good h_step h_not_burn
-    exact False.elim ((Nat.not_lt_of_ge h_nondec) h_decrease)
 
 private def pair_closed_world_no_burn_path_never_decreases_k
     (before after : PairWorldState) : Prop :=
@@ -7093,24 +6841,7 @@ private theorem closed_world_no_burn_path_never_decreases_k
   pair_closed_world_no_burn_path_never_decreases_k before after := by
   exact pairWorldNoBurnPath_never_decreases_k
 
--- tama: discharges=pair_closed_world_reachable_no_burn_path_never_decreases_k
-theorem closed_world_reachable_no_burn_path_never_decreases_k
-    (before after : PairWorldState) :
-  pair_closed_world_reachable_no_burn_path_never_decreases_k before after := by
-  intro h_reachable h_path
-  exact pairWorldNoBurnPath_never_decreases_k
-    (pairWorldReachable_good before h_reachable) h_path
 
--- tama: discharges=pair_closed_world_reachable_k_decrease_excludes_burn_free_path
-theorem closed_world_reachable_k_decrease_excludes_burn_free_path
-    (before after : PairWorldState) :
-  pair_closed_world_reachable_k_decrease_excludes_burn_free_path before after := by
-  intro h_reachable _h_path h_decrease h_no_burn_path
-  have h_nondec :
-      PairWorldK before ≤ PairWorldK after :=
-    pairWorldNoBurnPath_never_decreases_k
-      (pairWorldReachable_good before h_reachable) h_no_burn_path
-  exact (Nat.not_lt_of_ge h_nondec) h_decrease
 
 private def pair_closed_world_no_burn_same_supply_path_no_spot_profit
     (before after : PairWorldState) : Prop :=
