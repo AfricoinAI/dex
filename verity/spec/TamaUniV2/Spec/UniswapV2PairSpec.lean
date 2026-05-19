@@ -46,25 +46,29 @@ callbacks, and CREATE2 deployment.
 
 8. Donations are the only source of skimmable surplus.
 
+9. Every reserve update advances cumulative prices by the canonical Uniswap
+   V2 UQ112x112 encoded price times elapsed time, and leaves them unchanged
+   inside the same 32-bit timestamp window or when an old reserve is zero.
+
 ### Tier 3 — Boundary mechanics
 
-9. Every guarded failure has a canonical revert payload and leaves the
-   pre-call state unchanged.
+10. Every guarded failure has a canonical revert payload and leaves the
+    pre-call state unchanged.
 
-10. Token movement is modeled by pair-local ERC20 trace events.
+11. Token movement is modeled by pair-local ERC20 trace events.
 
-11. LP approve/transfer/transferFrom move share claims only; AMM state,
+12. LP approve/transfer/transferFrom move share claims only; AMM state,
     reserves, and token balances are unchanged.
 
-12. Initialization is factory-only and one-shot; after the first
+13. Initialization is factory-only and one-shot; after the first
     `initialize`, token identities are fixed.
 
-13. Views return exactly one storage cell (or a constant) without mutating
+14. Views return exactly one storage cell (or a constant) without mutating
     state.
 
-14. Each successful public mutating call matches its closed-world
+15. Each successful public mutating call matches its closed-world
     transition and the corresponding caller-wallet step, bridging the
-    contract boundary into the models used by properties 1–13.
+    contract boundary into the models used by properties 1–14.
 -/
 
 /-!
@@ -640,7 +644,58 @@ def pair_closed_world_skim_or_sync_token_balance_value_never_increases_at_spot
           PairWorldBalanceSpotValueNum spot before
 
 /-!
-## 9. Exact-Revert Guards
+/-!
+## 9. Oracle Update Rule
+
+Cumulative prices follow the canonical Uniswap V2 rule. Same-block
+timestamps leave them unchanged; elapsed updates with nonzero
+reserves add the UQ112x112 encoded price times elapsed time; the
+elapsed branch with zero elapsed time or a zero old reserve leaves
+them unchanged.
+-/
+
+/-- Reserve updates in the same 32-bit timestamp window do not move the TWAP
+accumulators. This is a contract-level oracle rule shared by mint, burn, swap,
+and sync; the new reserves may change, but no time has elapsed at the old
+price. -/
+def pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives
+    (s : ContractState) : Prop :=
+  timestamp32 s = s.storage blockTimestampLastSlot.slot →
+    oraclePrice0CumulativeAfterSync s =
+      s.storage price0CumulativeLastSlot.slot ∧
+    oraclePrice1CumulativeAfterSync s =
+      s.storage price1CumulativeLastSlot.slot
+
+/-- When a reserve update crosses into a later 32-bit timestamp and both old
+reserves are nonzero, the pair adds exactly the canonical UQ112x112 encoded
+`reserve1 / reserve0` and `reserve0 / reserve1` prices multiplied by elapsed
+time. -/
+def pair_reserve_update_oracle_elapsed_updates_price_cumulatives
+    (s : ContractState) : Prop :=
+  (timestamp32 s != s.storage blockTimestampLastSlot.slot) = true →
+    oracleElapsed s > 0 →
+      s.storage reserve0Slot.slot > 0 →
+        s.storage reserve1Slot.slot > 0 →
+          oraclePrice0CumulativeAfterSync s =
+            oraclePrice0CumulativeAfterElapsed s ∧
+          oraclePrice1CumulativeAfterSync s =
+            oraclePrice1CumulativeAfterElapsed s
+
+/-- A timestamp change alone is not enough to update TWAP accumulators. If the
+elapsed-price branch is inactive because elapsed time or either old reserve is
+zero, both cumulative prices remain unchanged. -/
+def pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives
+    (s : ContractState) : Prop :=
+  (timestamp32 s != s.storage blockTimestampLastSlot.slot) = true →
+    ¬ (oracleElapsed s > 0 ∧
+        s.storage reserve0Slot.slot > 0 ∧
+        s.storage reserve1Slot.slot > 0) →
+      oraclePrice0CumulativeAfterSync s =
+        s.storage price0CumulativeLastSlot.slot ∧
+      oraclePrice1CumulativeAfterSync s =
+        s.storage price1CumulativeLastSlot.slot
+
+## 10. Exact-Revert Guards
 
 Every guarded failure has a canonical revert payload and leaves the
 pre-call state unchanged: pair storage, LP balances and allowances,
@@ -897,7 +952,7 @@ def pair_initialize_reverts_when_already_initialized
       result = ContractResult.revert "UniswapV2: ALREADY_INITIALIZED" s
 
 /-!
-## 10. ERC20 Trace Boundary
+## 11. ERC20 Trace Boundary
 
 The pair affects token balances only through ERC20 transfer ECMs.
 Each successful `safeTransfer` records a pair-local ghost event
@@ -954,7 +1009,7 @@ def pair_two_safeTransfer_events_replay_move_distinct_token_balances
         pre token1Value toAddr + amount1
 
 /-!
-## 11. LP ERC20 Share Ledger
+## 12. LP ERC20 Share Ledger
 
 Approve, transfer, and transferFrom are conservative ERC20 share
 accounting: balances move only on transfer, total supply is
@@ -1130,7 +1185,7 @@ def pair_transferFrom_emits_transfer
         pairTraceContains (pairLpTransferEvent fromAddr toAddr amount) result.snd.events
 
 /-!
-## 12. Initialization
+## 13. Initialization
 
 Initialization is factory-only and one-shot. After the first
 successful `initialize`, the pair's token identities are fixed
@@ -1173,7 +1228,7 @@ def pair_initialize_run_success_keeps_amm_accounting
         post.events = s.events
 
 /-!
-## 13. Views
+## 14. Views
 
 Each public read returns the expected storage cell (or a constant)
 and frames pair state on success. With the protocol fee mint
@@ -1266,7 +1321,7 @@ def pair_kLast_run_success_frames_state
   (kLast).run s = ContractResult.success 0 s
 
 /-!
-## 14. Public-Call Matching
+## 15. Public-Call Matching
 
 Each successful public mutating call matches its closed-world transition
 and the corresponding caller-wallet step. These specs connect the
@@ -2132,56 +2187,5 @@ def pair_closed_world_burn_liquidity_ratio
   PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before after →
     amount0 * before.totalSupply ≤ liquidity * before.balance0 ∧
     amount1 * before.totalSupply ≤ liquidity * before.balance1
-
-/-!
-## Oracle / TWAP Update Rules
-
-Cumulative prices follow the canonical Uniswap V2 rule. Same-block
-timestamps leave them unchanged; elapsed updates with nonzero
-reserves add the UQ112x112 encoded price times elapsed time; the
-elapsed branch with zero elapsed time or a zero old reserve leaves
-them unchanged.
--/
-
-/-- Reserve updates in the same 32-bit timestamp window do not move the TWAP
-accumulators. This is a contract-level oracle rule shared by mint, burn, swap,
-and sync; the new reserves may change, but no time has elapsed at the old
-price. -/
-def pair_reserve_update_oracle_same_timestamp_keeps_price_cumulatives
-    (s : ContractState) : Prop :=
-  timestamp32 s = s.storage blockTimestampLastSlot.slot →
-    oraclePrice0CumulativeAfterSync s =
-      s.storage price0CumulativeLastSlot.slot ∧
-    oraclePrice1CumulativeAfterSync s =
-      s.storage price1CumulativeLastSlot.slot
-
-/-- When a reserve update crosses into a later 32-bit timestamp and both old
-reserves are nonzero, the pair adds exactly the canonical UQ112x112 encoded
-`reserve1 / reserve0` and `reserve0 / reserve1` prices multiplied by elapsed
-time. -/
-def pair_reserve_update_oracle_elapsed_updates_price_cumulatives
-    (s : ContractState) : Prop :=
-  (timestamp32 s != s.storage blockTimestampLastSlot.slot) = true →
-    oracleElapsed s > 0 →
-      s.storage reserve0Slot.slot > 0 →
-        s.storage reserve1Slot.slot > 0 →
-          oraclePrice0CumulativeAfterSync s =
-            oraclePrice0CumulativeAfterElapsed s ∧
-          oraclePrice1CumulativeAfterSync s =
-            oraclePrice1CumulativeAfterElapsed s
-
-/-- A timestamp change alone is not enough to update TWAP accumulators. If the
-elapsed-price branch is inactive because elapsed time or either old reserve is
-zero, both cumulative prices remain unchanged. -/
-def pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives
-    (s : ContractState) : Prop :=
-  (timestamp32 s != s.storage blockTimestampLastSlot.slot) = true →
-    ¬ (oracleElapsed s > 0 ∧
-        s.storage reserve0Slot.slot > 0 ∧
-        s.storage reserve1Slot.slot > 0) →
-      oraclePrice0CumulativeAfterSync s =
-        s.storage price0CumulativeLastSlot.slot ∧
-      oraclePrice1CumulativeAfterSync s =
-        s.storage price1CumulativeLastSlot.slot
 
 end TamaUniV2.Spec.UniswapV2PairSpec
