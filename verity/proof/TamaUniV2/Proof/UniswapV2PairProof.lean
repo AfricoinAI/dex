@@ -5263,11 +5263,52 @@ private theorem pairWalletHistory_no_portfolio_profit
       h_spot_per_supply
   nlinarith [h_before_identity, h_after_identity, h_unowned_spot]
 
+private theorem pairWalletPortfolio_in_token1_eq_numerator
+    (spot : PairWorldState) (w : PairWalletWorldState) :
+    0 < spot.reserve0 → 0 < w.pair.totalSupply →
+      PairWalletPortfolioValueInToken1 spot w =
+        (PairWalletPortfolioValueNumeratorAtSpot spot w : ℚ) /
+          ((w.pair.totalSupply : ℚ) * (spot.reserve0 : ℚ)) := by
+  intro h_reserve0 h_supply
+  have h_reserve0_rat : (spot.reserve0 : ℚ) ≠ 0 := by
+    exact_mod_cast Nat.pos_iff_ne_zero.mp h_reserve0
+  have h_supply_rat : (w.pair.totalSupply : ℚ) ≠ 0 := by
+    exact_mod_cast Nat.pos_iff_ne_zero.mp h_supply
+  unfold PairWalletPortfolioValueInToken1 PairWorldTokenValueRat
+    PairWorldSpotPriceRat PairWalletPortfolioValueNumeratorAtSpot
+    PairWalletCallerTokenValueAtSpot PairWalletSkimmableValueAtSpot
+    PairWorldSurplusSpotValueNum PairWorldSpotValueNum
+  field_simp
+  ring
+
 -- tama: discharges=pair_wallet_single_caller_history_no_portfolio_profit
 theorem wallet_single_caller_history_no_portfolio_profit
     (before after : PairWalletWorldState) :
   pair_wallet_single_caller_history_no_portfolio_profit before after := by
-  exact pairWalletHistory_no_portfolio_profit
+  intro h_good h_supply h_reserve0 h_reserve1 h_history
+  have h_nat := pairWalletHistory_no_portfolio_profit
+    h_good h_supply h_reserve0 h_reserve1 h_history
+  rcases pairWalletHistory_preserves_good_and_positive h_good h_supply h_history
+    with ⟨_h_after_good, h_after_supply, _h_after_locked⟩
+  have h_before := pairWalletPortfolio_in_token1_eq_numerator
+    before.pair before h_reserve0 h_supply
+  have h_after := pairWalletPortfolio_in_token1_eq_numerator
+    before.pair after h_reserve0 h_after_supply
+  rw [h_before, h_after]
+  have h_reserve0_rat : (0 : ℚ) < (before.pair.reserve0 : ℚ) := by
+    exact_mod_cast h_reserve0
+  have h_before_supply_rat : (0 : ℚ) < (before.pair.totalSupply : ℚ) := by
+    exact_mod_cast h_supply
+  have h_after_supply_rat : (0 : ℚ) < (after.pair.totalSupply : ℚ) := by
+    exact_mod_cast h_after_supply
+  have h_nat_rat :
+      (PairWalletPortfolioValueNumeratorAtSpot before.pair after : ℚ) *
+          (before.pair.totalSupply : ℚ) ≤
+        (PairWalletPortfolioValueNumeratorAtSpot before.pair before : ℚ) *
+          (after.pair.totalSupply : ℚ) := by
+    exact_mod_cast h_nat
+  rw [div_le_div_iff₀ (by positivity) (by positivity)]
+  nlinarith [h_nat_rat, h_reserve0_rat]
 
 -- tama: discharges=pair_wallet_history_preserves_good
 theorem wallet_history_preserves_good

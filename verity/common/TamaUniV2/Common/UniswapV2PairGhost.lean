@@ -264,6 +264,31 @@ def PairWalletTotalTokenValueAtSpot
   PairWalletCallerTokenValueAtSpot spot w +
     PairWorldBalanceSpotValueNum spot w.pair
 
+/-- Price of token0 in token1 at the spot's reserves. Undefined (returns 0 by
+Lean's `/` convention) when `spot.reserve0 = 0`; callers guard against that. -/
+def PairWorldSpotPriceRat (spot : PairWorldState) : ℚ :=
+  (spot.reserve1 : ℚ) / spot.reserve0
+
+/-- Value of `(token0, token1)` denominated in token1, at the spot's price. -/
+def PairWorldTokenValueRat
+    (spot : PairWorldState) (token0 token1 : Nat) : ℚ :=
+  (token0 : ℚ) * PairWorldSpotPriceRat spot + token1
+
+/-- The caller's portfolio value in token1, at the spot's prices.
+
+Sums four sources of value: the caller's directly-held tokens, their fractional
+claim on the pool's reserves through their LP shares, and any donations sitting
+in the pair as skimmable surplus. -/
+def PairWalletPortfolioValueInToken1
+    (spot : PairWorldState) (w : PairWalletWorldState) : ℚ :=
+  let pool := w.pair
+  let poolValueInToken1 :=
+    PairWorldTokenValueRat spot pool.reserve0 pool.reserve1
+  PairWorldTokenValueRat spot w.callerToken0 w.callerToken1
+    + (w.callerLp : ℚ) * poolValueInToken1 / pool.totalSupply
+    + PairWorldTokenValueRat spot
+        (PairWorldSurplus0 pool) (PairWorldSurplus1 pool)
+
 inductive PairWalletAction where
   | callerApprove
   | callerDonate (amount0 amount1 : Nat)

@@ -86,10 +86,8 @@ def pair_wallet_single_caller_history_no_portfolio_profit
       0 < before.pair.reserve0 →
         0 < before.pair.reserve1 →
           PairWalletHistory before after →
-            PairWalletPortfolioValueNumeratorAtSpot before.pair after *
-                before.pair.totalSupply ≤
-              PairWalletPortfolioValueNumeratorAtSpot before.pair before *
-                after.pair.totalSupply
+            PairWalletPortfolioValueInToken1 before.pair after ≤
+              PairWalletPortfolioValueInToken1 before.pair before
 
 /-!
 ## 2. LP-Share Backing
