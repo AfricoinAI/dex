@@ -201,7 +201,10 @@ async function main() {
       );
 
       await page.goto(url);
-      await page.evaluate((listUrl) => localStorage.setItem("tamaLists", JSON.stringify([listUrl])), `${url}tokenlist.json`);
+      await page.evaluate((listUrl) => {
+        localStorage.setItem("tamaLists", JSON.stringify([listUrl]));
+        localStorage.setItem("tamaExplorer:31337", "explorer.local");
+      }, `${url}tokenlist.json`);
       await page.reload();
       await page.getByRole("button", { name: "Connect" }).click();
       await page.getByRole("button", { name: /Primary Wallet/ }).click();
@@ -213,6 +216,9 @@ async function main() {
       await chooseToken(page, "#pickIn", "TKA");
       await chooseToken(page, "#pickOut", "TKB");
       await assert.match(await page.locator("#swapReview").getAttribute("class"), /hide/);
+      await page.waitForFunction(() => document.querySelector("#balIn").textContent.includes("Balance:"));
+      await page.locator("#balIn").click();
+      await assert.equal(await page.locator("#swapAmt").inputValue(), "1000000");
       await page.locator("#swapAmt").fill("1");
       await page.waitForFunction(() => !document.querySelector("#swapReview").classList.contains("hide"));
       await page.waitForFunction(() => document.querySelector("#priceState").textContent === "Price unavailable");
@@ -234,17 +240,24 @@ async function main() {
       const addABox = await page.locator("#pickLpA").locator("xpath=ancestor::div[contains(@class,'box')]").boundingBox();
       const addBBox = await page.locator("#pickLpB").locator("xpath=ancestor::div[contains(@class,'box')]").boundingBox();
       assert(addBBox.y > addABox.y + 20, "add liquidity token boxes should be stacked vertically");
+      await page.waitForFunction(() => document.querySelector("#lpBalA").textContent.includes("Balance:"));
+      await page.locator("#lpBalA").click();
+      await assert.equal(await page.locator("#lpAmtA").inputValue(), "1000000");
+      await page.locator("#lpBalB").click();
+      await assert.equal(await page.locator("#lpAmtB").inputValue(), "1000000");
       await page.locator("#lpAmtA").fill("1000");
       await page.locator("#lpAmtB").fill("1000");
       await page.waitForFunction(() => !document.querySelector("#lpReview").classList.contains("hide"));
       await assert.match(await page.locator("#lpBalA").textContent(), /Balance:/);
       await page.waitForFunction(() => document.querySelector("#lpPoolState").textContent.includes("New pool"));
       await assert.match(await page.locator("#lpPoolState").textContent(), /New pool/);
+      await page.waitForFunction(() => document.querySelector("#lpPrice").textContent.includes("Initial price"));
       await assert.match(await page.locator("#lpPrice").textContent(), /Initial price/);
       await page.waitForFunction(() => document.querySelector("#lpCta").textContent === "Approve tokens");
       await assert.equal(await page.locator("#lpCta").textContent(), "Approve tokens");
       await page.locator("#lpCta").click();
       await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
+      await assert.match(await page.locator("#poolStat a").getAttribute("href"), /^https:\/\/explorer\.local\/tx\/0x/);
       await page.waitForFunction(() => document.querySelector("#lpCta").textContent.includes("Create pool"));
       await page.locator("#lpCta").click();
       await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
@@ -259,7 +272,12 @@ async function main() {
       const burnBBox = await page.locator("#pickBurnB").locator("xpath=ancestor::div[contains(@class,'box')]").boundingBox();
       assert(burnBBox.y > burnABox.y + 20, "remove liquidity token boxes should be stacked vertically");
       await page.waitForFunction(() => !document.querySelector("#burnReview").classList.contains("hide"));
+      await assert.match(await page.locator("#pairInfo a").getAttribute("href"), /^https:\/\/explorer\.local\/address\/0x/);
       await assert.match(await page.locator("#burnOutRow").getAttribute("class"), /hide/);
+      await page.waitForFunction(() => document.querySelector("#lpBal").textContent.includes("Balance:"));
+      await page.locator("#lpBal").click();
+      await assert.notEqual(await page.locator("#burnLiq").inputValue(), "");
+      await page.waitForFunction(() => !document.querySelector("#burnOutRow").classList.contains("hide"));
       await page.locator("#burnLiq").fill("1");
       await page.waitForFunction(() => !document.querySelector("#burnOutRow").classList.contains("hide"));
       await assert.match(await page.locator("#burnOut").textContent(), /TKA .* TKB/);
@@ -273,6 +291,7 @@ async function main() {
       await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"), null, { timeout: 5000 }).catch(async (error) => {
         throw new Error(`${error.message}; swap status=${await page.locator("#stat").textContent()}`);
       });
+      await assert.match(await page.locator("#stat a").getAttribute("href"), /^https:\/\/explorer\.local\/tx\/0x/);
 
       const pair = await rpc("eth_call", [
         { to: deployment.factory, data: `0xe6a43905${deployment.tokenA.slice(2).padStart(64, "0")}${deployment.tokenB.slice(2).padStart(64, "0")}` },

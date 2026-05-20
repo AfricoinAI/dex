@@ -42,9 +42,13 @@ contract TamaSwapFrontendTest is Test {
         assertTrue(_contains(html, bytes("id=swapReview class=\"review hide\"")), "swap review should start hidden");
         assertTrue(_contains(html, bytes("id=lpReview class=\"review hide\"")), "lp review should start hidden");
         assertTrue(_contains(html, bytes("id=burnReview class=\"review hide\"")), "burn review should start hidden");
-        assertTrue(_contains(html, bytes("EXPLORERS")), "explorer links missing");
+        assertTrue(_contains(html, bytes("CHAIN")), "chain metadata missing");
+        assertTrue(_contains(html, bytes("mega.etherscan.io")), "MegaETH explorer missing");
+        assertTrue(_contains(html, bytes("monadvision.com")), "Monad explorer missing");
+        assertFalse(_contains(html, bytes("swell")), "dead Swellchain metadata present");
         assertTrue(_contains(html, bytes("burnOut")), "remove quote missing");
         assertTrue(_contains(html, bytes("poolSettings")), "pool settings missing");
+        assertTrue(_contains(html, bytes("fmtFull")), "balance fill helper missing");
     }
 
     function testRequestReturnsHtmlHeaders() public view {
