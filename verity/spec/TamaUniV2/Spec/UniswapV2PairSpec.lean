@@ -22,59 +22,64 @@ callbacks, and CREATE2 deployment.
 
 ### Tier 1 — Economic safety
 
-1. From any reachable state, no finite sequence of valid actions can
-   increase a single caller's initial-spot-price portfolio value (wallet
-   tokens + LP-claimed reserves + skimmable surplus).
+1. **No free lunch** — from any reachable state, no finite sequence of valid
+   actions can increase a single caller's initial-spot-price portfolio value
+   (wallet tokens + LP-claimed reserves + skimmable surplus).
 
-2. Across every finite reachable history from a positive-supply state,
-   reserve product per squared LP supply is monotone non-decreasing.
+2. **LP-share backing** — across every finite reachable history from a
+   positive-supply state, reserve product per squared LP supply is monotone
+   non-decreasing.
 
 ### Tier 2 — Structural invariants
 
-3. Cached reserves are covered by actual ERC20 balances along every finite
-   reachable history.
+3. **Reserve backing** — cached reserves are covered by actual ERC20 balances
+   along every finite reachable history.
 
-4. Cached reserves never exceed the uint112 bound.
+4. **uint112 reserve domain** — cached reserves never exceed the uint112
+   bound.
 
-5. Once positive LP supply exists, the locked `MINIMUM_LIQUIDITY` floor is
-   monotone non-decreasing and never redeemable.
+5. **Minimum-liquidity lock** — once positive LP supply exists, the locked
+   `MINIMUM_LIQUIDITY` floor is monotone non-decreasing and never redeemable.
 
-6. LP supply changes only on mint or burn.
+6. **LP supply discipline** — LP supply changes only on mint or burn.
 
-7. Once the reentrancy lock is closed, every mutating entrypoint reverts
-   before durable side effects.
+7. **Reentrancy lock** — once the reentrancy lock is closed, every mutating
+   entrypoint reverts before durable side effects.
 
-8. Donations are the only source of skimmable surplus.
+8. **Donations and surplus** — donations are the only source of skimmable
+   surplus.
 
-9. Every reserve update advances cumulative prices by the canonical Uniswap
-   V2 UQ112x112 encoded price times elapsed time, and leaves them unchanged
-   inside the same 32-bit timestamp window or when an old reserve is zero.
+9. **Oracle update rule** — every reserve update advances cumulative prices
+   by the canonical Uniswap V2 UQ112x112 encoded price times elapsed time, and
+   leaves them unchanged inside the same 32-bit timestamp window or when an
+   old reserve is zero.
 
 ### Tier 3 — Boundary mechanics
 
-10. Every guarded failure has a canonical revert payload and leaves the
-    pre-call state unchanged.
+10. **Exact-revert guards** — every guarded failure has a canonical revert
+    payload and leaves the pre-call state unchanged.
 
-11. Token movement is modeled by pair-local ERC20 trace events; runtime
-    mirrors document the external token behavior envelope without treating the
-    generic ERC20 ECM implementation as a Uniswap protocol property.
+11. **ERC20 trace boundary** — token movement is modeled by pair-local ERC20
+    trace events; runtime mirrors document the external token behavior
+    envelope without treating the generic ERC20 ECM implementation as a
+    Uniswap protocol property.
 
-12. LP approve/transfer/transferFrom move share claims only; AMM state,
-    reserves, and token balances are unchanged.
+12. **LP ERC20 share ledger** — LP approve/transfer/transferFrom move share
+    claims only; AMM state, reserves, and token balances are unchanged.
 
-13. Initialization is factory-only and one-shot; after the first
-    `initialize`, token identities are fixed.
+13. **Initialization** — initialization is factory-only and one-shot; after
+    the first `initialize`, token identities are fixed.
 
-14. Views return exactly one storage cell (or a constant) without mutating
-    state.
+14. **Views** — views return exactly one storage cell (or a constant) without
+    mutating state.
 
-15. Each successful public mutating call matches its closed-world
-    transition and the corresponding caller-wallet step, bridging the
-    contract boundary into the models used by properties 1–14.
+15. **Public-call matching** — each successful public mutating call matches
+    its closed-world transition and the corresponding caller-wallet step,
+    bridging the contract boundary into the models used by properties 1–14.
 -/
 
 /-!
-## 1. Single-Caller Portfolio Safety
+## 1. No free lunch
 
 The headline economic property. From any reachable state, no finite
 sequence of valid caller actions can increase the caller's portfolio
@@ -92,7 +97,7 @@ def pair_wallet_single_caller_history_no_portfolio_profit
               PairWalletPortfolioValueInToken1 before.pair before
 
 /-!
-## 2. LP-Share Backing
+## 2. LP-share backing
 
 Across every finite reachable history from a positive-supply state,
 reserve product per squared LP supply is monotone non-decreasing.
@@ -111,7 +116,7 @@ def pair_closed_world_reachable_path_lp_share_backing_never_decreases
         PairWorldKPerSupplyNondecreasing before after
 
 /-!
-## 3. Reserve Backing
+## 3. Reserve backing
 
 Cached reserves are always covered by the pair's actual ERC20
 balances along every finite reachable history.
@@ -134,7 +139,7 @@ def pair_closed_world_reachable_path_reserves_backed
       after.reserve1 ≤ after.balance1
 
 /-!
-## 4. uint112 Reserve Domain
+## 4. uint112 reserve domain
 
 Cached reserves never exceed the canonical 2^112 bound.
 -/
@@ -156,7 +161,7 @@ def pair_closed_world_reachable_path_reserves_fit_uint112
       after.reserve1 ≤ maxUint112Nat
 
 /-!
-## 5. Minimum-Liquidity Lock
+## 5. Minimum-liquidity lock
 
 Once positive LP supply exists, `MINIMUM_LIQUIDITY` is permanently
 locked: the first LP cannot own the entire supply, the lock is
@@ -241,7 +246,7 @@ def pair_closed_world_burn_cannot_redeem_locked_liquidity
     after.lockedLiquidity = before.lockedLiquidity
 
 /-!
-## 6. LP Supply Discipline
+## 6. LP supply discipline
 
 Mint and burn are the only transitions that change total LP supply.
 Share-only actions (approve, transfer, transferFrom) leave the pool
@@ -354,7 +359,7 @@ def pair_closed_world_burn_preserves_positive_balances
           0 < after.balance1
 
 /-!
-## 7. Reentrancy Lock
+## 7. Reentrancy lock
 
 Once the lock is closed, every mutating entrypoint reverts before
 durable side effects. Flash callbacks run while the lock is closed;
@@ -507,7 +512,7 @@ def pair_flash_callback_module_bubbles_callback_failure : Prop :=
           ] ∈ body
 
 /-!
-## 8. Donations And Surplus
+## 8. Donations and surplus
 
 Donations are the only way new skimmable surplus can appear above
 cached reserves. `skim` removes exactly that surplus; `sync` writes
@@ -645,7 +650,7 @@ def pair_closed_world_skim_or_sync_token_balance_value_never_increases_at_spot
 
 /-!
 /-!
-## 9. Oracle Update Rule
+## 9. Oracle update rule
 
 Cumulative prices follow the canonical Uniswap V2 rule. Same-block
 timestamps leave them unchanged; elapsed updates with nonzero
@@ -695,7 +700,7 @@ def pair_reserve_update_oracle_inactive_elapsed_keeps_price_cumulatives
       oraclePrice1CumulativeAfterSync s =
         s.storage price1CumulativeLastSlot.slot
 
-## 10. Exact-Revert Guards
+## 10. Exact-revert guards
 
 Every guarded failure has a canonical revert payload and leaves the
 pre-call state unchanged: pair storage, LP balances and allowances,
@@ -952,7 +957,7 @@ def pair_initialize_reverts_when_already_initialized
       result = ContractResult.revert "UniswapV2: ALREADY_INITIALIZED" s
 
 /-!
-## 11. ERC20 Trace Boundary
+## 11. ERC20 trace boundary
 
 The pair affects token balances through the ERC20 helper boundary assumed by
 the compiled model. Each successful `safeTransfer` records a pair-local ghost
@@ -1011,7 +1016,7 @@ def pair_two_safeTransfer_events_replay_move_distinct_token_balances
         pre token1Value toAddr + amount1
 
 /-!
-## 12. LP ERC20 Share Ledger
+## 12. LP ERC20 share ledger
 
 Approve, transfer, and transferFrom are conservative ERC20 share
 accounting: balances move only on transfer, total supply is
@@ -1323,7 +1328,7 @@ def pair_kLast_run_success_frames_state
   (kLast).run s = ContractResult.success 0 s
 
 /-!
-## 15. Public-Call Matching
+## 15. Public-call matching
 
 Each successful public mutating call matches its closed-world transition
 and the corresponding caller-wallet step. These specs connect the
