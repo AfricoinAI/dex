@@ -26,7 +26,6 @@ contract TamaSwapFrontendTest is Test {
     function testHtmlStructureAndDataChunks() public view {
         assertLe(address(frontend).code.length, EIP_170_CAP, "wrapper exceeds EIP-170");
         _assertDataOk(frontend.HEAD(), "HEAD");
-        _assertDataOk(frontend.MIDDLE(), "MIDDLE");
         _assertDataOk(frontend.TAIL(), "TAIL");
 
         bytes memory html = bytes(frontend.html());

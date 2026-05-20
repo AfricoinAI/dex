@@ -11,7 +11,6 @@ contract TamaSwapFrontend {
     address public immutable factory;
     address public immutable router;
     address public immutable HEAD;
-    address public immutable MIDDLE;
     address public immutable TAIL;
 
     struct KeyValue { string key; string value; }
@@ -106,9 +105,6 @@ contract TamaSwapFrontend {
             hex"7620636c6173733d73686565743e0a202020203c64697620636c6173733d7368656574486561643e3c623e53657474696e67733c2f623e3c627574746f6e2069643d636c6f736553657474696e677320636c6173733d783e783c2f627574746f6e3e3c2f6469763e0a202020203c64697620636c6173733d736574726f773e3c"
             hex"7370616e3e4d617820736c6970706167653c2f7370616e3e3c6c6162656c3e3c696e7075742069643d736c697020696e7075746d6f64653d646563696d616c2076616c75653d22302e35223e20253c2f6c6162656c3e3c2f6469763e0a202020203c64697620636c6173733d6d616e6167653e3c64697620636c6173733d7469"
             hex"6e793e4170706c69657320746f20737761707320616e64206c6971756964697479207472616e73616374696f6e732e3c2f6469763e3c2f6469763e0a20203c2f6469763e0a3c2f6469763e0a3c7363726970743e0a636f6e737420464143544f52593d22"
-        ));
-        MIDDLE = _deployData(bytes.concat(
-            hex"222c524f555445523d22"
         ));
         TAIL = _deployData(bytes.concat(
             hex"222c44454641554c545f4c4953543d2268747470733a2f2f746f6b656e732e756e69737761702e6f7267223b0a6c657420453d6e756c6c2c41433d6e756c6c2c4349443d312c574554485f414444523d22222c6163746976655069636b3d22222c544f4b3d5b5d2c4d41503d6e6577204d617028292c53454c3d7b7d2c50583d"
@@ -327,7 +323,7 @@ contract TamaSwapFrontend {
     }
 
     function _html() private view returns (string memory) {
-        return string.concat(_data(HEAD), _addr(factory), _data(MIDDLE), _addr(router), _data(TAIL));
+        return string.concat(_data(HEAD), _addr(factory), "\",ROUTER=\"", _addr(router), _data(TAIL));
     }
 
     function _data(address target) private view returns (string memory s) {

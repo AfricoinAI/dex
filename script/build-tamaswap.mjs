@@ -25,7 +25,7 @@ function dataExpr(buf) {
   return `bytes.concat(\n${chunks(buf.toString("hex"))}\n        )`;
 }
 
-function render({ head, middle, tail, total }) {
+function render({ head, tail, total }) {
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
@@ -39,7 +39,6 @@ contract TamaSwapFrontend {
     address public immutable factory;
     address public immutable router;
     address public immutable HEAD;
-    address public immutable MIDDLE;
     address public immutable TAIL;
 
     struct KeyValue { string key; string value; }
@@ -50,7 +49,6 @@ contract TamaSwapFrontend {
         factory = factory_;
         router = router_;
         HEAD = _deployData(${dataExpr(head)});
-        MIDDLE = _deployData(${dataExpr(middle)});
         TAIL = _deployData(${dataExpr(tail)});
     }
 
@@ -82,7 +80,7 @@ contract TamaSwapFrontend {
     }
 
     function _html() private view returns (string memory) {
-        return string.concat(_data(HEAD), _addr(factory), _data(MIDDLE), _addr(router), _data(TAIL));
+        return string.concat(_data(HEAD), _addr(factory), "\\",ROUTER=\\"", _addr(router), _data(TAIL));
     }
 
     function _data(address target) private view returns (string memory s) {
@@ -135,16 +133,18 @@ function main() {
   const head = Buffer.from(template.slice(0, factoryIndex), "utf8");
   const middle = Buffer.from(template.slice(factoryIndex + "__FACTORY__".length, routerIndex), "utf8");
   const tail = Buffer.from(template.slice(routerIndex + "__ROUTER__".length), "utf8");
-  for (const [name, part] of [["HEAD", head], ["MIDDLE", middle], ["TAIL", tail]]) {
+  if (middle.toString("utf8") !== '",ROUTER="') {
+    throw new Error(`unexpected middle segment: ${JSON.stringify(middle.toString("utf8"))}`);
+  }
+  for (const [name, part] of [["HEAD", head], ["TAIL", tail]]) {
     if (part.length > EIP_170_CAP) throw new Error(`${name} ${part.length} B exceeds EIP-170`);
   }
 
-  const sol = render({ head, middle, tail, total: Buffer.byteLength(template, "utf8") });
+  const sol = render({ head, tail, total: Buffer.byteLength(template, "utf8") });
   fs.mkdirSync(path.dirname(OUT_SOL), { recursive: true });
   fs.writeFileSync(OUT_SOL, sol);
 
   console.log(`HEAD bytes:   ${head.length}`);
-  console.log(`MIDDLE bytes: ${middle.length}`);
   console.log(`TAIL bytes:   ${tail.length}`);
   console.log(`wrote         ${path.relative(ROOT, OUT_SOL)}`);
 }
