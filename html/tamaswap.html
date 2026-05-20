@@ -2,149 +2,116 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TamaSwap</title>
+<link rel="icon" href="data:,">
 <style>
-*{box-sizing:border-box}
-:root{color-scheme:light;--ink:#15130f;--muted:#6d695f;--line:#d8d1c1;--paper:#fbf7ee;--panel:#fffdf8;--accent:#0f766e;--bad:#b42318}
-body{margin:0;background:linear-gradient(180deg,#f5efe1,#fbf7ee 34%,#f8f4eb);color:var(--ink);font:14px/1.42 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-.wrap{max-width:980px;margin:0 auto;padding:28px 16px 36px}
-header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:18px;border-bottom:1px solid var(--line);padding-bottom:14px}
-h1{font-size:32px;line-height:1;margin:0;font-weight:800;letter-spacing:0}
-.sub{color:var(--muted);font-size:13px;margin-top:5px}
-.wallet{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-.chip{font-size:12px;border:1px solid var(--line);background:#fffaf0;border-radius:999px;padding:6px 9px;color:var(--muted);font-variant-numeric:tabular-nums}
-button{border:1px solid #111;background:#111;color:white;border-radius:7px;padding:10px 13px;font-weight:750;cursor:pointer}
-button.secondary{background:transparent;color:#111;border-color:var(--line)}
-button:disabled{opacity:.45;cursor:not-allowed}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;box-shadow:0 1px 0 rgba(0,0,0,.03)}
-.wide{grid-column:1/-1}
-.tabs{display:flex;gap:6px;margin-bottom:12px}
-.tab{background:transparent;color:var(--muted);border-color:var(--line);padding:8px 10px}
-.tab.on{background:#111;color:white;border-color:#111}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
-label{display:grid;gap:5px;color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
-input{width:100%;border:1px solid var(--line);border-radius:7px;background:white;color:var(--ink);padding:11px 10px;font:14px ui-monospace,SFMono-Regular,Menlo,monospace;outline:0}
-input:focus{border-color:#111}
-.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}
-.status{min-height:20px;color:var(--muted);font-size:13px;margin-top:10px}
-.status.err{color:var(--bad)}
-.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-.quote{display:grid;gap:7px;border-top:1px solid var(--line);padding-top:11px;margin-top:12px;color:var(--muted)}
-.quote div{display:flex;justify-content:space-between;gap:12px}
-.hide{display:none}
-table{width:100%;border-collapse:collapse;margin-top:8px}
-th,td{text-align:left;border-bottom:1px solid var(--line);padding:8px 6px}
-th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-td:last-child,th:last-child{text-align:right}
-@media(max-width:760px){header{display:block}.wallet{justify-content:flex-start;margin-top:12px}.grid{grid-template-columns:1fr}.row{grid-template-columns:1fr}h1{font-size:27px}}
+*{box-sizing:border-box}button,input{font:inherit}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% -10%,#ffe4f3 0,#f7f8fb 34%,#eef2f6 100%);color:#111827;font:15px/1.35 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.top{max-width:1180px;margin:0 auto;padding:18px 18px 0;display:flex;justify-content:space-between;align-items:center}.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px}.mark{width:34px;height:34px;border-radius:11px;background:#ff4da6;color:white;display:grid;place-items:center;font-weight:900}.nav{display:flex;gap:6px;background:#fff8;border:1px solid #fff;border-radius:18px;padding:4px}.nav button{border:0;border-radius:14px;background:transparent;padding:9px 15px;color:#6b7280;font-weight:700;cursor:pointer}.nav button.on{background:white;color:#111827;box-shadow:0 6px 18px #11182712}.wallet{border:0;background:#ff4da6;color:white;border-radius:18px;padding:10px 16px;font-weight:800;cursor:pointer}.wallet.ok{background:white;color:#111827;box-shadow:0 4px 16px #11182712}.shell{max-width:480px;margin:58px auto 36px;padding:0 14px}.card{background:#fff;border:1px solid #ffffffcc;border-radius:28px;box-shadow:0 24px 70px #1f293726;padding:10px}.head{display:flex;justify-content:space-between;align-items:center;padding:10px 12px 6px}.title{font-size:17px;font-weight:800}.muted{color:#6b7280}.mini{font-size:12px}.gear{width:34px;height:34px;border:0;border-radius:12px;background:#f3f4f6;color:#6b7280;cursor:pointer}.box{background:#f5f6fa;border:1px solid #edf0f5;border-radius:22px;padding:16px;margin:4px 0}.box:focus-within{border-color:#ff9dcb}.lbl{display:flex;justify-content:space-between;color:#6b7280;font-size:13px;margin-bottom:8px}.amount{display:flex;gap:10px;align-items:center}.amount input{min-width:0;flex:1;border:0;background:transparent;outline:0;color:#111827;font-size:34px;font-weight:650;letter-spacing:0}.amount input::placeholder{color:#c6cbd3}.tok{border:0;border-radius:999px;background:white;color:#111827;box-shadow:0 3px 13px #11182714;padding:8px 10px;min-width:116px;font-weight:850;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer}.tok.empty{background:#ff4da6;color:white}.logo{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#ff4da6,#7c3aed);display:grid;place-items:center;color:white;font-size:11px;font-weight:900;overflow:hidden}.logo img{width:100%;height:100%;object-fit:cover}.flip{display:grid;place-items:center;margin:-10px 0;position:relative;z-index:2}.flip button{width:36px;height:36px;border:4px solid white;border-radius:13px;background:#f5f6fa;color:#6b7280;font-size:18px;cursor:pointer}.review{background:#fafafa;border-radius:18px;padding:12px;margin:8px 0;display:grid;gap:9px}.review div{display:flex;justify-content:space-between;gap:12px}.cta{width:100%;border:0;border-radius:20px;background:#ff4da6;color:white;padding:16px;font-weight:900;font-size:17px;cursor:pointer}.cta:disabled{background:#f3c9df;color:#a98095;cursor:not-allowed}.soft{width:100%;border:0;border-radius:16px;background:#f3f4f6;color:#111827;padding:13px;font-weight:800;cursor:pointer}.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.status{min-height:22px;padding:10px 12px 2px;color:#6b7280;font-size:13px}.status.err{color:#dc2626}.hide{display:none}.poolMode{display:flex;gap:6px;padding:4px;background:#f5f6fa;border-radius:18px;margin:4px 0 10px}.poolMode button{flex:1;border:0;border-radius:14px;background:transparent;padding:9px;font-weight:800;color:#6b7280;cursor:pointer}.poolMode button.on{background:white;color:#111827;box-shadow:0 4px 14px #1118270f}.modal{position:fixed;inset:0;background:#11182780;display:none;align-items:center;justify-content:center;padding:16px;z-index:10}.modal.on{display:flex}.sheet{width:min(430px,100%);max-height:82vh;background:white;border-radius:26px;box-shadow:0 24px 90px #0008;overflow:hidden;display:flex;flex-direction:column}.sheetHead{padding:18px;display:flex;justify-content:space-between;align-items:center}.x{border:0;background:#f3f4f6;border-radius:12px;width:34px;height:34px;cursor:pointer}.search{margin:0 18px 12px;border:1px solid #e5e7eb;border-radius:18px;padding:13px 14px;outline:0}.list{overflow:auto;padding:0 8px 10px}.item{display:flex;align-items:center;gap:12px;width:100%;border:0;background:white;border-radius:16px;padding:10px;cursor:pointer;text-align:left}.item:hover{background:#f6f7fb}.sym{font-weight:850}.addr{font-size:12px;color:#9ca3af}.manage{border-top:1px solid #edf0f5;padding:12px 18px 16px;display:grid;gap:8px}.url{border:1px solid #e5e7eb;border-radius:14px;padding:11px;outline:0}.tiny{font-size:12px;color:#6b7280}.link{border:0;background:transparent;color:#ff2d95;font-weight:800;cursor:pointer;padding:0}.pill{display:inline-flex;align-items:center;gap:6px;background:#f3f4f6;border-radius:999px;padding:5px 9px}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.space{height:8px}@media(max-width:620px){.top{gap:10px;flex-wrap:wrap}.nav{order:3;width:100%;justify-content:center}.shell{margin-top:28px}.amount input{font-size:30px}}
 </style>
-<div class=wrap>
-  <header>
-    <div><h1>TamaSwap</h1><div class=sub>Swap, create pools, and manage liquidity on the verified Tama Uniswap V2 core.</div></div>
-    <div class=wallet><span id=net class=chip>not connected</span><span id=acct class=chip></span><button id=connect>Connect</button></div>
-  </header>
-  <main class=grid>
-    <section class=panel>
-      <div class=tabs>
-        <button class="tab on" data-tab=swap>Swap</button>
-        <button class=tab data-tab=lp>Add LP</button>
-        <button class=tab data-tab=burn>Remove LP</button>
-      </div>
-      <div id=swap>
-        <div class=row><label>Token in<input id=swapIn placeholder="0x..."></label><label>Token out<input id=swapOut placeholder="0x..."></label></div>
-        <div class=row><label>Amount in<input id=swapAmt placeholder="1.0"></label><label>Min out<input id=swapMin placeholder="auto"></label></div>
-        <div class=actions><button id=doSwap>Swap</button><button class=secondary id=qSwap>Quote</button></div>
-      </div>
-      <div id=lp class=hide>
-        <div class=row><label>Token A<input id=lpA placeholder="0x..."></label><label>Token B<input id=lpB placeholder="0x..."></label></div>
-        <div class=row><label>Amount A<input id=lpAmtA placeholder="100"></label><label>Amount B<input id=lpAmtB placeholder="100"></label></div>
-        <div class=row><label>Min A<input id=lpMinA placeholder="0"></label><label>Min B<input id=lpMinB placeholder="0"></label></div>
-        <div class=actions><button id=doLp>Add liquidity</button></div>
-      </div>
-      <div id=burn class=hide>
-        <div class=row><label>Token A<input id=burnA placeholder="0x..."></label><label>Token B<input id=burnB placeholder="0x..."></label></div>
-        <div class=row><label>LP amount<input id=burnLiq placeholder="1.0"></label><label>Min A<input id=burnMinA placeholder="0"></label></div>
-        <div class=row><label>Min B<input id=burnMinB placeholder="0"></label><span></span></div>
-        <div class=actions><button id=doBurn>Remove liquidity</button></div>
-      </div>
-      <div id=stat class=status></div>
-    </section>
-    <section class=panel>
-      <strong>Pool</strong>
-      <div class=row><label>Token A<input id=poolA placeholder="0x..."></label><label>Token B<input id=poolB placeholder="0x..."></label></div>
-      <div class=actions><button id=findPool>Find pool</button><button class=secondary id=createPool>Create pool</button></div>
-      <div class=quote>
-        <div><span>Factory</span><span class=mono id=factoryAddr>-</span></div>
-        <div><span>Router</span><span class=mono id=routerAddr>-</span></div>
-        <div><span>Pair</span><span class=mono id=pairOut>-</span></div>
-        <div><span>Reserves</span><span class=mono id=reserves>-</span></div>
-      </div>
-    </section>
-    <section class="panel wide">
-      <strong>Approvals</strong>
-      <div class=row><label>Token<input id=apTok placeholder="0x..."></label><label>Amount<input id=apAmt placeholder="max"></label></div>
-      <div class=actions><button id=approveRouter>Approve router</button><button class=secondary id=approvePair>Approve pair LP</button></div>
-      <div class=status>Approvals are separate transactions. For removing liquidity, approve the LP pair token.</div>
-    </section>
-  </main>
+<div class=top>
+  <div class=brand><div class=mark>T</div><span>TamaSwap</span></div>
+  <div class=nav><button id=tabSwap class=on>Swap</button><button id=tabPool>Pool</button></div>
+  <button id=connect class=wallet>Connect</button>
+</div>
+<main class=shell>
+  <section id=swapView class=card>
+    <div class=head><div class=title>Swap</div><button id=refresh class=gear title=Refresh quote>R</button></div>
+    <div class=box>
+      <div class=lbl><span>You pay</span><span id=usdIn></span></div>
+      <div class=amount><input id=swapAmt inputmode=decimal placeholder=0><button id=pickIn class="tok empty">Select token</button></div>
+    </div>
+    <div class=flip><button id=flip>v</button></div>
+    <div class=box>
+      <div class=lbl><span>You receive</span><span id=usdOut></span></div>
+      <div class=amount><input id=swapOutAmt inputmode=decimal placeholder=0 readonly><button id=pickOut class="tok empty">Select token</button></div>
+    </div>
+    <div class=review>
+      <div><span class=muted>Minimum received</span><b id=minOut>-</b></div>
+      <div><span class=muted>Route</span><span id=route>Direct V2</span></div>
+      <div><span class=muted>Price status</span><span id=priceState>Price unavailable until tokens are selected</span></div>
+    </div>
+    <button id=approveSwap class=soft>Approve token</button><div class=space></div>
+    <button id=doSwap class=cta>Swap</button>
+    <div id=stat class=status></div>
+  </section>
+  <section id=poolView class="card hide">
+    <div class=head><div class=title>Pool</div><span id=chain class="pill tiny">Not connected</span></div>
+    <div class=poolMode><button data-pool=add class=on>Add</button><button data-pool=remove>Remove</button><button data-pool=create>Create</button></div>
+    <div id=addPool>
+      <div class=row><div class=box><div class=lbl><span>Token A</span><span id=lpUsdA></span></div><div class=amount><input id=lpAmtA inputmode=decimal placeholder=0><button id=pickLpA class="tok empty">Select token</button></div></div><div class=box><div class=lbl><span>Token B</span><span id=lpUsdB></span></div><div class=amount><input id=lpAmtB inputmode=decimal placeholder=0><button id=pickLpB class="tok empty">Select token</button></div></div></div>
+      <button id=approveLp class=soft>Approve tokens</button><div class=space></div><button id=doLp class=cta>Add liquidity</button>
+    </div>
+    <div id=removePool class=hide>
+      <div class=row><div class=box><div class=lbl><span>Token A</span></div><button id=pickBurnA class="tok empty">Select token</button></div><div class=box><div class=lbl><span>Token B</span></div><button id=pickBurnB class="tok empty">Select token</button></div></div>
+      <div class=box><div class=lbl><span>LP amount</span><span id=pairInfo>Find pair after selecting tokens</span></div><div class=amount><input id=burnLiq inputmode=decimal placeholder=0></div></div>
+      <button id=approvePair class=soft>Approve LP token</button><div class=space></div><button id=doBurn class=cta>Remove liquidity</button>
+    </div>
+    <div id=createPool class=hide>
+      <div class=row><div class=box><div class=lbl><span>Token A</span></div><button id=pickPoolA class="tok empty">Select token</button></div><div class=box><div class=lbl><span>Token B</span></div><button id=pickPoolB class="tok empty">Select token</button></div></div>
+      <div class=review><div><span class=muted>Pair</span><span id=pairOut class=mono>-</span></div><div><span class=muted>Factory</span><span id=factoryAddr class=mono>-</span></div><div><span class=muted>Router</span><span id=routerAddr class=mono>-</span></div></div>
+      <button id=findPool class=soft>Check pool</button><div class=space></div><button id=makePool class=cta>Create pool</button>
+    </div>
+    <div id=poolStat class=status></div>
+  </section>
+</main>
+<div id=modal class=modal>
+  <div class=sheet>
+    <div class=sheetHead><b>Select token</b><button id=closeModal class=x>x</button></div>
+    <input id=search class=search placeholder="Search name or paste address" autocomplete=off spellcheck=false>
+    <div id=tokens class=list></div>
+    <div class=manage>
+      <b>Manage token lists</b>
+      <input id=listUrl class=url value="https://tokens.uniswap.org">
+      <button id=loadList class=soft>Import token list</button>
+      <div id=listStat class=tiny>Loads Uniswap Token Lists JSON for the connected chain.</div>
+    </div>
+  </div>
 </div>
 <script>
-const FACTORY="__FACTORY__",ROUTER="__ROUTER__";
-const A="0x0000000000000000000000000000000000000000";
-let E=null,AC=null;
-const $=id=>document.getElementById(id),sp=x=>(x||"").trim(),hex=x=>x.startsWith("0x")?x:"0x"+x;
-const isA=x=>/^0x[0-9a-fA-F]{40}$/.test(x),sh=x=>x&&isA(x)?x.slice(0,6)+"..."+x.slice(-4):"-";
-const p32=v=>BigInt(v).toString(16).padStart(64,"0");
-const ea=a=>sp(a).toLowerCase().slice(2).padStart(64,"0");
-const sel=s=>s,dl=()=>Math.floor(Date.now()/1000)+1200;
-const dec=s=>{s=sp(s);if(!s)return 0n;let [i,f=""]=s.split(".");f=(f+"0".repeat(18)).slice(0,18);return BigInt(i||0)*10n**18n+BigInt(f)};
-const fmt=n=>{n=BigInt(n||0);let s=n.toString().padStart(19,"0"),i=s.slice(0,-18),f=s.slice(-18).replace(/0+$/,"");return f?i+"."+f.slice(0,6):i};
-const rpc=(m,p)=>E.request({method:m,params:p});
-factoryAddr.textContent=FACTORY;routerAddr.textContent=ROUTER;
-function cd(sig,args=""){return sig+args}
-async function call(to,data){return await rpc("eth_call",[{to,data},"latest"])}
-async function tx(to,data){return await rpc("eth_sendTransaction",[{from:AC,to,data}])}
-function setStat(x,bad=false){stat.textContent=x;stat.className=bad?"status err":"status"}
-async function connect(){
- if(!window.ethereum){setStat("No wallet detected.",true);return}
- E=window.ethereum;const a=await rpc("eth_requestAccounts",[]);AC=a[0];acct.textContent=sh(AC);connect.textContent="Connected";
- const c=await rpc("eth_chainId",[]);net.textContent="chain "+BigInt(c).toString();setStat("");
-}
+const FACTORY="__FACTORY__",ROUTER="__ROUTER__",DEFAULT_LIST="https://tokens.uniswap.org";
+let E=null,AC=null,CID=1,activePick="",TOK=[],MAP=new Map(),SEL={},PX=new Map(),PAIR=null;
+const SLUG={1:"ethereum",10:"optimism",56:"bsc",100:"xdai",137:"polygon",250:"fantom",324:"era",8453:"base",42161:"arbitrum",43114:"avax",59144:"linea",534352:"scroll",81457:"blast",5000:"mantle",130:"unichain"};
+const $=id=>document.getElementById(id),isA=x=>/^0x[0-9a-fA-F]{40}$/.test(x||""),low=x=>(x||"").toLowerCase(),sh=x=>x?x.slice(0,6)+"..."+x.slice(-4):"",p32=v=>BigInt(v).toString(16).padStart(64,"0"),ea=a=>low(a).slice(2).padStart(64,"0"),dl=()=>Math.floor(Date.now()/1000)+1200;
+const rpc=(m,p)=>E.request({method:m,params:p}),cd=(s,a="")=>s+a,raw=async(to,data)=>await rpc("eth_call",[{to,data},"latest"]),tx=async(to,data)=>await rpc("eth_sendTransaction",[{from:AC,to,data}]);
+factoryAddr.textContent=sh(FACTORY);routerAddr.textContent=sh(ROUTER);
+function status(x,b=false,pool=false){const e=pool?poolStat:stat;e.textContent=x||"";e.className=b?"status err":"status"}
+function parseAmt(s,d){s=(s||"").trim();if(!s)return 0n;let [i,f=""]=s.split(".");f=(f+"0".repeat(d)).slice(0,d);return BigInt(i||0)*10n**BigInt(d)+BigInt(f||0)}
+function fmtAmt(n,d){n=BigInt(n||0);let s=n.toString().padStart(d+1,"0"),i=s.slice(0,-d)||"0",f=s.slice(-d).replace(/0+$/,"");return f?i+"."+f.slice(0,6):i}
+function money(v){return v==null?"":v>=1?"$"+v.toLocaleString(undefined,{maximumFractionDigits:2}):"$"+v.toPrecision(3)}
+function btn(b,t){b.className="tok";b.textContent="";let l=document.createElement("span");l.className="logo";if(t?.logoURI){let im=document.createElement("img");im.src=t.logoURI;l.append(im)}else l.textContent=(t?.symbol||"?").slice(0,2);let s=document.createElement("span");s.textContent=t?.symbol||"Select token";b.append(l,s);if(!t)b.classList.add("empty")}
+function setSel(k,t){SEL[k]=t;btn($(k),t);updateAll()}
+function selected(k){return SEL[k]}
 function need(){if(!AC)throw Error("Connect wallet first")}
-function approveData(spender,amount){return cd("0x095ea7b3",ea(spender)+p32(amount))}
-async function ensurePair(a,b){
- if(!isA(a)||!isA(b))throw Error("Bad token address");
- const r=await call(FACTORY,cd("0xe6a43905",ea(a)+ea(b)));
- return "0x"+r.slice(26);
-}
-async function getRes(a,b){
- const p=await ensurePair(a,b);if(BigInt(p)===0n)return [p,0n,0n];
- const r=await call(p,"0x0902f1ac");
- const x=BigInt("0x"+r.slice(2,66)),y=BigInt("0x"+r.slice(66,130));
- const t0=await call(p,"0x0dfe1681");
- const token0=("0x"+t0.slice(26)).toLowerCase();
- return [p,...(a.toLowerCase()===token0?[x,y]:[y,x])];
-}
-async function quoteSwap(){
- const path=[sp(swapIn.value),sp(swapOut.value)],amt=dec(swapAmt.value);
- if(!isA(path[0])||!isA(path[1])||amt===0n)throw Error("Enter tokens and amount");
- const data=cd("0xd06ca61f",p32(amt)+p32(64)+p32(2)+ea(path[0])+ea(path[1]));
- const r=await call(ROUTER,data),out=BigInt("0x"+r.slice(194,258));
- swapMin.value=fmt(out*995n/1000n);setStat("Quote: "+fmt(out)+" out");
-}
-async function find(){
- const a=sp(poolA.value),b=sp(poolB.value);const [p,ra,rb]=await getRes(a,b);
- pairOut.textContent=BigInt(p)===0n?"not created":p;reserves.textContent=BigInt(p)===0n?"-":fmt(ra)+" / "+fmt(rb);
-}
-tabs=document.querySelectorAll(".tab");tabs.forEach(t=>t.onclick=()=>{tabs.forEach(x=>x.classList.remove("on"));t.classList.add("on");["swap","lp","burn"].forEach(id=>$(id).classList.toggle("hide",id!==t.dataset.tab));setStat("")});
-connect.onclick=()=>connect().catch(e=>setStat(e.message||e,true));
-qSwap.onclick=()=>quoteSwap().catch(e=>setStat(e.message||e,true));
-doSwap.onclick=async()=>{try{need();if(!swapMin.value)await quoteSwap();const a=dec(swapAmt.value),m=dec(swapMin.value),x=sp(swapIn.value),y=sp(swapOut.value);const d=cd("0x38ed1739",p32(a)+p32(m)+p32(160)+ea(AC)+p32(dl())+p32(2)+ea(x)+ea(y));setStat(await tx(ROUTER,d))}catch(e){setStat(e.message||e,true)}};
-doLp.onclick=async()=>{try{need();const d=cd("0xe8e33700",ea(lpA.value)+ea(lpB.value)+p32(dec(lpAmtA.value))+p32(dec(lpAmtB.value))+p32(dec(lpMinA.value))+p32(dec(lpMinB.value))+ea(AC)+p32(dl()));setStat(await tx(ROUTER,d))}catch(e){setStat(e.message||e,true)}};
-doBurn.onclick=async()=>{try{need();const d=cd("0xbaa2abde",ea(burnA.value)+ea(burnB.value)+p32(dec(burnLiq.value))+p32(dec(burnMinA.value))+p32(dec(burnMinB.value))+ea(AC)+p32(dl()));setStat(await tx(ROUTER,d))}catch(e){setStat(e.message||e,true)}};
-findPool.onclick=()=>find().catch(e=>setStat(e.message||e,true));
-createPool.onclick=async()=>{try{need();const d=cd("0xc9c65396",ea(poolA.value)+ea(poolB.value));setStat(await tx(FACTORY,d))}catch(e){setStat(e.message||e,true)}};
-approveRouter.onclick=async()=>{try{need();const amt=sp(apAmt.value).toLowerCase()==="max"||!sp(apAmt.value)?(2n**256n-1n):dec(apAmt.value);setStat(await tx(sp(apTok.value),approveData(ROUTER,amt)))}catch(e){setStat(e.message||e,true)}};
-approvePair.onclick=async()=>{try{need();const p=pairOut.textContent;if(!isA(p))throw Error("Find pair first");const amt=sp(apAmt.value).toLowerCase()==="max"||!sp(apAmt.value)?(2n**256n-1n):dec(apAmt.value);setStat(await tx(p,approveData(ROUTER,amt)))}catch(e){setStat(e.message||e,true)}};
-if(window.ethereum)connect().catch(()=>{});
+async function connectWallet(){if(!window.ethereum)throw Error("No wallet detected");E=window.ethereum;let a=await rpc("eth_requestAccounts",[]);AC=a[0];CID=Number(await rpc("eth_chainId",[]));connect.textContent=sh(AC);connect.className="wallet ok";chain.textContent="Chain "+CID;await loadLists();updateAll()}
+connect.onclick=()=>connectWallet().catch(e=>status(e.message,true));
+if(window.ethereum){E=window.ethereum;rpc("eth_accounts",[]).then(async a=>{CID=Number(await rpc("eth_chainId",[]));if(a[0]){AC=a[0];connect.textContent=sh(AC);connect.className="wallet ok";chain.textContent="Chain "+CID}await loadLists()}).catch(()=>loadLists())}else loadLists();
+window.ethereum?.on?.("chainChanged",()=>location.reload());window.ethereum?.on?.("accountsChanged",()=>location.reload());
+async function loadLists(){listStat.textContent="Loading token list...";let urls=JSON.parse(localStorage.tamaLists||"null")||[DEFAULT_LIST];let all=[];for(let u of urls){try{let j=await (await fetch(u)).json();if(!Array.isArray(j.tokens))throw Error("bad list");all.push(...j.tokens.filter(t=>t.chainId===CID&&isA(t.address)).map(t=>({address:low(t.address),symbol:t.symbol||"???",name:t.name||t.symbol||"Token",decimals:t.decimals??18,logoURI:t.logoURI||""})))}catch(e){listStat.textContent="Token list unavailable. Paste a token address to import manually."}}let m=new Map();all.forEach(t=>m.set(t.address,t));TOK=[...m.values()].sort((a,b)=>a.symbol.localeCompare(b.symbol));MAP=m;listStat.textContent=TOK.length?`${TOK.length} tokens loaded for chain ${CID}`:"No listed tokens for this chain. Paste an address.";renderTokens()}
+loadList.onclick=async()=>{let u=listUrl.value.trim();if(!u)return;let urls=JSON.parse(localStorage.tamaLists||"null")||[DEFAULT_LIST];if(!urls.includes(u))urls.unshift(u);localStorage.tamaLists=JSON.stringify(urls.slice(0,5));await loadLists()};
+function openPick(k){activePick=k;modal.classList.add("on");search.value="";renderTokens();search.focus()}
+closeModal.onclick=()=>modal.classList.remove("on");modal.onclick=e=>{if(e.target===modal)modal.classList.remove("on")};search.oninput=renderTokens;
+["pickIn","pickOut","pickLpA","pickLpB","pickBurnA","pickBurnB","pickPoolA","pickPoolB"].forEach(id=>$(id).onclick=()=>openPick(id));
+async function tokenMeta(a){let t=MAP.get(low(a));if(t)return t;need();let d=18,sym="TOKEN",name="Token";try{d=Number(BigInt(await raw(a,"0x313ce567")))}catch(e){}try{sym=decStr(await raw(a,"0x95d89b41"))||sym}catch(e){}try{name=decStr(await raw(a,"0x06fdde03"))||name}catch(e){}t={address:low(a),symbol:sym,name,decimals:d,logoURI:""};MAP.set(t.address,t);TOK.unshift(t);return t}
+function decStr(h){h=h.slice(2);if(h.length===64)return hexToText(h);let o=Number(BigInt("0x"+h.slice(0,64)))*2,l=Number(BigInt("0x"+h.slice(o,o+64)))*2;return hexToText(h.slice(o+64,o+64+l))}
+function hexToText(h){let s="";for(let i=0;i<h.length;i+=2){let c=parseInt(h.slice(i,i+2),16);if(c)s+=String.fromCharCode(c)}return s.trim()}
+function renderTokens(){tokens.textContent="";let q=low(search.value.trim()),arr=TOK.filter(t=>!q||low(t.symbol).includes(q)||low(t.name).includes(q)||low(t.address).includes(q)).slice(0,80);if(isA(q)&&!MAP.has(q))arr=[{address:q,symbol:"Import",name:"Import token by address",decimals:18},...arr];for(let t of arr){let b=document.createElement("button");b.className="item";let l=document.createElement("span");l.className="logo";l.textContent=t.symbol.slice(0,2);let d=document.createElement("div"),s=document.createElement("div"),a=document.createElement("div");s.className="sym";s.textContent=t.symbol;a.className="addr";a.textContent=t.name+" - "+sh(t.address);d.append(s,a);b.append(l,d);b.onclick=async()=>{let x=await tokenMeta(t.address);setSel(activePick,x);modal.classList.remove("on")};tokens.append(b)}}
+async function price(t){if(!t)return null;let slug=SLUG[CID];if(!slug)return null;let k=slug+":"+t.address,c=PX.get(k);if(c&&Date.now()-c.ts<60000)return c.p;try{let j=await (await fetch("https://coins.llama.fi/prices/current/"+k)).json(),p=j?.coins?.[k]?.price;if(typeof p==="number"&&p>0){PX.set(k,{p,ts:Date.now()});return p}}catch(e){}PX.set(k,{p:null,ts:Date.now()});return null}
+async function updateUsd(inp,t,out){let p=await price(t),v=parseFloat(inp.value||"0");out.textContent=p&&v?money(v*p):"";priceState.textContent=p?"DeFiLlama pricing":"Price unavailable"}
+function pairFor(a,b){return raw(FACTORY,cd("0xe6a43905",ea(a)+ea(b))).then(r=>"0x"+r.slice(26))}
+async function reserves(a,b){let p=await pairFor(a,b);if(BigInt(p)===0n)return [p,0n,0n];let r=await raw(p,"0x0902f1ac"),x=BigInt("0x"+r.slice(2,66)),y=BigInt("0x"+r.slice(66,130)),t0=low("0x"+(await raw(p,"0x0dfe1681")).slice(26));return [p,...(low(a)===t0?[x,y]:[y,x])]}
+async function quote(){let a=selected("pickIn"),b=selected("pickOut"),amt=parseAmt(swapAmt.value,a?.decimals||18);if(!a||!b||amt===0n){swapOutAmt.value="";return}let data=cd("0xd06ca61f",p32(amt)+p32(64)+p32(2)+ea(a.address)+ea(b.address));try{let r=await raw(ROUTER,data),out=BigInt("0x"+r.slice(194,258));swapOutAmt.value=fmtAmt(out,b.decimals);minOut.textContent=fmtAmt(out*995n/1000n,b.decimals)+" "+b.symbol}catch(e){swapOutAmt.value="";minOut.textContent="-";status("No route or insufficient liquidity",true)}updateUsd(swapAmt,a,usdIn);updateUsd(swapOutAmt,b,usdOut)}
+function updateAll(){quote().catch(()=>{});updateUsd(lpAmtA,selected("pickLpA"),lpUsdA);updateUsd(lpAmtB,selected("pickLpB"),lpUsdB);checkPair().catch(()=>{})}
+swapAmt.oninput=updateAll;lpAmtA.oninput=updateAll;lpAmtB.oninput=updateAll;refresh.onclick=updateAll;flip.onclick=()=>{let a=selected("pickIn"),b=selected("pickOut");setSel("pickIn",b);setSel("pickOut",a)};
+tabSwap.onclick=()=>{tabSwap.className="on";tabPool.className="";swapView.classList.remove("hide");poolView.classList.add("hide")};tabPool.onclick=()=>{tabPool.className="on";tabSwap.className="";poolView.classList.remove("hide");swapView.classList.add("hide")};
+document.querySelectorAll("[data-pool]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-pool]").forEach(x=>x.classList.remove("on"));b.classList.add("on");["addPool","removePool","createPool"].forEach(x=>$(x).classList.add("hide"));$({add:"addPool",remove:"removePool",create:"createPool"}[b.dataset.pool]).classList.remove("hide")});
+function approveData(spender,amt){return cd("0x095ea7b3",ea(spender)+p32(amt))}
+async function approveToken(t,amt){need();if(!t)throw Error("Select token first");return await tx(t.address,approveData(ROUTER,amt||2n**256n-1n))}
+approveSwap.onclick=async()=>{try{status(await approveToken(selected("pickIn")))}catch(e){status(e.message,true)}};
+approveLp.onclick=async()=>{try{let a=selected("pickLpA"),b=selected("pickLpB");status(await approveToken(a),false,true);status(await approveToken(b),false,true)}catch(e){status(e.message,true,true)}};
+approvePair.onclick=async()=>{try{need();await checkPair();if(!PAIR||BigInt(PAIR)===0n)throw Error("No pair found");status(await tx(PAIR,approveData(ROUTER,2n**256n-1n)),false,true)}catch(e){status(e.message,true,true)}};
+doSwap.onclick=async()=>{try{need();await quote();let a=selected("pickIn"),b=selected("pickOut"),ain=parseAmt(swapAmt.value,a.decimals),min=parseAmt(swapOutAmt.value,b.decimals)*995n/1000n,d=cd("0x38ed1739",p32(ain)+p32(min)+p32(160)+ea(AC)+p32(dl())+p32(2)+ea(a.address)+ea(b.address));status(await tx(ROUTER,d))}catch(e){status(e.message,true)}};
+doLp.onclick=async()=>{try{need();let a=selected("pickLpA"),b=selected("pickLpB"),aa=parseAmt(lpAmtA.value,a.decimals),bb=parseAmt(lpAmtB.value,b.decimals),d=cd("0xe8e33700",ea(a.address)+ea(b.address)+p32(aa)+p32(bb)+p32(0)+p32(0)+ea(AC)+p32(dl()));status(await tx(ROUTER,d),false,true)}catch(e){status(e.message,true,true)}};
+function pairTokens(){return removePool.classList.contains("hide")?[selected("pickPoolA"),selected("pickPoolB")]:[selected("pickBurnA"),selected("pickBurnB")]}
+async function checkPair(){let [a,b]=pairTokens();if(!a||!b)return;let p=await pairFor(a.address,b.address);PAIR=p;pairOut.textContent=BigInt(p)===0n?"No pool":sh(p);pairInfo.textContent=BigInt(p)===0n?"No pair found":sh(p)}
+findPool.onclick=()=>checkPair().catch(e=>status(e.message,true,true));
+makePool.onclick=async()=>{try{need();let a=selected("pickPoolA"),b=selected("pickPoolB");status(await tx(FACTORY,cd("0xc9c65396",ea(a.address)+ea(b.address))),false,true);await checkPair()}catch(e){status(e.message,true,true)}};
+doBurn.onclick=async()=>{try{need();let a=selected("pickBurnA"),b=selected("pickBurnB");await checkPair();let liq=parseAmt(burnLiq.value,18),d=cd("0xbaa2abde",ea(a.address)+ea(b.address)+p32(liq)+p32(0)+p32(0)+ea(AC)+p32(dl()));status(await tx(ROUTER,d),false,true)}catch(e){status(e.message,true,true)}};
 </script>
