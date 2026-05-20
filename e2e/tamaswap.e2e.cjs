@@ -210,15 +210,86 @@ async function main() {
       await page.getByRole("button", { name: /Primary Wallet/ }).click();
       await page.waitForFunction(() => document.querySelector("#connect").textContent.startsWith("0x"));
       await assert.equal(await page.locator("#chain").textContent(), "Chain 31337");
-      await page.waitForFunction(() => document.querySelector("#listStat").textContent.includes("2 tokens loaded"));
+      await page.waitForFunction(() => document.querySelector("#listStat").textContent.includes("4 tokens loaded"));
       await assert.match(await page.locator("#swapReview").getAttribute("class"), /hide/);
+
+      await chooseToken(page, "#pickIn", "ETH");
+      await chooseToken(page, "#pickOut", "WETH");
+      await page.locator("#swapAmt").fill("1");
+      await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Wrap");
+      await page.locator("#swapCta").click();
+      await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"));
+      await assert.match(await page.locator("#stat a").getAttribute("href"), /^https:\/\/explorer\.local\/tx\/0x/);
+      await page.waitForFunction(() => document.querySelector("#balOut").textContent.includes("Balance:"));
+      await chooseToken(page, "#pickIn", "WETH");
+      await chooseToken(page, "#pickOut", "ETH");
+      await page.locator("#swapAmt").fill("0.25");
+      await page.waitForFunction(() => ["Approve WETH", "Unwrap"].includes(document.querySelector("#swapCta").textContent));
+      if ((await page.locator("#swapCta").textContent()) === "Approve WETH") {
+        await page.locator("#swapCta").click();
+        await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"));
+        await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Unwrap");
+      }
+      await page.locator("#swapCta").click();
+      await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"));
+
+      await page.locator("#tabPool").click();
+      await chooseToken(page, "#pickLpA", "ETH");
+      await chooseToken(page, "#pickLpB", "TKA");
+      await page.locator("#lpAmtA").fill("10");
+      await page.locator("#lpAmtB").fill("100");
+      await page.waitForFunction(() => document.querySelector("#lpCta").textContent === "Approve tokens");
+      await page.locator("#lpCta").click();
+      await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
+      await page.waitForFunction(() => document.querySelector("#lpCta").textContent.includes("Create pool"));
+      await page.locator("#lpCta").click();
+      await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
+
+      await page.locator("#tabSwap").click();
+      await chooseToken(page, "#pickIn", "ETH");
+      await chooseToken(page, "#pickOut", "TKA");
+      await page.locator("#swapAmt").fill("0.1");
+      await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Swap");
+      await page.locator("#swapCta").click();
+      await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"));
+
+      await page.locator("#tabPool").click();
+      await page.locator("[data-pool=remove]").click();
+      await chooseToken(page, "#pickBurnA", "ETH");
+      await chooseToken(page, "#pickBurnB", "TKA");
+      await page.waitForFunction(() => document.querySelector("#lpBal").textContent.includes("Balance:"));
+      await page.locator("#burnLiq").fill("1");
+      await page.waitForFunction(() => ["Approve LP", "Remove liquidity"].includes(document.querySelector("#burnCta").textContent));
+      if ((await page.locator("#burnCta").textContent()) === "Approve LP") {
+        await page.locator("#burnCta").click();
+        await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
+        await page.waitForFunction(() => document.querySelector("#burnCta").textContent === "Remove liquidity");
+      }
+      await page.locator("#burnCta").click();
+      await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
+      await page.locator("[data-pool=add]").click();
+      await page.evaluate(() => {
+        lpAmtA.value = "";
+        lpAmtB.value = "";
+        burnLiq.value = "";
+        SEL.pickLpA = null;
+        SEL.pickLpB = null;
+        SEL.pickBurnA = null;
+        SEL.pickBurnB = null;
+        btn(pickLpA, null);
+        btn(pickLpB, null);
+        btn(pickBurnA, null);
+        btn(pickBurnB, null);
+        updateAll();
+      });
+      await page.locator("#tabSwap").click();
 
       await chooseToken(page, "#pickIn", "TKA");
       await chooseToken(page, "#pickOut", "TKB");
       await assert.match(await page.locator("#swapReview").getAttribute("class"), /hide/);
       await page.waitForFunction(() => document.querySelector("#balIn").textContent.includes("Balance:"));
       await page.locator("#balIn").click();
-      await assert.equal(await page.locator("#swapAmt").inputValue(), "1000000");
+      await assert.match(await page.locator("#swapAmt").inputValue(), /^999/);
       await page.locator("#swapAmt").fill("1");
       await page.waitForFunction(() => !document.querySelector("#swapReview").classList.contains("hide"));
       await page.waitForFunction(() => document.querySelector("#priceState").textContent === "Price unavailable");
@@ -242,7 +313,7 @@ async function main() {
       assert(addBBox.y > addABox.y + 20, "add liquidity token boxes should be stacked vertically");
       await page.waitForFunction(() => document.querySelector("#lpBalA").textContent.includes("Balance:"));
       await page.locator("#lpBalA").click();
-      await assert.equal(await page.locator("#lpAmtA").inputValue(), "1000000");
+      await assert.match(await page.locator("#lpAmtA").inputValue(), /^999/);
       await page.locator("#lpBalB").click();
       await assert.equal(await page.locator("#lpAmtB").inputValue(), "1000000");
       await page.locator("#lpAmtA").fill("1000");

@@ -9,17 +9,29 @@ interface IERC20Minimal {
     function transferFrom(address from, address to, uint256 value) external returns (bool);
 }
 
+interface IWETHMinimal is IERC20Minimal {
+    function deposit() external payable;
+    function withdraw(uint256) external;
+}
+
 contract TamaRouter {
     address public immutable factory;
+    address public immutable WETH;
 
     modifier ensure(uint256 deadline) {
         require(deadline >= block.timestamp, "TamaRouter: EXPIRED");
         _;
     }
 
-    constructor(address factory_) {
+    constructor(address factory_, address weth_) {
         require(factory_ != address(0), "TamaRouter: ZERO_FACTORY");
+        require(weth_ != address(0), "TamaRouter: ZERO_WETH");
         factory = factory_;
+        WETH = weth_;
+    }
+
+    receive() external payable {
+        require(msg.sender == WETH, "TamaRouter: ETH_NOT_ACCEPTED");
     }
 
     function sortTokens(address tokenA, address tokenB) public pure returns (address token0, address token1) {
@@ -104,6 +116,24 @@ contract TamaRouter {
         liquidity = UniswapV2PairIface(pair).mint(to);
     }
 
+    function addLiquidityETH(
+        address token,
+        uint256 amountTokenDesired,
+        uint256 amountTokenMin,
+        uint256 amountETHMin,
+        address to,
+        uint256 deadline
+    ) external payable ensure(deadline) returns (uint256 amountToken, uint256 amountETH, uint256 liquidity) {
+        (amountToken, amountETH) =
+            _addLiquidity(token, WETH, amountTokenDesired, msg.value, amountTokenMin, amountETHMin);
+        address pair = UniswapV2FactoryIface(factory).getPair(token, WETH);
+        _safeTransferFrom(token, msg.sender, pair, amountToken);
+        IWETHMinimal(WETH).deposit{value: amountETH}();
+        _safeTransfer(WETH, pair, amountETH);
+        liquidity = UniswapV2PairIface(pair).mint(to);
+        if (msg.value > amountETH) _safeTransferETH(msg.sender, msg.value - amountETH);
+    }
+
     function removeLiquidity(
         address tokenA,
         address tokenB,
@@ -113,6 +143,32 @@ contract TamaRouter {
         address to,
         uint256 deadline
     ) external ensure(deadline) returns (uint256 amountA, uint256 amountB) {
+        (amountA, amountB) = _removeLiquidity(tokenA, tokenB, liquidity, amountAMin, amountBMin, to);
+    }
+
+    function removeLiquidityETH(
+        address token,
+        uint256 liquidity,
+        uint256 amountTokenMin,
+        uint256 amountETHMin,
+        address to,
+        uint256 deadline
+    ) external ensure(deadline) returns (uint256 amountToken, uint256 amountETH) {
+        (amountToken, amountETH) =
+            _removeLiquidity(token, WETH, liquidity, amountTokenMin, amountETHMin, address(this));
+        _safeTransfer(token, to, amountToken);
+        IWETHMinimal(WETH).withdraw(amountETH);
+        _safeTransferETH(to, amountETH);
+    }
+
+    function _removeLiquidity(
+        address tokenA,
+        address tokenB,
+        uint256 liquidity,
+        uint256 amountAMin,
+        uint256 amountBMin,
+        address to
+    ) internal returns (uint256 amountA, uint256 amountB) {
         address pair = pairFor(tokenA, tokenB);
         _safeTransferFrom(pair, msg.sender, pair, liquidity);
         (uint256 amount0, uint256 amount1) = UniswapV2PairIface(pair).burn(to);
@@ -146,6 +202,80 @@ contract TamaRouter {
         require(amounts[0] <= amountInMax, "TamaRouter: EXCESSIVE_INPUT_AMOUNT");
         _safeTransferFrom(path[0], msg.sender, pairFor(path[0], path[1]), amounts[0]);
         _swap(amounts, path, to);
+    }
+
+    function swapExactETHForTokens(uint256 amountOutMin, address[] calldata path, address to, uint256 deadline)
+        external
+        payable
+        ensure(deadline)
+        returns (uint256[] memory amounts)
+    {
+        require(path[0] == WETH, "TamaRouter: INVALID_PATH");
+        amounts = getAmountsOut(msg.value, path);
+        require(amounts[amounts.length - 1] >= amountOutMin, "TamaRouter: INSUFFICIENT_OUTPUT_AMOUNT");
+        IWETHMinimal(WETH).deposit{value: amounts[0]}();
+        _safeTransfer(WETH, pairFor(path[0], path[1]), amounts[0]);
+        _swap(amounts, path, to);
+    }
+
+    function swapTokensForExactETH(
+        uint256 amountOut,
+        uint256 amountInMax,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external ensure(deadline) returns (uint256[] memory amounts) {
+        require(path[path.length - 1] == WETH, "TamaRouter: INVALID_PATH");
+        amounts = getAmountsIn(amountOut, path);
+        require(amounts[0] <= amountInMax, "TamaRouter: EXCESSIVE_INPUT_AMOUNT");
+        _safeTransferFrom(path[0], msg.sender, pairFor(path[0], path[1]), amounts[0]);
+        _swap(amounts, path, address(this));
+        IWETHMinimal(WETH).withdraw(amounts[amounts.length - 1]);
+        _safeTransferETH(to, amounts[amounts.length - 1]);
+    }
+
+    function swapExactTokensForETH(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external ensure(deadline) returns (uint256[] memory amounts) {
+        require(path[path.length - 1] == WETH, "TamaRouter: INVALID_PATH");
+        amounts = getAmountsOut(amountIn, path);
+        require(amounts[amounts.length - 1] >= amountOutMin, "TamaRouter: INSUFFICIENT_OUTPUT_AMOUNT");
+        _safeTransferFrom(path[0], msg.sender, pairFor(path[0], path[1]), amounts[0]);
+        _swap(amounts, path, address(this));
+        IWETHMinimal(WETH).withdraw(amounts[amounts.length - 1]);
+        _safeTransferETH(to, amounts[amounts.length - 1]);
+    }
+
+    function swapETHForExactTokens(uint256 amountOut, address[] calldata path, address to, uint256 deadline)
+        external
+        payable
+        ensure(deadline)
+        returns (uint256[] memory amounts)
+    {
+        require(path[0] == WETH, "TamaRouter: INVALID_PATH");
+        amounts = getAmountsIn(amountOut, path);
+        require(amounts[0] <= msg.value, "TamaRouter: EXCESSIVE_INPUT_AMOUNT");
+        IWETHMinimal(WETH).deposit{value: amounts[0]}();
+        _safeTransfer(WETH, pairFor(path[0], path[1]), amounts[0]);
+        _swap(amounts, path, to);
+        if (msg.value > amounts[0]) _safeTransferETH(msg.sender, msg.value - amounts[0]);
+    }
+
+    function wrapETH(address to) external payable returns (uint256 amount) {
+        amount = msg.value;
+        IWETHMinimal(WETH).deposit{value: amount}();
+        _safeTransfer(WETH, to, amount);
+    }
+
+    function unwrapETH(uint256 amount, address to) external returns (uint256) {
+        _safeTransferFrom(WETH, msg.sender, address(this), amount);
+        IWETHMinimal(WETH).withdraw(amount);
+        _safeTransferETH(to, amount);
+        return amount;
     }
 
     function _addLiquidity(
@@ -193,5 +323,15 @@ contract TamaRouter {
     function _safeTransferFrom(address token, address from, address to, uint256 value) internal {
         (bool success, bytes memory data) = token.call(abi.encodeCall(IERC20Minimal.transferFrom, (from, to, value)));
         require(success && (data.length == 0 || abi.decode(data, (bool))), "TamaRouter: TRANSFER_FROM_FAILED");
+    }
+
+    function _safeTransfer(address token, address to, uint256 value) internal {
+        (bool success, bytes memory data) = token.call(abi.encodeCall(IERC20Minimal.transfer, (to, value)));
+        require(success && (data.length == 0 || abi.decode(data, (bool))), "TamaRouter: TRANSFER_FAILED");
+    }
+
+    function _safeTransferETH(address to, uint256 value) internal {
+        (bool success,) = to.call{value: value}("");
+        require(success, "TamaRouter: ETH_TRANSFER_FAILED");
     }
 }

@@ -35,6 +35,11 @@ contract TamaSwapFrontendTest is Test {
         assertTrue(_contains(html, bytes("0x38ed1739")));
         assertTrue(_contains(html, bytes("0x8803dbee")), "exact output swap missing");
         assertTrue(_contains(html, bytes("0x1f00ca74")), "exact output quote missing");
+        assertTrue(_contains(html, bytes("0xad5c4648")), "WETH lookup missing");
+        assertTrue(_contains(html, bytes("0x7ff36ab5")), "exact ETH input swap missing");
+        assertTrue(_contains(html, bytes("0x4a25d94a")), "exact ETH output swap missing");
+        assertTrue(_contains(html, bytes("0x406ee863")), "wrap ETH missing");
+        assertTrue(_contains(html, bytes("0x2e59d848")), "unwrap ETH missing");
         assertTrue(_contains(html, bytes("Maximum sold")), "exact output slippage label missing");
         assertTrue(_contains(html, bytes("Select token")), "token selector missing");
         assertTrue(_contains(html, bytes("tokens.uniswap.org")), "default token list missing");

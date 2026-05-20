@@ -54,6 +54,33 @@ contract E2EToken {
     }
 }
 
+contract E2EWETH is E2EToken {
+    event Deposit(address indexed dst, uint256 wad);
+    event Withdrawal(address indexed src, uint256 wad);
+
+    constructor() E2EToken("Wrapped Ether", "WETH") {}
+
+    function deposit() external payable {
+        balanceOf[msg.sender] += msg.value;
+        totalSupply += msg.value;
+        emit Deposit(msg.sender, msg.value);
+        emit Transfer(address(0), msg.sender, msg.value);
+    }
+
+    function withdraw(uint256 amount) external {
+        require(balanceOf[msg.sender] >= amount, "BALANCE");
+        balanceOf[msg.sender] -= amount;
+        totalSupply -= amount;
+        emit Transfer(msg.sender, address(0), amount);
+        emit Withdrawal(msg.sender, amount);
+        payable(msg.sender).transfer(amount);
+    }
+
+    receive() external payable {
+        this.deposit{value: msg.value}();
+    }
+}
+
 contract DeployE2E is Script {
     function run() external {
         address deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
@@ -61,7 +88,8 @@ contract DeployE2E is Script {
 
         vm.startBroadcast();
         address factory = address(UniswapV2FactoryDeployer.deploy());
-        TamaRouter router = new TamaRouter(factory);
+        E2EWETH weth = new E2EWETH();
+        TamaRouter router = new TamaRouter(factory, address(weth));
         TamaSwapFrontend frontend = new TamaSwapFrontend(factory, address(router));
         E2EToken tokenA = new E2EToken("Test Token A", "TKA");
         E2EToken tokenB = new E2EToken("Test Token B", "TKB");
@@ -72,6 +100,7 @@ contract DeployE2E is Script {
         string memory root = "e2e";
         vm.serializeAddress(root, "account", deployer);
         vm.serializeAddress(root, "factory", factory);
+        vm.serializeAddress(root, "weth", address(weth));
         vm.serializeAddress(root, "router", address(router));
         vm.serializeAddress(root, "frontend", address(frontend));
         vm.serializeAddress(root, "tokenA", address(tokenA));

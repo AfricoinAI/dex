@@ -8,13 +8,15 @@ import {TamaSwapFrontend} from "../src/TamaSwapFrontend.sol";
 contract DeployPeriphery is Script {
     function run() external returns (TamaRouter router, TamaSwapFrontend frontend) {
         address factory = vm.envAddress("FACTORY");
+        address weth = vm.envAddress("WETH");
 
         vm.startBroadcast();
-        router = new TamaRouter(factory);
+        router = new TamaRouter(factory, weth);
         frontend = new TamaSwapFrontend(factory, address(router));
         vm.stopBroadcast();
 
         console2.log("Factory :", factory);
+        console2.log("WETH    :", weth);
         console2.log("Router  :", address(router));
         console2.log("Frontend:", address(frontend));
     }
