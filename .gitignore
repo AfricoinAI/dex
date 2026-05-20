@@ -1,5 +1,7 @@
 /.lake/
 /artifacts/
+/broadcast/
 /cache/
+/e2e/.tmp/
 /out/
 foundry.lock

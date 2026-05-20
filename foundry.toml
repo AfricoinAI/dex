@@ -4,4 +4,7 @@ test = "test"
 out = "out"
 libs = ["lib"]
 solc_version = "0.8.33"
-fs_permissions = [{ access = "read", path = "./artifacts" }]
+fs_permissions = [
+    { access = "read", path = "./artifacts" },
+    { access = "write", path = "./e2e/.tmp" },
+]

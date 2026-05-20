@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "scripts": {
+    "test:e2e": "node e2e/tamaswap.e2e.cjs"
+  }
+}

@@ -143,6 +143,18 @@ node script/build-tamaswap.mjs
 forge test --match-path 'test/periphery/*'
 ```
 
+Run the browser-backed local frontend test:
+
+```sh
+npm run test:e2e
+```
+
+The E2E runner starts Anvil, deploys the factory, router, frontend, and two
+test ERC20s, serves the generated frontend against those addresses, injects a
+minimal EIP-1193 wallet, and drives connection, token-list selection,
+liquidity, swap, and DeFiLlama fallback behavior with Playwright. Install
+`playwright` or set `PLAYWRIGHT_PATH` if it is not already available locally.
+
 Deploy the router and frontend after deploying the factory:
 
 ```sh
