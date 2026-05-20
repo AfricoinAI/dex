@@ -85,13 +85,14 @@ contract RevertingFlashCallee {
     }
 }
 
-contract MintReentrantCallee {
+abstract contract ReentrantCalleeBase {
     UniswapV2PairIface public pair;
     MockERC20 public token0;
     MockERC20 public token1;
     uint256 public amount0In;
     uint256 public amount1In;
     bool public reentryRejected;
+    string public revertReason;
 
     constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_) {
         pair = pair_;
@@ -100,123 +101,173 @@ contract MintReentrantCallee {
         amount0In = amount0In_;
         amount1In = amount1In_;
     }
+
+    function _payBackInputs() internal {
+        if (amount0In > 0) require(token0.transfer(msg.sender, amount0In), "PAY0");
+        if (amount1In > 0) require(token1.transfer(msg.sender, amount1In), "PAY1");
+    }
+}
+
+contract MintReentrantCallee is ReentrantCalleeBase {
+    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_)
+        ReentrantCalleeBase(pair_, token0_, token1_, amount0In_, amount1In_)
+    {}
 
     function uniswapV2Call(address, uint256, uint256, bytes calldata) external {
         try pair.mint(address(this)) returns (uint256) {
             revert("MINT_REENTRY_ALLOWED");
+        } catch Error(string memory reason) {
+            reentryRejected = true;
+            revertReason = reason;
         } catch {
             reentryRejected = true;
         }
-        if (amount0In > 0) require(token0.transfer(msg.sender, amount0In), "PAY0");
-        if (amount1In > 0) require(token1.transfer(msg.sender, amount1In), "PAY1");
+        _payBackInputs();
     }
 }
 
-contract BurnReentrantCallee {
-    UniswapV2PairIface public pair;
-    MockERC20 public token0;
-    MockERC20 public token1;
-    uint256 public amount0In;
-    uint256 public amount1In;
-    bool public reentryRejected;
-
-    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_) {
-        pair = pair_;
-        token0 = token0_;
-        token1 = token1_;
-        amount0In = amount0In_;
-        amount1In = amount1In_;
-    }
+contract BurnReentrantCallee is ReentrantCalleeBase {
+    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_)
+        ReentrantCalleeBase(pair_, token0_, token1_, amount0In_, amount1In_)
+    {}
 
     function uniswapV2Call(address, uint256, uint256, bytes calldata) external {
         try pair.burn(address(this)) returns (uint256, uint256) {
             revert("BURN_REENTRY_ALLOWED");
+        } catch Error(string memory reason) {
+            reentryRejected = true;
+            revertReason = reason;
         } catch {
             reentryRejected = true;
         }
-        if (amount0In > 0) require(token0.transfer(msg.sender, amount0In), "PAY0");
-        if (amount1In > 0) require(token1.transfer(msg.sender, amount1In), "PAY1");
+        _payBackInputs();
     }
 }
 
-contract SwapReentrantCallee {
-    UniswapV2PairIface public pair;
-    MockERC20 public token0;
-    MockERC20 public token1;
-    uint256 public amount0In;
-    uint256 public amount1In;
-    bool public reentryRejected;
-
-    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_) {
-        pair = pair_;
-        token0 = token0_;
-        token1 = token1_;
-        amount0In = amount0In_;
-        amount1In = amount1In_;
-    }
+contract SwapReentrantCallee is ReentrantCalleeBase {
+    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_)
+        ReentrantCalleeBase(pair_, token0_, token1_, amount0In_, amount1In_)
+    {}
 
     function uniswapV2Call(address, uint256, uint256, bytes calldata) external {
         try pair.swap(0, 1, address(this), "") {
             revert("SWAP_REENTRY_ALLOWED");
+        } catch Error(string memory reason) {
+            reentryRejected = true;
+            revertReason = reason;
         } catch {
             reentryRejected = true;
         }
-        if (amount0In > 0) require(token0.transfer(msg.sender, amount0In), "PAY0");
-        if (amount1In > 0) require(token1.transfer(msg.sender, amount1In), "PAY1");
+        _payBackInputs();
     }
 }
 
-contract SkimReentrantCallee {
-    UniswapV2PairIface public pair;
-    MockERC20 public token0;
-    MockERC20 public token1;
-    uint256 public amount0In;
-    uint256 public amount1In;
-    bool public reentryRejected;
-
-    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_) {
-        pair = pair_;
-        token0 = token0_;
-        token1 = token1_;
-        amount0In = amount0In_;
-        amount1In = amount1In_;
-    }
+contract SkimReentrantCallee is ReentrantCalleeBase {
+    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_)
+        ReentrantCalleeBase(pair_, token0_, token1_, amount0In_, amount1In_)
+    {}
 
     function uniswapV2Call(address, uint256, uint256, bytes calldata) external {
         try pair.skim(address(this)) {
             revert("SKIM_REENTRY_ALLOWED");
+        } catch Error(string memory reason) {
+            reentryRejected = true;
+            revertReason = reason;
         } catch {
             reentryRejected = true;
         }
-        if (amount0In > 0) require(token0.transfer(msg.sender, amount0In), "PAY0");
-        if (amount1In > 0) require(token1.transfer(msg.sender, amount1In), "PAY1");
+        _payBackInputs();
     }
 }
 
-contract SyncReentrantCallee {
-    UniswapV2PairIface public pair;
-    MockERC20 public token0;
-    MockERC20 public token1;
-    uint256 public amount0In;
-    uint256 public amount1In;
-    bool public reentryRejected;
-
-    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_) {
-        pair = pair_;
-        token0 = token0_;
-        token1 = token1_;
-        amount0In = amount0In_;
-        amount1In = amount1In_;
-    }
+contract SyncReentrantCallee is ReentrantCalleeBase {
+    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_)
+        ReentrantCalleeBase(pair_, token0_, token1_, amount0In_, amount1In_)
+    {}
 
     function uniswapV2Call(address, uint256, uint256, bytes calldata) external {
         try pair.sync() {
             revert("SYNC_REENTRY_ALLOWED");
+        } catch Error(string memory reason) {
+            reentryRejected = true;
+            revertReason = reason;
         } catch {
             reentryRejected = true;
         }
-        if (amount0In > 0) require(token0.transfer(msg.sender, amount0In), "PAY0");
-        if (amount1In > 0) require(token1.transfer(msg.sender, amount1In), "PAY1");
+        _payBackInputs();
+    }
+}
+
+/// Tries every mutating entrypoint inside a single flash callback, recording
+/// whether each attempt was rejected and with which revert reason. Used to
+/// mirror `pair_flash_callback_reentry_attempts_revert_locked`, which states
+/// that all five entrypoints reject with LOCKED during the callback.
+contract AllEntrypointReentrantCallee is ReentrantCalleeBase {
+    bool public mintRejected;
+    string public mintRevertReason;
+    bool public burnRejected;
+    string public burnRevertReason;
+    bool public swapRejected;
+    string public swapRevertReason;
+    bool public skimRejected;
+    string public skimRevertReason;
+    bool public syncRejected;
+    string public syncRevertReason;
+
+    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_)
+        ReentrantCalleeBase(pair_, token0_, token1_, amount0In_, amount1In_)
+    {}
+
+    function uniswapV2Call(address, uint256, uint256, bytes calldata) external {
+        try pair.mint(address(this)) returns (uint256) {
+            revert("MINT_REENTRY_ALLOWED");
+        } catch Error(string memory reason) {
+            mintRejected = true;
+            mintRevertReason = reason;
+        } catch {
+            mintRejected = true;
+        }
+
+        try pair.burn(address(this)) returns (uint256, uint256) {
+            revert("BURN_REENTRY_ALLOWED");
+        } catch Error(string memory reason) {
+            burnRejected = true;
+            burnRevertReason = reason;
+        } catch {
+            burnRejected = true;
+        }
+
+        try pair.swap(0, 1, address(this), "") {
+            revert("SWAP_REENTRY_ALLOWED");
+        } catch Error(string memory reason) {
+            swapRejected = true;
+            swapRevertReason = reason;
+        } catch {
+            swapRejected = true;
+        }
+
+        try pair.skim(address(this)) {
+            revert("SKIM_REENTRY_ALLOWED");
+        } catch Error(string memory reason) {
+            skimRejected = true;
+            skimRevertReason = reason;
+        } catch {
+            skimRejected = true;
+        }
+
+        try pair.sync() {
+            revert("SYNC_REENTRY_ALLOWED");
+        } catch Error(string memory reason) {
+            syncRejected = true;
+            syncRevertReason = reason;
+        } catch {
+            syncRejected = true;
+        }
+
+        reentryRejected =
+            mintRejected && burnRejected && swapRejected && skimRejected && syncRejected;
+
+        _payBackInputs();
     }
 }
 

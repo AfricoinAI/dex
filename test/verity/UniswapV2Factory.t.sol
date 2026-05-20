@@ -9,7 +9,7 @@ import {MockERC20, FactoryFixture} from "./UniswapV2Helpers.sol";
 
 contract FactoryViewMirrors is FactoryFixture {
     // tama: mirrors=factory_getPair_run_success_frames_state
-    function testFuzzMirrorGetPairReadsBidirectionalMapping(uint96 fuzz) public {
+    function testFuzzMirrorGetPairReadsBidirectionalMapping(uint96) public {
         assertEq(factory.getPair(address(tokenA), address(tokenB)), address(pair));
         assertEq(factory.getPair(address(tokenB), address(tokenA)), address(pair));
         assertEq(factory.getPair(address(0xBEEF), address(0xCAFE)), address(0));
@@ -25,39 +25,39 @@ contract FactoryViewMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_allPairs_run_success_in_bounds
-    function testFuzzMirrorAllPairsInBoundsReadsArrayEntry(uint96 fuzz) public {
+    function testFuzzMirrorAllPairsInBoundsReadsArrayEntry(uint96) public {
         assertEq(factory.allPairs(0), address(pair));
     }
 }
 
 contract FactoryRevertMirrors is FactoryFixture {
     // tama: mirrors=factory_allPairs_run_revert_out_of_bounds
-    function testFuzzMirrorAllPairsOutOfBoundsReverts(uint96 fuzz) public {
+    function testFuzzMirrorAllPairsOutOfBoundsReverts(uint96) public {
         uint256 length = factory.allPairsLength();
         vm.expectRevert(bytes("UniswapV2: INDEX_OUT_OF_BOUNDS"));
         factory.allPairs(length);
     }
 
     // tama: mirrors=factory_createPair_run_revert_identical_addresses
-    function testFuzzMirrorCreatePairRevertsOnIdenticalAddresses(uint96 fuzz) public {
+    function testFuzzMirrorCreatePairRevertsOnIdenticalAddresses(uint96) public {
         vm.expectRevert(bytes("UniswapV2: IDENTICAL_ADDRESSES"));
         factory.createPair(address(tokenA), address(tokenA));
     }
 
     // tama: mirrors=factory_createPair_run_revert_zero_address
-    function testFuzzMirrorCreatePairRevertsOnZeroAddress(uint96 fuzz) public {
+    function testFuzzMirrorCreatePairRevertsOnZeroAddress(uint96) public {
         vm.expectRevert(bytes("UniswapV2: ZERO_ADDRESS"));
         factory.createPair(address(0), address(tokenA));
     }
 
     // tama: mirrors=factory_createPair_run_revert_duplicates
-    function testFuzzMirrorCreatePairRevertsOnDuplicates(uint96 fuzz) public {
+    function testFuzzMirrorCreatePairRevertsOnDuplicates(uint96) public {
         vm.expectRevert(bytes("UniswapV2: PAIR_EXISTS"));
         factory.createPair(address(tokenA), address(tokenB));
     }
 
     // tama: mirrors=factory_createPair_revert_keeps_factory_state
-    function testFuzzMirrorCreatePairRevertLeavesFactoryStateUnchanged(uint96 fuzz) public {
+    function testFuzzMirrorCreatePairRevertLeavesFactoryStateUnchanged(uint96) public {
         uint256 lengthBefore = factory.allPairsLength();
         address mapEntryBefore = factory.getPair(address(tokenA), address(tokenB));
         vm.expectRevert();
@@ -69,7 +69,7 @@ contract FactoryRevertMirrors is FactoryFixture {
 
 contract FactoryCreatePairMirrors is FactoryFixture {
     // tama: mirrors=factory_createPair_success_updates_storage_and_emits
-    function testFuzzMirrorCreatePairWritesStorageAndEmits(uint96 fuzz) public {
+    function testFuzzMirrorCreatePairWritesStorageAndEmits(uint96) public {
         MockERC20 tokenC = new MockERC20();
         MockERC20 tokenD = new MockERC20();
         (address token0, address token1) = sortedAddresses(address(tokenC), address(tokenD));
@@ -88,7 +88,7 @@ contract FactoryCreatePairMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_createPair_success_getPair_views_return_new_pair
-    function testFuzzMirrorCreatePairSuccessIsVisibleViaGetPair(uint96 fuzz) public {
+    function testFuzzMirrorCreatePairSuccessIsVisibleViaGetPair(uint96) public {
         MockERC20 tokenC = new MockERC20();
         MockERC20 tokenD = new MockERC20();
         address created = factory.createPair(address(tokenC), address(tokenD));
@@ -97,7 +97,7 @@ contract FactoryCreatePairMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_createPair_success_implies_pre_create_guards
-    function testFuzzMirrorCreatePairSuccessImpliesPreGuards(uint96 fuzz) public {
+    function testFuzzMirrorCreatePairSuccessImpliesPreGuards(uint96) public {
         MockERC20 tokenC = new MockERC20();
         MockERC20 tokenD = new MockERC20();
         // Pre-create guards: distinct, both nonzero, mapping empty.
@@ -123,14 +123,14 @@ contract FactoryClosedWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_closed_world_create_appends_one_pair
-    function testFuzzMirrorCreatePairAppendsOnePair(uint96 fuzz) public {
+    function testFuzzMirrorCreatePairAppendsOnePair(uint96) public {
         uint256 lengthBefore = factory.allPairsLength();
         _createPair();
         assertEq(factory.allPairsLength(), lengthBefore + 1);
     }
 
     // tama: mirrors=factory_closed_world_create_adds_symmetric_lookup
-    function testFuzzMirrorCreatePairAddsSymmetricLookup(uint96 fuzz) public {
+    function testFuzzMirrorCreatePairAddsSymmetricLookup(uint96) public {
         MockERC20 c = new MockERC20();
         MockERC20 d = new MockERC20();
         address created = factory.createPair(address(c), address(d));
@@ -139,7 +139,7 @@ contract FactoryClosedWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_closed_world_path_preserves_existing_pairs
-    function testFuzzMirrorPathPreservesExistingPairs(uint96 fuzz) public {
+    function testFuzzMirrorPathPreservesExistingPairs(uint96) public {
         address existing = factory.getPair(address(tokenA), address(tokenB));
         _createPair();
         _createPair();
@@ -148,7 +148,7 @@ contract FactoryClosedWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_closed_world_path_is_append_only
-    function testFuzzMirrorPathIsAppendOnly(uint96 fuzz) public {
+    function testFuzzMirrorPathIsAppendOnly(uint96) public {
         address existing = factory.allPairs(0);
         address second = _createPair();
         address third = _createPair();
@@ -159,7 +159,7 @@ contract FactoryClosedWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_closed_world_same_count_path_preserves_pair_list
-    function testFuzzMirrorSameCountPreservesPairList(uint96 fuzz) public {
+    function testFuzzMirrorSameCountPreservesPairList(uint96) public {
         // The "path" with no createPair calls trivially preserves the array.
         uint256 lengthBefore = factory.allPairsLength();
         address entryBefore = factory.allPairs(0);
@@ -171,7 +171,7 @@ contract FactoryClosedWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_closed_world_path_length_matches_created_pairs
-    function testFuzzMirrorPathLengthMatchesCreatedPairs(uint96 fuzz) public {
+    function testFuzzMirrorPathLengthMatchesCreatedPairs(uint96) public {
         // allPairsLength reflects exactly the number of successful createPair calls.
         assertEq(factory.allPairsLength(), 1);
         _createPair();
@@ -182,7 +182,7 @@ contract FactoryClosedWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_closed_world_lookup_symmetric
-    function testFuzzMirrorLookupSymmetric(uint96 fuzz) public {
+    function testFuzzMirrorLookupSymmetric(uint96) public {
         assertEq(
             factory.getPair(address(tokenA), address(tokenB)),
             factory.getPair(address(tokenB), address(tokenA))
@@ -190,7 +190,7 @@ contract FactoryClosedWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_closed_world_unordered_pair_address_unique
-    function testFuzzMirrorUnorderedPairAddressUnique(uint96 fuzz) public {
+    function testFuzzMirrorUnorderedPairAddressUnique(uint96) public {
         // Both lookup orders return the same address — any "two answers"
         // would have to disagree on at least one direction.
         address ab = factory.getPair(address(tokenA), address(tokenB));
@@ -203,7 +203,7 @@ contract FactoryClosedWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_closed_world_reachable_lookup_is_valid
-    function testFuzzMirrorReachableLookupIsValid(uint96 fuzz) public {
+    function testFuzzMirrorReachableLookupIsValid(uint96) public {
         address pairAddr = factory.getPair(address(tokenA), address(tokenB));
         assertTrue(pairAddr != address(0));
         assertTrue(address(tokenA) != address(tokenB));
@@ -212,7 +212,7 @@ contract FactoryClosedWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_closed_world_created_pairs_are_sorted_and_nonzero
-    function testFuzzMirrorCreatedPairsAreSortedAndNonzero(uint96 fuzz) public {
+    function testFuzzMirrorCreatedPairsAreSortedAndNonzero(uint96) public {
         for (uint256 i = 0; i < factory.allPairsLength(); i++) {
             address pairAddr = factory.allPairs(i);
             assertTrue(pairAddr != address(0));
@@ -241,7 +241,7 @@ contract FactoryClosedWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_closed_world_path_preserves_reachability
-    function testFuzzMirrorClosedWorldPathPreservesReachability(uint96 fuzz) public {
+    function testFuzzMirrorClosedWorldPathPreservesReachability(uint96) public {
         // Reachability is a model fact; the contract observation is that
         // every length the factory reports along a successful path is itself
         // a state with the expected discoverability properties.
@@ -256,7 +256,7 @@ contract FactoryClosedWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_closed_world_path_preserves_good
-    function testFuzzMirrorClosedWorldPathPreservesGood(uint96 fuzz) public {
+    function testFuzzMirrorClosedWorldPathPreservesGood(uint96) public {
         _createPair();
         _createPair();
         // After two more creates, all four invariants still hold:
@@ -287,7 +287,7 @@ contract FactoryConcreteWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_concrete_world_length_matches_storage
-    function testFuzzMirrorConcreteWorldLengthMatchesStorage(uint96 fuzz) public {
+    function testFuzzMirrorConcreteWorldLengthMatchesStorage(uint96) public {
         // The modeled pair count equals the public allPairsLength view.
         assertEq(factory.allPairsLength(), 1);
         _createPair();
@@ -295,7 +295,7 @@ contract FactoryConcreteWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_concrete_world_allPairs_matches_storage
-    function testFuzzMirrorConcreteWorldAllPairsMatchesStorage(uint96 fuzz) public {
+    function testFuzzMirrorConcreteWorldAllPairsMatchesStorage(uint96) public {
         address pairAddr = factory.getPair(address(tokenA), address(tokenB));
         assertEq(factory.allPairs(0), pairAddr);
         address newPair = _createPair();
@@ -303,7 +303,7 @@ contract FactoryConcreteWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_concrete_reachable_lookup_is_valid
-    function testFuzzMirrorConcreteReachableLookupIsValid(uint96 fuzz) public {
+    function testFuzzMirrorConcreteReachableLookupIsValid(uint96) public {
         address pairAddr = factory.getPair(address(tokenA), address(tokenB));
         assertTrue(pairAddr != address(0));
         assertTrue(address(tokenA) != address(tokenB));
@@ -312,7 +312,7 @@ contract FactoryConcreteWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_createPair_success_preserves_concrete_world_match
-    function testFuzzMirrorCreatePairSuccessPreservesWorldMatch(uint96 fuzz) public {
+    function testFuzzMirrorCreatePairSuccessPreservesWorldMatch(uint96) public {
         // After a successful create, the model+1-entry world still matches storage:
         // length, array, and bidirectional lookup all consistent.
         uint256 lengthBefore = factory.allPairsLength();
@@ -326,7 +326,7 @@ contract FactoryConcreteWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_concrete_create_path_preserves_world_match
-    function testFuzzMirrorConcreteCreatePathPreservesWorldMatch(uint96 fuzz) public {
+    function testFuzzMirrorConcreteCreatePathPreservesWorldMatch(uint96) public {
         _createPair();
         _createPair();
         // Length still matches array; every entry decodes; every lookup valid.
@@ -341,7 +341,7 @@ contract FactoryConcreteWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_concrete_create_path_preserves_existing_decoded_lookup
-    function testFuzzMirrorConcreteCreatePathPreservesExistingLookup(uint96 fuzz) public {
+    function testFuzzMirrorConcreteCreatePathPreservesExistingLookup(uint96) public {
         address existing = factory.getPair(address(tokenA), address(tokenB));
         _createPair();
         _createPair();
@@ -350,7 +350,7 @@ contract FactoryConcreteWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_concrete_create_path_preserves_existing_allPairs_entry
-    function testFuzzMirrorConcreteCreatePathPreservesArrayEntry(uint96 fuzz) public {
+    function testFuzzMirrorConcreteCreatePathPreservesArrayEntry(uint96) public {
         address entry0Before = factory.allPairs(0);
         _createPair();
         _createPair();
@@ -358,7 +358,7 @@ contract FactoryConcreteWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_concrete_create_path_reachable_lookup_is_valid
-    function testFuzzMirrorConcreteCreatePathReachableLookupIsValid(uint96 fuzz) public {
+    function testFuzzMirrorConcreteCreatePathReachableLookupIsValid(uint96) public {
         _createPair();
         _createPair();
         for (uint256 i = 0; i < factory.allPairsLength(); i++) {
@@ -372,7 +372,7 @@ contract FactoryConcreteWorldMirrors is FactoryFixture {
     }
 
     // tama: mirrors=factory_concrete_same_length_create_path_preserves_world
-    function testFuzzMirrorConcreteSameLengthPreservesWorld(uint96 fuzz) public {
+    function testFuzzMirrorConcreteSameLengthPreservesWorld(uint96) public {
         // A "no-create" path: length unchanged ⇒ entire array unchanged.
         uint256 lengthBefore = factory.allPairsLength();
         address entryBefore = factory.allPairs(0);

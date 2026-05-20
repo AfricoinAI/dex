@@ -15,6 +15,7 @@ import {
     SwapReentrantCallee,
     SkimReentrantCallee,
     SyncReentrantCallee,
+    AllEntrypointReentrantCallee,
     PairFixture
 } from "./UniswapV2Helpers.sol";
 
@@ -867,7 +868,7 @@ contract PairBurnMirrors is PairFixture {
 
 contract PairSwapMirrors is PairFixture {
     // tama: mirrors=pair_swap_success_run_implies_nonzero_output
-    function testFuzzMirrorSwapSuccessImpliesNonzeroOutput(uint96 fuzz) public {
+    function testFuzzMirrorSwapSuccessImpliesNonzeroOutput(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0,) = sortedTokens();
         t0.mint(address(pair), 1_000);
@@ -875,7 +876,7 @@ contract PairSwapMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_swap_uses_final_balances_to_compute_input
-    function testFuzzMirrorSwapInfersInputFromFinalBalance(uint96 fuzz) public {
+    function testFuzzMirrorSwapInfersInputFromFinalBalance(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
         t0.mint(address(pair), 1_000);
@@ -888,7 +889,7 @@ contract PairSwapMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_swap_success_accounts_for_input_and_output
-    function testFuzzMirrorSwapFinalBalancesAccountForInputAndOutput(uint96 fuzz) public {
+    function testFuzzMirrorSwapFinalBalancesAccountForInputAndOutput(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
         t0.mint(address(pair), 1_000);
@@ -900,7 +901,7 @@ contract PairSwapMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_swap_checks_k_against_final_balances
-    function testFuzzMirrorSwapKHoldsAgainstFinalBalances(uint96 fuzz) public {
+    function testFuzzMirrorSwapKHoldsAgainstFinalBalances(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0,) = sortedTokens();
         t0.mint(address(pair), 1_000);
@@ -911,7 +912,7 @@ contract PairSwapMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_swap_success_charges_k_against_final_balances
-    function testFuzzMirrorSwapKBoundaryRejectsUnpaidOutput(uint96 fuzz) public {
+    function testFuzzMirrorSwapKBoundaryRejectsUnpaidOutput(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0,) = sortedTokens();
         t0.mint(address(pair), 1_000);
@@ -926,7 +927,7 @@ contract PairSwapMirrors is PairFixture {
 
 contract PairSkimMirrors is PairFixture {
     // tama: mirrors=pair_skim_run_success_transfers_excess_and_restores_unlocked
-    function testFuzzMirrorSkimSuccessTransfersExcessAndRestoresUnlocked(uint96 fuzz) public {
+    function testFuzzMirrorSkimSuccessTransfersExcessAndRestoresUnlocked(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
         t0.mint(address(pair), 123);
@@ -945,7 +946,7 @@ contract PairSkimMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_skim_success_run_implies_balances_back_reserves
-    function testFuzzMirrorSkimSuccessImpliesBalancesCoverReserves(uint96 fuzz) public {
+    function testFuzzMirrorSkimSuccessImpliesBalancesCoverReserves(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
         t0.mint(address(pair), 7);
@@ -957,7 +958,7 @@ contract PairSkimMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_skim_success_run_restores_unlocked_from_run
-    function testFuzzMirrorSkimSuccessRestoresUnlocked(uint96 fuzz) public {
+    function testFuzzMirrorSkimSuccessRestoresUnlocked(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0,) = sortedTokens();
         t0.mint(address(pair), 1);
@@ -974,7 +975,7 @@ contract PairSkimMirrors is PairFixture {
 
 contract PairClosedWorldStepMirrors is PairFixture {
     // tama: mirrors=pair_closed_world_approve_preserves_pool
-    function testFuzzMirrorApprovePreservesPool(uint96 fuzz) public {
+    function testFuzzMirrorApprovePreservesPool(uint96) public {
         seed(1_000_000, 1_000_000);
         (uint256 reserve0Before, uint256 reserve1Before,) = pair.getReserves();
         uint256 supplyBefore = pair.totalSupply();
@@ -993,7 +994,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_transfer_preserves_pool
-    function testFuzzMirrorTransferPreservesPool(uint96 fuzz) public {
+    function testFuzzMirrorTransferPreservesPool(uint96) public {
         seed(1_000_000, 1_000_000);
         (uint256 reserve0Before, uint256 reserve1Before,) = pair.getReserves();
         uint256 supplyBefore = pair.totalSupply();
@@ -1012,7 +1013,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_transferFrom_preserves_pool
-    function testFuzzMirrorTransferFromPreservesPool(uint96 fuzz) public {
+    function testFuzzMirrorTransferFromPreservesPool(uint96) public {
         seed(1_000_000, 1_000_000);
         pair.approve(address(0xBEEF), 100);
         (uint256 reserve0Before, uint256 reserve1Before,) = pair.getReserves();
@@ -1033,7 +1034,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_mint_strictly_increases_supply
-    function testFuzzMirrorMintStrictlyIncreasesSupply(uint96 fuzz) public {
+    function testFuzzMirrorMintStrictlyIncreasesSupply(uint96) public {
         tokenA.mint(address(pair), 1 ether);
         tokenB.mint(address(pair), 1 ether);
         uint256 supplyBefore = pair.totalSupply();
@@ -1047,7 +1048,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_mint_adds_exact_deposits_to_reserves
-    function testFuzzMirrorMintAddsExactDepositsToReserves(uint96 fuzz) public {
+    function testFuzzMirrorMintAddsExactDepositsToReserves(uint96) public {
         seed(1_000_000, 1_000_000);
         (uint256 reserve0Before, uint256 reserve1Before,) = pair.getReserves();
         tokenA.mint(address(pair), 200_000);
@@ -1060,7 +1061,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_first_mint_locks_minimum_liquidity
-    function testFuzzMirrorFirstMintLocksMinimumLiquidity(uint96 fuzz) public {
+    function testFuzzMirrorFirstMintLocksMinimumLiquidity(uint96) public {
         tokenA.mint(address(pair), 1 ether);
         tokenB.mint(address(pair), 1 ether);
         uint256 liquidity = pair.mint(address(this));
@@ -1069,7 +1070,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_first_mint_keeps_locked_share
-    function testFuzzMirrorFirstMintKeepsLockedShare(uint96 fuzz) public {
+    function testFuzzMirrorFirstMintKeepsLockedShare(uint96) public {
         tokenA.mint(address(pair), 1 ether);
         tokenB.mint(address(pair), 1 ether);
         uint256 liquidity = pair.mint(address(this));
@@ -1078,7 +1079,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_subsequent_mint_preserves_locked_liquidity
-    function testFuzzMirrorSubsequentMintPreservesLockedLiquidity(uint96 fuzz) public {
+    function testFuzzMirrorSubsequentMintPreservesLockedLiquidity(uint96) public {
         seed(1_000_000, 1_000_000);
         uint256 lockedBefore = pair.balanceOf(address(0));
         uint256 supplyBefore = pair.totalSupply();
@@ -1090,7 +1091,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_burn_reduces_supply_by_liquidity
-    function testFuzzMirrorBurnReducesSupplyByLiquidity(uint96 fuzz) public {
+    function testFuzzMirrorBurnReducesSupplyByLiquidity(uint96) public {
         seed(1_000_000, 4_000_000);
         uint256 liquidity = 200_000;
         pair.transfer(address(pair), liquidity);
@@ -1100,7 +1101,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_burn_never_increases_supply
-    function testFuzzMirrorBurnNeverIncreasesSupply(uint96 fuzz) public {
+    function testFuzzMirrorBurnNeverIncreasesSupply(uint96) public {
         seed(1_000_000, 4_000_000);
         pair.transfer(address(pair), 200_000);
         uint256 supplyBefore = pair.totalSupply();
@@ -1109,7 +1110,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_burn_removes_exact_redemptions_from_balances
-    function testFuzzMirrorBurnRemovesExactRedemptionsFromBalances(uint96 fuzz) public {
+    function testFuzzMirrorBurnRemovesExactRedemptionsFromBalances(uint96) public {
         seed(1_000_000, 4_000_000);
         pair.transfer(address(pair), 200_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
@@ -1124,7 +1125,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_burn_cannot_redeem_locked_liquidity
-    function testFuzzMirrorBurnCannotRedeemLockedLiquidity(uint96 fuzz) public {
+    function testFuzzMirrorBurnCannotRedeemLockedLiquidity(uint96) public {
         seed(1_000_000, 4_000_000);
         uint256 lockedBefore = pair.balanceOf(address(0));
         pair.transfer(address(pair), 200_000);
@@ -1134,7 +1135,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_burn_preserves_positive_balances
-    function testFuzzMirrorBurnPreservesPositiveBalances(uint96 fuzz) public {
+    function testFuzzMirrorBurnPreservesPositiveBalances(uint96) public {
         seed(1_000_000, 4_000_000);
         pair.transfer(address(pair), 200_000);
         pair.burn(address(this));
@@ -1144,7 +1145,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_donate_preserves_reserves_and_supply
-    function testFuzzMirrorDonatePreservesReservesAndSupply(uint96 fuzz) public {
+    function testFuzzMirrorDonatePreservesReservesAndSupply(uint96) public {
         seed(1_000_000, 1_000_000);
         (uint256 reserve0Before, uint256 reserve1Before,) = pair.getReserves();
         uint256 supplyBefore = pair.totalSupply();
@@ -1159,7 +1160,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_donate_preserves_k
-    function testFuzzMirrorDonatePreservesK(uint96 fuzz) public {
+    function testFuzzMirrorDonatePreservesK(uint96) public {
         seed(1_000_000, 1_000_000);
         (uint256 reserve0Before, uint256 reserve1Before,) = pair.getReserves();
         uint256 kBefore = reserve0Before * reserve1Before;
@@ -1170,7 +1171,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_donation_increases_surplus_exactly
-    function testFuzzMirrorDonationIncreasesSurplusExactly(uint96 fuzz) public {
+    function testFuzzMirrorDonationIncreasesSurplusExactly(uint96) public {
         seed(1_000_000, 1_000_000);
         (uint256 reserve0Before, uint256 reserve1Before,) = pair.getReserves();
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
@@ -1191,7 +1192,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_skim_removes_surplus
-    function testFuzzMirrorSkimRemovesSurplus(uint96 fuzz) public {
+    function testFuzzMirrorSkimRemovesSurplus(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
         t0.mint(address(pair), 123);
@@ -1206,7 +1207,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_skim_preserves_balanced_pool
-    function testFuzzMirrorSkimPreservesBalancedPool(uint96 fuzz) public {
+    function testFuzzMirrorSkimPreservesBalancedPool(uint96) public {
         seed(10_000, 10_000);
         (uint256 reserve0Before, uint256 reserve1Before,) = pair.getReserves();
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
@@ -1227,7 +1228,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_skim_removes_exact_surplus_value
-    function testFuzzMirrorSkimRemovesExactSurplusValue(uint96 fuzz) public {
+    function testFuzzMirrorSkimRemovesExactSurplusValue(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
         t0.mint(address(pair), 123);
@@ -1246,7 +1247,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_skim_token_balance_value_never_increases_at_spot
-    function testFuzzMirrorSkimNeverIncreasesTokenBalanceValue(uint96 fuzz) public {
+    function testFuzzMirrorSkimNeverIncreasesTokenBalanceValue(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
         t0.mint(address(pair), 50);
@@ -1261,7 +1262,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_skim_or_sync_token_balance_value_never_increases_at_spot
-    function testFuzzMirrorSkimOrSyncNeverIncreasesTokenBalanceValue(uint96 fuzz) public {
+    function testFuzzMirrorSkimOrSyncNeverIncreasesTokenBalanceValue(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
         t0.mint(address(pair), 50);
@@ -1275,7 +1276,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_sync_sets_reserves_to_balances
-    function testFuzzMirrorSyncSetsReservesToBalances(uint96 fuzz) public {
+    function testFuzzMirrorSyncSetsReservesToBalances(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
         t0.mint(address(pair), 50);
@@ -1291,7 +1292,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_sync_preserves_token_balances
-    function testFuzzMirrorSyncPreservesTokenBalances(uint96 fuzz) public {
+    function testFuzzMirrorSyncPreservesTokenBalances(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
         t0.mint(address(pair), 50);
@@ -1304,7 +1305,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_reserve_write_sets_reserves_to_balances
-    function testFuzzMirrorReserveWriteSetsReservesToBalances(uint96 fuzz) public {
+    function testFuzzMirrorReserveWriteSetsReservesToBalances(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
         t0.mint(address(pair), 50);
@@ -1323,7 +1324,7 @@ contract PairClosedWorldStepMirrors is PairFixture {
 
 contract PairConcreteStateMirrors is PairFixture {
     // tama: mirrors=pair_concrete_state_reserves_backed
-    function testFuzzMirrorReservesBackedByBalances(uint96 fuzz) public {
+    function testFuzzMirrorReservesBackedByBalances(uint96) public {
         seed(1_000_000, 4_000_000);
         (uint256 reserve0, uint256 reserve1,) = pair.getReserves();
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
@@ -1338,7 +1339,7 @@ contract PairConcreteStateMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_concrete_state_uint112_reserves
-    function testFuzzMirrorReservesFitUint112(uint96 fuzz) public {
+    function testFuzzMirrorReservesFitUint112(uint96) public {
         seed(1_000_000, 4_000_000);
         (uint256 reserve0, uint256 reserve1,) = pair.getReserves();
         assertLe(reserve0, MAX_UINT112);
@@ -1354,20 +1355,20 @@ contract PairConcreteStateMirrors is PairFixture {
 
 contract PairReachablePathMirrors is PairFixture {
     // tama: mirrors=pair_closed_world_zero_supply_has_no_locked_liquidity
-    function testFuzzMirrorZeroSupplyHasNoLockedLiquidity(uint96 fuzz) public {
+    function testFuzzMirrorZeroSupplyHasNoLockedLiquidity(uint96) public {
         assertEq(pair.totalSupply(), 0);
         assertEq(pair.balanceOf(address(0)), 0);
     }
 
     // tama: mirrors=pair_closed_world_nonzero_supply_locks_minimum_liquidity
-    function testFuzzMirrorNonzeroSupplyLocksMinimumLiquidity(uint96 fuzz) public {
+    function testFuzzMirrorNonzeroSupplyLocksMinimumLiquidity(uint96) public {
         seed(1_000_000, 1_000_000);
         assertEq(pair.balanceOf(address(0)), 1000);
         assertGe(pair.totalSupply(), 1000);
     }
 
     // tama: mirrors=pair_closed_world_locked_liquidity_never_exceeds_supply
-    function testFuzzMirrorLockedLiquidityNeverExceedsSupply(uint96 fuzz) public {
+    function testFuzzMirrorLockedLiquidityNeverExceedsSupply(uint96) public {
         assertLe(pair.balanceOf(address(0)), pair.totalSupply());
         seed(1_000_000, 4_000_000);
         assertLe(pair.balanceOf(address(0)), pair.totalSupply());
@@ -1377,7 +1378,7 @@ contract PairReachablePathMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_reachable_path_minimum_liquidity_lock
-    function testFuzzMirrorReachablePathPreservesMinLiquidityLock(uint96 fuzz) public {
+    function testFuzzMirrorReachablePathPreservesMinLiquidityLock(uint96) public {
         // Start: empty pool. After mint: lock=1000 and supply >= 1000.
         seed(1_000_000, 4_000_000);
         assertEq(pair.balanceOf(address(0)), 1000);
@@ -1390,7 +1391,7 @@ contract PairReachablePathMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_reachable_path_locked_liquidity_never_decreases
-    function testFuzzMirrorLockedLiquidityIsMonotone(uint96 fuzz) public {
+    function testFuzzMirrorLockedLiquidityIsMonotone(uint96) public {
         uint256 lockedStart = pair.balanceOf(address(0));
         seed(1_000_000, 4_000_000);
         assertGe(pair.balanceOf(address(0)), lockedStart);
@@ -1401,7 +1402,7 @@ contract PairReachablePathMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_reachable_path_reserves_backed
-    function testFuzzMirrorReachablePathKeepsReservesBacked(uint96 fuzz) public {
+    function testFuzzMirrorReachablePathKeepsReservesBacked(uint96) public {
         seed(1_000_000, 4_000_000);
         (uint256 reserve0Mid, uint256 reserve1Mid,) = pair.getReserves();
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
@@ -1415,7 +1416,7 @@ contract PairReachablePathMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_reachable_path_reserves_fit_uint112
-    function testFuzzMirrorReachablePathKeepsReservesInUint112(uint96 fuzz) public {
+    function testFuzzMirrorReachablePathKeepsReservesInUint112(uint96) public {
         seed(1_000_000, 4_000_000);
         (uint256 reserve0Mid, uint256 reserve1Mid,) = pair.getReserves();
         assertLe(reserve0Mid, MAX_UINT112);
@@ -1428,7 +1429,7 @@ contract PairReachablePathMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_reachable_path_lp_share_backing_never_decreases
-    function testFuzzMirrorLpShareBackingMonotone(uint96 fuzz) public {
+    function testFuzzMirrorLpShareBackingMonotone(uint96) public {
         seed(10_000, 10_000);
         (uint256 reserve0Mid, uint256 reserve1Mid,) = pair.getReserves();
         uint256 supplyMid = pair.totalSupply();
@@ -1445,7 +1446,7 @@ contract PairReachablePathMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_reachable_no_donation_path_never_increases_surplus
-    function testFuzzMirrorNoDonationPathKeepsSurplus(uint96 fuzz) public {
+    function testFuzzMirrorNoDonationPathKeepsSurplus(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
         // No donation: do only approve, transfer, sync (none increase surplus).
@@ -1462,7 +1463,7 @@ contract PairReachablePathMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_reachable_reserve_change_requires_reserve_update
-    function testFuzzMirrorReserveChangeRequiresReserveUpdate(uint96 fuzz) public {
+    function testFuzzMirrorReserveChangeRequiresReserveUpdate(uint96) public {
         seed(10_000, 10_000);
         (uint256 reserve0Before, uint256 reserve1Before,) = pair.getReserves();
         // Approve + transfer + transferFrom should not change reserves.
@@ -1476,7 +1477,7 @@ contract PairReachablePathMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_reachable_supply_change_requires_mint_or_burn
-    function testFuzzMirrorSupplyChangeRequiresMintOrBurn(uint96 fuzz) public {
+    function testFuzzMirrorSupplyChangeRequiresMintOrBurn(uint96) public {
         seed(10_000, 10_000);
         uint256 supplyBefore = pair.totalSupply();
         // Approve, transfer, transferFrom, skim, sync — none change supply.
@@ -1493,7 +1494,7 @@ contract PairReachablePathMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_path_preserves_good
-    function testFuzzMirrorPathPreservesGoodInvariants(uint96 fuzz) public {
+    function testFuzzMirrorPathPreservesGoodInvariants(uint96) public {
         seed(1_000_000, 4_000_000);
         // After a series of valid operations, the three invariants still hold:
         //  - reserves ≤ balances
@@ -1514,7 +1515,7 @@ contract PairReachablePathMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_reachable_path_good
-    function testFuzzMirrorReachablePathPreservesGood(uint96 fuzz) public {
+    function testFuzzMirrorReachablePathPreservesGood(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
         t0.mint(address(pair), 1_000);
@@ -1528,7 +1529,7 @@ contract PairReachablePathMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_closed_world_path_preserves_reachability
-    function testFuzzMirrorPathPreservesReachability(uint96 fuzz) public {
+    function testFuzzMirrorPathPreservesReachability(uint96) public {
         // Reachability is a model-level closure fact; the corresponding
         // contract observation is: after any successful sequence, the
         // public views still report a self-consistent pair (factory,
@@ -1554,7 +1555,7 @@ contract PairReachablePathMirrors is PairFixture {
 
 contract PairRunMatchesStepMirrors is PairFixture {
     // tama: mirrors=pair_mint_first_success_run_matches_closed_world_step_from_run
-    function testFuzzMirrorFirstMintRunMatchesStep(uint96 fuzz) public {
+    function testFuzzMirrorFirstMintRunMatchesStep(uint96) public {
         tokenA.mint(address(pair), 1 ether);
         tokenB.mint(address(pair), 1 ether);
         (uint256 amount0, uint256 amount1) = sortedAmounts(1 ether, 1 ether);
@@ -1567,7 +1568,7 @@ contract PairRunMatchesStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_mint_subsequent_success_run_matches_closed_world_step_from_run
-    function testFuzzMirrorSubsequentMintRunMatchesStep(uint96 fuzz) public {
+    function testFuzzMirrorSubsequentMintRunMatchesStep(uint96) public {
         seed(1_000_000, 1_000_000);
         (uint256 reserve0Before, uint256 reserve1Before,) = pair.getReserves();
         uint256 supplyBefore = pair.totalSupply();
@@ -1582,7 +1583,7 @@ contract PairRunMatchesStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_burn_success_run_matches_closed_world_step
-    function testFuzzMirrorBurnRunMatchesStep(uint96 fuzz) public {
+    function testFuzzMirrorBurnRunMatchesStep(uint96) public {
         seed(1_000_000, 4_000_000);
         uint256 liquidity = 200_000;
         pair.transfer(address(pair), liquidity);
@@ -1596,7 +1597,7 @@ contract PairRunMatchesStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_swap_success_run_matches_closed_world_step_from_run
-    function testFuzzMirrorSwapRunMatchesStep(uint96 fuzz) public {
+    function testFuzzMirrorSwapRunMatchesStep(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
         t0.mint(address(pair), 1_000);
@@ -1610,7 +1611,7 @@ contract PairRunMatchesStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_skim_success_run_matches_closed_world_step_from_run
-    function testFuzzMirrorSkimRunMatchesStep(uint96 fuzz) public {
+    function testFuzzMirrorSkimRunMatchesStep(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
         t0.mint(address(pair), 123);
@@ -1625,7 +1626,7 @@ contract PairRunMatchesStepMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_sync_success_run_matches_closed_world_step_from_run
-    function testFuzzMirrorSyncRunMatchesStep(uint96 fuzz) public {
+    function testFuzzMirrorSyncRunMatchesStep(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
         t0.mint(address(pair), 50);
@@ -1651,29 +1652,43 @@ contract PairReentrancyMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_flash_callback_runs_while_pair_is_locked
-    function testFuzzMirrorFlashCallbackRunsWhilePairLocked(uint96 fuzz) public {
+    function testFuzzMirrorFlashCallbackRunsWhilePairLocked(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 sorted0, MockERC20 sorted1) = sortedTokens();
         uint256 requiredIn = getAmountIn(1_000, 10_000, 10_000);
         SwapReentrantCallee callee = new SwapReentrantCallee(pair, sorted0, sorted1, 0, requiredIn);
         sorted1.mint(address(callee), requiredIn);
         pair.swap(1_000, 0, address(callee), abi.encode(uint256(1)));
+        // Spec semantics: the callback observed `unlocked == 0`. The contract
+        // observable equivalent is that any mutating reentry rejects with
+        // UniswapV2: LOCKED while the callback is running.
         assertTrue(callee.reentryRejected());
+        assertEq(callee.revertReason(), "UniswapV2: LOCKED");
     }
 
     // tama: mirrors=pair_flash_callback_reentry_attempts_revert_locked
-    function testFuzzMirrorFlashCallbackMintReentryReverts(uint96 fuzz) public {
+    function testFuzzMirrorFlashCallbackAllEntrypointReentriesRevertLocked(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 sorted0, MockERC20 sorted1) = sortedTokens();
         uint256 requiredIn = getAmountIn(1_000, 10_000, 10_000);
-        MintReentrantCallee callee = new MintReentrantCallee(pair, sorted0, sorted1, 0, requiredIn);
+        AllEntrypointReentrantCallee callee =
+            new AllEntrypointReentrantCallee(pair, sorted0, sorted1, 0, requiredIn);
         sorted1.mint(address(callee), requiredIn);
         pair.swap(1_000, 0, address(callee), abi.encode(uint256(1)));
-        assertTrue(callee.reentryRejected());
+        assertTrue(callee.mintRejected());
+        assertEq(callee.mintRevertReason(), "UniswapV2: LOCKED");
+        assertTrue(callee.burnRejected());
+        assertEq(callee.burnRevertReason(), "UniswapV2: LOCKED");
+        assertTrue(callee.swapRejected());
+        assertEq(callee.swapRevertReason(), "UniswapV2: LOCKED");
+        assertTrue(callee.skimRejected());
+        assertEq(callee.skimRevertReason(), "UniswapV2: LOCKED");
+        assertTrue(callee.syncRejected());
+        assertEq(callee.syncRevertReason(), "UniswapV2: LOCKED");
     }
 
     // tama: mirrors=pair_reentrancy_guard_blocks_all_mutating_entrypoints
-    function testFuzzMirrorReentrancyGuardBlocksAllMutatingEntrypoints(uint96 fuzz) public {
+    function testFuzzMirrorReentrancyGuardBlocksAllMutatingEntrypoints(uint96) public {
         // Close the lock cell directly to put the pair into the locked state.
         // Every mutating entrypoint must revert with "UniswapV2: LOCKED" before
         // touching storage.
