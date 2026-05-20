@@ -126,12 +126,13 @@ forge test    # run mirror, router, and frontend tests
 
 ## Periphery and Onchain Frontend
 
-The repo includes a minimal ERC20-only router in `src/TamaRouter.sol` and an
+The repo includes a minimal V2 router in `src/TamaRouter.sol` and an
 onchain HTML dapp in `src/TamaSwapFrontend.sol`.
 
 - `TamaRouter` supports pool creation through `addLiquidity`, LP mint/burn,
-  exact-input token swaps, and V2 quote helpers. It intentionally omits
-  WETH/ETH, permits, and fee-on-transfer variants.
+  exact-input and exact-output swaps, native ETH through WETH, wrapping and
+  unwrapping, and V2 quote helpers. It intentionally omits permits and
+  fee-on-transfer variants.
 - `html/tamaswap.html` is the canonical frontend source.
 - `script/build-tamaswap.mjs` embeds that HTML into `TamaSwapFrontend`, split
   into data contracts and served through ERC-5219 for `web3://` gateways.
@@ -158,7 +159,7 @@ liquidity, swap, and DeFiLlama fallback behavior with Playwright. Install
 Deploy the router and frontend after deploying the factory:
 
 ```sh
-FACTORY=0x... forge script script/DeployPeriphery.s.sol:DeployPeriphery \
+FACTORY=0x... WETH=0x... forge script script/DeployPeriphery.s.sol:DeployPeriphery \
   --rpc-url $RPC_URL \
   --account deployer \
   --broadcast --verify
@@ -174,7 +175,7 @@ FACTORY=0x... forge script script/DeployPeriphery.s.sol:DeployPeriphery \
 |   |-- proof/TamaUniV2/Proof/ # Lean proofs discharging the specs
 |   `-- common/TamaUniV2/      # Shared concrete + ghost models
 |-- src/generated/verity/      # Generated Solidity deployers + interfaces
-|-- src/TamaRouter.sol         # Minimal ERC20-only router
+|-- src/TamaRouter.sol         # Minimal V2 router
 |-- src/TamaSwapFrontend.sol   # Generated onchain HTML frontend wrapper
 |-- html/tamaswap.html         # Canonical frontend source
 |-- test/verity/               # Foundry mirror tests (`tama: mirrors=…`)

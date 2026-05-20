@@ -40,6 +40,7 @@ contract TamaSwapFrontendTest is Test {
         assertTrue(_contains(html, bytes("0x406ee863")), "wrap ETH missing");
         assertTrue(_contains(html, bytes("0x2e59d848")), "unwrap ETH missing");
         assertTrue(_contains(html, bytes("Maximum sold")), "exact output slippage label missing");
+        assertTrue(_contains(html, bytes("Infinite approvals")), "approval mode setting missing");
         assertTrue(_contains(html, bytes("Select token")), "token selector missing");
         assertTrue(_contains(html, bytes("tokens.uniswap.org")), "default token list missing");
         assertTrue(_contains(html, bytes("coins.llama.fi")), "DeFiLlama pricing missing");

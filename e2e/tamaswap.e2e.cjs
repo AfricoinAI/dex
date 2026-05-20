@@ -177,6 +177,10 @@ async function main() {
             };
           }
           async function send(method, params = []) {
+            if (method === "eth_sendTransaction") {
+              window.__sentTxs = window.__sentTxs || [];
+              window.__sentTxs.push(params[0]);
+            }
             const response = await fetch(rpcUrl, {
               method: "POST",
               headers: { "content-type": "application/json" },
@@ -241,6 +245,8 @@ async function main() {
       await page.waitForFunction(() => document.querySelector("#lpCta").textContent === "Approve tokens");
       await page.locator("#lpCta").click();
       await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
+      const ethPoolApprovals = await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")));
+      assert.equal(ethPoolApprovals.at(-1).data.slice(-64), (100n * 10n ** 18n).toString(16).padStart(64, "0"));
       await page.waitForFunction(() => document.querySelector("#lpCta").textContent.includes("Create pool"));
       await page.locator("#lpCta").click();
       await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
@@ -357,17 +363,34 @@ async function main() {
       await page.locator("#tabSwap").click();
       await page.locator("#swapAmt").fill("1");
       await page.waitForFunction(() => document.querySelector("#swapOutAmt").value.length > 0);
-      await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Swap");
+      await page.waitForFunction(() => ["Approve TKA", "Swap"].includes(document.querySelector("#swapCta").textContent));
+      if ((await page.locator("#swapCta").textContent()) === "Approve TKA") {
+        await page.locator("#swapCta").click();
+        await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"));
+        const swapApprovals = await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")));
+        assert.equal(swapApprovals.at(-1).data.slice(-64), (1n * 10n ** 18n).toString(16).padStart(64, "0"));
+        await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Swap");
+      }
       await page.locator("#swapCta").click();
       await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"), null, { timeout: 5000 }).catch(async (error) => {
         throw new Error(`${error.message}; swap status=${await page.locator("#stat").textContent()}`);
       });
       await assert.match(await page.locator("#stat a").getAttribute("href"), /^https:\/\/explorer\.local\/tx\/0x/);
 
+      await page.getByRole("button", { name: "Settings" }).click();
+      await page.locator("#maxApproval").check();
+      await page.locator("#closeSettings").click();
       await page.locator("#swapOutAmt").fill("0.5");
       await page.waitForFunction(() => document.querySelector("#swapLimitLabel").textContent === "Maximum sold");
       await page.waitForFunction(() => Number(document.querySelector("#swapAmt").value) > 0);
-      await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Swap");
+      await page.waitForFunction(() => ["Approve TKA", "Swap"].includes(document.querySelector("#swapCta").textContent));
+      if ((await page.locator("#swapCta").textContent()) === "Approve TKA") {
+        await page.locator("#swapCta").click();
+        await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"));
+        const maxApprovals = await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")));
+        assert.equal(maxApprovals.at(-1).data.slice(-64), "f".repeat(64));
+        await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Swap");
+      }
       await page.locator("#swapCta").click();
       await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"), null, { timeout: 5000 }).catch(async (error) => {
         throw new Error(`${error.message}; exact-output swap status=${await page.locator("#stat").textContent()}`);
