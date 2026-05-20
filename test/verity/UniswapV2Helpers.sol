@@ -288,7 +288,13 @@ abstract contract ReentrantCalleeBase {
     bool public reentryRejected;
     string public revertReason;
 
-    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_) {
+    constructor(
+        UniswapV2PairIface pair_,
+        MockERC20 token0_,
+        MockERC20 token1_,
+        uint256 amount0In_,
+        uint256 amount1In_
+    ) {
         pair = pair_;
         token0 = token0_;
         token1 = token1_;
@@ -458,8 +464,7 @@ contract AllEntrypointReentrantCallee is ReentrantCalleeBase {
             syncRejected = true;
         }
 
-        reentryRejected =
-            mintRejected && burnRejected && swapRejected && skimRejected && syncRejected;
+        reentryRejected = mintRejected && burnRejected && swapRejected && skimRejected && syncRejected;
 
         _payBackInputs();
     }
@@ -501,6 +506,18 @@ abstract contract PairFixture is Test {
     UniswapV2FactoryIface internal factory;
     UniswapV2PairIface internal pair;
 
+    uint256 internal constant PAIR_FACTORY_SLOT = 0;
+    uint256 internal constant PAIR_TOKEN0_SLOT = 1;
+    uint256 internal constant PAIR_TOKEN1_SLOT = 2;
+    uint256 internal constant PAIR_RESERVE0_SLOT = 3;
+    uint256 internal constant PAIR_RESERVE1_SLOT = 4;
+    uint256 internal constant PAIR_BLOCK_TIMESTAMP_LAST_SLOT = 5;
+    uint256 internal constant PAIR_PRICE0_CUMULATIVE_LAST_SLOT = 6;
+    uint256 internal constant PAIR_PRICE1_CUMULATIVE_LAST_SLOT = 7;
+    uint256 internal constant PAIR_TOTAL_SUPPLY_SLOT = 8;
+    uint256 internal constant PAIR_BALANCES_SLOT = 9;
+    uint256 internal constant PAIR_ALLOWANCES_SLOT = 10;
+    uint256 internal constant PAIR_UNLOCKED_SLOT = 11;
     uint256 internal constant MAX_UINT112 = 5192296858534827628530496329220095;
 
     event Approval(address indexed owner, address indexed spender, uint256 value);
@@ -539,12 +556,16 @@ abstract contract PairFixture is Test {
         return pair.token0() == address(tokenA) ? (amountA, amountB) : (amountB, amountA);
     }
 
+    function pairSlot(uint256 slot) internal pure returns (bytes32) {
+        return bytes32(slot);
+    }
+
     function lpBalanceSlot(address account) internal pure returns (bytes32) {
-        return keccak256(abi.encode(account, uint256(9)));
+        return keccak256(abi.encode(account, PAIR_BALANCES_SLOT));
     }
 
     function lpAllowanceSlot(address owner, address spender) internal pure returns (bytes32) {
-        return keccak256(abi.encode(spender, keccak256(abi.encode(owner, uint256(10)))));
+        return keccak256(abi.encode(spender, keccak256(abi.encode(owner, PAIR_ALLOWANCES_SLOT))));
     }
 
     function setLpBalance(address account, uint256 amount) internal {
@@ -571,6 +592,10 @@ abstract contract FactoryFixture is Test {
     UniswapV2FactoryIface internal factory;
     UniswapV2PairIface internal pair;
 
+    uint256 internal constant FACTORY_PAIR_FOR_SLOT = 0;
+    uint256 internal constant FACTORY_ALL_PAIRS_SLOT = 1;
+    uint256 internal constant FACTORY_ALL_PAIRS_LENGTH_SLOT = 2;
+
     event PairCreated(address indexed token0, address indexed token1, address pair, uint256 allPairsLength);
 
     function setUp() public virtual {
@@ -582,6 +607,10 @@ abstract contract FactoryFixture is Test {
 
     function sortedAddresses(address x, address y) internal pure returns (address a0, address a1) {
         return x < y ? (x, y) : (y, x);
+    }
+
+    function factorySlot(uint256 slot) internal pure returns (bytes32) {
+        return bytes32(slot);
     }
 
     function pairCreationCodeHex() internal view returns (string memory) {
@@ -600,6 +629,8 @@ abstract contract FactoryFixture is Test {
     function expectedCreate2Pair(address token0, address token1) internal view returns (address) {
         bytes memory creationCode = vm.parseBytes(pairCreationCodeHex());
         bytes32 salt = keccak256(abi.encodePacked(token0, token1));
-        return address(uint160(uint256(keccak256(abi.encodePacked(hex"ff", address(factory), salt, keccak256(creationCode))))));
+        return address(
+            uint160(uint256(keccak256(abi.encodePacked(hex"ff", address(factory), salt, keccak256(creationCode)))))
+        );
     }
 }

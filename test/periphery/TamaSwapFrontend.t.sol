@@ -9,6 +9,7 @@ contract TamaSwapFrontendTest is Test {
     address internal constant FACTORY = address(0x1111111111111111111111111111111111111111);
     address internal constant ROUTER = address(0x2222222222222222222222222222222222222222);
     uint256 internal constant EIP_170_CAP = 24576;
+    uint256 internal constant MIN_WRAPPER_MARGIN = 8000;
 
     function setUp() public {
         frontend = new TamaSwapFrontend(FACTORY, ROUTER);
@@ -25,38 +26,42 @@ contract TamaSwapFrontendTest is Test {
 
     function testHtmlStructureAndDataChunks() public view {
         assertLe(address(frontend).code.length, EIP_170_CAP, "wrapper exceeds EIP-170");
-        _assertDataOk(frontend.HEAD(), "HEAD");
-        _assertDataOk(frontend.TAIL(), "TAIL");
+        assertGe(EIP_170_CAP - address(frontend).code.length, MIN_WRAPPER_MARGIN, "wrapper margin too small");
+        _assertDataOk(frontend.PAYLOAD(), "PAYLOAD");
 
         bytes memory html = bytes(frontend.html());
         assertEq(string(_slice(html, 0, 15)), "<!doctype html>");
         assertTrue(_contains(html, bytes("TamaSwap")));
-        assertTrue(_contains(html, bytes("0x38ed1739")));
-        assertTrue(_contains(html, bytes("0x8803dbee")), "exact output swap missing");
-        assertTrue(_contains(html, bytes("0x1f00ca74")), "exact output quote missing");
-        assertTrue(_contains(html, bytes("0xad5c4648")), "WETH lookup missing");
-        assertTrue(_contains(html, bytes("0x7ff36ab5")), "exact ETH input swap missing");
-        assertTrue(_contains(html, bytes("0x4a25d94a")), "exact ETH output swap missing");
-        assertTrue(_contains(html, bytes("0x406ee863")), "wrap ETH missing");
-        assertTrue(_contains(html, bytes("0x2e59d848")), "unwrap ETH missing");
-        assertTrue(_contains(html, bytes("Maximum sold")), "exact output slippage label missing");
-        assertTrue(_contains(html, bytes("Infinite approvals")), "approval mode setting missing");
-        assertTrue(_contains(html, bytes("Select token")), "token selector missing");
-        assertTrue(_contains(html, bytes("tokens.uniswap.org")), "default token list missing");
-        assertTrue(_contains(html, bytes("coins.llama.fi")), "DeFiLlama pricing missing");
-        assertTrue(_contains(html, bytes("Price unavailable")), "price fallback missing");
-        assertTrue(_contains(html, bytes("Connect wallet")), "wallet picker missing");
-        assertTrue(_contains(html, bytes("eip6963:requestProvider")), "wallet discovery missing");
-        assertTrue(_contains(html, bytes("id=swapReview class=\"review hide\"")), "swap review should start hidden");
-        assertTrue(_contains(html, bytes("id=lpReview class=\"review hide\"")), "lp review should start hidden");
-        assertTrue(_contains(html, bytes("id=burnReview class=\"review hide\"")), "burn review should start hidden");
-        assertTrue(_contains(html, bytes("CHAIN")), "chain metadata missing");
-        assertTrue(_contains(html, bytes("mega.etherscan.io")), "MegaETH explorer missing");
-        assertTrue(_contains(html, bytes("monadvision.com")), "Monad explorer missing");
-        assertFalse(_contains(html, bytes("swell")), "dead Swellchain metadata present");
-        assertTrue(_contains(html, bytes("burnOut")), "remove quote missing");
-        assertTrue(_contains(html, bytes("poolSettings")), "pool settings missing");
-        assertTrue(_contains(html, bytes("fmtFull")), "balance fill helper missing");
+        assertTrue(_contains(html, bytes("DecompressionStream(\"gzip\")")), "gzip stream missing");
+        assertTrue(_contains(html, bytes("document.open().write(h)")), "document write missing");
+        assertFalse(_contains(html, bytes("0x38ed1739")), "raw app should be compressed");
+    }
+
+    function testHtmlUsesCompressedBootstrapAndSinglePayloadChunk() public view {
+        bytes memory html = bytes(frontend.html());
+
+        assertTrue(_contains(html, bytes("DecompressionStream")), "gzip bootstrap missing");
+        assertTrue(_contains(html, bytes("atob(")), "base64 decode missing");
+        assertEq(
+            keccak256(bytes(_data(frontend.PAYLOAD()))),
+            keccak256(bytes(vm.toBase64(vm.readFileBinary("artifacts/tamaswap.min.html.gz"))))
+        );
+
+        (bool headOk,) = address(frontend).staticcall(abi.encodeWithSignature("HEAD()"));
+        assertFalse(headOk, "unexpected HEAD chunk");
+        (bool tailOk,) = address(frontend).staticcall(abi.encodeWithSignature("TAIL()"));
+        assertFalse(tailOk, "unexpected TAIL chunk");
+        (bool middleOk,) = address(frontend).staticcall(abi.encodeWithSignature("MIDDLE()"));
+        assertFalse(middleOk, "unexpected MIDDLE chunk");
+        (bool ok,) = address(frontend).staticcall(abi.encodeWithSignature("TAIL2()"));
+        assertFalse(ok, "unexpected TAIL2 chunk");
+    }
+
+    function testHtmlMatchesGeneratedCompressedBootstrap() public view {
+        bytes memory compressed = vm.readFileBinary("artifacts/tamaswap.min.html.gz");
+        string memory expected = _expectedBootstrap(vm.toBase64(compressed));
+
+        assertEq(keccak256(bytes(frontend.html())), keccak256(bytes(expected)));
     }
 
     function testRequestReturnsHtmlHeaders() public view {
@@ -67,11 +72,30 @@ contract TamaSwapFrontendTest is Test {
 
         assertEq(status, 200);
         assertEq(keccak256(bytes(body)), keccak256(bytes(frontend.html())));
-        assertEq(headers.length, 2);
+        assertEq(headers.length, 3);
         assertEq(headers[0].key, "Content-Type");
         assertEq(headers[0].value, "text/html; charset=utf-8");
         assertEq(headers[1].key, "Cache-Control");
         assertEq(headers[1].value, "public, max-age=31536000, immutable");
+        assertEq(headers[2].key, "Content-Security-Policy");
+        assertTrue(_contains(bytes(headers[2].value), bytes("default-src 'none'")));
+        assertTrue(
+            _contains(bytes(headers[2].value), bytes("connect-src https: http://localhost:* http://127.0.0.1:*"))
+        );
+    }
+
+    function testRequestReturns404ForUnrelatedResource() public view {
+        string[] memory resource = new string[](1);
+        resource[0] = "robots.txt";
+        TamaSwapFrontend.KeyValue[] memory params = new TamaSwapFrontend.KeyValue[](0);
+        (uint16 status, string memory body, TamaSwapFrontend.KeyValue[] memory headers) =
+            frontend.request(resource, params);
+
+        assertEq(status, 404);
+        assertEq(body, "Not found");
+        assertEq(headers.length, 1);
+        assertEq(headers[0].key, "Content-Type");
+        assertEq(headers[0].value, "text/plain; charset=utf-8");
     }
 
     function testMetadata() public view {
@@ -82,10 +106,34 @@ contract TamaSwapFrontendTest is Test {
         assertEq(frontend.resolveMode(), bytes32("5219"));
     }
 
+    function _expectedBootstrap(string memory encoded) internal pure returns (string memory) {
+        return string.concat(
+            "<!doctype html><script>(async()=>{const F=\"",
+            _addr(FACTORY),
+            "\",R=\"",
+            _addr(ROUTER),
+            "\",B=\"",
+            encoded,
+            "\";try{let u=Uint8Array.from(atob(B),c=>c.charCodeAt()),h=await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream(\"gzip\"))).text();h=h.replace(\"__\"+\"FACTORY__\",F).replace(\"__\"+\"ROUTER__\",R);document.open().write(h);document.close()}catch{document.body.textContent=\"TamaSwap load failed\"}})()</script>"
+        );
+    }
+
     function _assertDataOk(address d, string memory label) internal view {
         uint256 size = d.code.length;
         assertGt(size, 0, string.concat(label, " empty"));
         assertLe(size, EIP_170_CAP, string.concat(label, " exceeds EIP-170"));
+    }
+
+    function _data(address target) internal view returns (string memory s) {
+        assembly ("memory-safe") {
+            let size := extcodesize(target)
+            s := mload(0x40)
+            mstore(s, size)
+            let ptr := add(s, 0x20)
+            extcodecopy(target, ptr, 0, size)
+            let padded := and(add(size, 0x1f), not(0x1f))
+            mstore(0x40, add(add(s, 0x20), padded))
+        }
     }
 
     function _slice(bytes memory src, uint256 a, uint256 z) internal pure returns (bytes memory out) {

@@ -13,6 +13,7 @@ contract E2EToken {
     uint256 public totalSupply;
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
+    address public immutable minter;
 
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
@@ -20,9 +21,11 @@ contract E2EToken {
     constructor(string memory name_, string memory symbol_) {
         name = name_;
         symbol = symbol_;
+        minter = msg.sender;
     }
 
     function mint(address to, uint256 amount) external {
+        require(msg.sender == minter, "MINTER");
         balanceOf[to] += amount;
         totalSupply += amount;
         emit Transfer(address(0), to, amount);
@@ -83,10 +86,11 @@ contract E2EWETH is E2EToken {
 
 contract DeployE2E is Script {
     function run() external {
-        address deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
+        uint256 privateKey = vm.envUint("PRIVATE_KEY");
+        address deployer = vm.addr(privateKey);
         string memory output = vm.envOr("E2E_OUT", string("e2e/.tmp/deployment.json"));
 
-        vm.startBroadcast();
+        vm.startBroadcast(privateKey);
         address factory = address(UniswapV2FactoryDeployer.deploy());
         E2EWETH weth = new E2EWETH();
         TamaRouter router = new TamaRouter(factory, address(weth));

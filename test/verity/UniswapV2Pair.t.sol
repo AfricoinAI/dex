@@ -27,6 +27,36 @@ import {
 } from "./UniswapV2Helpers.sol";
 
 contract PairViewMirrors is PairFixture {
+    function testLayoutConstantsMatchGeneratedReport() public {
+        string memory json = vm.readFile("artifacts/layout-report.json");
+
+        assertEq(vm.parseJsonString(json, ".contracts[1].contract"), "UniswapV2Pair");
+        assertEq(vm.parseJsonString(json, ".contracts[1].fields[0].name"), "factorySlot");
+        assertEq(vm.parseJsonUint(json, ".contracts[1].fields[0].canonicalSlot"), PAIR_FACTORY_SLOT);
+        assertEq(vm.parseJsonString(json, ".contracts[1].fields[1].name"), "token0Slot");
+        assertEq(vm.parseJsonUint(json, ".contracts[1].fields[1].canonicalSlot"), PAIR_TOKEN0_SLOT);
+        assertEq(vm.parseJsonString(json, ".contracts[1].fields[2].name"), "token1Slot");
+        assertEq(vm.parseJsonUint(json, ".contracts[1].fields[2].canonicalSlot"), PAIR_TOKEN1_SLOT);
+        assertEq(vm.parseJsonString(json, ".contracts[1].fields[3].name"), "reserve0Slot");
+        assertEq(vm.parseJsonUint(json, ".contracts[1].fields[3].canonicalSlot"), PAIR_RESERVE0_SLOT);
+        assertEq(vm.parseJsonString(json, ".contracts[1].fields[4].name"), "reserve1Slot");
+        assertEq(vm.parseJsonUint(json, ".contracts[1].fields[4].canonicalSlot"), PAIR_RESERVE1_SLOT);
+        assertEq(vm.parseJsonString(json, ".contracts[1].fields[5].name"), "blockTimestampLastSlot");
+        assertEq(vm.parseJsonUint(json, ".contracts[1].fields[5].canonicalSlot"), PAIR_BLOCK_TIMESTAMP_LAST_SLOT);
+        assertEq(vm.parseJsonString(json, ".contracts[1].fields[6].name"), "price0CumulativeLastSlot");
+        assertEq(vm.parseJsonUint(json, ".contracts[1].fields[6].canonicalSlot"), PAIR_PRICE0_CUMULATIVE_LAST_SLOT);
+        assertEq(vm.parseJsonString(json, ".contracts[1].fields[7].name"), "price1CumulativeLastSlot");
+        assertEq(vm.parseJsonUint(json, ".contracts[1].fields[7].canonicalSlot"), PAIR_PRICE1_CUMULATIVE_LAST_SLOT);
+        assertEq(vm.parseJsonString(json, ".contracts[1].fields[8].name"), "totalSupplySlot");
+        assertEq(vm.parseJsonUint(json, ".contracts[1].fields[8].canonicalSlot"), PAIR_TOTAL_SUPPLY_SLOT);
+        assertEq(vm.parseJsonString(json, ".contracts[1].fields[9].name"), "balancesSlot");
+        assertEq(vm.parseJsonUint(json, ".contracts[1].fields[9].canonicalSlot"), PAIR_BALANCES_SLOT);
+        assertEq(vm.parseJsonString(json, ".contracts[1].fields[10].name"), "allowancesSlot");
+        assertEq(vm.parseJsonUint(json, ".contracts[1].fields[10].canonicalSlot"), PAIR_ALLOWANCES_SLOT);
+        assertEq(vm.parseJsonString(json, ".contracts[1].fields[11].name"), "unlockedSlot");
+        assertEq(vm.parseJsonUint(json, ".contracts[1].fields[11].canonicalSlot"), PAIR_UNLOCKED_SLOT);
+    }
+
     // tama: mirrors=pair_decimals_run_success_frames_state
     function testFuzzMirrorDecimalsReturnsEighteen() public {
         seed(1_000_000, 1_000_000);
@@ -44,19 +74,13 @@ contract PairViewMirrors is PairFixture {
     // tama: mirrors=pair_balanceOf_run_success_frames_state
     function testFuzzMirrorBalanceOfReturnsLpBalanceCell(address account) public {
         seed(1_000_000, 1_000_000);
-        assertEq(
-            pair.balanceOf(account),
-            uint256(vm.load(address(pair), lpBalanceSlot(account)))
-        );
+        assertEq(pair.balanceOf(account), uint256(vm.load(address(pair), lpBalanceSlot(account))));
     }
 
     // tama: mirrors=pair_allowance_run_success_frames_state
     function testFuzzMirrorAllowanceReturnsAllowanceCell(address owner, address spender) public {
         seed(1_000_000, 1_000_000);
-        assertEq(
-            pair.allowance(owner, spender),
-            uint256(vm.load(address(pair), lpAllowanceSlot(owner, spender)))
-        );
+        assertEq(pair.allowance(owner, spender), uint256(vm.load(address(pair), lpAllowanceSlot(owner, spender))));
     }
 
     // tama: mirrors=pair_factory_run_success_frames_state
@@ -151,9 +175,8 @@ contract PairRevertMirrors is PairFixture {
     {
         vm.assume(caller != address(factory));
         vm.prank(caller);
-        (bool ok, bytes memory data) = address(pair).call(
-            abi.encodeCall(UniswapV2PairIface.initialize, (token0Value, token1Value))
-        );
+        (bool ok, bytes memory data) =
+            address(pair).call(abi.encodeCall(UniswapV2PairIface.initialize, (token0Value, token1Value)));
         assertFalse(ok);
         bytes memory expected = abi.encodeWithSignature("Error(string)", "UniswapV2: FORBIDDEN");
         assertEq(keccak256(data), keccak256(expected));
@@ -169,9 +192,8 @@ contract PairRevertMirrors is PairFixture {
     // tama: mirrors=pair_initialize_reverts_when_already_initialized
     function testFuzzMirrorInitializeAlreadyInitializedResultIsRevert(address token0Value, address token1Value) public {
         vm.prank(address(factory));
-        (bool ok, bytes memory data) = address(pair).call(
-            abi.encodeCall(UniswapV2PairIface.initialize, (token0Value, token1Value))
-        );
+        (bool ok, bytes memory data) =
+            address(pair).call(abi.encodeCall(UniswapV2PairIface.initialize, (token0Value, token1Value)));
         assertFalse(ok);
         bytes memory expected = abi.encodeWithSignature("Error(string)", "UniswapV2: ALREADY_INITIALIZED");
         assertEq(keccak256(data), keccak256(expected));
@@ -244,7 +266,7 @@ contract PairRevertMirrors is PairFixture {
 
     // tama: mirrors=pair_mint_run_revert_locked
     function testFuzzMirrorMintRevertsWhenLockClosed(address toAddr) public {
-        vm.store(address(pair), bytes32(uint256(11)), bytes32(uint256(0)));
+        vm.store(address(pair), pairSlot(PAIR_UNLOCKED_SLOT), bytes32(0));
         vm.expectRevert(bytes("UniswapV2: LOCKED"));
         pair.mint(toAddr);
     }
@@ -271,7 +293,7 @@ contract PairRevertMirrors is PairFixture {
 
     // tama: mirrors=pair_burn_run_revert_locked
     function testFuzzMirrorBurnRevertsWhenLockClosed(address toAddr) public {
-        vm.store(address(pair), bytes32(uint256(11)), bytes32(uint256(0)));
+        vm.store(address(pair), pairSlot(PAIR_UNLOCKED_SLOT), bytes32(0));
         vm.expectRevert(bytes("UniswapV2: LOCKED"));
         pair.burn(toAddr);
     }
@@ -283,7 +305,7 @@ contract PairRevertMirrors is PairFixture {
         address toAddr,
         bytes calldata data
     ) public {
-        vm.store(address(pair), bytes32(uint256(11)), bytes32(uint256(0)));
+        vm.store(address(pair), pairSlot(PAIR_UNLOCKED_SLOT), bytes32(0));
         vm.expectRevert(bytes("UniswapV2: LOCKED"));
         pair.swap(amount0Out, amount1Out, toAddr, data);
     }
@@ -297,7 +319,7 @@ contract PairRevertMirrors is PairFixture {
 
     // tama: mirrors=pair_skim_run_revert_locked
     function testFuzzMirrorSkimRevertsWhenLockClosed(address toAddr) public {
-        vm.store(address(pair), bytes32(uint256(11)), bytes32(uint256(0)));
+        vm.store(address(pair), pairSlot(PAIR_UNLOCKED_SLOT), bytes32(0));
         vm.expectRevert(bytes("UniswapV2: LOCKED"));
         pair.skim(toAddr);
     }
@@ -326,7 +348,7 @@ contract PairRevertMirrors is PairFixture {
 
     // tama: mirrors=pair_sync_run_revert_locked
     function testFuzzMirrorSyncRevertsWhenLockClosed() public {
-        vm.store(address(pair), bytes32(uint256(11)), bytes32(uint256(0)));
+        vm.store(address(pair), pairSlot(PAIR_UNLOCKED_SLOT), bytes32(0));
         vm.expectRevert(bytes("UniswapV2: LOCKED"));
         pair.sync();
     }
@@ -370,15 +392,15 @@ contract PairRevertKeepsStateMirrors is PairFixture {
     }
 
     function snapshot() internal view returns (Snapshot memory s) {
-        s.reserve0 = vm.load(address(pair), bytes32(uint256(3)));
-        s.reserve1 = vm.load(address(pair), bytes32(uint256(4)));
-        s.supply = vm.load(address(pair), bytes32(uint256(8)));
-        s.unlocked = vm.load(address(pair), bytes32(uint256(11)));
-        s.token0 = vm.load(address(pair), bytes32(uint256(1)));
-        s.token1 = vm.load(address(pair), bytes32(uint256(2)));
-        s.factoryAddr = vm.load(address(pair), bytes32(uint256(0)));
-        s.price0 = vm.load(address(pair), bytes32(uint256(6)));
-        s.price1 = vm.load(address(pair), bytes32(uint256(7)));
+        s.reserve0 = vm.load(address(pair), pairSlot(PAIR_RESERVE0_SLOT));
+        s.reserve1 = vm.load(address(pair), pairSlot(PAIR_RESERVE1_SLOT));
+        s.supply = vm.load(address(pair), pairSlot(PAIR_TOTAL_SUPPLY_SLOT));
+        s.unlocked = vm.load(address(pair), pairSlot(PAIR_UNLOCKED_SLOT));
+        s.token0 = vm.load(address(pair), pairSlot(PAIR_TOKEN0_SLOT));
+        s.token1 = vm.load(address(pair), pairSlot(PAIR_TOKEN1_SLOT));
+        s.factoryAddr = vm.load(address(pair), pairSlot(PAIR_FACTORY_SLOT));
+        s.price0 = vm.load(address(pair), pairSlot(PAIR_PRICE0_CUMULATIVE_LAST_SLOT));
+        s.price1 = vm.load(address(pair), pairSlot(PAIR_PRICE1_CUMULATIVE_LAST_SLOT));
     }
 
     function assertSnapshotEq(Snapshot memory a, Snapshot memory b) internal {
@@ -470,8 +492,7 @@ contract PairInitializeMirrors is Test {
         vm.assume(tokenA_ != address(0) && tokenB_ != address(0) && tokenA_ != tokenB_);
         address pairAddr = factory.createPair(tokenA_, tokenB_);
         UniswapV2PairIface freshPair = UniswapV2PairIface(pairAddr);
-        (address sorted0, address sorted1) =
-            tokenA_ < tokenB_ ? (tokenA_, tokenB_) : (tokenB_, tokenA_);
+        (address sorted0, address sorted1) = tokenA_ < tokenB_ ? (tokenA_, tokenB_) : (tokenB_, tokenA_);
         assertEq(freshPair.token0(), sorted0);
         assertEq(freshPair.token1(), sorted1);
     }
@@ -536,23 +557,23 @@ contract PairApproveMirrors is PairFixture {
     // tama: mirrors=pair_approve_keeps_pool_storage
     function testFuzzMirrorApproveKeepsPoolStorage(address spender, uint256 amount) public {
         seed(1_000_000, 1_000_000);
-        bytes32 reserve0Before = vm.load(address(pair), bytes32(uint256(3)));
-        bytes32 reserve1Before = vm.load(address(pair), bytes32(uint256(4)));
-        bytes32 supplyBefore = vm.load(address(pair), bytes32(uint256(8)));
-        bytes32 unlockedBefore = vm.load(address(pair), bytes32(uint256(11)));
-        bytes32 price0Before = vm.load(address(pair), bytes32(uint256(6)));
-        bytes32 price1Before = vm.load(address(pair), bytes32(uint256(7)));
-        bytes32 token0Before = vm.load(address(pair), bytes32(uint256(1)));
-        bytes32 token1Before = vm.load(address(pair), bytes32(uint256(2)));
+        bytes32 reserve0Before = vm.load(address(pair), pairSlot(PAIR_RESERVE0_SLOT));
+        bytes32 reserve1Before = vm.load(address(pair), pairSlot(PAIR_RESERVE1_SLOT));
+        bytes32 supplyBefore = vm.load(address(pair), pairSlot(PAIR_TOTAL_SUPPLY_SLOT));
+        bytes32 unlockedBefore = vm.load(address(pair), pairSlot(PAIR_UNLOCKED_SLOT));
+        bytes32 price0Before = vm.load(address(pair), pairSlot(PAIR_PRICE0_CUMULATIVE_LAST_SLOT));
+        bytes32 price1Before = vm.load(address(pair), pairSlot(PAIR_PRICE1_CUMULATIVE_LAST_SLOT));
+        bytes32 token0Before = vm.load(address(pair), pairSlot(PAIR_TOKEN0_SLOT));
+        bytes32 token1Before = vm.load(address(pair), pairSlot(PAIR_TOKEN1_SLOT));
         pair.approve(spender, amount);
-        assertEq(vm.load(address(pair), bytes32(uint256(3))), reserve0Before);
-        assertEq(vm.load(address(pair), bytes32(uint256(4))), reserve1Before);
-        assertEq(vm.load(address(pair), bytes32(uint256(8))), supplyBefore);
-        assertEq(vm.load(address(pair), bytes32(uint256(11))), unlockedBefore);
-        assertEq(vm.load(address(pair), bytes32(uint256(6))), price0Before);
-        assertEq(vm.load(address(pair), bytes32(uint256(7))), price1Before);
-        assertEq(vm.load(address(pair), bytes32(uint256(1))), token0Before);
-        assertEq(vm.load(address(pair), bytes32(uint256(2))), token1Before);
+        assertEq(vm.load(address(pair), pairSlot(PAIR_RESERVE0_SLOT)), reserve0Before);
+        assertEq(vm.load(address(pair), pairSlot(PAIR_RESERVE1_SLOT)), reserve1Before);
+        assertEq(vm.load(address(pair), pairSlot(PAIR_TOTAL_SUPPLY_SLOT)), supplyBefore);
+        assertEq(vm.load(address(pair), pairSlot(PAIR_UNLOCKED_SLOT)), unlockedBefore);
+        assertEq(vm.load(address(pair), pairSlot(PAIR_PRICE0_CUMULATIVE_LAST_SLOT)), price0Before);
+        assertEq(vm.load(address(pair), pairSlot(PAIR_PRICE1_CUMULATIVE_LAST_SLOT)), price1Before);
+        assertEq(vm.load(address(pair), pairSlot(PAIR_TOKEN0_SLOT)), token0Before);
+        assertEq(vm.load(address(pair), pairSlot(PAIR_TOKEN1_SLOT)), token1Before);
     }
 }
 
@@ -602,19 +623,19 @@ contract PairTransferMirrors is PairFixture {
         if (toAddr != address(this)) {
             vm.assume(pair.balanceOf(toAddr) + transferAmount <= type(uint256).max);
         }
-        bytes32 reserve0Before = vm.load(address(pair), bytes32(uint256(3)));
-        bytes32 reserve1Before = vm.load(address(pair), bytes32(uint256(4)));
-        bytes32 supplyBefore = vm.load(address(pair), bytes32(uint256(8)));
-        bytes32 unlockedBefore = vm.load(address(pair), bytes32(uint256(11)));
-        bytes32 price0Before = vm.load(address(pair), bytes32(uint256(6)));
-        bytes32 price1Before = vm.load(address(pair), bytes32(uint256(7)));
+        bytes32 reserve0Before = vm.load(address(pair), pairSlot(PAIR_RESERVE0_SLOT));
+        bytes32 reserve1Before = vm.load(address(pair), pairSlot(PAIR_RESERVE1_SLOT));
+        bytes32 supplyBefore = vm.load(address(pair), pairSlot(PAIR_TOTAL_SUPPLY_SLOT));
+        bytes32 unlockedBefore = vm.load(address(pair), pairSlot(PAIR_UNLOCKED_SLOT));
+        bytes32 price0Before = vm.load(address(pair), pairSlot(PAIR_PRICE0_CUMULATIVE_LAST_SLOT));
+        bytes32 price1Before = vm.load(address(pair), pairSlot(PAIR_PRICE1_CUMULATIVE_LAST_SLOT));
         assertTrue(pair.transfer(toAddr, transferAmount));
-        assertEq(vm.load(address(pair), bytes32(uint256(3))), reserve0Before);
-        assertEq(vm.load(address(pair), bytes32(uint256(4))), reserve1Before);
-        assertEq(vm.load(address(pair), bytes32(uint256(8))), supplyBefore);
-        assertEq(vm.load(address(pair), bytes32(uint256(11))), unlockedBefore);
-        assertEq(vm.load(address(pair), bytes32(uint256(6))), price0Before);
-        assertEq(vm.load(address(pair), bytes32(uint256(7))), price1Before);
+        assertEq(vm.load(address(pair), pairSlot(PAIR_RESERVE0_SLOT)), reserve0Before);
+        assertEq(vm.load(address(pair), pairSlot(PAIR_RESERVE1_SLOT)), reserve1Before);
+        assertEq(vm.load(address(pair), pairSlot(PAIR_TOTAL_SUPPLY_SLOT)), supplyBefore);
+        assertEq(vm.load(address(pair), pairSlot(PAIR_UNLOCKED_SLOT)), unlockedBefore);
+        assertEq(vm.load(address(pair), pairSlot(PAIR_PRICE0_CUMULATIVE_LAST_SLOT)), price0Before);
+        assertEq(vm.load(address(pair), pairSlot(PAIR_PRICE1_CUMULATIVE_LAST_SLOT)), price1Before);
     }
 
     // tama: mirrors=pair_transfer_emits_transfer
@@ -668,9 +689,12 @@ contract PairTransferFromMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_transferFrom_keeps_total_supply
-    function testFuzzMirrorTransferFromKeepsTotalSupply(address fromAddr, address toAddr, address spender, uint96 amount)
-        public
-    {
+    function testFuzzMirrorTransferFromKeepsTotalSupply(
+        address fromAddr,
+        address toAddr,
+        address spender,
+        uint96 amount
+    ) public {
         seed(1_000_000, 1_000_000);
         uint256 transferAmount = uint256(amount);
         setLpBalance(fromAddr, transferAmount);
@@ -682,9 +706,12 @@ contract PairTransferFromMirrors is PairFixture {
     }
 
     // tama: mirrors=pair_transferFrom_keeps_pool_storage
-    function testFuzzMirrorTransferFromKeepsPoolStorage(address fromAddr, address toAddr, address spender, uint96 amount)
-        public
-    {
+    function testFuzzMirrorTransferFromKeepsPoolStorage(
+        address fromAddr,
+        address toAddr,
+        address spender,
+        uint96 amount
+    ) public {
         seed(1_000_000, 1_000_000);
         uint256 transferAmount = uint256(amount);
         setLpBalance(fromAddr, transferAmount);
@@ -761,11 +788,9 @@ contract PairTransferFromMirrors is PairFixture {
 
 contract PairMintMirrors is PairFixture {
     // tama: mirrors=pair_first_mint_uses_balance_increase_as_deposit
-    function testFuzzMirrorFirstMintTreatsBalanceIncreaseAsDeposit(
-        address toAddr,
-        uint128 amountA_,
-        uint128 amountB_
-    ) public {
+    function testFuzzMirrorFirstMintTreatsBalanceIncreaseAsDeposit(address toAddr, uint128 amountA_, uint128 amountB_)
+        public
+    {
         uint256 amountA = bound(uint256(amountA_), 1_001, 1 ether);
         uint256 amountB = bound(uint256(amountB_), 1_001, 1 ether);
         tokenA.mint(address(pair), amountA);
@@ -948,8 +973,8 @@ contract PairSkimMirrors is PairFixture {
         assertEq(reserve1After, reserve1Before);
         assertEq(t0.balanceOf(address(this)) - recipientBalance0Before, 123);
         assertEq(t1.balanceOf(address(this)) - recipientBalance1Before, 456);
-        // The lock cell sits at slot 11 and should be 1 after a successful skim.
-        assertEq(uint256(vm.load(address(pair), bytes32(uint256(11)))), 1);
+        // The lock cell should be 1 after a successful skim.
+        assertEq(uint256(vm.load(address(pair), pairSlot(PAIR_UNLOCKED_SLOT))), 1);
     }
 
     // tama: mirrors=pair_skim_success_run_implies_balances_back_reserves
@@ -970,7 +995,7 @@ contract PairSkimMirrors is PairFixture {
         (MockERC20 t0,) = sortedTokens();
         t0.mint(address(pair), 1);
         pair.skim(address(this));
-        assertEq(uint256(vm.load(address(pair), bytes32(uint256(11)))), 1);
+        assertEq(uint256(vm.load(address(pair), pairSlot(PAIR_UNLOCKED_SLOT))), 1);
     }
 }
 
@@ -1244,12 +1269,10 @@ contract PairClosedWorldStepMirrors is PairFixture {
         // Value at spot price = balance0 * reserve1 + balance1 * reserve0 (numerator form).
         uint256 valueBefore =
             t0.balanceOf(address(pair)) * reserve1Before + t1.balanceOf(address(pair)) * reserve0Before;
-        uint256 surplusValue =
-            (t0.balanceOf(address(pair)) - reserve0Before) * reserve1Before
-                + (t1.balanceOf(address(pair)) - reserve1Before) * reserve0Before;
+        uint256 surplusValue = (t0.balanceOf(address(pair)) - reserve0Before) * reserve1Before
+            + (t1.balanceOf(address(pair)) - reserve1Before) * reserve0Before;
         pair.skim(address(this));
-        uint256 valueAfter =
-            t0.balanceOf(address(pair)) * reserve1Before + t1.balanceOf(address(pair)) * reserve0Before;
+        uint256 valueAfter = t0.balanceOf(address(pair)) * reserve1Before + t1.balanceOf(address(pair)) * reserve0Before;
         assertEq(valueBefore, valueAfter + surplusValue);
     }
 
@@ -1446,10 +1469,7 @@ contract PairReachablePathMirrors is PairFixture {
         (uint256 reserve0End, uint256 reserve1End,) = pair.getReserves();
         uint256 supplyEnd = pair.totalSupply();
         // K/supply^2 monotone non-decreasing: cross-multiply for precision.
-        assertGe(
-            reserve0End * reserve1End * supplyMid * supplyMid,
-            reserve0Mid * reserve1Mid * supplyEnd * supplyEnd
-        );
+        assertGe(reserve0End * reserve1End * supplyMid * supplyMid, reserve0Mid * reserve1Mid * supplyEnd * supplyEnd);
     }
 
     // tama: mirrors=pair_closed_world_reachable_no_donation_path_never_increases_surplus
@@ -1678,8 +1698,7 @@ contract PairReentrancyMirrors is PairFixture {
         seed(10_000, 10_000);
         (MockERC20 sorted0, MockERC20 sorted1) = sortedTokens();
         uint256 requiredIn = getAmountIn(1_000, 10_000, 10_000);
-        AllEntrypointReentrantCallee callee =
-            new AllEntrypointReentrantCallee(pair, sorted0, sorted1, 0, requiredIn);
+        AllEntrypointReentrantCallee callee = new AllEntrypointReentrantCallee(pair, sorted0, sorted1, 0, requiredIn);
         sorted1.mint(address(callee), requiredIn);
         pair.swap(1_000, 0, address(callee), abi.encode(uint256(1)));
         assertTrue(callee.mintRejected());
@@ -1699,7 +1718,7 @@ contract PairReentrancyMirrors is PairFixture {
         // Close the lock cell directly to put the pair into the locked state.
         // Every mutating entrypoint must revert with "UniswapV2: LOCKED" before
         // touching storage.
-        vm.store(address(pair), bytes32(uint256(11)), bytes32(uint256(0)));
+        vm.store(address(pair), pairSlot(PAIR_UNLOCKED_SLOT), bytes32(0));
 
         vm.expectRevert(bytes("UniswapV2: LOCKED"));
         pair.mint(address(this));
@@ -1727,11 +1746,11 @@ contract PairBoundaryAssumptionMirrors is PairFixture {
         uint256 pairToken1;
     }
 
-    function _snapshot(
-        UniswapV2PairIface observedPair,
-        address observedToken0,
-        address observedToken1
-    ) internal view returns (PairSnapshot memory snap) {
+    function _snapshot(UniswapV2PairIface observedPair, address observedToken0, address observedToken1)
+        internal
+        view
+        returns (PairSnapshot memory snap)
+    {
         (snap.reserve0, snap.reserve1,) = observedPair.getReserves();
         snap.totalSupply = observedPair.totalSupply();
         snap.pairToken0 = _balanceOf(observedToken0, address(observedPair));
@@ -2418,18 +2437,19 @@ contract PairIntegrationSmoke is PairFixture {
     function testPairOmitsMetadataAndPermitSurface() public {
         (bool nameOk,) = address(pair).staticcall(abi.encodeWithSignature("name()"));
         (bool symbolOk,) = address(pair).staticcall(abi.encodeWithSignature("symbol()"));
-        (bool permitOk,) = address(pair).call(
-            abi.encodeWithSignature(
-                "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
-                address(this),
-                address(0xBEEF),
-                uint256(1),
-                block.timestamp,
-                uint8(27),
-                bytes32(0),
-                bytes32(0)
-            )
-        );
+        (bool permitOk,) = address(pair)
+            .call(
+                abi.encodeWithSignature(
+                    "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+                    address(this),
+                    address(0xBEEF),
+                    uint256(1),
+                    block.timestamp,
+                    uint8(27),
+                    bytes32(0),
+                    bytes32(0)
+                )
+            );
         assertFalse(nameOk);
         assertFalse(symbolOk);
         assertFalse(permitOk);
@@ -2501,7 +2521,7 @@ contract PairIntegrationSmoke is PairFixture {
         pair.swap(1, 0, address(this), "");
     }
 
-    function testFlashSwapCallbackAndKLastFeeOff() public {
+    function testFlashSwapCallbackPreservesInvariant() public {
         seed(10_000, 10_000);
         FlashCallee callee = new FlashCallee();
         uint256 requiredIn = getAmountIn(1_000, 10_000, 10_000);

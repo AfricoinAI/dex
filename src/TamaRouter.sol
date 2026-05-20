@@ -109,8 +109,8 @@ contract TamaRouter {
         address to,
         uint256 deadline
     ) external ensure(deadline) returns (uint256 amountA, uint256 amountB, uint256 liquidity) {
-        (amountA, amountB) = _addLiquidity(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin);
-        address pair = UniswapV2FactoryIface(factory).getPair(tokenA, tokenB);
+        address pair;
+        (amountA, amountB, pair) = _addLiquidity(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin);
         _safeTransferFrom(tokenA, msg.sender, pair, amountA);
         _safeTransferFrom(tokenB, msg.sender, pair, amountB);
         liquidity = UniswapV2PairIface(pair).mint(to);
@@ -124,9 +124,9 @@ contract TamaRouter {
         address to,
         uint256 deadline
     ) external payable ensure(deadline) returns (uint256 amountToken, uint256 amountETH, uint256 liquidity) {
-        (amountToken, amountETH) =
+        address pair;
+        (amountToken, amountETH, pair) =
             _addLiquidity(token, WETH, amountTokenDesired, msg.value, amountTokenMin, amountETHMin);
-        address pair = UniswapV2FactoryIface(factory).getPair(token, WETH);
         _safeTransferFrom(token, msg.sender, pair, amountToken);
         IWETHMinimal(WETH).deposit{value: amountETH}();
         _safeTransfer(WETH, pair, amountETH);
@@ -154,8 +154,7 @@ contract TamaRouter {
         address to,
         uint256 deadline
     ) external ensure(deadline) returns (uint256 amountToken, uint256 amountETH) {
-        (amountToken, amountETH) =
-            _removeLiquidity(token, WETH, liquidity, amountTokenMin, amountETHMin, address(this));
+        (amountToken, amountETH) = _removeLiquidity(token, WETH, liquidity, amountTokenMin, amountETHMin, address(this));
         _safeTransfer(token, to, amountToken);
         IWETHMinimal(WETH).withdraw(amountETH);
         _safeTransferETH(to, amountETH);
@@ -210,6 +209,7 @@ contract TamaRouter {
         ensure(deadline)
         returns (uint256[] memory amounts)
     {
+        require(path.length >= 2, "TamaRouter: INVALID_PATH");
         require(path[0] == WETH, "TamaRouter: INVALID_PATH");
         amounts = getAmountsOut(msg.value, path);
         require(amounts[amounts.length - 1] >= amountOutMin, "TamaRouter: INSUFFICIENT_OUTPUT_AMOUNT");
@@ -225,6 +225,7 @@ contract TamaRouter {
         address to,
         uint256 deadline
     ) external ensure(deadline) returns (uint256[] memory amounts) {
+        require(path.length >= 2, "TamaRouter: INVALID_PATH");
         require(path[path.length - 1] == WETH, "TamaRouter: INVALID_PATH");
         amounts = getAmountsIn(amountOut, path);
         require(amounts[0] <= amountInMax, "TamaRouter: EXCESSIVE_INPUT_AMOUNT");
@@ -241,6 +242,7 @@ contract TamaRouter {
         address to,
         uint256 deadline
     ) external ensure(deadline) returns (uint256[] memory amounts) {
+        require(path.length >= 2, "TamaRouter: INVALID_PATH");
         require(path[path.length - 1] == WETH, "TamaRouter: INVALID_PATH");
         amounts = getAmountsOut(amountIn, path);
         require(amounts[amounts.length - 1] >= amountOutMin, "TamaRouter: INSUFFICIENT_OUTPUT_AMOUNT");
@@ -256,6 +258,7 @@ contract TamaRouter {
         ensure(deadline)
         returns (uint256[] memory amounts)
     {
+        require(path.length >= 2, "TamaRouter: INVALID_PATH");
         require(path[0] == WETH, "TamaRouter: INVALID_PATH");
         amounts = getAmountsIn(amountOut, path);
         require(amounts[0] <= msg.value, "TamaRouter: EXCESSIVE_INPUT_AMOUNT");
@@ -285,11 +288,14 @@ contract TamaRouter {
         uint256 amountBDesired,
         uint256 amountAMin,
         uint256 amountBMin
-    ) internal returns (uint256 amountA, uint256 amountB) {
-        if (UniswapV2FactoryIface(factory).getPair(tokenA, tokenB) == address(0)) {
-            UniswapV2FactoryIface(factory).createPair(tokenA, tokenB);
+    ) internal returns (uint256 amountA, uint256 amountB, address pair) {
+        pair = UniswapV2FactoryIface(factory).getPair(tokenA, tokenB);
+        if (pair == address(0)) {
+            pair = UniswapV2FactoryIface(factory).createPair(tokenA, tokenB);
         }
-        (uint256 reserveA, uint256 reserveB) = getReserves(tokenA, tokenB);
+        (address token0,) = sortTokens(tokenA, tokenB);
+        (uint256 reserve0, uint256 reserve1,) = UniswapV2PairIface(pair).getReserves();
+        (uint256 reserveA, uint256 reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
         if (reserveA == 0 && reserveB == 0) {
             (amountA, amountB) = (amountADesired, amountBDesired);
         } else {
@@ -321,11 +327,13 @@ contract TamaRouter {
     }
 
     function _safeTransferFrom(address token, address from, address to, uint256 value) internal {
+        require(token.code.length > 0, "TamaRouter: NON_CONTRACT_TOKEN");
         (bool success, bytes memory data) = token.call(abi.encodeCall(IERC20Minimal.transferFrom, (from, to, value)));
         require(success && (data.length == 0 || abi.decode(data, (bool))), "TamaRouter: TRANSFER_FROM_FAILED");
     }
 
     function _safeTransfer(address token, address to, uint256 value) internal {
+        require(token.code.length > 0, "TamaRouter: NON_CONTRACT_TOKEN");
         (bool success, bytes memory data) = token.call(abi.encodeCall(IERC20Minimal.transfer, (to, value)));
         require(success && (data.length == 0 || abi.decode(data, (bool))), "TamaRouter: TRANSFER_FAILED");
     }

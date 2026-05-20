@@ -91,18 +91,43 @@ function abiBalanceOf(account) {
   return `0x70a08231${account.toLowerCase().slice(2).padStart(64, "0")}`;
 }
 
-function serve(deployment) {
-  const html = fs
-    .readFileSync(path.join(ROOT, "html/tamaswap.html"), "utf8")
-    .replace("__FACTORY__", deployment.factory)
-    .replace("__ROUTER__", deployment.router);
+function decodeAbiString(data) {
+  if (!/^0x[0-9a-fA-F]*$/.test(data) || data.length < 130) throw new Error("Invalid ABI string");
+  const hex = data.slice(2);
+  const offset = Number(BigInt(`0x${hex.slice(0, 64)}`));
+  const length = Number(BigInt(`0x${hex.slice(offset * 2, offset * 2 + 64)}`));
+  const start = (offset + 32) * 2;
+  return Buffer.from(hex.slice(start, start + length * 2), "hex").toString("utf8");
+}
+
+async function frontendHtml(frontend) {
+  const data = await rpc("eth_call", [{ to: frontend, data: "0x33c34ac3" }, "latest"]);
+  return decodeAbiString(data);
+}
+
+function serve(deployment, html) {
   const tokenList = JSON.stringify({
     name: "TamaSwap E2E",
     timestamp: new Date(0).toISOString(),
     version: { major: 1, minor: 0, patch: 0 },
     tokens: [
-      { chainId: 31337, address: deployment.tokenA, name: "Test Token A", symbol: "TKA", decimals: 18 },
-      { chainId: 31337, address: deployment.tokenB, name: "Test Token B", symbol: "TKB", decimals: 18 },
+      {
+        chainId: 31337,
+        address: deployment.tokenA,
+        name: "Test\u202e Token\u0000 A With Very Very Very Very Very Very Long Name",
+        symbol: "TK\u202eA\u0000",
+        decimals: 18,
+        logoURI: "javascript:alert(1)",
+      },
+      {
+        chainId: 31337,
+        address: deployment.tokenB,
+        name: "Test Token B",
+        symbol: "TKB",
+        decimals: 18,
+        logoURI:
+          "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3Crect width='1' height='1' fill='%23ff4da6'/%3E%3C/svg%3E",
+      },
     ],
   });
   const server = http.createServer((req, res) => {
@@ -111,8 +136,13 @@ function serve(deployment) {
       res.end(tokenList);
       return;
     }
-    res.writeHead(200, { "content-type": "text/html" });
-    res.end(html);
+    if (req.url === "/" || req.url === "/index.html") {
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      res.end(html);
+      return;
+    }
+    res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    res.end("Not found");
   });
   return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(server)));
 }
@@ -124,6 +154,7 @@ function browserLaunchOptions() {
 
 async function chooseToken(page, button, symbol) {
   await page.locator(button).click();
+  await page.locator("#search").fill("");
   await page.locator(".item", { hasText: symbol }).first().click();
 }
 
@@ -149,16 +180,24 @@ async function main() {
       env: { PRIVATE_KEY, E2E_OUT: DEPLOYMENT },
     });
     const deployment = JSON.parse(fs.readFileSync(DEPLOYMENT, "utf8"));
-    const server = await serve(deployment);
+    const html = await frontendHtml(deployment.frontend);
+    assert(html.includes("DecompressionStream"), "E2E did not load compressed onchain frontend");
+    const server = await serve(deployment, html);
     const url = `http://127.0.0.1:${server.address().port}/`;
     const browser = await chromium.launch(browserLaunchOptions());
     try {
       const page = await browser.newPage();
+      const pageErrors = [];
+      const requestErrors = [];
       page.on("console", (msg) => {
-        if (msg.type() === "error") throw new Error(msg.text());
+        if (msg.type() === "error") pageErrors.push(msg.text());
+      });
+      page.on("pageerror", (error) => pageErrors.push(error.stack || error.message));
+      page.on("requestfailed", (request) => {
+        requestErrors.push(`${request.url()} ${request.failure()?.errorText || ""}`.trim());
       });
       await page.route("https://tokens.uniswap.org/", (route) => route.fulfill({ json: { tokens: [] } }));
-      await page.route("https://coins.llama.fi/**", (route) => route.abort());
+      await page.route("https://coins.llama.fi/**", (route) => route.fulfill({ json: { coins: {} } }));
       await page.addInitScript(
         ({ account, rpcUrl }) => {
           function makeProvider(activeAccount) {
@@ -195,6 +234,10 @@ async function main() {
             { info: { uuid: "primary", name: "Primary Wallet", icon, rdns: "test.primary" }, provider: makeProvider(account) },
             { info: { uuid: "secondary", name: "Secondary Wallet", icon, rdns: "test.secondary" }, provider: makeProvider("0x70997970C51812dc3A010C7d01b50e0d17dc79C8") },
           ];
+          wallets[0].provider.name = "Primary Wallet";
+          wallets[1].provider.name = "Secondary Wallet";
+          window.ethereum = wallets[0].provider;
+          window.ethereum.providers = wallets.map((wallet) => wallet.provider);
           window.addEventListener("eip6963:requestProvider", () => {
             for (const detail of wallets) {
               window.dispatchEvent(new CustomEvent("eip6963:announceProvider", { detail }));
@@ -205,17 +248,72 @@ async function main() {
       );
 
       await page.goto(url);
+      await page.evaluate(() => {
+        localStorage.setItem("tamaLists", "{not valid json");
+        localStorage.setItem("tamaExplorer:31337", "javascript:alert(1)");
+      });
+      await page.reload();
+      await page.getByRole("button", { name: "Connect" }).click();
+      await page.getByRole("button", { name: /Primary Wallet/ }).click();
+      await page.waitForFunction(() => document.querySelector("#connect").textContent.startsWith("0x"));
+      await page.waitForFunction(() => document.querySelector("#listStat").textContent.includes("2 tokens loaded"));
+      const unsafeExplorer = await page.evaluate(() => {
+        done(`0x${"1".repeat(64)}`);
+        return {
+          text: document.querySelector("#stat").textContent,
+          links: document.querySelectorAll("#stat a").length,
+        };
+      });
+      assert.match(unsafeExplorer.text, /^Transaction submitted 0x1111/);
+      assert.equal(unsafeExplorer.links, 0);
+      await page.locator("#pickIn").click();
+      await page.locator("#listUrl").fill("http://evil.example/tokenlist.json");
+      await page.locator("#loadList").click();
+      await assert.equal(
+        await page.locator("#listStat").textContent(),
+        "Use an HTTPS token list URL or localhost development URL.",
+      );
+      await page.locator("#closeModal").click();
+      assert.deepEqual({ pageErrors, requestErrors }, { pageErrors: [], requestErrors: [] });
+
       await page.evaluate((listUrl) => {
         localStorage.setItem("tamaLists", JSON.stringify([listUrl]));
         localStorage.setItem("tamaExplorer:31337", "explorer.local");
       }, `${url}tokenlist.json`);
       await page.reload();
+      pageErrors.length = 0;
+      requestErrors.length = 0;
       await page.getByRole("button", { name: "Connect" }).click();
-      await page.getByRole("button", { name: /Primary Wallet/ }).click();
+      await page.getByRole("button", { name: /Primary Wallet/ }).click().catch(async (error) => {
+        throw new Error(
+          `${error.message}; walletStat=${await page.locator("#walletStat").textContent().catch(() => "missing")}; wallets=${await page
+            .locator("#wallets")
+            .textContent()
+            .catch(() => "missing")}; pageErrors=${pageErrors.join(" | ")}; body=${(await page.locator("body").textContent()).slice(0, 500)}`,
+        );
+      });
       await page.waitForFunction(() => document.querySelector("#connect").textContent.startsWith("0x"));
       await assert.equal(await page.locator("#chain").textContent(), "Chain 31337");
       await page.waitForFunction(() => document.querySelector("#listStat").textContent.includes("4 tokens loaded"));
       await assert.match(await page.locator("#swapReview").getAttribute("class"), /hide/);
+
+      await page.locator("#pickIn").click();
+      await page.locator("#search").fill("TKA");
+      const tokenAText = await page.locator(".item", { hasText: "TKA" }).first().textContent();
+      assert.doesNotMatch(tokenAText, /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/);
+      assert.match(tokenAText, /Test Token A/);
+      await page.locator(".item", { hasText: "TKA" }).first().click();
+      assert.equal(await page.locator("#pickIn img").count(), 0);
+      await page.locator("#pickOut").click();
+      await page.locator("#search").fill("TKB");
+      await page.locator(".item", { hasText: "TKB" }).first().click();
+      assert.equal(await page.locator("#pickOut img").count(), 1);
+      await page.locator("#pickOut").click();
+      await page.locator("#search").fill("0x9999999999999999999999999999999999999999");
+      const manualImportText = await page.locator(".item", { hasText: "Import" }).first().textContent();
+      assert.match(manualImportText, /Unverified token/);
+      assert.match(manualImportText, /0x9999\.\.\.9999/);
+      await page.locator("#closeModal").click();
 
       await chooseToken(page, "#pickIn", "ETH");
       await chooseToken(page, "#pickOut", "WETH");
@@ -404,6 +502,7 @@ async function main() {
       assert.notEqual(BigInt(`0x${pair.slice(26)}`), 0n);
       const tokenBBalance = await rpc("eth_call", [{ to: deployment.tokenB, data: abiBalanceOf(deployment.account) }, "latest"]);
       assert(BigInt(tokenBBalance) > 0n);
+      assert.deepEqual({ pageErrors, requestErrors }, { pageErrors: [], requestErrors: [] });
       console.log("TamaSwap E2E passed");
     } finally {
       await browser.close();

@@ -8,6 +8,18 @@ import {UniswapV2PairIface} from "../../src/generated/verity/UniswapV2PairIface.
 import {MockERC20, FactoryFixture} from "./UniswapV2Helpers.sol";
 
 contract FactoryViewMirrors is FactoryFixture {
+    function testLayoutConstantsMatchGeneratedReport() public {
+        string memory json = vm.readFile("artifacts/layout-report.json");
+
+        assertEq(vm.parseJsonString(json, ".contracts[0].contract"), "UniswapV2Factory");
+        assertEq(vm.parseJsonString(json, ".contracts[0].fields[0].name"), "pairForSlot");
+        assertEq(vm.parseJsonUint(json, ".contracts[0].fields[0].canonicalSlot"), FACTORY_PAIR_FOR_SLOT);
+        assertEq(vm.parseJsonString(json, ".contracts[0].fields[1].name"), "allPairsSlot");
+        assertEq(vm.parseJsonUint(json, ".contracts[0].fields[1].canonicalSlot"), FACTORY_ALL_PAIRS_SLOT);
+        assertEq(vm.parseJsonString(json, ".contracts[0].fields[2].name"), "allPairsLengthSlot");
+        assertEq(vm.parseJsonUint(json, ".contracts[0].fields[2].canonicalSlot"), FACTORY_ALL_PAIRS_LENGTH_SLOT);
+    }
+
     // tama: mirrors=factory_getPair_run_success_frames_state
     function testFuzzMirrorGetPairReadsBidirectionalMapping(uint96) public {
         assertEq(factory.getPair(address(tokenA), address(tokenB)), address(pair));
@@ -207,10 +219,7 @@ contract FactoryClosedWorldMirrors is FactoryFixture {
 
     // tama: mirrors=factory_closed_world_lookup_symmetric
     function testFuzzMirrorLookupSymmetric(uint96) public {
-        assertEq(
-            factory.getPair(address(tokenA), address(tokenB)),
-            factory.getPair(address(tokenB), address(tokenA))
-        );
+        assertEq(factory.getPair(address(tokenA), address(tokenB)), factory.getPair(address(tokenB), address(tokenA)));
     }
 
     // tama: mirrors=factory_closed_world_unordered_pair_address_unique
@@ -452,7 +461,7 @@ contract FactoryAdditionalMirrors is FactoryFixture {
     function testFuzzMirrorFactoryCreatePairRevertsOnPairCountOverflow(address tokenA_, address tokenB_) public {
         vm.assume(tokenA_ != address(0) && tokenB_ != address(0) && tokenA_ != tokenB_);
         vm.assume(factory.getPair(tokenA_, tokenB_) == address(0));
-        vm.store(address(factory), bytes32(uint256(2)), bytes32(type(uint256).max));
+        vm.store(address(factory), factorySlot(FACTORY_ALL_PAIRS_LENGTH_SLOT), bytes32(type(uint256).max));
 
         vm.expectRevert(bytes("UniswapV2: PAIR_COUNT_OVERFLOW"));
         factory.createPair(tokenA_, tokenB_);
@@ -494,6 +503,42 @@ contract FactoryInvariantMirrors is FactoryFixture {
             assertLt(uint160(p.token0()), uint160(p.token1()));
             assertEq(factory.getPair(p.token0(), p.token1()), pairAddr);
             assertEq(factory.getPair(p.token1(), p.token0()), pairAddr);
+        }
+    }
+
+    // tama: mirrors=factory_allPairs_length_tracks_reachable_entries
+    function invariant_factoryAllPairsLengthMatchesReachableEntries() public {
+        uint256 length = factory.allPairsLength();
+        assertGt(length, 0);
+        assertLe(length, 4);
+
+        for (uint256 i = 0; i < length; i++) {
+            assertTrue(factory.allPairs(i) != address(0));
+        }
+
+        vm.expectRevert(bytes("UniswapV2: INDEX_OUT_OF_BOUNDS"));
+        factory.allPairs(length);
+    }
+
+    // tama: mirrors=factory_allPairs_entries_unique
+    function invariant_factoryAllPairsEntriesAreUnique() public {
+        uint256 length = factory.allPairsLength();
+        for (uint256 i = 0; i < length; i++) {
+            address left = factory.allPairs(i);
+            for (uint256 j = i + 1; j < length; j++) {
+                assertTrue(left != factory.allPairs(j));
+            }
+        }
+    }
+
+    // tama: mirrors=factory_allPairs_entries_have_canonical_reverse_lookup
+    function invariant_factoryAllPairsEntriesHaveCanonicalReverseLookup() public {
+        uint256 length = factory.allPairsLength();
+        for (uint256 i = 0; i < length; i++) {
+            address pairAddr = factory.allPairs(i);
+            UniswapV2PairIface p = UniswapV2PairIface(pairAddr);
+            assertEq(factory.getPair(p.token0(), p.token1()), factory.getPair(p.token1(), p.token0()));
+            assertEq(factory.getPair(p.token0(), p.token1()), pairAddr);
         }
     }
 }
