@@ -208,10 +208,13 @@ async function main() {
       await page.waitForFunction(() => document.querySelector("#connect").textContent.startsWith("0x"));
       await assert.equal(await page.locator("#chain").textContent(), "Chain 31337");
       await page.waitForFunction(() => document.querySelector("#listStat").textContent.includes("2 tokens loaded"));
+      await assert.match(await page.locator("#swapReview").getAttribute("class"), /hide/);
 
       await chooseToken(page, "#pickIn", "TKA");
       await chooseToken(page, "#pickOut", "TKB");
+      await assert.match(await page.locator("#swapReview").getAttribute("class"), /hide/);
       await page.locator("#swapAmt").fill("1");
+      await page.waitForFunction(() => !document.querySelector("#swapReview").classList.contains("hide"));
       await page.waitForFunction(() => document.querySelector("#priceState").textContent === "Price unavailable");
       await assert.equal(await page.locator("#priceState").textContent(), "Price unavailable");
       await assert.match(await page.locator("#balIn").textContent(), /Balance:/);
@@ -221,10 +224,19 @@ async function main() {
       await page.locator("#closeSettings").click();
 
       await page.locator("#tabPool").click();
+      await page.locator("#poolSettings").click();
+      await assert.equal(await page.locator("#slip").inputValue(), "1");
+      await page.locator("#closeSettings").click();
+      await assert.match(await page.locator("#lpReview").getAttribute("class"), /hide/);
       await chooseToken(page, "#pickLpA", "TKA");
       await chooseToken(page, "#pickLpB", "TKB");
+      await assert.match(await page.locator("#lpReview").getAttribute("class"), /hide/);
+      const addABox = await page.locator("#pickLpA").locator("xpath=ancestor::div[contains(@class,'box')]").boundingBox();
+      const addBBox = await page.locator("#pickLpB").locator("xpath=ancestor::div[contains(@class,'box')]").boundingBox();
+      assert(addBBox.y > addABox.y + 20, "add liquidity token boxes should be stacked vertically");
       await page.locator("#lpAmtA").fill("1000");
       await page.locator("#lpAmtB").fill("1000");
+      await page.waitForFunction(() => !document.querySelector("#lpReview").classList.contains("hide"));
       await assert.match(await page.locator("#lpBalA").textContent(), /Balance:/);
       await page.waitForFunction(() => document.querySelector("#lpPoolState").textContent.includes("New pool"));
       await assert.match(await page.locator("#lpPoolState").textContent(), /New pool/);
@@ -239,6 +251,19 @@ async function main() {
       await page.waitForFunction(() => document.querySelector("#lpPoolState").textContent.includes("existing pool"));
       await page.locator("#lpAmtA").fill("5");
       await page.waitForFunction(() => document.querySelector("#lpAmtB").value === "5");
+      await page.locator("[data-pool=remove]").click();
+      await assert.match(await page.locator("#burnReview").getAttribute("class"), /hide/);
+      await chooseToken(page, "#pickBurnA", "TKA");
+      await chooseToken(page, "#pickBurnB", "TKB");
+      const burnABox = await page.locator("#pickBurnA").locator("xpath=ancestor::div[contains(@class,'box')]").boundingBox();
+      const burnBBox = await page.locator("#pickBurnB").locator("xpath=ancestor::div[contains(@class,'box')]").boundingBox();
+      assert(burnBBox.y > burnABox.y + 20, "remove liquidity token boxes should be stacked vertically");
+      await page.waitForFunction(() => !document.querySelector("#burnReview").classList.contains("hide"));
+      await assert.match(await page.locator("#burnOutRow").getAttribute("class"), /hide/);
+      await page.locator("#burnLiq").fill("1");
+      await page.waitForFunction(() => !document.querySelector("#burnOutRow").classList.contains("hide"));
+      await assert.match(await page.locator("#burnOut").textContent(), /TKA .* TKB/);
+      await assert.match(await page.locator("#burnMin").textContent(), /TKA .* TKB/);
 
       await page.locator("#tabSwap").click();
       await page.locator("#swapAmt").fill("1");

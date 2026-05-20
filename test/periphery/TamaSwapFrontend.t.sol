@@ -39,6 +39,12 @@ contract TamaSwapFrontendTest is Test {
         assertTrue(_contains(html, bytes("Price unavailable")), "price fallback missing");
         assertTrue(_contains(html, bytes("Connect wallet")), "wallet picker missing");
         assertTrue(_contains(html, bytes("eip6963:requestProvider")), "wallet discovery missing");
+        assertTrue(_contains(html, bytes("id=swapReview class=\"review hide\"")), "swap review should start hidden");
+        assertTrue(_contains(html, bytes("id=lpReview class=\"review hide\"")), "lp review should start hidden");
+        assertTrue(_contains(html, bytes("id=burnReview class=\"review hide\"")), "burn review should start hidden");
+        assertTrue(_contains(html, bytes("EXPLORERS")), "explorer links missing");
+        assertTrue(_contains(html, bytes("burnOut")), "remove quote missing");
+        assertTrue(_contains(html, bytes("poolSettings")), "pool settings missing");
     }
 
     function testRequestReturnsHtmlHeaders() public view {
