@@ -1,0 +1,150 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TamaSwap</title>
+<style>
+*{box-sizing:border-box}
+:root{color-scheme:light;--ink:#15130f;--muted:#6d695f;--line:#d8d1c1;--paper:#fbf7ee;--panel:#fffdf8;--accent:#0f766e;--bad:#b42318}
+body{margin:0;background:linear-gradient(180deg,#f5efe1,#fbf7ee 34%,#f8f4eb);color:var(--ink);font:14px/1.42 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 36px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:18px;border-bottom:1px solid var(--line);padding-bottom:14px}
+h1{font-size:32px;line-height:1;margin:0;font-weight:800;letter-spacing:0}
+.sub{color:var(--muted);font-size:13px;margin-top:5px}
+.wallet{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.chip{font-size:12px;border:1px solid var(--line);background:#fffaf0;border-radius:999px;padding:6px 9px;color:var(--muted);font-variant-numeric:tabular-nums}
+button{border:1px solid #111;background:#111;color:white;border-radius:7px;padding:10px 13px;font-weight:750;cursor:pointer}
+button.secondary{background:transparent;color:#111;border-color:var(--line)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;box-shadow:0 1px 0 rgba(0,0,0,.03)}
+.wide{grid-column:1/-1}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tab{background:transparent;color:var(--muted);border-color:var(--line);padding:8px 10px}
+.tab.on{background:#111;color:white;border-color:#111}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+label{display:grid;gap:5px;color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+input{width:100%;border:1px solid var(--line);border-radius:7px;background:white;color:var(--ink);padding:11px 10px;font:14px ui-monospace,SFMono-Regular,Menlo,monospace;outline:0}
+input:focus{border-color:#111}
+.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.status{min-height:20px;color:var(--muted);font-size:13px;margin-top:10px}
+.status.err{color:var(--bad)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.quote{display:grid;gap:7px;border-top:1px solid var(--line);padding-top:11px;margin-top:12px;color:var(--muted)}
+.quote div{display:flex;justify-content:space-between;gap:12px}
+.hide{display:none}
+table{width:100%;border-collapse:collapse;margin-top:8px}
+th,td{text-align:left;border-bottom:1px solid var(--line);padding:8px 6px}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+td:last-child,th:last-child{text-align:right}
+@media(max-width:760px){header{display:block}.wallet{justify-content:flex-start;margin-top:12px}.grid{grid-template-columns:1fr}.row{grid-template-columns:1fr}h1{font-size:27px}}
+</style>
+<div class=wrap>
+  <header>
+    <div><h1>TamaSwap</h1><div class=sub>Swap, create pools, and manage liquidity on the verified Tama Uniswap V2 core.</div></div>
+    <div class=wallet><span id=net class=chip>not connected</span><span id=acct class=chip></span><button id=connect>Connect</button></div>
+  </header>
+  <main class=grid>
+    <section class=panel>
+      <div class=tabs>
+        <button class="tab on" data-tab=swap>Swap</button>
+        <button class=tab data-tab=lp>Add LP</button>
+        <button class=tab data-tab=burn>Remove LP</button>
+      </div>
+      <div id=swap>
+        <div class=row><label>Token in<input id=swapIn placeholder="0x..."></label><label>Token out<input id=swapOut placeholder="0x..."></label></div>
+        <div class=row><label>Amount in<input id=swapAmt placeholder="1.0"></label><label>Min out<input id=swapMin placeholder="auto"></label></div>
+        <div class=actions><button id=doSwap>Swap</button><button class=secondary id=qSwap>Quote</button></div>
+      </div>
+      <div id=lp class=hide>
+        <div class=row><label>Token A<input id=lpA placeholder="0x..."></label><label>Token B<input id=lpB placeholder="0x..."></label></div>
+        <div class=row><label>Amount A<input id=lpAmtA placeholder="100"></label><label>Amount B<input id=lpAmtB placeholder="100"></label></div>
+        <div class=row><label>Min A<input id=lpMinA placeholder="0"></label><label>Min B<input id=lpMinB placeholder="0"></label></div>
+        <div class=actions><button id=doLp>Add liquidity</button></div>
+      </div>
+      <div id=burn class=hide>
+        <div class=row><label>Token A<input id=burnA placeholder="0x..."></label><label>Token B<input id=burnB placeholder="0x..."></label></div>
+        <div class=row><label>LP amount<input id=burnLiq placeholder="1.0"></label><label>Min A<input id=burnMinA placeholder="0"></label></div>
+        <div class=row><label>Min B<input id=burnMinB placeholder="0"></label><span></span></div>
+        <div class=actions><button id=doBurn>Remove liquidity</button></div>
+      </div>
+      <div id=stat class=status></div>
+    </section>
+    <section class=panel>
+      <strong>Pool</strong>
+      <div class=row><label>Token A<input id=poolA placeholder="0x..."></label><label>Token B<input id=poolB placeholder="0x..."></label></div>
+      <div class=actions><button id=findPool>Find pool</button><button class=secondary id=createPool>Create pool</button></div>
+      <div class=quote>
+        <div><span>Factory</span><span class=mono id=factoryAddr>-</span></div>
+        <div><span>Router</span><span class=mono id=routerAddr>-</span></div>
+        <div><span>Pair</span><span class=mono id=pairOut>-</span></div>
+        <div><span>Reserves</span><span class=mono id=reserves>-</span></div>
+      </div>
+    </section>
+    <section class="panel wide">
+      <strong>Approvals</strong>
+      <div class=row><label>Token<input id=apTok placeholder="0x..."></label><label>Amount<input id=apAmt placeholder="max"></label></div>
+      <div class=actions><button id=approveRouter>Approve router</button><button class=secondary id=approvePair>Approve pair LP</button></div>
+      <div class=status>Approvals are separate transactions. For removing liquidity, approve the LP pair token.</div>
+    </section>
+  </main>
+</div>
+<script>
+const FACTORY="__FACTORY__",ROUTER="__ROUTER__";
+const A="0x0000000000000000000000000000000000000000";
+let E=null,AC=null;
+const $=id=>document.getElementById(id),sp=x=>(x||"").trim(),hex=x=>x.startsWith("0x")?x:"0x"+x;
+const isA=x=>/^0x[0-9a-fA-F]{40}$/.test(x),sh=x=>x&&isA(x)?x.slice(0,6)+"..."+x.slice(-4):"-";
+const p32=v=>BigInt(v).toString(16).padStart(64,"0");
+const ea=a=>sp(a).toLowerCase().slice(2).padStart(64,"0");
+const sel=s=>s,dl=()=>Math.floor(Date.now()/1000)+1200;
+const dec=s=>{s=sp(s);if(!s)return 0n;let [i,f=""]=s.split(".");f=(f+"0".repeat(18)).slice(0,18);return BigInt(i||0)*10n**18n+BigInt(f)};
+const fmt=n=>{n=BigInt(n||0);let s=n.toString().padStart(19,"0"),i=s.slice(0,-18),f=s.slice(-18).replace(/0+$/,"");return f?i+"."+f.slice(0,6):i};
+const rpc=(m,p)=>E.request({method:m,params:p});
+factoryAddr.textContent=FACTORY;routerAddr.textContent=ROUTER;
+function cd(sig,args=""){return sig+args}
+async function call(to,data){return await rpc("eth_call",[{to,data},"latest"])}
+async function tx(to,data){return await rpc("eth_sendTransaction",[{from:AC,to,data}])}
+function setStat(x,bad=false){stat.textContent=x;stat.className=bad?"status err":"status"}
+async function connect(){
+ if(!window.ethereum){setStat("No wallet detected.",true);return}
+ E=window.ethereum;const a=await rpc("eth_requestAccounts",[]);AC=a[0];acct.textContent=sh(AC);connect.textContent="Connected";
+ const c=await rpc("eth_chainId",[]);net.textContent="chain "+BigInt(c).toString();setStat("");
+}
+function need(){if(!AC)throw Error("Connect wallet first")}
+function approveData(spender,amount){return cd("0x095ea7b3",ea(spender)+p32(amount))}
+async function ensurePair(a,b){
+ if(!isA(a)||!isA(b))throw Error("Bad token address");
+ const r=await call(FACTORY,cd("0xe6a43905",ea(a)+ea(b)));
+ return "0x"+r.slice(26);
+}
+async function getRes(a,b){
+ const p=await ensurePair(a,b);if(BigInt(p)===0n)return [p,0n,0n];
+ const r=await call(p,"0x0902f1ac");
+ const x=BigInt("0x"+r.slice(2,66)),y=BigInt("0x"+r.slice(66,130));
+ const t0=await call(p,"0x0dfe1681");
+ const token0=("0x"+t0.slice(26)).toLowerCase();
+ return [p,...(a.toLowerCase()===token0?[x,y]:[y,x])];
+}
+async function quoteSwap(){
+ const path=[sp(swapIn.value),sp(swapOut.value)],amt=dec(swapAmt.value);
+ if(!isA(path[0])||!isA(path[1])||amt===0n)throw Error("Enter tokens and amount");
+ const data=cd("0xd06ca61f",p32(amt)+p32(64)+p32(2)+ea(path[0])+ea(path[1]));
+ const r=await call(ROUTER,data),out=BigInt("0x"+r.slice(194,258));
+ swapMin.value=fmt(out*995n/1000n);setStat("Quote: "+fmt(out)+" out");
+}
+async function find(){
+ const a=sp(poolA.value),b=sp(poolB.value);const [p,ra,rb]=await getRes(a,b);
+ pairOut.textContent=BigInt(p)===0n?"not created":p;reserves.textContent=BigInt(p)===0n?"-":fmt(ra)+" / "+fmt(rb);
+}
+tabs=document.querySelectorAll(".tab");tabs.forEach(t=>t.onclick=()=>{tabs.forEach(x=>x.classList.remove("on"));t.classList.add("on");["swap","lp","burn"].forEach(id=>$(id).classList.toggle("hide",id!==t.dataset.tab));setStat("")});
+connect.onclick=()=>connect().catch(e=>setStat(e.message||e,true));
+qSwap.onclick=()=>quoteSwap().catch(e=>setStat(e.message||e,true));
+doSwap.onclick=async()=>{try{need();if(!swapMin.value)await quoteSwap();const a=dec(swapAmt.value),m=dec(swapMin.value),x=sp(swapIn.value),y=sp(swapOut.value);const d=cd("0x38ed1739",p32(a)+p32(m)+p32(160)+ea(AC)+p32(dl())+p32(2)+ea(x)+ea(y));setStat(await tx(ROUTER,d))}catch(e){setStat(e.message||e,true)}};
+doLp.onclick=async()=>{try{need();const d=cd("0xe8e33700",ea(lpA.value)+ea(lpB.value)+p32(dec(lpAmtA.value))+p32(dec(lpAmtB.value))+p32(dec(lpMinA.value))+p32(dec(lpMinB.value))+ea(AC)+p32(dl()));setStat(await tx(ROUTER,d))}catch(e){setStat(e.message||e,true)}};
+doBurn.onclick=async()=>{try{need();const d=cd("0xbaa2abde",ea(burnA.value)+ea(burnB.value)+p32(dec(burnLiq.value))+p32(dec(burnMinA.value))+p32(dec(burnMinB.value))+ea(AC)+p32(dl()));setStat(await tx(ROUTER,d))}catch(e){setStat(e.message||e,true)}};
+findPool.onclick=()=>find().catch(e=>setStat(e.message||e,true));
+createPool.onclick=async()=>{try{need();const d=cd("0xc9c65396",ea(poolA.value)+ea(poolB.value));setStat(await tx(FACTORY,d))}catch(e){setStat(e.message||e,true)}};
+approveRouter.onclick=async()=>{try{need();const amt=sp(apAmt.value).toLowerCase()==="max"||!sp(apAmt.value)?(2n**256n-1n):dec(apAmt.value);setStat(await tx(sp(apTok.value),approveData(ROUTER,amt)))}catch(e){setStat(e.message||e,true)}};
+approvePair.onclick=async()=>{try{need();const p=pairOut.textContent;if(!isA(p))throw Error("Find pair first");const amt=sp(apAmt.value).toLowerCase()==="max"||!sp(apAmt.value)?(2n**256n-1n):dec(apAmt.value);setStat(await tx(p,approveData(ROUTER,amt)))}catch(e){setStat(e.message||e,true)}};
+if(window.ethereum)connect().catch(()=>{});
+</script>
