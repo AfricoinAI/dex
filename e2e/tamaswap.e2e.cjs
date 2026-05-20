@@ -293,6 +293,16 @@ async function main() {
       });
       await assert.match(await page.locator("#stat a").getAttribute("href"), /^https:\/\/explorer\.local\/tx\/0x/);
 
+      await page.locator("#swapOutAmt").fill("0.5");
+      await page.waitForFunction(() => document.querySelector("#swapLimitLabel").textContent === "Maximum sold");
+      await page.waitForFunction(() => Number(document.querySelector("#swapAmt").value) > 0);
+      await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Swap");
+      await page.locator("#swapCta").click();
+      await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"), null, { timeout: 5000 }).catch(async (error) => {
+        throw new Error(`${error.message}; exact-output swap status=${await page.locator("#stat").textContent()}`);
+      });
+      await assert.match(await page.locator("#stat a").getAttribute("href"), /^https:\/\/explorer\.local\/tx\/0x/);
+
       const pair = await rpc("eth_call", [
         { to: deployment.factory, data: `0xe6a43905${deployment.tokenA.slice(2).padStart(64, "0")}${deployment.tokenB.slice(2).padStart(64, "0")}` },
         "latest",

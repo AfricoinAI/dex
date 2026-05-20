@@ -80,6 +80,40 @@ contract TamaRouterTest is Test {
         assertEq(tokenB.balanceOf(recipient), expected[1]);
     }
 
+    function testSwapTokensForExactTokensTransfersRequestedOutput() public {
+        router.addLiquidity(
+            address(tokenA), address(tokenB), 100_000 ether, 100_000 ether, 0, 0, address(this), block.timestamp
+        );
+        address[] memory path = new address[](2);
+        path[0] = address(tokenA);
+        path[1] = address(tokenB);
+        uint256 amountOut = 500 ether;
+        uint256[] memory expected = router.getAmountsIn(amountOut, path);
+        uint256 tokenABefore = tokenA.balanceOf(address(this));
+        address recipient = address(0xBEEF);
+
+        uint256[] memory amounts =
+            router.swapTokensForExactTokens(amountOut, expected[0], path, recipient, block.timestamp);
+
+        assertEq(amounts[0], expected[0]);
+        assertEq(amounts[1], amountOut);
+        assertEq(tokenABefore - tokenA.balanceOf(address(this)), expected[0]);
+        assertEq(tokenB.balanceOf(recipient), amountOut);
+    }
+
+    function testSwapTokensForExactTokensEnforcesMaxInput() public {
+        router.addLiquidity(
+            address(tokenA), address(tokenB), 100_000 ether, 100_000 ether, 0, 0, address(this), block.timestamp
+        );
+        address[] memory path = new address[](2);
+        path[0] = address(tokenA);
+        path[1] = address(tokenB);
+        uint256[] memory expected = router.getAmountsIn(500 ether, path);
+
+        vm.expectRevert(bytes("TamaRouter: EXCESSIVE_INPUT_AMOUNT"));
+        router.swapTokensForExactTokens(500 ether, expected[0] - 1, path, address(0xBEEF), block.timestamp);
+    }
+
     function testRemoveLiquidityBurnsLpAndReturnsTokens() public {
         router.addLiquidity(
             address(tokenA), address(tokenB), 100_000 ether, 200_000 ether, 0, 0, address(this), block.timestamp

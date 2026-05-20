@@ -135,6 +135,19 @@ contract TamaRouter {
         _swap(amounts, path, to);
     }
 
+    function swapTokensForExactTokens(
+        uint256 amountOut,
+        uint256 amountInMax,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external ensure(deadline) returns (uint256[] memory amounts) {
+        amounts = getAmountsIn(amountOut, path);
+        require(amounts[0] <= amountInMax, "TamaRouter: EXCESSIVE_INPUT_AMOUNT");
+        _safeTransferFrom(path[0], msg.sender, pairFor(path[0], path[1]), amounts[0]);
+        _swap(amounts, path, to);
+    }
+
     function _addLiquidity(
         address tokenA,
         address tokenB,
