@@ -1550,4 +1550,38 @@ theorem closed_world_path_length_matches_created_pairs
   factory_closed_world_path_length_matches_created_pairs before after := by
   intro h_good h_path
   exact (factoryWorldPath_preserves_good h_good h_path).2.2
+
+-- tama: discharges=factory_pairInitialize_module_encodes_canonical_initialize
+theorem pairInitialize_module_encodes_canonical_initialize :
+  factory_pairInitialize_module_encodes_canonical_initialize := by
+  intro ctx pair token0 token1 stmts h_compile
+  dsimp [TamaUniV2.pairInitializeModule] at h_compile
+  injection h_compile with h_stmts
+  refine ⟨_, h_stmts.symm, ?_, ?_, ?_, ?_⟩ <;> simp
+
+-- tama: discharges=factory_pairInitialize_module_bubbles_initialize_failure
+theorem pairInitialize_module_bubbles_initialize_failure :
+  factory_pairInitialize_module_bubbles_initialize_failure := by
+  intro ctx pair token0 token1 stmts h_compile
+  dsimp [TamaUniV2.pairInitializeModule] at h_compile
+  injection h_compile with h_stmts
+  refine ⟨_, h_stmts.symm, ?_⟩
+  simp
+
+-- tama: discharges=factory_pairInitialize_module_restores_free_memory_pointer
+theorem pairInitialize_module_restores_free_memory_pointer :
+  factory_pairInitialize_module_restores_free_memory_pointer := by
+  intro ctx pair token0 token1 stmts h_compile
+  dsimp [TamaUniV2.pairInitializeModule] at h_compile
+  injection h_compile with h_stmts
+  refine ⟨_, h_stmts.symm, ?_⟩
+  simp
+
+-- tama: discharges=factory_pairCreate2_module_uses_sorted_token_salt_and_full_pair_creation_code
+theorem pairCreate2_module_uses_sorted_token_salt_and_full_pair_creation_code :
+  factory_pairCreate2_module_uses_sorted_token_salt_and_full_pair_creation_code := by
+  intro ctx resultVar token0 token1 stmts h_compile
+  dsimp [TamaUniV2.pairCreate2Module] at h_compile
+  injection h_compile with h_stmts
+  simpa using h_stmts.symm
 end TamaUniV2.Proof.UniswapV2FactoryProof

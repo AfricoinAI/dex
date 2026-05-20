@@ -16,8 +16,10 @@ Behavior specs for the Uniswap v2 factory.
 The factory's job is narrower than the pair's: it must create at most one pair
 for each unordered token pair, make that pair discoverable in either token
 order, and never rewrite earlier records. The specs below split that job into
-nine numbered properties; the body sections §1–§9 each prove exactly one
-property. Supporting trace-closure facts are collected at the bottom.
+nine numbered factory-local properties; the body sections §1–§9 each prove
+exactly one property. The CREATE2 and initialize ECM code-shape obligations are
+then collected as the factory's external-boundary section, before the
+trace-closure foundations at the bottom.
 
 ## Properties
 
@@ -52,9 +54,11 @@ property. Supporting trace-closure facts are collected at the bottom.
    preserve that agreement and propagate router-visible facts (lookups, array
    entries, length) into real storage.
 
-The actual CREATE2 deployment and pair initialization are external boundaries;
-the specs only assume those calls at that boundary and prove factory-local
-storage behavior directly.
+The actual CREATE2 deployment and pair initialization remain external
+boundaries, but their generated Yul shape is no longer just implicit trust:
+the ECM obligations below pin the salt, bytecode, initialize selector,
+failure bubbling, and memory repair that connect those boundaries to the
+factory-local storage proofs.
 -/
 
 /-!
@@ -557,6 +561,118 @@ def factory_concrete_same_length_create_path_preserves_world
         (sBefore.storage allPairsLengthSlot.slot).val =
           (sAfter.storage allPairsLengthSlot.slot).val →
           wAfter = wBefore
+
+/-!
+## Factory ECM Boundary
+
+The closed-world and concrete-storage specs above assume that `createPair`
+crosses two custom ECM boundaries: CREATE2 deploys the generated pair code
+using the sorted-token salt, then `initialize(token0, token1)` installs the
+same sorted identities in the child pair. The obligations in this section pin
+those compiler-generated call shapes so the external boundary is explicit in
+the manifest rather than living only as a trust note.
+-/
+
+/--
+The factory initialize ECM must encode the canonical
+`initialize(address,address)` call against the newly-created pair.
+-/
+def factory_pairInitialize_module_encodes_canonical_initialize : Prop :=
+  ∀ (ctx : Compiler.ECM.CompilationContext)
+    (pair token0 token1 : Compiler.Yul.YulExpr)
+    (stmts : List Compiler.Yul.YulStmt),
+    TamaUniV2.pairInitializeModule.compile ctx [pair, token0, token1] =
+        Except.ok stmts →
+      ∃ body,
+        stmts = [Compiler.Yul.YulStmt.block body] ∧
+        Compiler.Yul.YulStmt.expr
+          (Compiler.Yul.YulExpr.call "mstore"
+            [Compiler.Yul.YulExpr.lit 0,
+              Compiler.Yul.YulExpr.hex
+                0x485cc95500000000000000000000000000000000000000000000000000000000]) ∈ body ∧
+        Compiler.Yul.YulStmt.expr
+          (Compiler.Yul.YulExpr.call "mstore" [Compiler.Yul.YulExpr.lit 4, token0]) ∈ body ∧
+        Compiler.Yul.YulStmt.expr
+          (Compiler.Yul.YulExpr.call "mstore" [Compiler.Yul.YulExpr.lit 36, token1]) ∈ body ∧
+        Compiler.Yul.YulStmt.let_ "__uv2_init_success"
+          (Compiler.Yul.YulExpr.call "call"
+            [Compiler.Yul.YulExpr.call "gas" [], pair, Compiler.Yul.YulExpr.lit 0,
+              Compiler.Yul.YulExpr.lit 0, Compiler.Yul.YulExpr.lit 68,
+              Compiler.Yul.YulExpr.lit 0, Compiler.Yul.YulExpr.lit 0]) ∈ body
+
+/-- Initialize failure is visible to `createPair`; revert returndata is bubbled. -/
+def factory_pairInitialize_module_bubbles_initialize_failure : Prop :=
+  ∀ (ctx : Compiler.ECM.CompilationContext)
+    (pair token0 token1 : Compiler.Yul.YulExpr)
+    (stmts : List Compiler.Yul.YulStmt),
+    TamaUniV2.pairInitializeModule.compile ctx [pair, token0, token1] =
+        Except.ok stmts →
+      ∃ body,
+        stmts = [Compiler.Yul.YulStmt.block body] ∧
+        Compiler.Yul.YulStmt.if_
+          (Compiler.Yul.YulExpr.call "iszero"
+            [Compiler.Yul.YulExpr.ident "__uv2_init_success"])
+          [Compiler.Yul.YulStmt.let_ "__uv2_init_rds"
+              (Compiler.Yul.YulExpr.call "returndatasize" []),
+            Compiler.Yul.YulStmt.expr
+              (Compiler.Yul.YulExpr.call "returndatacopy"
+                [Compiler.Yul.YulExpr.lit 0, Compiler.Yul.YulExpr.lit 0,
+                  Compiler.Yul.YulExpr.ident "__uv2_init_rds"]),
+        Compiler.Yul.YulStmt.expr
+              (Compiler.Yul.YulExpr.call "revert"
+                [Compiler.Yul.YulExpr.lit 0,
+                  Compiler.Yul.YulExpr.ident "__uv2_init_rds"])] ∈ body
+
+/--
+The initialize ECM uses scratch memory for calldata; after the call returns it
+restores Solidity's free-memory pointer before the factory emits native events.
+-/
+def factory_pairInitialize_module_restores_free_memory_pointer : Prop :=
+  ∀ (ctx : Compiler.ECM.CompilationContext)
+    (pair token0 token1 : Compiler.Yul.YulExpr)
+    (stmts : List Compiler.Yul.YulStmt),
+    TamaUniV2.pairInitializeModule.compile ctx [pair, token0, token1] =
+        Except.ok stmts →
+      ∃ body,
+        stmts = [Compiler.Yul.YulStmt.block body] ∧
+        Compiler.Yul.YulStmt.expr
+          (Compiler.Yul.YulExpr.call "mstore"
+            [Compiler.Yul.YulExpr.lit 64, Compiler.Yul.YulExpr.lit 128]) ∈ body
+
+/--
+CREATE2 must use the same sorted-token salt as the lookup model and the full
+generated pair creation bytecode, then bind the deployed address word.
+-/
+def factory_pairCreate2_module_uses_sorted_token_salt_and_full_pair_creation_code : Prop :=
+  ∀ (ctx : Compiler.ECM.CompilationContext)
+    (resultVar : String)
+    (token0 token1 : Compiler.Yul.YulExpr)
+    (stmts : List Compiler.Yul.YulStmt),
+    (TamaUniV2.pairCreate2Module resultVar).compile ctx [token0, token1] =
+        Except.ok stmts →
+      let codeStores :=
+        TamaUniV2.pairCreationCodeChunks.zipIdx.map fun (chunk, idx) =>
+          Compiler.Yul.YulStmt.expr
+            (Compiler.Yul.YulExpr.call "mstore"
+              [Compiler.Yul.YulExpr.lit (idx * 32), Compiler.Yul.YulExpr.hex chunk])
+      stmts =
+        [Compiler.Yul.YulStmt.expr
+          (Compiler.Yul.YulExpr.call "mstore"
+            [Compiler.Yul.YulExpr.lit 0,
+              Compiler.Yul.YulExpr.call "shl" [Compiler.Yul.YulExpr.lit 96, token0]]),
+          Compiler.Yul.YulStmt.expr
+          (Compiler.Yul.YulExpr.call "mstore"
+            [Compiler.Yul.YulExpr.lit 20,
+              Compiler.Yul.YulExpr.call "shl" [Compiler.Yul.YulExpr.lit 96, token1]]),
+          Compiler.Yul.YulStmt.let_ "__uv2_pair_salt"
+            (Compiler.Yul.YulExpr.call "keccak256"
+              [Compiler.Yul.YulExpr.lit 0, Compiler.Yul.YulExpr.lit 40])] ++
+        codeStores ++
+        [Compiler.Yul.YulStmt.let_ resultVar
+          (Compiler.Yul.YulExpr.call "create2"
+            [Compiler.Yul.YulExpr.lit 0, Compiler.Yul.YulExpr.lit 0,
+              Compiler.Yul.YulExpr.lit TamaUniV2.pairCreationCodeLength,
+              Compiler.Yul.YulExpr.ident "__uv2_pair_salt"])]
 
 /-!
 ## Closed-World Foundations

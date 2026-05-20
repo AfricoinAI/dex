@@ -68,6 +68,30 @@ contract FactoryRevertMirrors is FactoryFixture {
 }
 
 contract FactoryCreatePairMirrors is FactoryFixture {
+    // tama: mirrors=factory_pairCreate2_module_uses_sorted_token_salt_and_full_pair_creation_code
+    function testFuzzMirrorCreate2AddressUsesSortedSaltAndFullCreationCode(uint96) public {
+        MockERC20 tokenC = new MockERC20();
+        MockERC20 tokenD = new MockERC20();
+        (address token0, address token1) = sortedAddresses(address(tokenC), address(tokenD));
+        address expectedPair = expectedCreate2Pair(token0, token1);
+
+        address created = factory.createPair(address(tokenC), address(tokenD));
+
+        assertEq(created, expectedPair);
+    }
+
+    // tama: mirrors=factory_pairInitialize_module_encodes_canonical_initialize
+    function testFuzzMirrorCreatePairInitializesPairWithSortedTokens(uint96) public {
+        MockERC20 tokenC = new MockERC20();
+        MockERC20 tokenD = new MockERC20();
+        (address token0, address token1) = sortedAddresses(address(tokenC), address(tokenD));
+
+        UniswapV2PairIface created = UniswapV2PairIface(factory.createPair(address(tokenC), address(tokenD)));
+
+        assertEq(created.token0(), token0);
+        assertEq(created.token1(), token1);
+    }
+
     // tama: mirrors=factory_createPair_success_updates_storage_and_emits
     function testFuzzMirrorCreatePairWritesStorageAndEmits(uint96) public {
         MockERC20 tokenC = new MockERC20();
@@ -481,4 +505,3 @@ contract FactoryInvariantMirrors is FactoryFixture {
 // annotation because each spec they touch is already mirrored by a
 // dedicated 1:1 test above.
 // =====================================================================
-

@@ -46,6 +46,200 @@ contract MockERC20 {
     }
 }
 
+contract NoReturnERC20 {
+    mapping(address => uint256) public balanceOf;
+    uint256 public totalSupply;
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+        totalSupply += amount;
+        emit Transfer(address(0), to, amount);
+    }
+
+    function transfer(address to, uint256 amount) external {
+        require(balanceOf[msg.sender] >= amount, "BALANCE");
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        emit Transfer(msg.sender, to, amount);
+    }
+}
+
+contract FalseReturnERC20 {
+    mapping(address => uint256) public balanceOf;
+    uint256 public totalSupply;
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+        totalSupply += amount;
+        emit Transfer(address(0), to, amount);
+    }
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        require(balanceOf[msg.sender] >= amount, "BALANCE");
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        emit Transfer(msg.sender, to, amount);
+        return false;
+    }
+}
+
+contract RevertingTransferERC20 {
+    mapping(address => uint256) public balanceOf;
+    uint256 public totalSupply;
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+        totalSupply += amount;
+        emit Transfer(address(0), to, amount);
+    }
+
+    function transfer(address, uint256) external pure returns (bool) {
+        revert("TRANSFER_REVERTED");
+    }
+}
+
+contract RevertingBalanceOfERC20 {
+    function balanceOf(address) external pure returns (uint256) {
+        revert("BALANCE_REVERTED");
+    }
+}
+
+contract ShortReturnBalanceOfERC20 {
+    mapping(address => uint256) internal balances;
+    uint256 public totalSupply;
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    function mint(address to, uint256 amount) external {
+        balances[to] += amount;
+        totalSupply += amount;
+        emit Transfer(address(0), to, amount);
+    }
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        require(balances[msg.sender] >= amount, "BALANCE");
+        balances[msg.sender] -= amount;
+        balances[to] += amount;
+        emit Transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    fallback() external {
+        bytes4 selector;
+        assembly {
+            selector := shr(224, calldataload(0))
+        }
+        if (selector == 0x70a08231) {
+            assembly {
+                mstore(0, 1)
+                return(31, 1)
+            }
+        }
+        revert("UNSUPPORTED");
+    }
+}
+
+contract ReentrantTransferERC20 {
+    enum Entrypoint {
+        Mint,
+        Burn,
+        Swap,
+        Skim,
+        Sync
+    }
+
+    mapping(address => uint256) public balanceOf;
+    uint256 public totalSupply;
+    UniswapV2PairIface public pair;
+    Entrypoint public entrypoint;
+    bool public armed;
+    bool public reentryRejected;
+    string public revertReason;
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+        totalSupply += amount;
+        emit Transfer(address(0), to, amount);
+    }
+
+    function configureReentry(UniswapV2PairIface pair_, Entrypoint entrypoint_) external {
+        pair = pair_;
+        entrypoint = entrypoint_;
+        armed = true;
+        reentryRejected = false;
+        revertReason = "";
+    }
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        require(balanceOf[msg.sender] >= amount, "BALANCE");
+        if (armed) {
+            armed = false;
+            _attemptReentry();
+        }
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        emit Transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    function _attemptReentry() internal {
+        if (entrypoint == Entrypoint.Mint) {
+            try pair.mint(address(this)) returns (uint256) {
+                revert("MINT_REENTRY_ALLOWED");
+            } catch Error(string memory reason) {
+                reentryRejected = true;
+                revertReason = reason;
+            } catch {
+                reentryRejected = true;
+            }
+        } else if (entrypoint == Entrypoint.Burn) {
+            try pair.burn(address(this)) returns (uint256, uint256) {
+                revert("BURN_REENTRY_ALLOWED");
+            } catch Error(string memory reason) {
+                reentryRejected = true;
+                revertReason = reason;
+            } catch {
+                reentryRejected = true;
+            }
+        } else if (entrypoint == Entrypoint.Swap) {
+            try pair.swap(0, 1, address(this), "") {
+                revert("SWAP_REENTRY_ALLOWED");
+            } catch Error(string memory reason) {
+                reentryRejected = true;
+                revertReason = reason;
+            } catch {
+                reentryRejected = true;
+            }
+        } else if (entrypoint == Entrypoint.Skim) {
+            try pair.skim(address(this)) {
+                revert("SKIM_REENTRY_ALLOWED");
+            } catch Error(string memory reason) {
+                reentryRejected = true;
+                revertReason = reason;
+            } catch {
+                reentryRejected = true;
+            }
+        } else {
+            try pair.sync() {
+                revert("SYNC_REENTRY_ALLOWED");
+            } catch Error(string memory reason) {
+                reentryRejected = true;
+                revertReason = reason;
+            } catch {
+                reentryRejected = true;
+            }
+        }
+    }
+}
+
 contract FlashCallee {
     MockERC20 public token0;
     MockERC20 public token1;
@@ -268,6 +462,36 @@ contract AllEntrypointReentrantCallee is ReentrantCalleeBase {
             mintRejected && burnRejected && swapRejected && skimRejected && syncRejected;
 
         _payBackInputs();
+    }
+}
+
+contract RevertingAllEntrypointReentrantCallee is ReentrantCalleeBase {
+    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_, uint256 amount0In_, uint256 amount1In_)
+        ReentrantCalleeBase(pair_, token0_, token1_, amount0In_, amount1In_)
+    {}
+
+    function uniswapV2Call(address, uint256, uint256, bytes calldata) external {
+        try pair.mint(address(this)) returns (uint256) {
+            revert("MINT_REENTRY_ALLOWED");
+        } catch {}
+
+        try pair.burn(address(this)) returns (uint256, uint256) {
+            revert("BURN_REENTRY_ALLOWED");
+        } catch {}
+
+        try pair.swap(0, 1, address(this), "") {
+            revert("SWAP_REENTRY_ALLOWED");
+        } catch {}
+
+        try pair.skim(address(this)) {
+            revert("SKIM_REENTRY_ALLOWED");
+        } catch {}
+
+        try pair.sync() {
+            revert("SYNC_REENTRY_ALLOWED");
+        } catch {}
+
+        revert("CALLBACK_REVERT_AFTER_REENTRY");
     }
 }
 

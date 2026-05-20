@@ -7,6 +7,12 @@ import {UniswapV2FactoryIface} from "../../src/generated/verity/UniswapV2Factory
 import {UniswapV2PairIface} from "../../src/generated/verity/UniswapV2PairIface.sol";
 import {
     MockERC20,
+    NoReturnERC20,
+    FalseReturnERC20,
+    RevertingTransferERC20,
+    ReentrantTransferERC20,
+    RevertingBalanceOfERC20,
+    ShortReturnBalanceOfERC20,
     FlashCallee,
     TrackingFlashCallee,
     RevertingFlashCallee,
@@ -16,6 +22,7 @@ import {
     SkimReentrantCallee,
     SyncReentrantCallee,
     AllEntrypointReentrantCallee,
+    RevertingAllEntrypointReentrantCallee,
     PairFixture
 } from "./UniswapV2Helpers.sol";
 
@@ -1711,6 +1718,169 @@ contract PairReentrancyMirrors is PairFixture {
     }
 }
 
+contract PairBoundaryAssumptionMirrors is PairFixture {
+    struct PairSnapshot {
+        uint256 reserve0;
+        uint256 reserve1;
+        uint256 totalSupply;
+        uint256 pairToken0;
+        uint256 pairToken1;
+    }
+
+    function _snapshot(
+        UniswapV2PairIface observedPair,
+        address observedToken0,
+        address observedToken1
+    ) internal view returns (PairSnapshot memory snap) {
+        (snap.reserve0, snap.reserve1,) = observedPair.getReserves();
+        snap.totalSupply = observedPair.totalSupply();
+        snap.pairToken0 = _balanceOf(observedToken0, address(observedPair));
+        snap.pairToken1 = _balanceOf(observedToken1, address(observedPair));
+    }
+
+    function _assertSnapshotEq(
+        PairSnapshot memory beforeSnap,
+        UniswapV2PairIface observedPair,
+        address observedToken0,
+        address observedToken1
+    ) internal view {
+        PairSnapshot memory afterSnap = _snapshot(observedPair, observedToken0, observedToken1);
+        assertEq(afterSnap.reserve0, beforeSnap.reserve0);
+        assertEq(afterSnap.reserve1, beforeSnap.reserve1);
+        assertEq(afterSnap.totalSupply, beforeSnap.totalSupply);
+        assertEq(afterSnap.pairToken0, beforeSnap.pairToken0);
+        assertEq(afterSnap.pairToken1, beforeSnap.pairToken1);
+    }
+
+    function _balanceOf(address token, address owner) internal view returns (uint256 balance) {
+        (bool ok, bytes memory data) = token.staticcall(abi.encodeWithSignature("balanceOf(address)", owner));
+        require(ok && data.length == 32, "BALANCE_READ");
+        return abi.decode(data, (uint256));
+    }
+
+    function _seedNoReturnPair(NoReturnERC20 oddToken, MockERC20 normalToken)
+        internal
+        returns (UniswapV2PairIface oddPair)
+    {
+        oddPair = UniswapV2PairIface(factory.createPair(address(oddToken), address(normalToken)));
+        oddToken.mint(address(oddPair), 10_000);
+        normalToken.mint(address(oddPair), 10_000);
+        oddPair.mint(address(this));
+    }
+
+    function testFuzzMirrorNoReturnERC20TransferOutAccepted(uint96) public {
+        NoReturnERC20 oddToken = new NoReturnERC20();
+        MockERC20 normalToken = new MockERC20();
+        UniswapV2PairIface oddPair = _seedNoReturnPair(oddToken, normalToken);
+
+        uint256 liquidity = oddPair.balanceOf(address(this)) / 4;
+        oddPair.transfer(address(oddPair), liquidity);
+        uint256 beforeBalance = oddToken.balanceOf(address(this));
+        oddPair.burn(address(this));
+
+        assertGt(oddToken.balanceOf(address(this)), beforeBalance);
+    }
+
+    function testFuzzMirrorFalseReturnERC20TransferOutRevertsAndRollsBack(uint96) public {
+        FalseReturnERC20 oddToken = new FalseReturnERC20();
+        MockERC20 normalToken = new MockERC20();
+        UniswapV2PairIface oddPair = UniswapV2PairIface(factory.createPair(address(oddToken), address(normalToken)));
+        oddToken.mint(address(oddPair), 10_000);
+        normalToken.mint(address(oddPair), 10_000);
+        oddPair.mint(address(this));
+
+        address token0 = oddPair.token0();
+        address token1 = oddPair.token1();
+        PairSnapshot memory beforeSnap = _snapshot(oddPair, token0, token1);
+        oddPair.transfer(address(oddPair), oddPair.balanceOf(address(this)) / 4);
+
+        vm.expectRevert(bytes("transfer returned false"));
+        oddPair.burn(address(this));
+
+        _assertSnapshotEq(beforeSnap, oddPair, token0, token1);
+    }
+
+    function testFuzzMirrorRevertingERC20TransferOutRevertsAndRollsBack(uint96) public {
+        RevertingTransferERC20 oddToken = new RevertingTransferERC20();
+        MockERC20 normalToken = new MockERC20();
+        UniswapV2PairIface oddPair = UniswapV2PairIface(factory.createPair(address(oddToken), address(normalToken)));
+        oddToken.mint(address(oddPair), 10_000);
+        normalToken.mint(address(oddPair), 10_000);
+        oddPair.mint(address(this));
+
+        address token0 = oddPair.token0();
+        address token1 = oddPair.token1();
+        PairSnapshot memory beforeSnap = _snapshot(oddPair, token0, token1);
+        oddPair.transfer(address(oddPair), oddPair.balanceOf(address(this)) / 4);
+
+        vm.expectRevert(bytes("transfer reverted"));
+        oddPair.burn(address(this));
+
+        _assertSnapshotEq(beforeSnap, oddPair, token0, token1);
+    }
+
+    // tama: mirrors=pair_reentrancy_guard_blocks_all_mutating_entrypoints
+    function testFuzzMirrorReentrantTransferOutCannotEnterPair(uint96) public {
+        ReentrantTransferERC20 oddToken = new ReentrantTransferERC20();
+        MockERC20 normalToken = new MockERC20();
+        UniswapV2PairIface oddPair = UniswapV2PairIface(factory.createPair(address(oddToken), address(normalToken)));
+        oddToken.mint(address(oddPair), 10_000);
+        normalToken.mint(address(oddPair), 10_000);
+        oddPair.mint(address(this));
+
+        oddToken.configureReentry(oddPair, ReentrantTransferERC20.Entrypoint.Sync);
+        if (oddPair.token0() == address(oddToken)) {
+            uint256 requiredIn = getAmountIn(1_000, 10_000, 10_000);
+            normalToken.mint(address(oddPair), requiredIn);
+            oddPair.swap(1_000, 0, address(this), "");
+        } else {
+            uint256 requiredIn = getAmountIn(1_000, 10_000, 10_000);
+            normalToken.mint(address(oddPair), requiredIn);
+            oddPair.swap(0, 1_000, address(this), "");
+        }
+
+        assertTrue(oddToken.reentryRejected());
+        assertEq(oddToken.revertReason(), "UniswapV2: LOCKED");
+    }
+
+    function testFuzzMirrorRevertingBalanceOfCausesMintToRevert(uint96) public {
+        RevertingBalanceOfERC20 oddToken = new RevertingBalanceOfERC20();
+        MockERC20 normalToken = new MockERC20();
+        UniswapV2PairIface oddPair = UniswapV2PairIface(factory.createPair(address(oddToken), address(normalToken)));
+        normalToken.mint(address(oddPair), 10_000);
+
+        vm.expectRevert(bytes("BALANCE_REVERTED"));
+        oddPair.mint(address(this));
+    }
+
+    function testFuzzMirrorShortBalanceOfReturnCausesMintToRevert(uint96) public {
+        ShortReturnBalanceOfERC20 oddToken = new ShortReturnBalanceOfERC20();
+        MockERC20 normalToken = new MockERC20();
+        UniswapV2PairIface oddPair = UniswapV2PairIface(factory.createPair(address(oddToken), address(normalToken)));
+        oddToken.mint(address(oddPair), 10_000);
+        normalToken.mint(address(oddPair), 10_000);
+
+        vm.expectRevert();
+        oddPair.mint(address(this));
+    }
+
+    // tama: mirrors=pair_swap_revert_keeps_pair_state
+    function testFuzzMirrorCallbackReentryThenRevertKeepsPairState(uint96) public {
+        seed(10_000, 10_000);
+        (MockERC20 sorted0, MockERC20 sorted1) = sortedTokens();
+        uint256 requiredIn = getAmountIn(1_000, 10_000, 10_000);
+        RevertingAllEntrypointReentrantCallee callee =
+            new RevertingAllEntrypointReentrantCallee(pair, sorted0, sorted1, 0, requiredIn);
+        sorted1.mint(address(callee), requiredIn);
+        PairSnapshot memory beforeSnap = _snapshot(pair, address(sorted0), address(sorted1));
+
+        vm.expectRevert(bytes("CALLBACK_REVERT_AFTER_REENTRY"));
+        pair.swap(1_000, 0, address(callee), abi.encode(uint256(1)));
+
+        _assertSnapshotEq(beforeSnap, pair, address(sorted0), address(sorted1));
+    }
+}
+
 // =====================================================================
 // Factory views and reverts (§7, §8)
 // =====================================================================
@@ -2101,37 +2271,115 @@ contract PairCallerWalletMirrors is PairFixture {
 
 contract CallerWalletHandler {
     UniswapV2PairIface public pair;
+    MockERC20 public token0;
+    MockERC20 public token1;
 
-    constructor(UniswapV2PairIface pair_) {
+    constructor(UniswapV2PairIface pair_, MockERC20 token0_, MockERC20 token1_) {
         pair = pair_;
+        token0 = token0_;
+        token1 = token1_;
     }
 
     function approve(address spender, uint256 amount) external {
         pair.approve(spender, amount);
     }
 
+    function donate(uint256 amount0, uint256 amount1) external {
+        amount0 = _boundToBalance(token0, amount0);
+        amount1 = _boundToBalance(token1, amount1);
+        if (amount0 > 0) require(token0.transfer(address(pair), amount0), "DONATE0");
+        if (amount1 > 0) require(token1.transfer(address(pair), amount1), "DONATE1");
+    }
+
+    function mint(uint256 amount0, uint256 amount1) external {
+        amount0 = _boundToBalance(token0, amount0);
+        amount1 = _boundToBalance(token1, amount1);
+        if (amount0 == 0 || amount1 == 0) return;
+        require(token0.transfer(address(pair), amount0), "MINT0");
+        require(token1.transfer(address(pair), amount1), "MINT1");
+        try pair.mint(address(this)) returns (uint256) {} catch {}
+    }
+
+    function burn(uint256 liquidity) external {
+        uint256 lpBalance = pair.balanceOf(address(this));
+        if (lpBalance == 0) return;
+        liquidity = (liquidity % lpBalance) + 1;
+        (uint256 reserve0, uint256 reserve1,) = pair.getReserves();
+        uint256 supply = pair.totalSupply();
+        if (supply == 0 || liquidity * reserve0 / supply == 0 || liquidity * reserve1 / supply == 0) return;
+        require(pair.transfer(address(pair), liquidity), "BURN_LP");
+        try pair.burn(address(this)) returns (uint256, uint256) {} catch {}
+    }
+
+    function swap0For1(uint256 amount0In) external {
+        amount0In = _boundToBalance(token0, amount0In);
+        if (amount0In == 0) return;
+        (uint256 reserve0, uint256 reserve1,) = pair.getReserves();
+        if (reserve0 == 0 || reserve1 == 0) return;
+        uint256 amount1Out = _amountOut(amount0In, reserve0, reserve1);
+        if (amount1Out == 0 || amount1Out >= reserve1) return;
+        require(token0.transfer(address(pair), amount0In), "SWAP0_IN");
+        try pair.swap(0, amount1Out, address(this), "") {} catch {}
+    }
+
+    function swap1For0(uint256 amount1In) external {
+        amount1In = _boundToBalance(token1, amount1In);
+        if (amount1In == 0) return;
+        (uint256 reserve0, uint256 reserve1,) = pair.getReserves();
+        if (reserve0 == 0 || reserve1 == 0) return;
+        uint256 amount0Out = _amountOut(amount1In, reserve1, reserve0);
+        if (amount0Out == 0 || amount0Out >= reserve0) return;
+        require(token1.transfer(address(pair), amount1In), "SWAP1_IN");
+        try pair.swap(amount0Out, 0, address(this), "") {} catch {}
+    }
+
+    function skim() external {
+        try pair.skim(address(this)) {} catch {}
+    }
+
     function sync() external {
         try pair.sync() {} catch {}
+    }
+
+    function _boundToBalance(MockERC20 token, uint256 amount) internal view returns (uint256) {
+        uint256 balance = token.balanceOf(address(this));
+        if (balance == 0) return 0;
+        return amount % (balance + 1);
+    }
+
+    function _amountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) internal pure returns (uint256) {
+        uint256 amountInWithFee = amountIn * 997;
+        return (amountInWithFee * reserveOut) / (reserveIn * 1000 + amountInWithFee);
     }
 }
 
 contract PairCallerWalletInvariantMirrors is PairFixture {
     CallerWalletHandler internal handler;
+    MockERC20 internal sorted0;
+    MockERC20 internal sorted1;
     uint256 internal initialSupply;
     uint256 internal initialLocked;
+    uint256 internal initialReserve0;
+    uint256 internal initialReserve1;
+    uint256 internal initialPortfolioValue;
 
     function setUp() public override {
         super.setUp();
-        seed(10_000, 10_000);
+        seed(100_000, 100_000);
+        (sorted0, sorted1) = sortedTokens();
         initialSupply = pair.totalSupply();
         initialLocked = pair.balanceOf(address(0));
-        handler = new CallerWalletHandler(pair);
+        (initialReserve0, initialReserve1,) = pair.getReserves();
+        handler = new CallerWalletHandler(pair, sorted0, sorted1);
+        sorted0.mint(address(handler), 1_000);
+        sorted1.mint(address(handler), 1_000);
+        initialPortfolioValue = _spotValue(1_000, 1_000);
         targetContract(address(handler));
     }
 
     // tama: mirrors=pair_wallet_single_caller_history_no_portfolio_profit
     function invariant_pairWalletSingleCallerHistoryNoPortfolioProfit() public {
-        assertEq(pair.totalSupply(), initialSupply);
+        assertLe(_currentPortfolioValueNumerator(), initialPortfolioValue * pair.totalSupply());
     }
 
     // tama: mirrors=pair_wallet_history_preserves_good
@@ -2144,12 +2392,25 @@ contract PairCallerWalletInvariantMirrors is PairFixture {
 
     // tama: mirrors=pair_wallet_history_total_value_conserved
     function invariant_pairWalletHistoryTotalValueConserved() public {
-        assertEq(pair.totalSupply(), initialSupply);
+        assertLe(_currentPortfolioValueNumerator(), initialPortfolioValue * pair.totalSupply());
     }
 
     // tama: mirrors=pair_wallet_history_preserves_unowned
     function invariant_pairWalletHistoryPreservesUnowned() public {
         assertEq(pair.totalSupply() - pair.balanceOf(address(handler)), initialSupply);
+    }
+
+    function _spotValue(uint256 amount0, uint256 amount1) internal view returns (uint256) {
+        return amount0 * initialReserve1 + amount1 * initialReserve0;
+    }
+
+    function _currentPortfolioValueNumerator() internal view returns (uint256) {
+        uint256 supply = pair.totalSupply();
+        (uint256 reserve0, uint256 reserve1,) = pair.getReserves();
+        uint256 lpBalance = pair.balanceOf(address(handler));
+        uint256 amount0Numerator = sorted0.balanceOf(address(handler)) * supply + lpBalance * reserve0;
+        uint256 amount1Numerator = sorted1.balanceOf(address(handler)) * supply + lpBalance * reserve1;
+        return amount0Numerator * initialReserve1 + amount1Numerator * initialReserve0;
     }
 }
 

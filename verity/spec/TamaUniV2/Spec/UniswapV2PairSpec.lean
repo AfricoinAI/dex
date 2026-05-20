@@ -55,7 +55,9 @@ callbacks, and CREATE2 deployment.
 10. Every guarded failure has a canonical revert payload and leaves the
     pre-call state unchanged.
 
-11. Token movement is modeled by pair-local ERC20 trace events.
+11. Token movement is modeled by pair-local ERC20 trace events; runtime
+    mirrors document the external token behavior envelope without treating the
+    generic ERC20 ECM implementation as a Uniswap protocol property.
 
 12. LP approve/transfer/transferFrom move share claims only; AMM state,
     reserves, and token balances are unchanged.
@@ -952,9 +954,11 @@ def pair_initialize_reverts_when_already_initialized
 /-!
 ## 11. ERC20 Trace Boundary
 
-The pair affects token balances only through ERC20 transfer ECMs.
-Each successful `safeTransfer` records a pair-local ghost event
-whose replay moves exactly that token amount.
+The pair affects token balances through the ERC20 helper boundary assumed by
+the compiled model. Each successful `safeTransfer` records a pair-local ghost
+event whose replay moves exactly that token amount. These trace facts define the
+pair's accounting view of ERC20 interactions without pretending to prove
+arbitrary token correctness or the generic ERC20 ECM implementation itself.
 -/
 
 def pair_safeTransfer_traces_token_transfer
