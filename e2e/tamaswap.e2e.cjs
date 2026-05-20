@@ -7,7 +7,8 @@ const path = require("node:path");
 const { spawn, spawnSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "..");
-const RPC_URL = process.env.E2E_RPC_URL || "http://127.0.0.1:18545";
+const RPC_URL = process.env.E2E_RPC_URL || "http://127.0.0.1:18546";
+const RPC = new URL(RPC_URL);
 const PRIVATE_KEY =
   process.env.PRIVATE_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const TMP = path.join(__dirname, ".tmp");
@@ -131,7 +132,7 @@ async function main() {
   const { chromium } = playwright();
   const anvil = await start(
     "anvil",
-    ["--host", "127.0.0.1", "--port", "18545", "--chain-id", "31337"],
+    ["--host", RPC.hostname, "--port", RPC.port || "8545", "--chain-id", "31337"],
     (text) => text.includes("Listening on"),
   );
   try {
@@ -160,7 +161,21 @@ async function main() {
       await page.route("https://coins.llama.fi/**", (route) => route.abort());
       await page.addInitScript(
         ({ account, rpcUrl }) => {
-          let connected = false;
+          function makeProvider(activeAccount) {
+            let connected = false;
+            return {
+              request: async ({ method, params = [] }) => {
+                if (method === "eth_requestAccounts") {
+                  connected = true;
+                  return [activeAccount];
+                }
+                if (method === "eth_accounts") return connected ? [activeAccount] : [];
+                return send(method, params);
+              },
+              on: () => {},
+              removeListener: () => {},
+            };
+          }
           async function send(method, params = []) {
             const response = await fetch(rpcUrl, {
               method: "POST",
@@ -171,19 +186,16 @@ async function main() {
             if (json.error) throw new Error(json.error.message);
             return json.result;
           }
-          window.ethereum = {
-            isMetaMask: true,
-            request: async ({ method, params = [] }) => {
-              if (method === "eth_requestAccounts") {
-                connected = true;
-                return [account];
-              }
-              if (method === "eth_accounts") return connected ? [account] : [];
-              return send(method, params);
-            },
-            on: () => {},
-            removeListener: () => {},
-          };
+          const icon = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>";
+          const wallets = [
+            { info: { uuid: "primary", name: "Primary Wallet", icon, rdns: "test.primary" }, provider: makeProvider(account) },
+            { info: { uuid: "secondary", name: "Secondary Wallet", icon, rdns: "test.secondary" }, provider: makeProvider("0x70997970C51812dc3A010C7d01b50e0d17dc79C8") },
+          ];
+          window.addEventListener("eip6963:requestProvider", () => {
+            for (const detail of wallets) {
+              window.dispatchEvent(new CustomEvent("eip6963:announceProvider", { detail }));
+            }
+          });
         },
         { account: deployment.account, rpcUrl: RPC_URL },
       );
@@ -192,6 +204,7 @@ async function main() {
       await page.evaluate((listUrl) => localStorage.setItem("tamaLists", JSON.stringify([listUrl])), `${url}tokenlist.json`);
       await page.reload();
       await page.getByRole("button", { name: "Connect" }).click();
+      await page.getByRole("button", { name: /Primary Wallet/ }).click();
       await page.waitForFunction(() => document.querySelector("#connect").textContent.startsWith("0x"));
       await assert.equal(await page.locator("#chain").textContent(), "Chain 31337");
       await page.waitForFunction(() => document.querySelector("#listStat").textContent.includes("2 tokens loaded"));

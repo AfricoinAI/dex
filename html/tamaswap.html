@@ -65,9 +65,16 @@
     </div>
   </div>
 </div>
+<div id=walletModal class=modal>
+  <div class=sheet>
+    <div class=sheetHead><b>Connect wallet</b><button id=closeWallet class=x>x</button></div>
+    <div id=wallets class=list></div>
+    <div class=manage><div id=walletStat class=tiny>Looking for installed wallets.</div></div>
+  </div>
+</div>
 <script>
 const FACTORY="__FACTORY__",ROUTER="__ROUTER__",DEFAULT_LIST="https://tokens.uniswap.org";
-let E=null,AC=null,CID=1,activePick="",TOK=[],MAP=new Map(),SEL={},PX=new Map(),PAIR=null;
+let E=null,AC=null,CID=1,activePick="",TOK=[],MAP=new Map(),SEL={},PX=new Map(),PAIR=null,WALLETS=[];
 const SLUG={1:"ethereum",10:"optimism",56:"bsc",100:"xdai",137:"polygon",250:"fantom",324:"era",8453:"base",42161:"arbitrum",43114:"avax",59144:"linea",534352:"scroll",81457:"blast",5000:"mantle",130:"unichain"};
 const $=id=>document.getElementById(id),isA=x=>/^0x[0-9a-fA-F]{40}$/.test(x||""),low=x=>(x||"").toLowerCase(),sh=x=>x?x.slice(0,6)+"..."+x.slice(-4):"",p32=v=>BigInt(v).toString(16).padStart(64,"0"),ea=a=>low(a).slice(2).padStart(64,"0"),dl=()=>Math.floor(Date.now()/1000)+1200;
 const rpc=(m,p)=>E.request({method:m,params:p}),cd=(s,a="")=>s+a,raw=async(to,data)=>await rpc("eth_call",[{to,data},"latest"]),tx=async(to,data)=>await rpc("eth_sendTransaction",[{from:AC,to,data}]);
@@ -80,10 +87,14 @@ function btn(b,t){b.className="tok";b.textContent="";let l=document.createElemen
 function setSel(k,t){SEL[k]=t;btn($(k),t);updateAll()}
 function selected(k){return SEL[k]}
 function need(){if(!AC)throw Error("Connect wallet first")}
-async function connectWallet(){if(!window.ethereum)throw Error("No wallet detected");E=window.ethereum;let a=await rpc("eth_requestAccounts",[]);AC=a[0];CID=Number(await rpc("eth_chainId",[]));connect.textContent=sh(AC);connect.className="wallet ok";chain.textContent="Chain "+CID;await loadLists();updateAll()}
-connect.onclick=()=>connectWallet().catch(e=>status(e.message,true));
-if(window.ethereum){E=window.ethereum;rpc("eth_accounts",[]).then(async a=>{CID=Number(await rpc("eth_chainId",[]));if(a[0]){AC=a[0];connect.textContent=sh(AC);connect.className="wallet ok";chain.textContent="Chain "+CID}await loadLists()}).catch(()=>loadLists())}else loadLists();
-window.ethereum?.on?.("chainChanged",()=>location.reload());window.ethereum?.on?.("accountsChanged",()=>location.reload());
+function walletName(w,i){let p=w.provider,n=w.info?.name;if(n)return n;if(p?.isMetaMask)return "MetaMask";if(p?.isCoinbaseWallet)return "Coinbase Wallet";if(p?.isRabby)return "Rabby";return "Wallet "+(i+1)}
+function addWallet(p,i={}){if(!p||WALLETS.some(w=>w.provider===p))return;WALLETS.push({provider:p,info:i});p.on?.("chainChanged",()=>location.reload());p.on?.("accountsChanged",()=>location.reload());renderWallets()}
+function renderWallets(){wallets.textContent="";WALLETS.forEach((w,i)=>{let b=document.createElement("button");b.className="item";let l=document.createElement("span");l.className="logo";if(w.info?.icon){let im=document.createElement("img");im.src=w.info.icon;l.append(im)}else l.textContent=walletName(w,i).slice(0,2);let d=document.createElement("div"),s=document.createElement("div"),a=document.createElement("div");s.className="sym";s.textContent=walletName(w,i);a.className="addr";a.textContent=w.info?.rdns||"Injected wallet";d.append(s,a);b.append(l,d);b.onclick=()=>connectWallet(w.provider).catch(e=>status(e.message,true));wallets.append(b)});walletStat.textContent=WALLETS.length?`${WALLETS.length} wallet${WALLETS.length===1?"":"s"} detected`:"No wallet detected"}
+function detectWallets(){window.addEventListener("eip6963:announceProvider",e=>addWallet(e.detail?.provider,e.detail?.info||{}));window.dispatchEvent(new Event("eip6963:requestProvider"));let eth=window.ethereum;if(eth?.providers)eth.providers.forEach((p,i)=>addWallet(p,{name:p.name||walletName({provider:p},i)}));else if(eth)addWallet(eth,{name:"Browser wallet"});setTimeout(renderWallets,100)}
+async function connectWallet(p){if(p)E=p;if(!E){if(WALLETS.length===1)return connectWallet(WALLETS[0].provider);throw Error("No wallet detected")}let a=await rpc("eth_requestAccounts",[]);AC=a[0];CID=Number(await rpc("eth_chainId",[]));connect.textContent=sh(AC);connect.className="wallet ok";chain.textContent="Chain "+CID;walletModal.classList.remove("on");await loadLists();updateAll()}
+function openWallets(){if(WALLETS.length===1)connectWallet(WALLETS[0].provider).catch(e=>status(e.message,true));else{renderWallets();walletModal.classList.add("on")}}
+connect.onclick=openWallets;closeWallet.onclick=()=>walletModal.classList.remove("on");walletModal.onclick=e=>{if(e.target===walletModal)walletModal.classList.remove("on")};
+detectWallets();setTimeout(()=>{if(WALLETS[0]){E=WALLETS[0].provider;rpc("eth_accounts",[]).then(async a=>{CID=Number(await rpc("eth_chainId",[]));if(a[0]){AC=a[0];connect.textContent=sh(AC);connect.className="wallet ok";chain.textContent="Chain "+CID}await loadLists()}).catch(()=>loadLists())}else loadLists()},150);
 async function loadLists(){listStat.textContent="Loading token list...";let urls=JSON.parse(localStorage.tamaLists||"null")||[DEFAULT_LIST];let all=[];for(let u of urls){try{let j=await (await fetch(u)).json();if(!Array.isArray(j.tokens))throw Error("bad list");all.push(...j.tokens.filter(t=>t.chainId===CID&&isA(t.address)).map(t=>({address:low(t.address),symbol:t.symbol||"???",name:t.name||t.symbol||"Token",decimals:t.decimals??18,logoURI:t.logoURI||""})))}catch(e){listStat.textContent="Token list unavailable. Paste a token address to import manually."}}let m=new Map();all.forEach(t=>m.set(t.address,t));TOK=[...m.values()].sort((a,b)=>a.symbol.localeCompare(b.symbol));MAP=m;listStat.textContent=TOK.length?`${TOK.length} tokens loaded for chain ${CID}`:"No listed tokens for this chain. Paste an address.";renderTokens()}
 loadList.onclick=async()=>{let u=listUrl.value.trim();if(!u)return;let urls=JSON.parse(localStorage.tamaLists||"null")||[DEFAULT_LIST];if(!urls.includes(u))urls.unshift(u);localStorage.tamaLists=JSON.stringify(urls.slice(0,5));await loadLists()};
 function openPick(k){activePick=k;modal.classList.add("on");search.value="";renderTokens();search.focus()}

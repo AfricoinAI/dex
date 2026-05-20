@@ -37,6 +37,8 @@ contract TamaSwapFrontendTest is Test {
         assertTrue(_contains(html, bytes("tokens.uniswap.org")), "default token list missing");
         assertTrue(_contains(html, bytes("coins.llama.fi")), "DeFiLlama pricing missing");
         assertTrue(_contains(html, bytes("Price unavailable")), "price fallback missing");
+        assertTrue(_contains(html, bytes("Connect wallet")), "wallet picker missing");
+        assertTrue(_contains(html, bytes("eip6963:requestProvider")), "wallet discovery missing");
     }
 
     function testRequestReturnsHtmlHeaders() public view {
