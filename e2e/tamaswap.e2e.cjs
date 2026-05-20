@@ -212,25 +212,42 @@ async function main() {
       await chooseToken(page, "#pickIn", "TKA");
       await chooseToken(page, "#pickOut", "TKB");
       await page.locator("#swapAmt").fill("1");
+      await page.waitForFunction(() => document.querySelector("#priceState").textContent === "Price unavailable");
       await assert.equal(await page.locator("#priceState").textContent(), "Price unavailable");
+      await assert.match(await page.locator("#balIn").textContent(), /Balance:/);
+      await assert.equal(await page.locator("#swapCta").textContent(), "No liquidity");
+      await page.getByRole("button", { name: "Settings" }).click();
+      await page.locator("#slip").fill("1");
+      await page.locator("#closeSettings").click();
 
       await page.locator("#tabPool").click();
       await chooseToken(page, "#pickLpA", "TKA");
       await chooseToken(page, "#pickLpB", "TKB");
       await page.locator("#lpAmtA").fill("1000");
       await page.locator("#lpAmtB").fill("1000");
-      await page.locator("#approveLp").click();
-      await page.waitForFunction(() => document.querySelector("#poolStat").textContent.startsWith("0x"));
-      await page.locator("#doLp").click();
-      await page.waitForFunction(() => document.querySelector("#poolStat").textContent.startsWith("0x"));
+      await assert.match(await page.locator("#lpBalA").textContent(), /Balance:/);
+      await page.waitForFunction(() => document.querySelector("#lpPoolState").textContent.includes("New pool"));
+      await assert.match(await page.locator("#lpPoolState").textContent(), /New pool/);
+      await assert.match(await page.locator("#lpPrice").textContent(), /Initial price/);
+      await page.waitForFunction(() => document.querySelector("#lpCta").textContent === "Approve tokens");
+      await assert.equal(await page.locator("#lpCta").textContent(), "Approve tokens");
+      await page.locator("#lpCta").click();
+      await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
+      await page.waitForFunction(() => document.querySelector("#lpCta").textContent.includes("Create pool"));
+      await page.locator("#lpCta").click();
+      await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
+      await page.waitForFunction(() => document.querySelector("#lpPoolState").textContent.includes("existing pool"));
+      await page.locator("#lpAmtA").fill("5");
+      await page.waitForFunction(() => document.querySelector("#lpAmtB").value === "5");
 
       await page.locator("#tabSwap").click();
       await page.locator("#swapAmt").fill("1");
       await page.waitForFunction(() => document.querySelector("#swapOutAmt").value.length > 0);
-      await page.locator("#approveSwap").click();
-      await page.waitForFunction(() => document.querySelector("#stat").textContent.startsWith("0x"));
-      await page.locator("#doSwap").click();
-      await page.waitForFunction(() => document.querySelector("#stat").textContent.startsWith("0x"));
+      await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Swap");
+      await page.locator("#swapCta").click();
+      await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"), null, { timeout: 5000 }).catch(async (error) => {
+        throw new Error(`${error.message}; swap status=${await page.locator("#stat").textContent()}`);
+      });
 
       const pair = await rpc("eth_call", [
         { to: deployment.factory, data: `0xe6a43905${deployment.tokenA.slice(2).padStart(64, "0")}${deployment.tokenB.slice(2).padStart(64, "0")}` },
