@@ -23,6 +23,14 @@ const ARACHNID_CREATE2 = "0x4e59b44847b379578588920cA78FbF26c0B4956C";
 const FACTORY_SALT = keccakUtf8("tama-uni-v2.factory");
 const ROUTER_SALT = keccakUtf8("tama-uni-v2.router");
 const LOCAL_WETH_SALT = keccakUtf8("tama-uni-v2.local-weth");
+const SOCIAL_DESCRIPTION = "The first provably unhackable DEX, forever online.";
+const FAVICON_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><g transform="rotate(-6 32 32)"><rect x="8" y="8" width="48" height="48" rx="8" fill="#b9442e"/><text x="32" y="44" text-anchor="middle" font-family="serif" font-size="36" font-weight="600" fill="#fffdf6">玉</text></g></svg>';
+const FAVICON_DATA_URI = `data:image/svg+xml,${encodeURIComponent(FAVICON_SVG)}`;
+const SOCIAL_SVG =
+  `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><rect width="1200" height="630" fill="#fff8fb"/><g transform="translate(600 170) rotate(-6)"><rect x="-100" y="-100" width="200" height="200" rx="28" fill="#b9442e"/><rect x="-90" y="-90" width="180" height="180" rx="20" fill="none" stroke="#fff0e6" stroke-opacity=".58" stroke-width="7"/><text y="58" text-anchor="middle" font-family="serif" font-size="118" font-weight="600" fill="#fffdf6">玉</text></g><text x="600" y="390" text-anchor="middle" font-family="Georgia,serif" font-size="112" font-weight="700" fill="#111827">TamaSwap</text><text x="600" y="462" text-anchor="middle" font-family="system-ui,sans-serif" font-size="34" font-weight="600" fill="#6b7280">${SOCIAL_DESCRIPTION}</text></svg>`;
+const BOOT_META =
+  `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TamaSwap</title><meta name="description" content="${SOCIAL_DESCRIPTION}"><meta property="og:title" content="TamaSwap"><meta property="og:description" content="${SOCIAL_DESCRIPTION}"><meta property="og:image" content="social.svg"><meta property="og:image:type" content="image/svg+xml"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="TamaSwap"><meta name="twitter:description" content="${SOCIAL_DESCRIPTION}"><meta name="twitter:image" content="social.svg"><link rel="icon" type="image/svg+xml" href="${FAVICON_DATA_URI}">`;
 
 function solString(value, indent = "        ") {
   const parts = [];
@@ -135,6 +143,7 @@ function render({
   tail,
   encodedHex,
   deploymentEncodedHex,
+  socialHex,
   deploymentEncoded,
   factoryAddress,
   routerAddress,
@@ -154,6 +163,7 @@ contract TamaSwapFrontend {
 
     address public immutable HTML_DATA;
     address public immutable DEPLOYMENT_DATA;
+    bytes private constant SOCIAL_SVG = hex"${socialHex}";
     struct KeyValue { string key; string value; }
 
     constructor() payable {
@@ -186,6 +196,12 @@ contract TamaSwapFrontend {
                     statusCode = 200;
                     body = _deploymentCode();
                     headers = _textHeaders();
+                    return (statusCode, body, headers);
+                }
+                if (value == keccak256(bytes("social.svg"))) {
+                    statusCode = 200;
+                    body = string(SOCIAL_SVG);
+                    headers = _svgHeaders();
                     return (statusCode, body, headers);
                 }
             }
@@ -246,6 +262,12 @@ contract TamaSwapFrontend {
         headers[0] = KeyValue("Content-Type", "text/plain; charset=utf-8");
         headers[1] = KeyValue("Cache-Control", "public, max-age=31536000, immutable");
     }
+
+    function _svgHeaders() private pure returns (KeyValue[] memory headers) {
+        headers = new KeyValue[](2);
+        headers[0] = KeyValue("Content-Type", "image/svg+xml");
+        headers[1] = KeyValue("Cache-Control", "public, max-age=31536000, immutable");
+    }
 }
 
 /* ===== tamaswap.html source, ${total} bytes minified, ${compressed} bytes gzip before base64 =====
@@ -292,8 +314,9 @@ async function main() {
   const deploymentCompressed = zlib.gzipSync(Buffer.from(deploymentJson, "utf8"), { level: 9 });
   const deploymentEncoded = deploymentCompressed.toString("base64");
   const deploymentEncodedHex = Buffer.from(deploymentEncoded, "utf8").toString("hex");
+  const socialHex = Buffer.from(SOCIAL_SVG, "utf8").toString("hex");
   const template =
-    `<!doctype html><script>(async()=>{const B="${encoded}";try{let u=Uint8Array.from(atob(B),c=>c.charCodeAt()),h=await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream("gzip"))).text();document.open().write(h);document.close()}catch{document.body.textContent="TamaSwap load failed"}})()</script>`;
+    `<!doctype html>${BOOT_META}<script>(async()=>{const B="${encoded}";try{let u=Uint8Array.from(atob(B),c=>c.charCodeAt()),h=await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream("gzip"))).text();document.open().write(h);document.close()}catch{document.body.textContent="TamaSwap load failed"}})()</script>`;
   const payloadIndex = template.indexOf(encoded);
   if (payloadIndex < 0) {
     throw new Error("expected payload in bootstrap template");
@@ -318,6 +341,7 @@ async function main() {
     tail,
     encodedHex,
     deploymentEncodedHex,
+    socialHex,
     deploymentEncoded,
     factoryAddress,
     routerAddress,

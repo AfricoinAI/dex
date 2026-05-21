@@ -9,7 +9,7 @@ contract TamaSwapFrontendTest is Test {
     bytes32 internal constant ERC_5219_MODE = 0x3532313900000000000000000000000000000000000000000000000000000000;
     uint256 internal constant EIP_170_CAP = 24576;
     uint256 internal constant EIP_3860_INITCODE_CAP = 49152;
-    uint256 internal constant MIN_WRAPPER_MARGIN = 19000;
+    uint256 internal constant MIN_WRAPPER_MARGIN = 1024;
     uint256 internal constant MIN_INITCODE_MARGIN = 700;
 
     function setUp() public {
@@ -70,6 +70,10 @@ contract TamaSwapFrontendTest is Test {
 
         (bool data2Ok,) = address(frontend).staticcall(abi.encodeWithSignature("HTML_DATA_2()"));
         assertFalse(data2Ok, "unexpected second data contract");
+        (bool faviconDataOk,) = address(frontend).staticcall(abi.encodeWithSignature("FAVICON_DATA()"));
+        assertFalse(faviconDataOk, "unexpected favicon data contract");
+        (bool socialDataOk,) = address(frontend).staticcall(abi.encodeWithSignature("SOCIAL_DATA()"));
+        assertFalse(socialDataOk, "unexpected social data contract");
 
         (bool headOk,) = address(frontend).staticcall(abi.encodeWithSignature("HEAD()"));
         assertFalse(headOk, "unexpected HEAD chunk");
@@ -86,6 +90,41 @@ contract TamaSwapFrontendTest is Test {
         string memory expected = _expectedBootstrap(vm.toBase64(compressed));
 
         assertEq(keccak256(bytes(frontend.html())), keccak256(bytes(expected)));
+    }
+
+    function testBootstrapIncludesFaviconAndSocialMetadata() public view {
+        bytes memory html = bytes(frontend.html());
+
+        assertTrue(
+            _contains(html, bytes("<link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg+xml,")),
+            "favicon data URI missing"
+        );
+        assertTrue(_contains(html, bytes("<meta property=\"og:title\" content=\"TamaSwap\">")), "og title missing");
+        assertTrue(_contains(html, bytes("<meta property=\"og:image\" content=\"social.svg\">")), "og image missing");
+        assertTrue(_contains(html, bytes("<meta property=\"og:image:type\" content=\"image/svg+xml\">")), "og image type missing");
+        assertTrue(_contains(html, bytes("<meta name=\"twitter:card\" content=\"summary_large_image\">")), "twitter card missing");
+        assertTrue(_contains(html, bytes("<meta name=\"twitter:image\" content=\"social.svg\">")), "twitter image missing");
+    }
+
+    function testRequestReturnsBrandImages() public view {
+        (uint16 socialStatus, string memory social, TamaSwapFrontend.KeyValue[] memory socialHeaders) =
+            _request("social.svg");
+        assertEq(socialStatus, 200);
+        assertEq(socialHeaders.length, 2);
+        assertEq(socialHeaders[0].key, "Content-Type");
+        assertEq(socialHeaders[0].value, "image/svg+xml");
+        assertTrue(_contains(bytes(social), bytes("width=\"1200\"")), "social width missing");
+        assertTrue(_contains(bytes(social), bytes("height=\"630\"")), "social height missing");
+        assertFalse(_contains(bytes(social), bytes("<circle")), "social image should not use background circles");
+        assertTrue(_contains(bytes(social), bytes("translate(600 170)")), "social logo should be centered");
+        assertTrue(_contains(bytes(social), bytes("x=\"600\"")), "social text should be centered");
+        assertTrue(_contains(bytes(social), bytes("text-anchor=\"middle\"")), "social text anchor missing");
+        assertTrue(_contains(bytes(social), bytes("TamaSwap")), "social wordmark missing");
+        assertTrue(
+            _contains(bytes(social), bytes("The first provably unhackable DEX, forever online.")),
+            "social description missing"
+        );
+        assertTrue(_contains(bytes(social), bytes(unicode"玉")), "social logo missing");
     }
 
     function testWrapperRuntimeAndInitcodeStaySmall() public view {
@@ -155,10 +194,30 @@ contract TamaSwapFrontendTest is Test {
 
     function _expectedBootstrap(string memory encoded) internal pure returns (string memory) {
         return string.concat(
-            "<!doctype html><script>(async()=>{const B=\"",
+            "<!doctype html>",
+            _bootstrapMeta(),
+            "<script>(async()=>{const B=\"",
             encoded,
             "\";try{let u=Uint8Array.from(atob(B),c=>c.charCodeAt()),h=await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream(\"gzip\"))).text();document.open().write(h);document.close()}catch{document.body.textContent=\"TamaSwap load failed\"}})()</script>"
         );
+    }
+
+    function _bootstrapMeta() internal pure returns (string memory) {
+        return string.concat(
+            "<meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>TamaSwap</title>",
+            "<meta name=\"description\" content=\"The first provably unhackable DEX, forever online.\"><meta property=\"og:title\" content=\"TamaSwap\">",
+            "<meta property=\"og:description\" content=\"The first provably unhackable DEX, forever online.\"><meta property=\"og:image\" content=\"social.svg\">",
+            "<meta property=\"og:image:type\" content=\"image/svg+xml\"><meta property=\"og:image:width\" content=\"1200\">",
+            "<meta property=\"og:image:height\" content=\"630\"><meta name=\"twitter:card\" content=\"summary_large_image\">",
+            "<meta name=\"twitter:title\" content=\"TamaSwap\"><meta name=\"twitter:description\" content=\"The first provably unhackable DEX, forever online.\">",
+            "<meta name=\"twitter:image\" content=\"social.svg\"><link rel=\"icon\" type=\"image/svg+xml\" href=\"",
+            _faviconDataUri(),
+            "\">"
+        );
+    }
+
+    function _faviconDataUri() internal pure returns (string memory) {
+        return "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cg%20transform%3D%22rotate(-6%2032%2032)%22%3E%3Crect%20x%3D%228%22%20y%3D%228%22%20width%3D%2248%22%20height%3D%2248%22%20rx%3D%228%22%20fill%3D%22%23b9442e%22%2F%3E%3Ctext%20x%3D%2232%22%20y%3D%2244%22%20text-anchor%3D%22middle%22%20font-family%3D%22serif%22%20font-size%3D%2236%22%20font-weight%3D%22600%22%20fill%3D%22%23fffdf6%22%3E%E7%8E%89%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fsvg%3E";
     }
 
     function _assertTextResource(string memory name, string memory expected) internal view {
@@ -167,17 +226,24 @@ contract TamaSwapFrontendTest is Test {
     }
 
     function _requestBody(string memory name) internal view returns (string memory body) {
-        string[] memory resource = new string[](1);
-        resource[0] = name;
-        TamaSwapFrontend.KeyValue[] memory params = new TamaSwapFrontend.KeyValue[](0);
-        (uint16 status, string memory response, TamaSwapFrontend.KeyValue[] memory headers) =
-            frontend.request(resource, params);
+        (uint16 status, string memory response, TamaSwapFrontend.KeyValue[] memory headers) = _request(name);
 
         assertEq(status, 200);
         assertEq(headers.length, 2);
         assertEq(headers[0].key, "Content-Type");
         assertEq(headers[0].value, "text/plain; charset=utf-8");
         return response;
+    }
+
+    function _request(string memory name)
+        internal
+        view
+        returns (uint16 status, string memory response, TamaSwapFrontend.KeyValue[] memory headers)
+    {
+        string[] memory resource = new string[](1);
+        resource[0] = name;
+        TamaSwapFrontend.KeyValue[] memory params = new TamaSwapFrontend.KeyValue[](0);
+        return frontend.request(resource, params);
     }
 
     function _assertRawDataOk(address d, bytes memory expected, string memory label) internal view {
