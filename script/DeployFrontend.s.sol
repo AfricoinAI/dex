@@ -10,11 +10,9 @@ contract DeployFrontend is Script {
     bytes32 internal constant FRONTEND_SALT = 0x0000000000000000000000000000000000000000b6183b5230f800000005c334;
 
     function run() external returns (TamaSwapFrontend frontend) {
-        uint256 privateKey = vm.envUint("PRIVATE_KEY");
-
         require(CREATE2_DEPLOYER.code.length != 0, "ARACHNID_MISSING");
 
-        vm.startBroadcast(privateKey);
+        vm.startBroadcast(vm.envAddress("DEPLOYER"));
         frontend = TamaSwapFrontend(_deployCreate2(FRONTEND_SALT, type(TamaSwapFrontend).creationCode, FRONTEND));
         vm.stopBroadcast();
 
