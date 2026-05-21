@@ -15,8 +15,9 @@ const PRIVATE_KEY =
 const TMP = path.join(__dirname, ".tmp");
 const DEPLOYMENT = path.join(TMP, "deployment.json");
 const ARACHNID_CREATE2 = "0x4e59b44847b379578588920ca78fbf26c0b4956c";
-const GLOBAL_FACTORY = "0x5fbf46ad6abc6bd44a6f7f302a45c8b8c15328e3";
-const GLOBAL_ROUTER = "0x3683a95874a3a9f9bba6a1c0902b25003c35ecb0";
+const GLOBAL_FACTORY = "0x00000060cc856a2b760b870290faad078c146258";
+const GLOBAL_ROUTER = "0x0000002ec9919637129644e17039ee41d9bf9bce";
+const GLOBAL_FRONTEND = "0x000000b916d42e11d9ad4c0b3d83cf4b769a571d";
 
 function playwright() {
   const candidates = [
@@ -254,6 +255,7 @@ async function main() {
     deployment.routerInitcode = initcodes.r;
     assert.equal(deployment.factory.toLowerCase(), GLOBAL_FACTORY);
     assert.equal(deployment.router.toLowerCase(), GLOBAL_ROUTER);
+    assert.equal(deployment.frontend.toLowerCase(), GLOBAL_FRONTEND);
     assert.match(deployment.factoryInitcode, /^0x[0-9a-f]+$/);
     assert.match(deployment.routerInitcode, /^0x[0-9a-f]+$/);
     assert.notEqual(await rpc("eth_getCode", [deployment.factory, "latest"]), "0x");

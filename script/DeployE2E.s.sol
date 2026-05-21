@@ -9,10 +9,12 @@ import {E2EToken, E2EWETH} from "./E2ETokens.sol";
 
 contract DeployE2E is Script {
     address internal constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-    address internal constant GLOBAL_FACTORY = 0x5FBf46Ad6AbC6bd44a6F7F302A45c8B8C15328E3;
-    address internal constant GLOBAL_ROUTER = 0x3683A95874a3A9f9BBa6a1c0902b25003C35ECb0;
-    bytes32 internal constant FACTORY_SALT = keccak256("tama-uni-v2.factory");
-    bytes32 internal constant ROUTER_SALT = keccak256("tama-uni-v2.router");
+    address internal constant GLOBAL_FACTORY = 0x00000060cc856A2b760b870290fAAD078c146258;
+    address internal constant GLOBAL_ROUTER = 0x0000002Ec9919637129644E17039EE41d9bf9bce;
+    address internal constant GLOBAL_FRONTEND = 0x000000b916D42E11D9ad4C0b3d83cF4b769A571d;
+    bytes32 internal constant FACTORY_SALT = 0x000000000000000000000000000000000000000079f16b35eec9000000f08c16;
+    bytes32 internal constant ROUTER_SALT = 0x00000000000000000000000000000000000000006b423948f657000001dba44f;
+    bytes32 internal constant FRONTEND_SALT = 0x00000000000000000000000000000000000000003f70fcd3b2e00000009b0547;
     bytes32 internal constant WETH_SALT = keccak256("tama-uni-v2.local-weth");
 
     function run() external {
@@ -26,7 +28,8 @@ contract DeployE2E is Script {
         address factory = _deployCreate2(FACTORY_SALT, factoryCreationCode(), GLOBAL_FACTORY);
         E2EWETH weth = E2EWETH(payable(_deployCreate2(WETH_SALT, type(E2EWETH).creationCode, wethAddress())));
         address router = _deployCreate2(ROUTER_SALT, routerCreationCode(factory), GLOBAL_ROUTER);
-        TamaSwapFrontend frontend = new TamaSwapFrontend();
+        TamaSwapFrontend frontend =
+            TamaSwapFrontend(_deployCreate2(FRONTEND_SALT, type(TamaSwapFrontend).creationCode, GLOBAL_FRONTEND));
         E2EToken tokenA = new E2EToken("Test Token A", "TKA", 18);
         E2EToken tokenB = new E2EToken("Test Token B", "TKB", 6);
         tokenA.mint(deployer, 1_000_000 ether);

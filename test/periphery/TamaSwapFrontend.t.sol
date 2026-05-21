@@ -6,6 +6,8 @@ import {TamaSwapFrontend} from "../../src/TamaSwapFrontend.sol";
 
 contract TamaSwapFrontendTest is Test {
     TamaSwapFrontend internal frontend;
+    bytes20 internal constant GLOBAL_FACTORY = hex"00000060cc856a2b760b870290faad078c146258";
+    bytes20 internal constant GLOBAL_ROUTER = hex"0000002ec9919637129644e17039ee41d9bf9bce";
     bytes32 internal constant ERC_5219_MODE = 0x3532313900000000000000000000000000000000000000000000000000000000;
     uint256 internal constant EIP_170_CAP = 24576;
     uint256 internal constant EIP_3860_INITCODE_CAP = 49152;
@@ -19,8 +21,14 @@ contract TamaSwapFrontendTest is Test {
     function testGeneratedAppInjectsGlobalAddressesAndResourcePaths() public view {
         bytes memory app = bytes(vm.readFile("artifacts/tamaswap.min.html"));
 
-        assertTrue(_contains(app, bytes("0x5fbf46ad6abc6bd44a6f7f302a45c8b8c15328e3")), "factory missing");
-        assertTrue(_contains(app, bytes("0x3683a95874a3a9f9bba6a1c0902b25003c35ecb0")), "router missing");
+        assertTrue(_contains(app, bytes("0x00000060cc856a2b760b870290faad078c146258")), "factory missing");
+        assertTrue(_contains(app, bytes("0x0000002ec9919637129644e17039ee41d9bf9bce")), "router missing");
+        assertEq(GLOBAL_FACTORY[0], bytes1(0), "factory vanity byte 0");
+        assertEq(GLOBAL_FACTORY[1], bytes1(0), "factory vanity byte 1");
+        assertEq(GLOBAL_FACTORY[2], bytes1(0), "factory vanity byte 2");
+        assertEq(GLOBAL_ROUTER[0], bytes1(0), "router vanity byte 0");
+        assertEq(GLOBAL_ROUTER[1], bytes1(0), "router vanity byte 1");
+        assertEq(GLOBAL_ROUTER[2], bytes1(0), "router vanity byte 2");
         assertTrue(_contains(app, bytes("/deployment-code")), "deployment resource missing");
         assertFalse(_contains(app, bytes("__FACTORY__")), "factory placeholder present");
         assertFalse(_contains(app, bytes("__ROUTER__")), "router placeholder present");
@@ -46,7 +54,9 @@ contract TamaSwapFrontendTest is Test {
     function testHtmlStructureAndDataChunks() public view {
         assertLe(address(frontend).code.length, EIP_170_CAP, "wrapper exceeds EIP-170");
         assertGe(EIP_170_CAP - address(frontend).code.length, MIN_WRAPPER_MARGIN, "wrapper margin too small");
-        _assertRawDataOk(frontend.HTML_DATA(), bytes(vm.toBase64(vm.readFileBinary("artifacts/tamaswap.min.html.gz"))), "HTML_DATA");
+        _assertRawDataOk(
+            frontend.HTML_DATA(), bytes(vm.toBase64(vm.readFileBinary("artifacts/tamaswap.min.html.gz"))), "HTML_DATA"
+        );
         _assertRawDataOk(frontend.DEPLOYMENT_DATA(), bytes(_requestBody("deployment-code")), "DEPLOYMENT_DATA");
 
         bytes memory html = bytes(frontend.html());
@@ -101,9 +111,17 @@ contract TamaSwapFrontendTest is Test {
         );
         assertTrue(_contains(html, bytes("<meta property=\"og:title\" content=\"TamaSwap\">")), "og title missing");
         assertTrue(_contains(html, bytes("<meta property=\"og:image\" content=\"social.svg\">")), "og image missing");
-        assertTrue(_contains(html, bytes("<meta property=\"og:image:type\" content=\"image/svg+xml\">")), "og image type missing");
-        assertTrue(_contains(html, bytes("<meta name=\"twitter:card\" content=\"summary_large_image\">")), "twitter card missing");
-        assertTrue(_contains(html, bytes("<meta name=\"twitter:image\" content=\"social.svg\">")), "twitter image missing");
+        assertTrue(
+            _contains(html, bytes("<meta property=\"og:image:type\" content=\"image/svg+xml\">")),
+            "og image type missing"
+        );
+        assertTrue(
+            _contains(html, bytes("<meta name=\"twitter:card\" content=\"summary_large_image\">")),
+            "twitter card missing"
+        );
+        assertTrue(
+            _contains(html, bytes("<meta name=\"twitter:image\" content=\"social.svg\">")), "twitter image missing"
+        );
     }
 
     function testRequestReturnsBrandImages() public view {
