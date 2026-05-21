@@ -181,6 +181,19 @@ async function chooseToken(page, button, symbol) {
   await page.locator(".item", { hasText: symbol }).first().click();
 }
 
+async function ensureConnected(page) {
+  if (!(await page.locator("#connect").textContent()).startsWith("0x")) {
+    await page.locator("#connect").click();
+    if (!(await page.locator("#connect").textContent()).startsWith("0x")) {
+      await page.getByRole("button", { name: /Primary Wallet/ }).click();
+    }
+  }
+  await page.waitForFunction(() => document.querySelector("#connect").textContent.startsWith("0x"));
+  if (await page.locator("#walletModal").evaluate((el) => el.classList.contains("on")).catch(() => false)) {
+    await page.locator("#closeWallet").click();
+  }
+}
+
 async function main() {
   fs.mkdirSync(TMP, { recursive: true });
   const { chromium } = playwright();
@@ -250,11 +263,12 @@ async function main() {
       await page.addInitScript(
         ({ account, brokenToken, factory, manualToken, rpcUrl }) => {
           function makeProvider(activeAccount) {
-            let connected = false;
+            let connected = localStorage.__walletConnected === "1";
             return {
               request: async ({ method, params = [] }) => {
                 if (method === "eth_requestAccounts") {
                   connected = true;
+                  localStorage.__walletConnected = "1";
                   return [activeAccount];
                 }
                 if (method === "eth_accounts") return connected ? [activeAccount] : [];
@@ -318,13 +332,29 @@ async function main() {
           ];
           wallets[0].provider.name = "Primary Wallet";
           wallets[1].provider.name = "Secondary Wallet";
-          window.ethereum = wallets[0].provider;
-          window.ethereum.providers = wallets.map((wallet) => wallet.provider);
+          if (!localStorage.__delayWallets) {
+            window.ethereum = wallets[0].provider;
+            window.ethereum.providers = wallets.map((wallet) => wallet.provider);
+          }
           window.addEventListener("eip6963:requestProvider", () => {
-            for (const detail of wallets) {
-              window.dispatchEvent(new CustomEvent("eip6963:announceProvider", { detail }));
-            }
+            setTimeout(
+              () => {
+                for (const detail of wallets) {
+                  window.dispatchEvent(new CustomEvent("eip6963:announceProvider", { detail }));
+                }
+              },
+              localStorage.__delayWallets ? 750 : 0,
+            );
           });
+          if (localStorage.__delayWallets) {
+            for (const delay of [750, 1400]) {
+              setTimeout(() => {
+                for (const detail of wallets) {
+                  window.dispatchEvent(new CustomEvent("eip6963:announceProvider", { detail }));
+                }
+              }, delay);
+            }
+          }
         },
         {
           account: deployment.account,
@@ -336,6 +366,7 @@ async function main() {
       );
 
       await page.goto(url);
+      assert.equal(await page.locator(".mark").textContent(), "☯️");
       await page.evaluate(() => {
         window.__missingFactory = true;
       });
@@ -357,12 +388,12 @@ async function main() {
         localStorage.setItem("tamaExplorer:31337", "javascript:alert(1)");
       });
       await page.reload();
-      await page.getByRole("button", { name: "Connect" }).click();
-      await page.getByRole("button", { name: /Primary Wallet/ }).click();
-      await page.waitForFunction(() => document.querySelector("#connect").textContent.startsWith("0x"));
+      await ensureConnected(page);
       assert.equal(await page.locator("#bootView").isVisible(), false);
       assert.equal(await page.locator("#swapView").isVisible(), true);
       await page.waitForFunction(() => document.querySelector("#listStat").textContent.includes("2 tokens loaded"));
+      pageErrors.length = 0;
+      requestErrors.length = 0;
       const unsafeExplorer = await page.evaluate(() => {
         done(`0x${"1".repeat(64)}`);
         return {
@@ -385,19 +416,14 @@ async function main() {
       await page.evaluate((listUrl) => {
         localStorage.setItem("tamaLists", JSON.stringify([listUrl]));
         localStorage.setItem("tamaExplorer:31337", "explorer.local");
+        localStorage.setItem("__walletConnected", "1");
+        localStorage.setItem("__delayWallets", "1");
       }, `${url}tokenlist.json`);
       await page.reload();
       pageErrors.length = 0;
       requestErrors.length = 0;
-      await page.getByRole("button", { name: "Connect" }).click();
-      await page.getByRole("button", { name: /Primary Wallet/ }).click().catch(async (error) => {
-        throw new Error(
-          `${error.message}; walletStat=${await page.locator("#walletStat").textContent().catch(() => "missing")}; wallets=${await page
-            .locator("#wallets")
-            .textContent()
-            .catch(() => "missing")}; pageErrors=${pageErrors.join(" | ")}; body=${(await page.locator("body").textContent()).slice(0, 500)}`,
-        );
-      });
+      await page.waitForFunction(() => document.querySelector("#connect").textContent.startsWith("0x"));
+      await page.evaluate(() => localStorage.removeItem("__delayWallets"));
       await page.waitForFunction(() => document.querySelector("#connect").textContent.startsWith("0x"));
       assert.equal(await page.locator("#bootView").isVisible(), false);
       assert.equal(await page.locator("#swapView").isVisible(), true);
@@ -450,9 +476,7 @@ async function main() {
       await page.locator("#maxApproval").check();
       await page.locator("#closeSettings").click();
       await page.reload();
-      await page.getByRole("button", { name: "Connect" }).click();
-      await page.getByRole("button", { name: /Primary Wallet/ }).click();
-      await page.waitForFunction(() => document.querySelector("#connect").textContent.startsWith("0x"));
+      await ensureConnected(page);
       await page.getByRole("button", { name: "Settings" }).click();
       assert.equal(await page.locator("#slip").inputValue(), "1.25");
       assert.equal(await page.locator("#maxApproval").isChecked(), true);
@@ -466,16 +490,14 @@ async function main() {
       await page.locator("#closeModal").click();
       await page.evaluate(() => localStorage.setItem("__chainIdOverride", "0x2105"));
       await page.reload();
-      await page.getByRole("button", { name: "Connect" }).click();
-      await page.getByRole("button", { name: /Primary Wallet/ }).click();
+      await ensureConnected(page);
       await page.waitForFunction(() => document.querySelector("#listStat").textContent.includes("chain 8453"));
       await page.locator("#pickIn").click();
       assert.equal(await page.locator(".item", { hasText: "CUST" }).count(), 0);
       await page.locator("#closeModal").click();
       await page.evaluate(() => localStorage.removeItem("__chainIdOverride"));
       await page.reload();
-      await page.getByRole("button", { name: "Connect" }).click();
-      await page.getByRole("button", { name: /Primary Wallet/ }).click();
+      await ensureConnected(page);
       await page.waitForFunction(() => document.querySelector("#listStat").textContent.includes("chain 31337"));
 
       await chooseToken(page, "#pickIn", "ETH");
@@ -510,7 +532,8 @@ async function main() {
       });
       await page.locator("#lpCta").click();
       await page.waitForFunction((count) => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")).length === count + 1, approvalsBeforeHeldClick);
-      await page.waitForTimeout(100);
+      await page.evaluate(() => updateAll());
+      await page.waitForFunction(() => document.querySelector("#lpCta").textContent === "Waiting for approvals");
       assert.equal(await page.locator("#lpCta").isDisabled(), true);
       assert.equal(
         await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")).length),
