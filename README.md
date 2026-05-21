@@ -1,7 +1,8 @@
-# Tama UniswapV2 🦄
+# Tamaswap
 
-`tama-uni-v2` is the **first formally verified Uniswap V2 implementation that
-ships to production**. The `UniswapV2Pair` and `UniswapV2Factory` contracts are
+Tamaswap is the **first provably unhackable DEX**.
+
+Tamaswap is modeled after Uniswap v2. The `UniswapV2Pair` and `UniswapV2Factory` contracts are
 written in [Verity](https://veritylang.com), compiled to Solidity-equivalent
 Yul, and **mathematically proven correct in Lean** — every property below is a
 theorem, not a test case.
@@ -10,6 +11,8 @@ Built on [Tama](https://tama.tools) (the secure-by-construction Ethereum
 toolchain) and [Tamago](https://github.com/Bacon-labs/tamago) (Verity's
 standard contract suite). The proved specs are double-checked by Foundry
 mirror tests that connect each property to the generated EVM bytecode.
+
+Use Tamaswap at [swap.tama.tools](https://swap.tama.tools).
 
 ## What is proved
 
