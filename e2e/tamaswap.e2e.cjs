@@ -265,6 +265,9 @@ async function main() {
             };
           }
           async function send(method, params = []) {
+            if (method === "eth_call" && params[0]?.data?.startsWith("0xdd62ed3e") && window.__forceZeroAllowance) {
+              return "0x" + "0".repeat(64);
+            }
             if (method === "eth_sendTransaction") {
               window.__sentTxs = window.__sentTxs || [];
               window.__sentTxs.push(params[0]);
@@ -419,6 +422,24 @@ async function main() {
       await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
 
       await page.locator("#tabSwap").click();
+      await chooseToken(page, "#pickIn", "TKA");
+      await chooseToken(page, "#pickOut", "ETH");
+      await page.locator("#swapAmt").fill("1");
+      await page.waitForFunction(() => document.querySelector("#swapOutAmt").value.length > 0);
+      await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Approve TKA");
+      await page.evaluate(() => {
+        window.__forceZeroAllowance = true;
+      });
+      await page.locator("#swapCta").click();
+      await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"));
+      await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Swap");
+      await page.waitForTimeout(1200);
+      assert.equal(await page.locator("#swapCta").textContent(), "Swap");
+      await page.evaluate(() => {
+        window.__forceZeroAllowance = false;
+      });
+      await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Swap");
+
       await chooseToken(page, "#pickIn", "ETH");
       await chooseToken(page, "#pickOut", "TKA");
       await page.locator("#swapAmt").fill("0.1");
