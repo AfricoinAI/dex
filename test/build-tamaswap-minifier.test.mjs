@@ -68,3 +68,17 @@ test("frontend disables remove liquidity when pair supply cannot be read", () =>
   expect(source).toContain('if(supply==null){burnCta.textContent="Pool supply unavailable";return}');
   expect(source).not.toContain("outA=supply?liq*ra/supply:0n");
 });
+
+test("frontend does not reuse pre-swap allowance while a finite approval spend is pending", () => {
+  const source = fs.readFileSync("html/tamaswap.html", "utf8");
+
+  expect(source).toMatch(/spendPending=new Map\(\)/);
+  expect(source).toMatch(/function markSpend\(t,spender=ROUTER\)/);
+  expect(source).toMatch(/function clearSpend\(k\)/);
+  expect(source).toMatch(/spendPending\.has\(k\).*return 0n/);
+  expect(source).toMatch(/function submitted\(h,pool=false,spent=""\)/);
+  expect(source).toMatch(/clearSpend\(spent\);allowCache\.clear\(\);updateAll\(\)/);
+  expect(source.match(/submitted\(await tx\(ROUTER,d\),false,markSpend\(a\)\)/g)?.length).toBeGreaterThanOrEqual(4);
+  expect(source).toContain("submitted(await tx(ROUTER,d),true,[markSpend(a),markSpend(b)])");
+  expect(source).toContain("submitted(await tx(ROUTER,d),true,markSpend(pairTok))");
+});
