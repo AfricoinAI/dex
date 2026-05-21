@@ -248,7 +248,7 @@ async function main() {
       await page.route("https://tokens.uniswap.org/", (route) => route.fulfill({ json: { tokens: [] } }));
       await page.route("https://coins.llama.fi/**", (route) => route.fulfill({ json: { coins: {} } }));
       await page.addInitScript(
-        ({ account, rpcUrl }) => {
+        ({ account, factory, rpcUrl }) => {
           function makeProvider(activeAccount) {
             let connected = false;
             return {
@@ -266,6 +266,9 @@ async function main() {
           }
           async function send(method, params = []) {
             if (method === "eth_getTransactionReceipt" && window.__holdReceipts) return null;
+            if (method === "eth_getCode" && window.__missingFactory && params[0]?.toLowerCase() === factory.toLowerCase()) {
+              return "0x";
+            }
             if (method === "eth_call" && params[0]?.data?.startsWith("0xdd62ed3e") && window.__forceZeroAllowance) {
               return "0x" + "0".repeat(64);
             }
@@ -301,10 +304,26 @@ async function main() {
             }
           });
         },
-        { account: deployment.account, rpcUrl: RPC_URL },
+        { account: deployment.account, factory: deployment.factory, rpcUrl: RPC_URL },
       );
 
       await page.goto(url);
+      await page.evaluate(() => {
+        window.__missingFactory = true;
+      });
+      await page.getByRole("button", { name: "Connect" }).click();
+      await page.getByRole("button", { name: /Primary Wallet/ }).click();
+      await page.waitForFunction(() => document.querySelector("#bootView").textContent.includes("Deploy factory"));
+      assert.equal(await page.locator("#bootView").isVisible(), true);
+      assert.equal(await page.locator("#swapView").isVisible(), false);
+      assert.equal(await page.locator("#poolView").isVisible(), false);
+      assert.equal(await page.locator("#tabSwap").isVisible(), false);
+      assert.equal(await page.locator("#tabPool").isVisible(), false);
+      assert.equal(await page.locator("#bootView .pill").textContent(), "Anvil");
+      await page.evaluate(() => {
+        window.__missingFactory = false;
+      });
+      await page.reload();
       await page.evaluate(() => {
         localStorage.setItem("tamaLists", "{not valid json");
         localStorage.setItem("tamaExplorer:31337", "javascript:alert(1)");
@@ -354,7 +373,10 @@ async function main() {
       await page.waitForFunction(() => document.querySelector("#connect").textContent.startsWith("0x"));
       assert.equal(await page.locator("#bootView").isVisible(), false);
       assert.equal(await page.locator("#swapView").isVisible(), true);
+      await assert.equal(await page.locator("#swapChain").textContent(), "Anvil");
+      await page.locator("#tabPool").click();
       await assert.equal(await page.locator("#chain").textContent(), "Anvil");
+      await page.locator("#tabSwap").click();
       await page.waitForFunction(() => document.querySelector("#listStat").textContent.includes("4 tokens loaded"));
       await assert.match(await page.locator("#swapReview").getAttribute("class"), /hide/);
 
