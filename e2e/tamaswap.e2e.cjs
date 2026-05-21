@@ -366,7 +366,16 @@ async function main() {
       );
 
       await page.goto(url);
-      assert.equal(await page.locator(".mark").textContent(), "☯️");
+      const mark = await page.locator(".mark");
+      assert.equal(await mark.textContent(), "玉");
+      const markStyle = await mark.evaluate((el) => {
+        const s = getComputedStyle(el);
+        return { background: s.background, borderRadius: s.borderRadius, color: s.color, transform: s.transform };
+      });
+      assert.match(markStyle.background, /rgb\(185, 68, 46\)/);
+      assert.equal(markStyle.borderRadius, "4px");
+      assert.equal(markStyle.color, "rgb(255, 253, 246)");
+      assert.notEqual(markStyle.transform, "none");
       await page.evaluate(() => {
         window.__missingFactory = true;
       });
