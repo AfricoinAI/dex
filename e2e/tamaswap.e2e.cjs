@@ -248,7 +248,7 @@ async function main() {
       await page.route("https://tokens.uniswap.org/", (route) => route.fulfill({ json: { tokens: [] } }));
       await page.route("https://coins.llama.fi/**", (route) => route.fulfill({ json: { coins: {} } }));
       await page.addInitScript(
-        ({ account, factory, rpcUrl }) => {
+        ({ account, brokenToken, factory, manualToken, rpcUrl }) => {
           function makeProvider(activeAccount) {
             let connected = false;
             return {
@@ -264,10 +264,32 @@ async function main() {
               removeListener: () => {},
             };
           }
+          function wordHex(value) {
+            return BigInt(value).toString(16).padStart(64, "0");
+          }
+          function abiString(value) {
+            const bytes = Array.from(new TextEncoder().encode(value));
+            const data = bytes.map((byte) => byte.toString(16).padStart(2, "0")).join("");
+            return `0x${wordHex(32)}${wordHex(bytes.length)}${data.padEnd(Math.ceil(data.length / 64) * 64, "0")}`;
+          }
           async function send(method, params = []) {
+            if (method === "eth_chainId" && localStorage.__chainIdOverride) return localStorage.__chainIdOverride;
             if (method === "eth_getTransactionReceipt" && window.__holdReceipts) return null;
             if (method === "eth_getCode" && window.__missingFactory && params[0]?.toLowerCase() === factory.toLowerCase()) {
               return "0x";
+            }
+            if (method === "eth_call") {
+              const call = params[0] || {};
+              const to = call.to?.toLowerCase();
+              const data = call.data || "";
+              if (to === manualToken.toLowerCase()) {
+                if (data.startsWith("0x313ce567")) return `0x${wordHex(6)}`;
+                if (data.startsWith("0x95d89b41")) return abiString("CU\u202eST\u0000");
+                if (data.startsWith("0x06fdde03")) return abiString("Custom\u202e Token");
+              }
+              if (to === brokenToken.toLowerCase() && ["0x313ce567", "0x95d89b41", "0x06fdde03"].some((selector) => data.startsWith(selector))) {
+                return "0x";
+              }
             }
             if (method === "eth_call" && params[0]?.data?.startsWith("0xdd62ed3e") && window.__forceZeroAllowance) {
               return "0x" + "0".repeat(64);
@@ -304,7 +326,13 @@ async function main() {
             }
           });
         },
-        { account: deployment.account, factory: deployment.factory, rpcUrl: RPC_URL },
+        {
+          account: deployment.account,
+          brokenToken: "0x8888888888888888888888888888888888888888",
+          factory: deployment.factory,
+          manualToken: "0x9999999999999999999999999999999999999999",
+          rpcUrl: RPC_URL,
+        },
       );
 
       await page.goto(url);
@@ -393,10 +421,29 @@ async function main() {
       assert.equal(await page.locator("#pickOut img").count(), 1);
       await page.locator("#pickOut").click();
       await page.locator("#search").fill("0x9999999999999999999999999999999999999999");
-      const manualImportText = await page.locator(".item", { hasText: "Import" }).first().textContent();
+      await page.waitForFunction(() => document.querySelector(".item .sym")?.textContent === "CUST");
+      const manualImportText = await page.locator(".item", { hasText: "CUST" }).first().textContent();
+      assert.doesNotMatch(manualImportText, /Import/);
+      assert.doesNotMatch(manualImportText, /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/);
       assert.match(manualImportText, /Unverified token/);
       assert.match(manualImportText, /0x9999\.\.\.9999/);
-      await page.locator(".item", { hasText: "Import" }).first().click();
+      await page.locator(".item", { hasText: "CUST" }).first().click();
+      const storedManualToken = await page.evaluate(() => ({
+        global: localStorage.getItem("tamaUserTokens"),
+        mainnet: localStorage.getItem("tamaUserTokens:1"),
+        anvil: JSON.parse(localStorage.getItem("tamaUserTokens:31337") || "[]"),
+      }));
+      assert.equal(storedManualToken.global, null);
+      assert.equal(storedManualToken.mainnet, null);
+      assert.equal(storedManualToken.anvil[0].chainId, 31337);
+      assert.equal(storedManualToken.anvil[0].symbol, "CUST");
+      await page.locator("#pickOut").click();
+      await page.locator("#search").fill("0x8888888888888888888888888888888888888888");
+      await page.waitForFunction(() => document.querySelector(".item .sym")?.textContent === "TOKEN");
+      const fallbackImportText = await page.locator(".item", { hasText: "TOKEN" }).first().textContent();
+      assert.doesNotMatch(fallbackImportText, /Import/);
+      assert.match(fallbackImportText, /Unverified token/);
+      await page.locator("#closeModal").click();
 
       await page.getByRole("button", { name: "Settings" }).click();
       await page.locator("#slip").fill("1.25");
@@ -414,9 +461,22 @@ async function main() {
       await page.locator("#closeSettings").click();
       await page.locator("#pickIn").click();
       await page.locator("#search").fill("0x9999999999999999999999999999999999999999");
-      const persistedImportText = await page.locator(".item", { hasText: "TOKEN" }).first().textContent();
+      const persistedImportText = await page.locator(".item", { hasText: "CUST" }).first().textContent();
       assert.match(persistedImportText, /Unverified token/);
       await page.locator("#closeModal").click();
+      await page.evaluate(() => localStorage.setItem("__chainIdOverride", "0x2105"));
+      await page.reload();
+      await page.getByRole("button", { name: "Connect" }).click();
+      await page.getByRole("button", { name: /Primary Wallet/ }).click();
+      await page.waitForFunction(() => document.querySelector("#listStat").textContent.includes("chain 8453"));
+      await page.locator("#pickIn").click();
+      assert.equal(await page.locator(".item", { hasText: "CUST" }).count(), 0);
+      await page.locator("#closeModal").click();
+      await page.evaluate(() => localStorage.removeItem("__chainIdOverride"));
+      await page.reload();
+      await page.getByRole("button", { name: "Connect" }).click();
+      await page.getByRole("button", { name: /Primary Wallet/ }).click();
+      await page.waitForFunction(() => document.querySelector("#listStat").textContent.includes("chain 31337"));
 
       await chooseToken(page, "#pickIn", "ETH");
       await chooseToken(page, "#pickOut", "WETH");
