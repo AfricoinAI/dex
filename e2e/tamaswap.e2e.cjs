@@ -311,6 +311,11 @@ async function main() {
             if (method === "eth_sendTransaction") {
               window.__sentTxs = window.__sentTxs || [];
               window.__sentTxs.push(params[0]);
+              if (params[0]?.data?.startsWith("0x095ea7b3") && window.__rejectNextApproval) {
+                window.__rejectNextApproval = false;
+                await new Promise((resolve) => setTimeout(resolve, 200));
+                throw new Error("User rejected approval");
+              }
               if (params[0]?.data?.startsWith("0x095ea7b3") && window.__holdApprovals) {
                 window.__releaseApprovals = window.__releaseApprovals || [];
                 await new Promise((resolve) => window.__releaseApprovals.push(resolve));
@@ -594,7 +599,13 @@ async function main() {
       await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Approve TKA");
       await page.evaluate(() => {
         window.__forceZeroAllowance = true;
+        window.__rejectNextApproval = true;
       });
+      await page.locator("#swapCta").click();
+      await page.evaluate(() => updateAll());
+      await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Swap");
+      await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("User rejected approval"));
+      await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Approve TKA");
       await page.locator("#swapCta").click();
       await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"));
       await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Swap");
