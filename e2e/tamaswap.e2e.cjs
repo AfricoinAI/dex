@@ -354,7 +354,7 @@ async function main() {
       await page.waitForFunction(() => document.querySelector("#connect").textContent.startsWith("0x"));
       assert.equal(await page.locator("#bootView").isVisible(), false);
       assert.equal(await page.locator("#swapView").isVisible(), true);
-      await assert.equal(await page.locator("#chain").textContent(), "Chain 31337");
+      await assert.equal(await page.locator("#chain").textContent(), "Anvil");
       await page.waitForFunction(() => document.querySelector("#listStat").textContent.includes("4 tokens loaded"));
       await assert.match(await page.locator("#swapReview").getAttribute("class"), /hide/);
 
