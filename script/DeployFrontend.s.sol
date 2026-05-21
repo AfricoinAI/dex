@@ -6,8 +6,8 @@ import {TamaSwapFrontend} from "../src/TamaSwapFrontend.sol";
 
 contract DeployFrontend is Script {
     address internal constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-    address internal constant FRONTEND = 0x0000003a454433d3D81B3BebAE0bFfECcAf7D8fd;
-    bytes32 internal constant FRONTEND_SALT = 0x0000000000000000000000000000000000000000bfc5153a4e37000000b5cffb;
+    address internal constant FRONTEND = 0x0000009340c6191F14CeE045441357c502B56767;
+    bytes32 internal constant FRONTEND_SALT = 0x0000000000000000000000000000000000000000b6183b5230f800000005c334;
 
     function run() external returns (TamaSwapFrontend frontend) {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");

@@ -17,7 +17,7 @@ const DEPLOYMENT = path.join(TMP, "deployment.json");
 const ARACHNID_CREATE2 = "0x4e59b44847b379578588920ca78fbf26c0b4956c";
 const GLOBAL_FACTORY = "0x00000060cc856a2b760b870290faad078c146258";
 const GLOBAL_ROUTER = "0x0000002ec9919637129644e17039ee41d9bf9bce";
-const GLOBAL_FRONTEND = "0x0000003a454433d3d81b3bebae0bffeccaf7d8fd";
+const GLOBAL_FRONTEND = "0x0000009340c6191f14cee045441357c502b56767";
 
 function playwright() {
   const candidates = [
@@ -328,6 +328,10 @@ async function main() {
             if (method === "eth_call" && params[0]?.data?.startsWith("0xdd62ed3e") && window.__forceZeroAllowance) {
               return "0x" + "0".repeat(64);
             }
+            if (method === "eth_call" && params[0]?.data?.startsWith("0xdd62ed3e") && window.__staleAllowanceReads > 0) {
+              window.__staleAllowanceReads -= 1;
+              return `0x${wordHex(10n ** 18n)}`;
+            }
             if (method === "eth_sendTransaction") {
               window.__sentTxs = window.__sentTxs || [];
               window.__sentTxs.push(params[0]);
@@ -348,6 +352,10 @@ async function main() {
             });
             const json = await response.json();
             if (json.error) throw new Error(json.error.message);
+            if (method === "eth_sendTransaction") {
+              window.__sentHashes = window.__sentHashes || [];
+              window.__sentHashes.push(json.result);
+            }
             return json.result;
           }
           const icon = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>";
@@ -668,11 +676,48 @@ async function main() {
         updateAll();
       });
       await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Swap");
+      await page.evaluate(() => {
+        window.__staleAllowanceReads = 4;
+      });
+      const swapHashesBefore = await page.evaluate(() => (window.__sentHashes || []).length);
       await page.locator("#swapCta").click();
-      await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"));
-      await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Approve TKA");
+      await page.waitForFunction((count) => (window.__sentHashes || []).length === count + 1, swapHashesBefore);
+      await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Approve TKA", null, { timeout: 5000 }).catch(async (error) => {
+        const state = await page.evaluate(() => ({
+          cta: document.querySelector("#swapCta").textContent,
+          status: document.querySelector("#stat").textContent,
+          staleReads: window.__staleAllowanceReads || 0,
+          allow: [...allowCache.entries()].map(([key, value]) => [key, value.toString()]),
+          pending: [...pendingApprovals.entries()].map(([key, value]) => [key, value.toString()]),
+          spent: [...spendPending.entries()].map(([key, value]) => [key, value == null ? null : value.toString()]),
+        }));
+        throw new Error(`${error.message}; stale allowance state=${JSON.stringify(state)}`);
+      });
       await page.waitForTimeout(1500);
-      assert.equal(await page.locator("#swapCta").textContent(), "Approve TKA");
+      const staleAllowanceState = await page.evaluate(() => ({
+        cta: document.querySelector("#swapCta").textContent,
+        status: document.querySelector("#stat").textContent,
+        maxApproval: document.querySelector("#maxApproval").checked,
+        staleReads: window.__staleAllowanceReads || 0,
+        hashes: window.__sentHashes || [],
+        allow: [...allowCache.entries()].map(([key, value]) => [key, value.toString()]),
+        pending: [...pendingApprovals.entries()].map(([key, value]) => [key, value.toString()]),
+        spent: [...spendPending.entries()].map(([key, value]) => [key, value == null ? null : value.toString()]),
+      }));
+      const staleAllowanceReceipt = staleAllowanceState.hashes.length
+        ? await rpc("eth_getTransactionReceipt", [staleAllowanceState.hashes.at(-1)])
+        : null;
+      staleAllowanceState.receiptStatus = staleAllowanceReceipt?.status || null;
+      staleAllowanceState.lastTx = (await page.evaluate(() => window.__sentTxs || [])).at(-1);
+      try {
+        staleAllowanceState.ethCall = await rpc("eth_call", [staleAllowanceState.lastTx, "latest"]);
+      } catch (error) {
+        staleAllowanceState.ethCallError = error.message;
+      }
+      assert.equal(staleAllowanceState.cta, "Approve TKA", JSON.stringify(staleAllowanceState));
+      await page.evaluate(() => {
+        window.__staleAllowanceReads = 0;
+      });
 
       await chooseToken(page, "#pickIn", "ETH");
       await chooseToken(page, "#pickOut", "TKA");

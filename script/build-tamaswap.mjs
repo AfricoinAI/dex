@@ -92,9 +92,11 @@ function abiEncodeAddress(address) {
 
 function factoryCreationCode() {
   const source = fs.readFileSync(FACTORY_DEPLOYER_PATH, "utf8");
-  const match = source.match(/function\s+creationCode\(\)\s+internal\s+pure\s+returns\s+\(bytes\s+memory\)[\s\S]*?return\s+hex"([0-9a-fA-F]+)";/);
+  const match =
+    source.match(/\bbytes\s+memory\s+code\s*=\s*hex"([0-9a-fA-F]+)";/) ||
+    source.match(/function\s+creationCode\(\)\s+internal\s+pure\s+returns\s+\(bytes\s+memory\)[\s\S]*?return\s+hex"([0-9a-fA-F]+)";/);
   if (!match) {
-    throw new Error(`could not find factory creationCode() hex in ${path.relative(ROOT, FACTORY_DEPLOYER_PATH)}`);
+    throw new Error(`could not find factory bytecode hex in ${path.relative(ROOT, FACTORY_DEPLOYER_PATH)}`);
   }
   return normalizeHex(match[1], "factory creation code");
 }

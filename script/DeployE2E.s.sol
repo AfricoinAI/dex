@@ -4,17 +4,16 @@ pragma solidity ^0.8.20;
 import {Script} from "forge-std/Script.sol";
 import {TamaRouter} from "../src/TamaRouter.sol";
 import {TamaSwapFrontend} from "../src/TamaSwapFrontend.sol";
-import {UniswapV2FactoryDeployer} from "../src/generated/verity/UniswapV2FactoryDeployer.sol";
 import {E2EToken, E2EWETH} from "./E2ETokens.sol";
 
 contract DeployE2E is Script {
     address internal constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address internal constant GLOBAL_FACTORY = 0x00000060cc856A2b760b870290fAAD078c146258;
     address internal constant GLOBAL_ROUTER = 0x0000002Ec9919637129644E17039EE41d9bf9bce;
-    address internal constant GLOBAL_FRONTEND = 0x0000003a454433d3D81B3BebAE0bFfECcAf7D8fd;
+    address internal constant GLOBAL_FRONTEND = 0x0000009340c6191F14CeE045441357c502B56767;
     bytes32 internal constant FACTORY_SALT = 0x000000000000000000000000000000000000000079f16b35eec9000000f08c16;
     bytes32 internal constant ROUTER_SALT = 0x00000000000000000000000000000000000000006b423948f657000001dba44f;
-    bytes32 internal constant FRONTEND_SALT = 0x0000000000000000000000000000000000000000bfc5153a4e37000000b5cffb;
+    bytes32 internal constant FRONTEND_SALT = 0x0000000000000000000000000000000000000000b6183b5230f800000005c334;
     bytes32 internal constant WETH_SALT = keccak256("tama-uni-v2.local-weth");
 
     function run() external {
@@ -49,8 +48,17 @@ contract DeployE2E is Script {
         vm.writeJson(json, output);
     }
 
-    function factoryCreationCode() public pure returns (bytes memory) {
-        return UniswapV2FactoryDeployer.creationCode();
+    function factoryCreationCode() public view returns (bytes memory) {
+        bytes memory raw = bytes(vm.readFile("artifacts/bytecode/UniswapV2Factory.bin"));
+        uint256 length = raw.length;
+        if (length > 0 && raw[length - 1] == 0x0a) {
+            length -= 1;
+        }
+        bytes memory trimmed = new bytes(length);
+        for (uint256 i = 0; i < length; i++) {
+            trimmed[i] = raw[i];
+        }
+        return vm.parseBytes(string.concat("0x", string(trimmed)));
     }
 
     function routerCreationCode(address factory) public pure returns (bytes memory) {
