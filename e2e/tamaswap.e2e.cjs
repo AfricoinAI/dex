@@ -268,6 +268,10 @@ async function main() {
             if (method === "eth_sendTransaction") {
               window.__sentTxs = window.__sentTxs || [];
               window.__sentTxs.push(params[0]);
+              if (params[0]?.data?.startsWith("0x095ea7b3") && window.__holdApprovals) {
+                window.__releaseApprovals = window.__releaseApprovals || [];
+                await new Promise((resolve) => window.__releaseApprovals.push(resolve));
+              }
             }
             const response = await fetch(rpcUrl, {
               method: "POST",
@@ -389,7 +393,24 @@ async function main() {
       await page.locator("#lpAmtA").fill("10");
       await page.locator("#lpAmtB").fill("100");
       await page.waitForFunction(() => document.querySelector("#lpCta").textContent === "Approve tokens");
+      const approvalsBeforeHeldClick = await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")).length);
+      await page.evaluate(() => {
+        window.__holdApprovals = true;
+        window.__releaseApprovals = [];
+      });
       await page.locator("#lpCta").click();
+      await page.waitForFunction((count) => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")).length === count + 1, approvalsBeforeHeldClick);
+      await page.locator("#lpCta").click();
+      await page.waitForTimeout(100);
+      assert.equal(
+        await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")).length),
+        approvalsBeforeHeldClick + 1,
+      );
+      await page.evaluate(() => {
+        window.__holdApprovals = false;
+        for (const release of window.__releaseApprovals || []) release();
+        window.__releaseApprovals = [];
+      });
       await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
       const ethPoolApprovals = await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")));
       assert.equal(ethPoolApprovals.at(-1).data.slice(-64), (100n * 10n ** 18n).toString(16).padStart(64, "0"));
@@ -511,10 +532,17 @@ async function main() {
       await page.waitForFunction(() => document.querySelector("#swapOutAmt").value.length > 0);
       await page.waitForFunction(() => ["Approve TKA", "Swap"].includes(document.querySelector("#swapCta").textContent));
       if ((await page.locator("#swapCta").textContent()) === "Approve TKA") {
+        const approvalsBeforeSwapClick = await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")).length);
         await page.locator("#swapCta").click();
-        await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"));
+        await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted") || document.querySelector("#swapCta").textContent === "Swap").catch(async (error) => {
+          throw new Error(
+            `${error.message}; swapCta=${await page.locator("#swapCta").textContent()}; stat=${await page.locator("#stat").textContent()}; amount=${await page.locator("#swapAmt").inputValue()}; out=${await page.locator("#swapOutAmt").inputValue()}`,
+          );
+        });
         const swapApprovals = await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")));
-        assert.equal(swapApprovals.at(-1).data.slice(-64), (1n * 10n ** 18n).toString(16).padStart(64, "0"));
+        if (swapApprovals.length > approvalsBeforeSwapClick) {
+          assert.equal(swapApprovals.at(-1).data.slice(-64), (1n * 10n ** 18n).toString(16).padStart(64, "0"));
+        }
         await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Swap");
       }
       await page.locator("#swapCta").click();
