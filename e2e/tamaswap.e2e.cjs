@@ -265,6 +265,7 @@ async function main() {
             };
           }
           async function send(method, params = []) {
+            if (method === "eth_getTransactionReceipt" && window.__holdReceipts) return null;
             if (method === "eth_call" && params[0]?.data?.startsWith("0xdd62ed3e") && window.__forceZeroAllowance) {
               return "0x" + "0".repeat(64);
             }
@@ -373,10 +374,34 @@ async function main() {
       const manualImportText = await page.locator(".item", { hasText: "Import" }).first().textContent();
       assert.match(manualImportText, /Unverified token/);
       assert.match(manualImportText, /0x9999\.\.\.9999/);
+      await page.locator(".item", { hasText: "Import" }).first().click();
+
+      await page.getByRole("button", { name: "Settings" }).click();
+      await page.locator("#slip").fill("1.25");
+      await page.locator("#maxApproval").check();
+      await page.locator("#closeSettings").click();
+      await page.reload();
+      await page.getByRole("button", { name: "Connect" }).click();
+      await page.getByRole("button", { name: /Primary Wallet/ }).click();
+      await page.waitForFunction(() => document.querySelector("#connect").textContent.startsWith("0x"));
+      await page.getByRole("button", { name: "Settings" }).click();
+      assert.equal(await page.locator("#slip").inputValue(), "1.25");
+      assert.equal(await page.locator("#maxApproval").isChecked(), true);
+      await page.locator("#maxApproval").uncheck();
+      await page.locator("#slip").fill("0.5");
+      await page.locator("#closeSettings").click();
+      await page.locator("#pickIn").click();
+      await page.locator("#search").fill("0x9999999999999999999999999999999999999999");
+      const persistedImportText = await page.locator(".item", { hasText: "TOKEN" }).first().textContent();
+      assert.match(persistedImportText, /Unverified token/);
       await page.locator("#closeModal").click();
 
       await chooseToken(page, "#pickIn", "ETH");
       await chooseToken(page, "#pickOut", "WETH");
+      await page.waitForFunction(() => document.querySelector("#balIn").dataset.value.length > 0);
+      const nativeFullBalance = await page.locator("#balIn").getAttribute("data-value");
+      await page.locator("#balIn").click();
+      assert(BigInt(await page.evaluate((v) => parseAmt(v, 18).toString(), await page.locator("#swapAmt").inputValue())) < BigInt(await page.evaluate((v) => parseAmt(v, 18).toString(), nativeFullBalance)));
       await page.locator("#swapAmt").fill("1");
       await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Wrap");
       await page.locator("#swapCta").click();
@@ -403,8 +428,8 @@ async function main() {
       });
       await page.locator("#lpCta").click();
       await page.waitForFunction((count) => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")).length === count + 1, approvalsBeforeHeldClick);
-      await page.locator("#lpCta").click();
       await page.waitForTimeout(100);
+      assert.equal(await page.locator("#lpCta").isDisabled(), true);
       assert.equal(
         await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")).length),
         approvalsBeforeHeldClick + 1,
@@ -546,9 +571,21 @@ async function main() {
       await assert.match(await page.locator("#lpPrice").textContent(), /Initial price/);
       await page.waitForFunction(() => document.querySelector("#lpCta").textContent === "Approve tokens");
       await assert.equal(await page.locator("#lpCta").textContent(), "Approve tokens");
+      await page.evaluate(() => {
+        window.__holdReceipts = true;
+      });
       await page.locator("#lpCta").click();
       await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
+      await page.waitForFunction(() => document.querySelector("#lpCta").textContent === "Waiting for approvals");
+      await page.evaluate(() => {
+        window.__holdReceipts = false;
+      });
       await assert.match(await page.locator("#poolStat a").getAttribute("href"), /^https:\/\/explorer\.local\/tx\/0x/);
+      await page.waitForFunction(() => document.querySelector("#lpCta").textContent !== "Waiting for approvals");
+      if ((await page.locator("#lpCta").textContent()) === "Approve tokens") {
+        await page.locator("#lpCta").click();
+        await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
+      }
       await page.waitForFunction(() => document.querySelector("#lpCta").textContent.includes("Create pool"));
       await page.locator("#lpCta").click();
       await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
@@ -607,9 +644,17 @@ async function main() {
       await page.waitForFunction(() => /^Price impact (?!0\.00%).+%$/.test(document.querySelector("#priceState").textContent));
       await page.waitForFunction(() => ["Approve TKA", "Swap"].includes(document.querySelector("#swapCta").textContent));
       if ((await page.locator("#swapCta").textContent()) === "Approve TKA") {
+        let approvalsBeforeMaxClick = await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")).length);
         await page.locator("#swapCta").click();
-        await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"));
-        const maxApprovals = await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")));
+        await page.waitForFunction((count) => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")).length > count, approvalsBeforeMaxClick);
+        let maxApprovals = await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")));
+        if (maxApprovals.at(-1).data.slice(-64) === "0".repeat(64)) {
+          await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Approve TKA");
+          approvalsBeforeMaxClick = maxApprovals.length;
+          await page.locator("#swapCta").click();
+          await page.waitForFunction((count) => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")).length > count, approvalsBeforeMaxClick);
+          maxApprovals = await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")));
+        }
         assert.equal(maxApprovals.at(-1).data.slice(-64), "f".repeat(64));
         await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Swap");
       }
