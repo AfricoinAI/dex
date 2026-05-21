@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -10,9 +11,17 @@ const HTML_PATH = path.join(ROOT, "html", "tamaswap.html");
 const MIN_HTML_PATH = path.join(ROOT, "artifacts", "tamaswap.min.html");
 const GZIP_HTML_PATH = path.join(ROOT, "artifacts", "tamaswap.min.html.gz");
 const OUT_SOL = path.join(ROOT, "src", "TamaSwapFrontend.sol");
+const FACTORY_DEPLOYER_PATH = path.join(ROOT, "src", "generated", "verity", "UniswapV2FactoryDeployer.sol");
+const ROUTER_ARTIFACT_PATH = path.join(ROOT, "out", "TamaRouter.sol", "TamaRouter.json");
+const LOCAL_WETH_ARTIFACT_PATH = path.join(ROOT, "out", "E2ETokens.sol", "E2EWETH.json");
 
 const EIP_170_CAP = 24576;
 const STRING_CHUNK_BYTES = 1024;
+const HEX_CHUNK_BYTES = 1024;
+const ARACHNID_CREATE2 = "0x4e59b44847b379578588920cA78FbF26c0B4956C";
+const FACTORY_SALT = keccakUtf8("tama-uni-v2.factory");
+const ROUTER_SALT = keccakUtf8("tama-uni-v2.router");
+const LOCAL_WETH_SALT = keccakUtf8("tama-uni-v2.local-weth");
 
 function solString(value, indent = "        ") {
   const parts = [];
@@ -25,6 +34,68 @@ function solString(value, indent = "        ") {
   }
   if (parts.length === 1) return parts[0].trimStart();
   return `string.concat(\n${parts.join(",\n")}\n${indent})`;
+}
+
+function solHexBytes(rawHex, indent = "        ") {
+  const parts = [];
+  for (let i = 0; i < rawHex.length; i += HEX_CHUNK_BYTES * 2) {
+    parts.push(`${indent}hex"${rawHex.slice(i, i + HEX_CHUNK_BYTES * 2)}"`);
+  }
+  if (parts.length === 1) return parts[0].trimStart();
+  return `bytes.concat(\n${parts.join(",\n")}\n${indent})`;
+}
+
+function normalizeHex(value, label) {
+  let hex = String(value || "").trim().replace(/^0x/i, "").replace(/\s+/g, "").toLowerCase();
+  if (!hex || hex.length % 2 !== 0 || /[^0-9a-f]/.test(hex)) {
+    throw new Error(`${label} must be non-empty even-length hex`);
+  }
+  return hex;
+}
+
+function hexToBytes(hex, label = "hex") {
+  return Buffer.from(normalizeHex(hex, label), "hex");
+}
+
+function keccakHex(hex, label = "hex") {
+  const input = `0x${normalizeHex(hex, label)}`;
+  try {
+    return normalizeHex(execFileSync("cast", ["keccak", input], { encoding: "utf8" }), "keccak output");
+  } catch (err) {
+    const message = err?.stderr?.toString?.().trim() || err.message;
+    throw new Error(`cast keccak failed for ${label}: ${message}`);
+  }
+}
+
+function keccakUtf8(value) {
+  return keccakHex(Buffer.from(value, "utf8").toString("hex"), value);
+}
+
+function keccakBytes(bytes) {
+  return hexToBytes(keccakHex(Buffer.from(bytes).toString("hex"), "bytes"), "keccak output");
+}
+
+function create2Address(saltHex, initHex) {
+  const payload = Buffer.concat([
+    Buffer.from("ff", "hex"),
+    hexToBytes(ARACHNID_CREATE2, "Arachnid CREATE2 address"),
+    hexToBytes(saltHex, "salt"),
+    keccakBytes(hexToBytes(initHex, "initcode")),
+  ]);
+  return `0x${keccakBytes(payload).toString("hex").slice(-40)}`;
+}
+
+function abiEncodeAddress(address) {
+  return normalizeHex(address, "address").padStart(64, "0");
+}
+
+function factoryCreationCode() {
+  const source = fs.readFileSync(FACTORY_DEPLOYER_PATH, "utf8");
+  const match = source.match(/function\s+creationCode\(\)\s+internal\s+pure\s+returns\s+\(bytes\s+memory\)[\s\S]*?return\s+hex"([0-9a-fA-F]+)";/);
+  if (!match) {
+    throw new Error(`could not find factory creationCode() hex in ${path.relative(ROOT, FACTORY_DEPLOYER_PATH)}`);
+  }
+  return normalizeHex(match[1], "factory creation code");
 }
 
 function minifyCss(css) {
@@ -133,9 +204,31 @@ function assertScriptsParse(html) {
   }
 }
 
-function render({ head, middle, afterRouter, tail, encoded, total, compressed }) {
+function render({
+  head,
+  tail,
+  encoded,
+  deploymentEncoded,
+  factoryAddress,
+  routerAddress,
+  total,
+  compressed,
+  deploymentCompressed,
+}) {
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
+
+interface ITamaSwapFrontendData {
+    function htmlPayload() external view returns (string memory);
+}
+
+/// @title TamaSwap onchain frontend HTML data
+/// @notice Single companion data contract for the compressed frontend payload.
+contract TamaSwapFrontendData {
+    function htmlPayload() external pure returns (string memory) {
+        return ${solString(encoded, "            ")};
+    }
+}
 
 /// @title TamaSwap onchain frontend
 /// @notice ERC-5219 HTML frontend for the Tama Uniswap V2 router and factory.
@@ -144,25 +237,12 @@ contract TamaSwapFrontend {
     string public constant NAME = "TamaSwap";
     string public constant VERSION = "0.1";
 
-    address public immutable factory;
-    address public immutable router;
-    address public immutable PAYLOAD;
-
+    address public immutable HTML_DATA;
     struct KeyValue { string key; string value; }
 
-    constructor(address factory_, address router_) payable {
-        require(factory_ != address(0), "factory zero");
-        require(router_ != address(0), "router zero");
-        factory = factory_;
-        router = router_;
-        PAYLOAD = _deployData(bytes(${solString(encoded, "            ")}));
-    }
-
-    function _deployData(bytes memory payload) private returns (address d) {
-        require(payload.length <= 0xFFFF, "payload too big");
-        bytes memory initcode = bytes.concat(hex"61", bytes2(uint16(payload.length)), hex"80600a5f395ff3", payload);
-        assembly ("memory-safe") { d := create(0, add(initcode, 0x20), mload(initcode)) }
-        require(d != address(0), "deploy failed");
+    constructor(address htmlData) payable {
+        require(htmlData.code.length != 0, "missing data");
+        HTML_DATA = htmlData;
     }
 
     function html() external view returns (string memory) {
@@ -175,6 +255,15 @@ contract TamaSwapFrontend {
         returns (uint16 statusCode, string memory body, KeyValue[] memory headers)
     {
         if (!_isIndexResource(resource)) {
+            if (resource.length == 1) {
+                bytes32 value = keccak256(bytes(resource[0]));
+                if (value == keccak256(bytes("deployment-code"))) {
+                    statusCode = 200;
+                    body = _deploymentCode();
+                    headers = _textHeaders();
+                    return (statusCode, body, headers);
+                }
+            }
             statusCode = 404;
             body = "Not found";
             headers = new KeyValue[](1);
@@ -186,7 +275,7 @@ contract TamaSwapFrontend {
         headers = new KeyValue[](3);
         headers[0] = KeyValue("Content-Type", "text/html; charset=utf-8");
         headers[1] = KeyValue("Cache-Control", "public, max-age=31536000, immutable");
-        headers[2] = KeyValue("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src https: data: http://localhost:* http://127.0.0.1:*; connect-src https: http://localhost:* http://127.0.0.1:*; base-uri 'none'; form-action 'none'");
+        headers[2] = KeyValue("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' https: data: http://localhost:* http://127.0.0.1:*; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; base-uri 'none'; form-action 'none'");
     }
 
     function resolveMode() external pure returns (bytes32) {
@@ -205,42 +294,24 @@ contract TamaSwapFrontend {
     function _html() private view returns (string memory) {
         return string.concat(
             ${solString(head, "            ")},
-            _addr(factory),
-            ${solString(middle, "            ")},
-            _addr(router),
-            ${solString(afterRouter, "            ")},
-            _data(PAYLOAD),
+            ITamaSwapFrontendData(HTML_DATA).htmlPayload(),
             ${solString(tail, "            ")}
         );
     }
 
-    function _data(address target) private view returns (string memory s) {
-        assembly ("memory-safe") {
-            let size := extcodesize(target)
-            s := mload(0x40)
-            mstore(s, size)
-            let ptr := add(s, 0x20)
-            extcodecopy(target, ptr, 0, size)
-            let padded := and(add(size, 0x1f), not(0x1f))
-            mstore(0x40, add(add(s, 0x20), padded))
-        }
+    function _deploymentCode() private pure returns (string memory) {
+        return ${solString(deploymentEncoded, "        ")};
     }
 
-    function _addr(address account) private pure returns (string memory) {
-        bytes20 value = bytes20(account);
-        bytes16 symbols = "0123456789abcdef";
-        bytes memory out = new bytes(42);
-        out[0] = "0";
-        out[1] = "x";
-        for (uint256 i = 0; i < 20; i++) {
-            out[2 + i * 2] = symbols[uint8(value[i] >> 4)];
-            out[3 + i * 2] = symbols[uint8(value[i] & 0x0f)];
-        }
-        return string(out);
+    function _textHeaders() private pure returns (KeyValue[] memory headers) {
+        headers = new KeyValue[](2);
+        headers[0] = KeyValue("Content-Type", "text/plain; charset=utf-8");
+        headers[1] = KeyValue("Cache-Control", "public, max-age=31536000, immutable");
     }
 }
 
 /* ===== tamaswap.html source, ${total} bytes minified, ${compressed} bytes gzip before base64 =====
+   ===== deployment bundle, ${deploymentCompressed} bytes gzip before base64 =====
 
 ${fs.readFileSync(HTML_PATH, "utf8")}
 ===== end tamaswap.html source ===== */
@@ -248,40 +319,71 @@ ${fs.readFileSync(HTML_PATH, "utf8")}
 }
 
 function main() {
-  const app = minifyHtml(fs.readFileSync(HTML_PATH, "utf8"));
+  const factoryInit = factoryCreationCode();
+  const factoryAddress = create2Address(FACTORY_SALT, factoryInit);
+  const routerArtifact = JSON.parse(fs.readFileSync(ROUTER_ARTIFACT_PATH, "utf8"));
+  const routerCreation = normalizeHex(routerArtifact?.bytecode?.object, "router creation bytecode");
+  const routerInit = `${routerCreation}${abiEncodeAddress(factoryAddress)}`;
+  const routerAddress = create2Address(ROUTER_SALT, routerInit);
+  const localWethArtifact = JSON.parse(fs.readFileSync(LOCAL_WETH_ARTIFACT_PATH, "utf8"));
+  const localWethInit = normalizeHex(localWethArtifact?.bytecode?.object, "local WETH creation bytecode");
+  const localWethAddress = create2Address(LOCAL_WETH_SALT, localWethInit);
+
+  let htmlSource = fs.readFileSync(HTML_PATH, "utf8");
+  htmlSource = htmlSource
+    .replaceAll("__FACTORY__", factoryAddress)
+    .replaceAll("__ROUTER__", routerAddress)
+    .replaceAll("__FACTORY_SALT__", `0x${FACTORY_SALT}`)
+    .replaceAll("__ROUTER_SALT__", `0x${ROUTER_SALT}`)
+    .replaceAll("__LOCAL_WETH__", localWethAddress);
+  const app = minifyHtml(htmlSource);
   assertScriptsParse(app);
+  if (
+    app.includes("__FACTORY__") ||
+    app.includes("__ROUTER__") ||
+    app.includes("__FACTORY_SALT__") ||
+    app.includes("__ROUTER_SALT__") ||
+    app.includes("__LOCAL_WETH__")
+  ) {
+    throw new Error("factory/router placeholders must be replaced before gzip");
+  }
   const compressed = zlib.gzipSync(Buffer.from(app, "utf8"), { level: 9 });
   const encoded = compressed.toString("base64");
+  const deploymentJson = JSON.stringify({ f: `0x${factoryInit}`, r: `0x${routerInit}` });
+  const deploymentCompressed = zlib.gzipSync(Buffer.from(deploymentJson, "utf8"), { level: 9 });
+  const deploymentEncoded = deploymentCompressed.toString("base64");
   const template =
-    `<!doctype html><script>(async()=>{const F="__FACTORY__",R="__ROUTER__",B="${encoded}";try{let u=Uint8Array.from(atob(B),c=>c.charCodeAt()),h=await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream("gzip"))).text();h=h.replace("__"+"FACTORY__",F).replace("__"+"ROUTER__",R);document.open().write(h);document.close()}catch{document.body.textContent="TamaSwap load failed"}})()</script>`;
-  const factoryIndex = template.indexOf("__FACTORY__");
-  const routerIndex = template.indexOf("__ROUTER__");
-  if (factoryIndex < 0 || routerIndex < 0 || factoryIndex > routerIndex) {
-    throw new Error("expected __FACTORY__ before __ROUTER__");
+    `<!doctype html><script>(async()=>{const B="${encoded}";try{let u=Uint8Array.from(atob(B),c=>c.charCodeAt()),h=await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream("gzip"))).text();document.open().write(h);document.close()}catch{document.body.textContent="TamaSwap load failed"}})()</script>`;
+  const payloadIndex = template.indexOf(encoded);
+  if (payloadIndex < 0) {
+    throw new Error("expected payload in bootstrap template");
   }
-  if (template.indexOf("__FACTORY__", factoryIndex + 1) >= 0 || template.indexOf("__ROUTER__", routerIndex + 1) >= 0) {
-    throw new Error("address placeholders must appear exactly once");
+  if (template.indexOf(encoded, payloadIndex + 1) >= 0) {
+    throw new Error("encoded payload must appear exactly once");
   }
   if (template.includes("*/") || template.includes("/*")) {
     throw new Error("HTML contains block comment delimiters");
   }
 
-  const head = template.slice(0, factoryIndex);
-  const middle = template.slice(factoryIndex + "__FACTORY__".length, routerIndex);
-  const tailWithPayload = template.slice(routerIndex + "__ROUTER__".length);
-  if (middle !== '",R="') {
-    throw new Error(`unexpected middle segment: ${JSON.stringify(middle)}`);
-  }
-  const payloadIndex = tailWithPayload.indexOf(encoded);
-  if (payloadIndex < 0 || tailWithPayload.indexOf(encoded, payloadIndex + 1) >= 0) {
-    throw new Error("encoded payload must appear exactly once");
-  }
-  const afterRouter = tailWithPayload.slice(0, payloadIndex);
-  const tail = tailWithPayload.slice(payloadIndex + encoded.length);
+  const head = template.slice(0, payloadIndex);
+  const tail = template.slice(payloadIndex + encoded.length);
   if (Buffer.byteLength(encoded, "utf8") > EIP_170_CAP) {
     throw new Error(`PAYLOAD ${Buffer.byteLength(encoded, "utf8")} B exceeds EIP-170`);
   }
-  const sol = render({ head, middle, afterRouter, tail, encoded, total: Buffer.byteLength(app, "utf8"), compressed: compressed.length });
+  if (Buffer.byteLength(deploymentEncoded, "utf8") > EIP_170_CAP) {
+    throw new Error(`DEPLOYMENT_DATA ${Buffer.byteLength(deploymentEncoded, "utf8")} B exceeds EIP-170`);
+  }
+  const sol = render({
+    head,
+    tail,
+    encoded,
+    deploymentEncoded,
+    factoryAddress,
+    routerAddress,
+    total: Buffer.byteLength(app, "utf8"),
+    compressed: compressed.length,
+    deploymentCompressed: deploymentCompressed.length,
+  });
   fs.mkdirSync(path.dirname(OUT_SOL), { recursive: true });
   fs.mkdirSync(path.dirname(MIN_HTML_PATH), { recursive: true });
   fs.writeFileSync(MIN_HTML_PATH, app);
@@ -289,10 +391,20 @@ function main() {
   fs.writeFileSync(OUT_SOL, sol);
 
   console.log(`HEAD bytes:   ${Buffer.byteLength(head, "utf8")}`);
-  console.log(`SHELL bytes:  ${Buffer.byteLength(head + middle + afterRouter + tail, "utf8")}`);
+  console.log(`SHELL bytes:  ${Buffer.byteLength(head + tail, "utf8")}`);
   console.log(`PAYLOAD bytes:${Buffer.byteLength(encoded, "utf8")}`);
+  console.log(`DATA bytes:   ${Buffer.byteLength(deploymentEncoded, "utf8")}`);
+  console.log(`FACTORY_INIT: ${hexToBytes(factoryInit, "factory init bytecode").length} bytes`);
+  console.log(`ROUTER_INIT:  ${hexToBytes(routerInit, "router init bytecode").length} bytes`);
+  console.log(`FACTORY addr: ${factoryAddress}`);
+  console.log(`ROUTER addr:  ${routerAddress}`);
+  console.log(`LOCAL WETH:   ${localWethAddress}`);
+  console.log(`FACTORY salt: 0x${FACTORY_SALT}`);
+  console.log(`ROUTER salt:  0x${ROUTER_SALT}`);
+  console.log(`WETH salt:    0x${LOCAL_WETH_SALT}`);
   console.log(`APP bytes:    ${Buffer.byteLength(app, "utf8")}`);
   console.log(`GZIP bytes:   ${compressed.length}`);
+  console.log(`DATA gzip:    ${deploymentCompressed.length}`);
   console.log(`BOOT bytes:   ${Buffer.byteLength(template, "utf8")}`);
   console.log(`wrote         ${path.relative(ROOT, OUT_SOL)}`);
 }

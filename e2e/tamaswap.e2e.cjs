@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
+const zlib = require("node:zlib");
 const { spawn, spawnSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -13,6 +14,9 @@ const PRIVATE_KEY =
   process.env.PRIVATE_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const TMP = path.join(__dirname, ".tmp");
 const DEPLOYMENT = path.join(TMP, "deployment.json");
+const ARACHNID_CREATE2 = "0x4e59b44847b379578588920ca78fbf26c0b4956c";
+const GLOBAL_FACTORY = "0x5fbf46ad6abc6bd44a6f7f302a45c8b8c15328e3";
+const GLOBAL_ROUTER = "0x3683a95874a3a9f9bba6a1c0902b25003c35ecb0";
 
 function playwright() {
   const candidates = [
@@ -39,6 +43,10 @@ function run(cmd, args, options = {}) {
     throw new Error(`${cmd} ${args.join(" ")} failed\n${out.stdout || ""}${out.stderr || ""}`);
   }
   return out.stdout;
+}
+
+function deploymentCodeCalldata() {
+  return run("cast", ["calldata", "request(string[],(string,string)[])", "[\"deployment-code\"]", "[]"]).trim();
 }
 
 function start(command, args, ready) {
@@ -87,21 +95,31 @@ async function waitRpc() {
   throw new Error("Anvil RPC did not become ready");
 }
 
+async function ensureArachnidCreate2() {
+  assert.notEqual(await rpc("eth_getCode", [ARACHNID_CREATE2, "latest"]), "0x");
+}
+
 function abiBalanceOf(account) {
   return `0x70a08231${account.toLowerCase().slice(2).padStart(64, "0")}`;
 }
 
 function decodeAbiString(data) {
   if (!/^0x[0-9a-fA-F]*$/.test(data) || data.length < 130) throw new Error("Invalid ABI string");
+  return decodeAbiReturnString(data, 0);
+}
+
+function decodeAbiReturnString(data, wordIndex) {
+  if (!/^0x[0-9a-fA-F]*$/.test(data) || data.length < 130) throw new Error("Invalid ABI string");
   const hex = data.slice(2);
-  const offset = Number(BigInt(`0x${hex.slice(0, 64)}`));
+  const head = wordIndex * 64;
+  const offset = Number(BigInt(`0x${hex.slice(head, head + 64)}`));
   const length = Number(BigInt(`0x${hex.slice(offset * 2, offset * 2 + 64)}`));
   const start = (offset + 32) * 2;
   return Buffer.from(hex.slice(start, start + length * 2), "hex").toString("utf8");
 }
 
 async function frontendHtml(frontend) {
-  const data = await rpc("eth_call", [{ to: frontend, data: "0x33c34ac3" }, "latest"]);
+  const data = await rpc("eth_call", [{ to: frontend, data: "0x33c34ac3", gas: "0x20000000" }, "latest"]);
   return decodeAbiString(data);
 }
 
@@ -131,6 +149,11 @@ function serve(deployment, html) {
     ],
   });
   const server = http.createServer((req, res) => {
+    if (req.url === "/deployment-code") {
+      res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+      res.end(deployment.deploymentCode);
+      return;
+    }
     if (req.url === "/tokenlist.json") {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(tokenList);
@@ -163,23 +186,49 @@ async function main() {
   const { chromium } = playwright();
   const anvil = await start(
     "anvil",
-    ["--host", RPC.hostname, "--port", RPC.port || "8545", "--chain-id", "31337"],
+    [
+      "--host",
+      RPC.hostname,
+      "--port",
+      RPC.port || "8545",
+      "--chain-id",
+      "31337",
+      "--steps-tracing",
+      "--disable-code-size-limit",
+      "--disable-block-gas-limit",
+      "--no-request-size-limit",
+    ],
     (text) => text.includes("Listening on"),
   );
   try {
     await waitRpc();
+    await ensureArachnidCreate2();
     run("forge", [
       "script",
       "script/DeployE2E.s.sol:DeployE2E",
       "--rpc-url",
       RPC_URL,
       "--broadcast",
+      "--non-interactive",
       "--private-key",
       PRIVATE_KEY,
     ], {
       env: { PRIVATE_KEY, E2E_OUT: DEPLOYMENT },
     });
     const deployment = JSON.parse(fs.readFileSync(DEPLOYMENT, "utf8"));
+    deployment.deploymentCode = decodeAbiReturnString(await rpc("eth_call", [
+      { to: deployment.frontend, data: deploymentCodeCalldata(), gas: "0x20000000" },
+      "latest",
+    ]), 1);
+    const initcodes = JSON.parse(zlib.gunzipSync(Buffer.from(deployment.deploymentCode, "base64")).toString("utf8"));
+    deployment.factoryInitcode = initcodes.f;
+    deployment.routerInitcode = initcodes.r;
+    assert.equal(deployment.factory.toLowerCase(), GLOBAL_FACTORY);
+    assert.equal(deployment.router.toLowerCase(), GLOBAL_ROUTER);
+    assert.match(deployment.factoryInitcode, /^0x[0-9a-f]+$/);
+    assert.match(deployment.routerInitcode, /^0x[0-9a-f]+$/);
+    assert.notEqual(await rpc("eth_getCode", [deployment.factory, "latest"]), "0x");
+    assert.notEqual(await rpc("eth_getCode", [deployment.router, "latest"]), "0x");
     const html = await frontendHtml(deployment.frontend);
     assert(html.includes("DecompressionStream"), "E2E did not load compressed onchain frontend");
     const server = await serve(deployment, html);
@@ -256,6 +305,8 @@ async function main() {
       await page.getByRole("button", { name: "Connect" }).click();
       await page.getByRole("button", { name: /Primary Wallet/ }).click();
       await page.waitForFunction(() => document.querySelector("#connect").textContent.startsWith("0x"));
+      assert.equal(await page.locator("#bootView").isVisible(), false);
+      assert.equal(await page.locator("#swapView").isVisible(), true);
       await page.waitForFunction(() => document.querySelector("#listStat").textContent.includes("2 tokens loaded"));
       const unsafeExplorer = await page.evaluate(() => {
         done(`0x${"1".repeat(64)}`);
@@ -293,6 +344,8 @@ async function main() {
         );
       });
       await page.waitForFunction(() => document.querySelector("#connect").textContent.startsWith("0x"));
+      assert.equal(await page.locator("#bootView").isVisible(), false);
+      assert.equal(await page.locator("#swapView").isVisible(), true);
       await assert.equal(await page.locator("#chain").textContent(), "Chain 31337");
       await page.waitForFunction(() => document.querySelector("#listStat").textContent.includes("4 tokens loaded"));
       await assert.match(await page.locator("#swapReview").getAttribute("class"), /hide/);
@@ -326,12 +379,7 @@ async function main() {
       await chooseToken(page, "#pickIn", "WETH");
       await chooseToken(page, "#pickOut", "ETH");
       await page.locator("#swapAmt").fill("0.25");
-      await page.waitForFunction(() => ["Approve WETH", "Unwrap"].includes(document.querySelector("#swapCta").textContent));
-      if ((await page.locator("#swapCta").textContent()) === "Approve WETH") {
-        await page.locator("#swapCta").click();
-        await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"));
-        await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Unwrap");
-      }
+      await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Unwrap");
       await page.locator("#swapCta").click();
       await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"));
 

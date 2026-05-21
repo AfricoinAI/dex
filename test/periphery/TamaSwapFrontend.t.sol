@@ -2,50 +2,51 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
-import {TamaSwapFrontend} from "../../src/TamaSwapFrontend.sol";
+import {TamaSwapFrontend, TamaSwapFrontendData} from "../../src/TamaSwapFrontend.sol";
 
 contract TamaSwapFrontendTest is Test {
+    TamaSwapFrontendData internal data;
     TamaSwapFrontend internal frontend;
-    address internal constant FACTORY = address(0x1111111111111111111111111111111111111111);
-    address internal constant ROUTER = address(0x2222222222222222222222222222222222222222);
+    bytes32 internal constant ERC_5219_MODE = 0x3532313900000000000000000000000000000000000000000000000000000000;
     uint256 internal constant EIP_170_CAP = 24576;
-    uint256 internal constant MIN_WRAPPER_MARGIN = 8000;
+    uint256 internal constant MIN_WRAPPER_MARGIN = 900;
 
     function setUp() public {
-        frontend = new TamaSwapFrontend(FACTORY, ROUTER);
+        data = new TamaSwapFrontendData();
+        frontend = new TamaSwapFrontend(address(data));
     }
 
-    function testHtmlInjectsFactoryAndRouter() public view {
-        bytes memory html = bytes(frontend.html());
+    function testGeneratedAppInjectsGlobalAddressesAndResourcePaths() public view {
+        bytes memory app = bytes(vm.readFile("artifacts/tamaswap.min.html"));
 
-        assertTrue(_contains(html, bytes(_addr(FACTORY))), "factory missing");
-        assertTrue(_contains(html, bytes(_addr(ROUTER))), "router missing");
-        assertFalse(_contains(html, bytes("__FACTORY__")), "factory placeholder present");
-        assertFalse(_contains(html, bytes("__ROUTER__")), "router placeholder present");
+        assertTrue(_contains(app, bytes("0x5fbf46ad6abc6bd44a6f7f302a45c8b8c15328e3")), "factory missing");
+        assertTrue(_contains(app, bytes("0x3683a95874a3a9f9bba6a1c0902b25003c35ecb0")), "router missing");
+        assertTrue(_contains(app, bytes("/deployment-code")), "deployment resource missing");
+        assertFalse(_contains(app, bytes("__FACTORY__")), "factory placeholder present");
+        assertFalse(_contains(app, bytes("__ROUTER__")), "router placeholder present");
+        assertFalse(_contains(app, bytes("__LOCAL_WETH__")), "local weth placeholder present");
     }
 
     function testHtmlStructureAndDataChunks() public view {
         assertLe(address(frontend).code.length, EIP_170_CAP, "wrapper exceeds EIP-170");
         assertGe(EIP_170_CAP - address(frontend).code.length, MIN_WRAPPER_MARGIN, "wrapper margin too small");
-        _assertDataOk(frontend.PAYLOAD(), "PAYLOAD");
+        _assertContractOk(frontend.HTML_DATA(), "HTML_DATA");
 
         bytes memory html = bytes(frontend.html());
         assertEq(string(_slice(html, 0, 15)), "<!doctype html>");
-        assertTrue(_contains(html, bytes("TamaSwap")));
         assertTrue(_contains(html, bytes("DecompressionStream(\"gzip\")")), "gzip stream missing");
         assertTrue(_contains(html, bytes("document.open().write(h)")), "document write missing");
         assertFalse(_contains(html, bytes("0x38ed1739")), "raw app should be compressed");
+        assertFalse(_contains(html, bytes("deployment-code")), "deployment resource should not be in root html");
     }
 
-    function testHtmlUsesCompressedBootstrapAndSinglePayloadChunk() public view {
+    function testHtmlUsesCompressedBootstrapAndExternalDeploymentResources() public view {
         bytes memory html = bytes(frontend.html());
 
         assertTrue(_contains(html, bytes("DecompressionStream")), "gzip bootstrap missing");
         assertTrue(_contains(html, bytes("atob(")), "base64 decode missing");
-        assertEq(
-            keccak256(bytes(_data(frontend.PAYLOAD()))),
-            keccak256(bytes(vm.toBase64(vm.readFileBinary("artifacts/tamaswap.min.html.gz"))))
-        );
+        assertEq(keccak256(bytes(data.htmlPayload())), keccak256(bytes(vm.toBase64(vm.readFileBinary("artifacts/tamaswap.min.html.gz")))));
+        assertGt(bytes(_requestBody("deployment-code")).length, 0, "deployment bundle empty");
 
         (bool headOk,) = address(frontend).staticcall(abi.encodeWithSignature("HEAD()"));
         assertFalse(headOk, "unexpected HEAD chunk");
@@ -80,8 +81,14 @@ contract TamaSwapFrontendTest is Test {
         assertEq(headers[2].key, "Content-Security-Policy");
         assertTrue(_contains(bytes(headers[2].value), bytes("default-src 'none'")));
         assertTrue(
-            _contains(bytes(headers[2].value), bytes("connect-src https: http://localhost:* http://127.0.0.1:*"))
+            _contains(bytes(headers[2].value), bytes("connect-src 'self' https: http://localhost:* http://127.0.0.1:*"))
         );
+    }
+
+    function testRequestReturnsDeploymentResources() public view {
+        string memory deploymentCode = _requestBody("deployment-code");
+        assertGt(bytes(deploymentCode).length, 0, "deployment bundle empty");
+        assertFalse(_contains(bytes(deploymentCode), bytes("0x38ed1739")), "deployment bundle should stay compressed");
     }
 
     function testRequestReturns404ForUnrelatedResource() public view {
@@ -101,39 +108,50 @@ contract TamaSwapFrontendTest is Test {
     function testMetadata() public view {
         assertEq(frontend.NAME(), "TamaSwap");
         assertEq(frontend.VERSION(), "0.1");
-        assertEq(frontend.factory(), FACTORY);
-        assertEq(frontend.router(), ROUTER);
-        assertEq(frontend.resolveMode(), bytes32("5219"));
+        assertEq(frontend.resolveMode(), ERC_5219_MODE);
+
+        (bool factoryOk,) = address(frontend).staticcall(abi.encodeWithSignature("factory()"));
+        assertFalse(factoryOk, "unexpected factory getter");
+        (bool routerOk,) = address(frontend).staticcall(abi.encodeWithSignature("router()"));
+        assertFalse(routerOk, "unexpected router getter");
+    }
+
+    function testConstructorRequiresDataContract() public {
+        vm.expectRevert(bytes("missing data"));
+        new TamaSwapFrontend(address(0xBEEF));
     }
 
     function _expectedBootstrap(string memory encoded) internal pure returns (string memory) {
         return string.concat(
-            "<!doctype html><script>(async()=>{const F=\"",
-            _addr(FACTORY),
-            "\",R=\"",
-            _addr(ROUTER),
-            "\",B=\"",
+            "<!doctype html><script>(async()=>{const B=\"",
             encoded,
-            "\";try{let u=Uint8Array.from(atob(B),c=>c.charCodeAt()),h=await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream(\"gzip\"))).text();h=h.replace(\"__\"+\"FACTORY__\",F).replace(\"__\"+\"ROUTER__\",R);document.open().write(h);document.close()}catch{document.body.textContent=\"TamaSwap load failed\"}})()</script>"
+            "\";try{let u=Uint8Array.from(atob(B),c=>c.charCodeAt()),h=await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream(\"gzip\"))).text();document.open().write(h);document.close()}catch{document.body.textContent=\"TamaSwap load failed\"}})()</script>"
         );
     }
 
-    function _assertDataOk(address d, string memory label) internal view {
+    function _assertTextResource(string memory name, string memory expected) internal view {
+        string memory body = _requestBody(name);
+        assertEq(body, expected);
+    }
+
+    function _requestBody(string memory name) internal view returns (string memory body) {
+        string[] memory resource = new string[](1);
+        resource[0] = name;
+        TamaSwapFrontend.KeyValue[] memory params = new TamaSwapFrontend.KeyValue[](0);
+        (uint16 status, string memory response, TamaSwapFrontend.KeyValue[] memory headers) =
+            frontend.request(resource, params);
+
+        assertEq(status, 200);
+        assertEq(headers.length, 2);
+        assertEq(headers[0].key, "Content-Type");
+        assertEq(headers[0].value, "text/plain; charset=utf-8");
+        return response;
+    }
+
+    function _assertContractOk(address d, string memory label) internal view {
         uint256 size = d.code.length;
         assertGt(size, 0, string.concat(label, " empty"));
         assertLe(size, EIP_170_CAP, string.concat(label, " exceeds EIP-170"));
-    }
-
-    function _data(address target) internal view returns (string memory s) {
-        assembly ("memory-safe") {
-            let size := extcodesize(target)
-            s := mload(0x40)
-            mstore(s, size)
-            let ptr := add(s, 0x20)
-            extcodecopy(target, ptr, 0, size)
-            let padded := and(add(size, 0x1f), not(0x1f))
-            mstore(0x40, add(add(s, 0x20), padded))
-        }
     }
 
     function _slice(bytes memory src, uint256 a, uint256 z) internal pure returns (bytes memory out) {
@@ -157,18 +175,5 @@ contract TamaSwapFrontendTest is Test {
             if (ok) return true;
         }
         return false;
-    }
-
-    function _addr(address a) internal pure returns (string memory) {
-        bytes20 value = bytes20(a);
-        bytes16 symbols = "0123456789abcdef";
-        bytes memory out = new bytes(42);
-        out[0] = "0";
-        out[1] = "x";
-        for (uint256 i = 0; i < 20; i++) {
-            out[2 + i * 2] = symbols[uint8(value[i] >> 4)];
-            out[3 + i * 2] = symbols[uint8(value[i] & 0x0f)];
-        }
-        return string(out);
     }
 }

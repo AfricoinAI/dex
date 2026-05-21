@@ -3,98 +3,31 @@ pragma solidity ^0.8.20;
 
 import {Script} from "forge-std/Script.sol";
 import {TamaRouter} from "../src/TamaRouter.sol";
-import {TamaSwapFrontend} from "../src/TamaSwapFrontend.sol";
+import {TamaSwapFrontend, TamaSwapFrontendData} from "../src/TamaSwapFrontend.sol";
 import {UniswapV2FactoryDeployer} from "../src/generated/verity/UniswapV2FactoryDeployer.sol";
-
-contract E2EToken {
-    string public name;
-    string public symbol;
-    uint8 public immutable decimals = 18;
-    uint256 public totalSupply;
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowance;
-    address public immutable minter;
-
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-
-    constructor(string memory name_, string memory symbol_) {
-        name = name_;
-        symbol = symbol_;
-        minter = msg.sender;
-    }
-
-    function mint(address to, uint256 amount) external {
-        require(msg.sender == minter, "MINTER");
-        balanceOf[to] += amount;
-        totalSupply += amount;
-        emit Transfer(address(0), to, amount);
-    }
-
-    function approve(address spender, uint256 amount) external returns (bool) {
-        allowance[msg.sender][spender] = amount;
-        emit Approval(msg.sender, spender, amount);
-        return true;
-    }
-
-    function transfer(address to, uint256 amount) external returns (bool) {
-        require(balanceOf[msg.sender] >= amount, "BALANCE");
-        balanceOf[msg.sender] -= amount;
-        balanceOf[to] += amount;
-        emit Transfer(msg.sender, to, amount);
-        return true;
-    }
-
-    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
-        uint256 allowed = allowance[from][msg.sender];
-        require(allowed >= amount, "ALLOWANCE");
-        if (allowed != type(uint256).max) allowance[from][msg.sender] = allowed - amount;
-        require(balanceOf[from] >= amount, "BALANCE");
-        balanceOf[from] -= amount;
-        balanceOf[to] += amount;
-        emit Transfer(from, to, amount);
-        return true;
-    }
-}
-
-contract E2EWETH is E2EToken {
-    event Deposit(address indexed dst, uint256 wad);
-    event Withdrawal(address indexed src, uint256 wad);
-
-    constructor() E2EToken("Wrapped Ether", "WETH") {}
-
-    function deposit() external payable {
-        balanceOf[msg.sender] += msg.value;
-        totalSupply += msg.value;
-        emit Deposit(msg.sender, msg.value);
-        emit Transfer(address(0), msg.sender, msg.value);
-    }
-
-    function withdraw(uint256 amount) external {
-        require(balanceOf[msg.sender] >= amount, "BALANCE");
-        balanceOf[msg.sender] -= amount;
-        totalSupply -= amount;
-        emit Transfer(msg.sender, address(0), amount);
-        emit Withdrawal(msg.sender, amount);
-        payable(msg.sender).transfer(amount);
-    }
-
-    receive() external payable {
-        this.deposit{value: msg.value}();
-    }
-}
+import {E2EToken, E2EWETH} from "./E2ETokens.sol";
 
 contract DeployE2E is Script {
+    address internal constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+    address internal constant GLOBAL_FACTORY = 0x5FBf46Ad6AbC6bd44a6F7F302A45c8B8C15328E3;
+    address internal constant GLOBAL_ROUTER = 0x3683A95874a3A9f9BBa6a1c0902b25003C35ECb0;
+    bytes32 internal constant FACTORY_SALT = keccak256("tama-uni-v2.factory");
+    bytes32 internal constant ROUTER_SALT = keccak256("tama-uni-v2.router");
+    bytes32 internal constant WETH_SALT = keccak256("tama-uni-v2.local-weth");
+
     function run() external {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(privateKey);
         string memory output = vm.envOr("E2E_OUT", string("e2e/.tmp/deployment.json"));
 
+        require(CREATE2_DEPLOYER.code.length != 0, "E2E_ARACHNID_MISSING");
+
         vm.startBroadcast(privateKey);
-        address factory = address(UniswapV2FactoryDeployer.deploy());
-        E2EWETH weth = new E2EWETH();
-        TamaRouter router = new TamaRouter(factory, address(weth));
-        TamaSwapFrontend frontend = new TamaSwapFrontend(factory, address(router));
+        address factory = _deployCreate2(FACTORY_SALT, factoryCreationCode(), GLOBAL_FACTORY);
+        E2EWETH weth = E2EWETH(payable(_deployCreate2(WETH_SALT, type(E2EWETH).creationCode, wethAddress())));
+        address router = _deployCreate2(ROUTER_SALT, routerCreationCode(factory), GLOBAL_ROUTER);
+        TamaSwapFrontendData frontendData = new TamaSwapFrontendData();
+        TamaSwapFrontend frontend = new TamaSwapFrontend(address(frontendData));
         E2EToken tokenA = new E2EToken("Test Token A", "TKA");
         E2EToken tokenB = new E2EToken("Test Token B", "TKB");
         tokenA.mint(deployer, 1_000_000 ether);
@@ -105,10 +38,44 @@ contract DeployE2E is Script {
         vm.serializeAddress(root, "account", deployer);
         vm.serializeAddress(root, "factory", factory);
         vm.serializeAddress(root, "weth", address(weth));
-        vm.serializeAddress(root, "router", address(router));
+        vm.serializeAddress(root, "router", router);
         vm.serializeAddress(root, "frontend", address(frontend));
+        vm.serializeAddress(root, "deploymentData", address(frontendData));
         vm.serializeAddress(root, "tokenA", address(tokenA));
         string memory json = vm.serializeAddress(root, "tokenB", address(tokenB));
         vm.writeJson(json, output);
+    }
+
+    function factoryCreationCode() public pure returns (bytes memory) {
+        return UniswapV2FactoryDeployer.creationCode();
+    }
+
+    function routerCreationCode(address factory) public pure returns (bytes memory) {
+        return abi.encodePacked(type(TamaRouter).creationCode, abi.encode(factory));
+    }
+
+    function wethAddress() public pure returns (address) {
+        return _create2Address(WETH_SALT, type(E2EWETH).creationCode);
+    }
+
+    function _deployCreate2(bytes32 salt, bytes memory initCode, address expected) internal returns (address deployed) {
+        require(_create2Address(salt, initCode) == expected, "E2E_BAD_CREATE2_ADDRESS");
+        if (expected.code.length != 0) return expected;
+
+        (bool success, bytes memory returndata) = CREATE2_DEPLOYER.call(abi.encodePacked(salt, initCode));
+        require(success, "E2E_CREATE2_CALL_FAILED");
+        require(returndata.length == 20, "E2E_BAD_CREATE2_RETURN");
+
+        assembly {
+            deployed := shr(96, mload(add(returndata, 32)))
+        }
+        require(deployed == expected, "E2E_UNEXPECTED_CREATE2_ADDRESS");
+        require(deployed.code.length != 0, "E2E_CREATE2_NO_CODE");
+    }
+
+    function _create2Address(bytes32 salt, bytes memory initCode) internal pure returns (address) {
+        return address(
+            uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), CREATE2_DEPLOYER, salt, keccak256(initCode)))))
+        );
     }
 }
