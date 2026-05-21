@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 contract E2EToken {
     string public name;
     string public symbol;
-    uint8 public immutable decimals = 18;
+    uint8 public immutable decimals;
     uint256 public totalSupply;
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
@@ -13,9 +13,10 @@ contract E2EToken {
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
 
-    constructor(string memory name_, string memory symbol_) {
+    constructor(string memory name_, string memory symbol_, uint8 decimals_) {
         name = name_;
         symbol = symbol_;
+        decimals = decimals_;
         minter = msg.sender;
     }
 
@@ -56,7 +57,7 @@ contract E2EWETH is E2EToken {
     event Deposit(address indexed dst, uint256 wad);
     event Withdrawal(address indexed src, uint256 wad);
 
-    constructor() E2EToken("Wrapped Ether", "WETH") {}
+    constructor() E2EToken("Wrapped Ether", "WETH", 18) {}
 
     function deposit() external payable {
         balanceOf[msg.sender] += msg.value;

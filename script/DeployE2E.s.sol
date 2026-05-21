@@ -28,10 +28,10 @@ contract DeployE2E is Script {
         address router = _deployCreate2(ROUTER_SALT, routerCreationCode(factory), GLOBAL_ROUTER);
         TamaSwapFrontendData frontendData = new TamaSwapFrontendData();
         TamaSwapFrontend frontend = new TamaSwapFrontend(address(frontendData));
-        E2EToken tokenA = new E2EToken("Test Token A", "TKA");
-        E2EToken tokenB = new E2EToken("Test Token B", "TKB");
+        E2EToken tokenA = new E2EToken("Test Token A", "TKA", 18);
+        E2EToken tokenB = new E2EToken("Test Token B", "TKB", 6);
         tokenA.mint(deployer, 1_000_000 ether);
-        tokenB.mint(deployer, 1_000_000 ether);
+        tokenB.mint(deployer, 1_000_000 * 10 ** 6);
         vm.stopBroadcast();
 
         string memory root = "e2e";

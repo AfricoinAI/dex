@@ -142,7 +142,7 @@ function serve(deployment, html) {
         address: deployment.tokenB,
         name: "Test Token B",
         symbol: "TKB",
-        decimals: 18,
+        decimals: 6,
         logoURI:
           "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3Crect width='1' height='1' fill='%23ff4da6'/%3E%3C/svg%3E",
       },
@@ -421,6 +421,32 @@ async function main() {
       await page.locator("#lpCta").click();
       await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
 
+      await page.locator("#tabPool").click();
+      await page.locator("[data-pool=add]").click();
+      await chooseToken(page, "#pickLpA", "TKB");
+      await chooseToken(page, "#pickLpB", "ETH");
+      await page.locator("#lpAmtA").fill("3000");
+      await page.locator("#lpAmtB").fill("1");
+      await page.waitForFunction(() => document.querySelector("#lpCta").textContent === "Approve tokens");
+      await page.locator("#lpCta").click();
+      await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
+      await page.waitForFunction(() => document.querySelector("#lpCta").textContent.includes("Create pool"));
+      await page.locator("#lpCta").click();
+      await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
+      await page.locator("#lpAmtA").fill("0.01");
+      await page.waitForFunction(() => document.querySelector("#lpAmtB").value.includes("0.000003"));
+      assert.notEqual(await page.locator("#lpAmtB").inputValue(), "0.000003");
+      await page.waitForFunction(() => ["Approve tokens", "Add liquidity"].includes(document.querySelector("#lpCta").textContent));
+      if ((await page.locator("#lpCta").textContent()) === "Approve tokens") {
+        await page.locator("#lpCta").click();
+        await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
+        await page.waitForFunction(() => document.querySelector("#lpCta").textContent === "Add liquidity");
+      }
+      await page.locator("#lpCta").click();
+      await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"), null, { timeout: 5000 }).catch(async (error) => {
+        throw new Error(`${error.message}; pool status=${await page.locator("#poolStat").textContent}; amountA=${await page.locator("#lpAmtA").inputValue()}; amountB=${await page.locator("#lpAmtB").inputValue()}`);
+      });
+
       await page.locator("#tabSwap").click();
       await chooseToken(page, "#pickIn", "TKA");
       await chooseToken(page, "#pickOut", "ETH");
@@ -509,7 +535,7 @@ async function main() {
       await page.locator("#lpBalA").click();
       await assert.match(await page.locator("#lpAmtA").inputValue(), /^999/);
       await page.locator("#lpBalB").click();
-      await assert.equal(await page.locator("#lpAmtB").inputValue(), "1000000");
+      await assert.match(await page.locator("#lpAmtB").inputValue(), /^996999\.99/);
       await page.locator("#lpAmtA").fill("1000");
       await page.locator("#lpAmtB").fill("1000");
       await page.waitForFunction(() => !document.querySelector("#lpReview").classList.contains("hide"));
