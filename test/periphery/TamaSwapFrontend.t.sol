@@ -27,6 +27,22 @@ contract TamaSwapFrontendTest is Test {
         assertFalse(_contains(app, bytes("__LOCAL_WETH__")), "local weth placeholder present");
     }
 
+    function testGeneratedAppIncludesFooterLinks() public view {
+        bytes memory app = bytes(vm.readFile("artifacts/tamaswap.min.html"));
+
+        assertTrue(_contains(app, bytes("Onchain HTML, forever online.")), "footer copy missing");
+        assertTrue(_contains(app, bytes("Built with <a href=\"https://tama.tools\"")), "tama link missing");
+        assertTrue(_contains(app, bytes("<a href=\"https://veritylang.com\"")), "verity link missing");
+        assertTrue(_contains(app, bytes("Made by <a href=\"https://x.com/foglightprivacy\"")), "foglight link missing");
+    }
+
+    function testGeneratedAppUsesChainLabelsInBootstrapMessages() public view {
+        bytes memory app = bytes(vm.readFile("artifacts/tamaswap.min.html"));
+
+        assertFalse(_contains(app, bytes("not deployed on chain \"+CID")), "bootstrap messages should use chain labels");
+        assertTrue(_contains(app, bytes("not deployed on chain \"+chainLabel()")), "bootstrap label helper missing");
+    }
+
     function testHtmlStructureAndDataChunks() public view {
         assertLe(address(frontend).code.length, EIP_170_CAP, "wrapper exceeds EIP-170");
         assertGe(EIP_170_CAP - address(frontend).code.length, MIN_WRAPPER_MARGIN, "wrapper margin too small");
