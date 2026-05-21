@@ -557,6 +557,7 @@ async function main() {
       await page.locator("#swapOutAmt").fill("0.5");
       await page.waitForFunction(() => document.querySelector("#swapLimitLabel").textContent === "Maximum sold");
       await page.waitForFunction(() => Number(document.querySelector("#swapAmt").value) > 0);
+      await page.waitForFunction(() => /^Price impact (?!0\.00%).+%$/.test(document.querySelector("#priceState").textContent));
       await page.waitForFunction(() => ["Approve TKA", "Swap"].includes(document.querySelector("#swapCta").textContent));
       if ((await page.locator("#swapCta").textContent()) === "Approve TKA") {
         await page.locator("#swapCta").click();
