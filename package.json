@@ -1,6 +1,7 @@
 {
   "private": true,
   "scripts": {
+    "serve:frontend": "node script/serve-tamaswap.mjs",
     "test:build": "bun test test/build-tamaswap-minifier.test.mjs",
     "test:e2e": "bun e2e/tamaswap.e2e.cjs"
   },

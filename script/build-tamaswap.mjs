@@ -11,6 +11,7 @@ const ROOT = path.resolve(__dirname, "..");
 const HTML_PATH = path.join(ROOT, "html", "tamaswap.html");
 const MIN_HTML_PATH = path.join(ROOT, "artifacts", "tamaswap.min.html");
 const GZIP_HTML_PATH = path.join(ROOT, "artifacts", "tamaswap.min.html.gz");
+const DEPLOYMENT_CODE_PATH = path.join(ROOT, "artifacts", "tamaswap.deployment-code.txt");
 const OUT_SOL = path.join(ROOT, "src", "TamaSwapFrontend.sol");
 const FACTORY_DEPLOYER_PATH = path.join(ROOT, "src", "generated", "verity", "UniswapV2FactoryDeployer.sol");
 const ROUTER_ARTIFACT_PATH = path.join(ROOT, "out", "TamaRouter.sol", "TamaRouter.json");
@@ -356,6 +357,7 @@ async function main() {
   fs.mkdirSync(path.dirname(MIN_HTML_PATH), { recursive: true });
   fs.writeFileSync(MIN_HTML_PATH, app);
   fs.writeFileSync(GZIP_HTML_PATH, compressed);
+  fs.writeFileSync(DEPLOYMENT_CODE_PATH, deploymentEncoded);
   fs.writeFileSync(OUT_SOL, sol);
 
   console.log(`HEAD bytes:   ${Buffer.byteLength(head, "utf8")}`);
@@ -374,6 +376,7 @@ async function main() {
   console.log(`GZIP bytes:   ${compressed.length}`);
   console.log(`DATA gzip:    ${deploymentCompressed.length}`);
   console.log(`BOOT bytes:   ${Buffer.byteLength(template, "utf8")}`);
+  console.log(`wrote         ${path.relative(ROOT, DEPLOYMENT_CODE_PATH)}`);
   console.log(`wrote         ${path.relative(ROOT, OUT_SOL)}`);
 }
 
