@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import {Script} from "forge-std/Script.sol";
 import {TamaRouter} from "../src/TamaRouter.sol";
-import {TamaSwapFrontend, TamaSwapFrontendData} from "../src/TamaSwapFrontend.sol";
+import {TamaSwapFrontend} from "../src/TamaSwapFrontend.sol";
 import {UniswapV2FactoryDeployer} from "../src/generated/verity/UniswapV2FactoryDeployer.sol";
 import {E2EToken, E2EWETH} from "./E2ETokens.sol";
 
@@ -26,8 +26,7 @@ contract DeployE2E is Script {
         address factory = _deployCreate2(FACTORY_SALT, factoryCreationCode(), GLOBAL_FACTORY);
         E2EWETH weth = E2EWETH(payable(_deployCreate2(WETH_SALT, type(E2EWETH).creationCode, wethAddress())));
         address router = _deployCreate2(ROUTER_SALT, routerCreationCode(factory), GLOBAL_ROUTER);
-        TamaSwapFrontendData frontendData = new TamaSwapFrontendData();
-        TamaSwapFrontend frontend = new TamaSwapFrontend(address(frontendData));
+        TamaSwapFrontend frontend = new TamaSwapFrontend();
         E2EToken tokenA = new E2EToken("Test Token A", "TKA", 18);
         E2EToken tokenB = new E2EToken("Test Token B", "TKB", 6);
         tokenA.mint(deployer, 1_000_000 ether);
@@ -40,7 +39,8 @@ contract DeployE2E is Script {
         vm.serializeAddress(root, "weth", address(weth));
         vm.serializeAddress(root, "router", router);
         vm.serializeAddress(root, "frontend", address(frontend));
-        vm.serializeAddress(root, "deploymentData", address(frontendData));
+        vm.serializeAddress(root, "deploymentData", frontend.HTML_DATA());
+        vm.serializeAddress(root, "deploymentCodeData", frontend.DEPLOYMENT_DATA());
         vm.serializeAddress(root, "tokenA", address(tokenA));
         string memory json = vm.serializeAddress(root, "tokenB", address(tokenB));
         vm.writeJson(json, output);

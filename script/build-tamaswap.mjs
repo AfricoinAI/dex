@@ -4,6 +4,7 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { minify } from "terser";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -16,8 +17,8 @@ const ROUTER_ARTIFACT_PATH = path.join(ROOT, "out", "TamaRouter.sol", "TamaRoute
 const LOCAL_WETH_ARTIFACT_PATH = path.join(ROOT, "out", "E2ETokens.sol", "E2EWETH.json");
 
 const EIP_170_CAP = 24576;
+const EIP_3860_INITCODE_CAP = 49152;
 const STRING_CHUNK_BYTES = 1024;
-const HEX_CHUNK_BYTES = 1024;
 const ARACHNID_CREATE2 = "0x4e59b44847b379578588920cA78FbF26c0B4956C";
 const FACTORY_SALT = keccakUtf8("tama-uni-v2.factory");
 const ROUTER_SALT = keccakUtf8("tama-uni-v2.router");
@@ -34,15 +35,6 @@ function solString(value, indent = "        ") {
   }
   if (parts.length === 1) return parts[0].trimStart();
   return `string.concat(\n${parts.join(",\n")}\n${indent})`;
-}
-
-function solHexBytes(rawHex, indent = "        ") {
-  const parts = [];
-  for (let i = 0; i < rawHex.length; i += HEX_CHUNK_BYTES * 2) {
-    parts.push(`${indent}hex"${rawHex.slice(i, i + HEX_CHUNK_BYTES * 2)}"`);
-  }
-  if (parts.length === 1) return parts[0].trimStart();
-  return `bytes.concat(\n${parts.join(",\n")}\n${indent})`;
 }
 
 function normalizeHex(value, label) {
@@ -106,95 +98,29 @@ function minifyCss(css) {
     .trim();
 }
 
-function minifyJs(js) {
-  let out = "";
-  let mode = "";
-  let escaped = false;
-  const word = (c) => /[A-Za-z0-9_$]/.test(c || "");
-  const last = () => out[out.length - 1] || "";
-  const nextNonSpace = (i) => {
-    while (i < js.length && /\s/.test(js[i])) i++;
-    return js[i] || "";
-  };
-  const nextWord = (i) => {
-    while (i < js.length && /\s/.test(js[i])) i++;
-    const m = js.slice(i).match(/^[A-Za-z_$][A-Za-z0-9_$]*/);
-    return m ? m[0] : "";
-  };
-  const regexAllowedAfter = (c) => !c || "({[=,:;!&|?+-*~^<>".includes(c);
-  const asiBoundary = (prev, next, i) => {
-    if (!prev || !next || ",;:{([=+-*/%!&|?<>".includes(prev)) return false;
-    if (["else", "catch", "finally", "while"].includes(nextWord(i))) return false;
-    return /[A-Za-z_$({[!~+-]/.test(next);
-  };
-  for (let i = 0; i < js.length; i++) {
-    const c = js[i];
-    if (mode) {
-      out += c;
-      if (escaped) {
-        escaped = false;
-      } else if (c === "\\") {
-        escaped = true;
-      } else if (c === mode) {
-        mode = "";
-      }
-      continue;
-    }
-    if (c === "\"" || c === "'" || c === "`") {
-      mode = c;
-      out += c;
-      continue;
-    }
-    if (c === "/" && js[i + 1] === "/") {
-      while (i < js.length && js[i] !== "\n") i++;
-      continue;
-    }
-    if (c === "/" && js[i + 1] === "*") {
-      i += 2;
-      while (i < js.length && !(js[i] === "*" && js[i + 1] === "/")) i++;
-      i++;
-      continue;
-    }
-    if (c === "/" && regexAllowedAfter(last())) {
-      out += c;
-      i++;
-      let inClass = false;
-      for (; i < js.length; i++) {
-        const r = js[i];
-        out += r;
-        if (r === "\\") {
-          out += js[++i] || "";
-        } else if (r === "[") {
-          inClass = true;
-        } else if (r === "]") {
-          inClass = false;
-        } else if (r === "/" && !inClass) {
-          while (/[A-Za-z]/.test(js[i + 1] || "")) out += js[++i];
-          break;
-        }
-      }
-      continue;
-    }
-    if (/\s/.test(c)) {
-      let hasNewline = c === "\n" || c === "\r";
-      const start = i;
-      const n = nextNonSpace(i + 1);
-      if (word(last()) && word(n)) out += " ";
-      while (i + 1 < js.length && /\s/.test(js[i + 1])) {
-        i++;
-        hasNewline = hasNewline || js[i] === "\n" || js[i] === "\r";
-      }
-      if (hasNewline && !word(last()) && asiBoundary(last(), n, start + 1)) out += ";";
-      continue;
-    }
-    out += c;
-  }
-  return out.trim();
+async function minifyScript(js) {
+  const result = await minify(js, {
+    compress: { passes: 2 },
+    ecma: 2020,
+    format: { comments: false },
+    mangle: { toplevel: false },
+    module: false,
+    toplevel: false,
+  });
+  if (!result.code) throw new Error("terser returned empty output");
+  return result.code;
 }
 
-function minifyHtml(html) {
+async function minifyHtml(html) {
   let out = html.replace(/<style>([\s\S]*?)<\/style>/g, (_, css) => `<style>${minifyCss(css)}</style>`);
-  out = out.replace(/<script>([\s\S]*?)<\/script>/g, (_, js) => `<script>${minifyJs(js)}</script>`);
+  const scripts = [];
+  out = out.replace(/<script>([\s\S]*?)<\/script>/g, (_, js) => {
+    scripts.push(js);
+    return `<script>__TAMA_SCRIPT_${scripts.length - 1}__</script>`;
+  });
+  for (let i = 0; i < scripts.length; i++) {
+    out = out.replace(`__TAMA_SCRIPT_${i}__`, await minifyScript(scripts[i]));
+  }
   return out.replace(/>\s+</g, "><").trim();
 }
 
@@ -207,7 +133,8 @@ function assertScriptsParse(html) {
 function render({
   head,
   tail,
-  encoded,
+  encodedHex,
+  deploymentEncodedHex,
   deploymentEncoded,
   factoryAddress,
   routerAddress,
@@ -218,18 +145,6 @@ function render({
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-interface ITamaSwapFrontendData {
-    function htmlPayload() external view returns (string memory);
-}
-
-/// @title TamaSwap onchain frontend HTML data
-/// @notice Single companion data contract for the compressed frontend payload.
-contract TamaSwapFrontendData {
-    function htmlPayload() external pure returns (string memory) {
-        return ${solString(encoded, "            ")};
-    }
-}
-
 /// @title TamaSwap onchain frontend
 /// @notice ERC-5219 HTML frontend for the Tama Uniswap V2 router and factory.
 /// @dev Generated from html/tamaswap.html by script/build-tamaswap.mjs.
@@ -238,11 +153,21 @@ contract TamaSwapFrontend {
     string public constant VERSION = "0.1";
 
     address public immutable HTML_DATA;
+    address public immutable DEPLOYMENT_DATA;
     struct KeyValue { string key; string value; }
 
-    constructor(address htmlData) payable {
-        require(htmlData.code.length != 0, "missing data");
-        HTML_DATA = htmlData;
+    constructor() payable {
+        HTML_DATA = _deployData(hex"${encodedHex}");
+        DEPLOYMENT_DATA = _deployData(hex"${deploymentEncodedHex}");
+    }
+
+    function _deployData(bytes memory payload) private returns (address d) {
+        require(payload.length <= 0xFFFF, "payload too big");
+        bytes memory initcode = bytes.concat(hex"61", bytes2(uint16(payload.length)), hex"80600a5f395ff3", payload);
+        assembly ("memory-safe") {
+            d := create(0, add(initcode, 0x20), mload(initcode))
+        }
+        require(d != address(0), "deploy failed");
     }
 
     function html() external view returns (string memory) {
@@ -275,7 +200,7 @@ contract TamaSwapFrontend {
         headers = new KeyValue[](3);
         headers[0] = KeyValue("Content-Type", "text/html; charset=utf-8");
         headers[1] = KeyValue("Cache-Control", "public, max-age=31536000, immutable");
-        headers[2] = KeyValue("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' https: data: http://localhost:* http://127.0.0.1:*; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; base-uri 'none'; form-action 'none'");
+        headers[2] = KeyValue("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' https:; base-uri 'none'; form-action 'none'");
     }
 
     function resolveMode() external pure returns (bytes32) {
@@ -294,13 +219,26 @@ contract TamaSwapFrontend {
     function _html() private view returns (string memory) {
         return string.concat(
             ${solString(head, "            ")},
-            ITamaSwapFrontendData(HTML_DATA).htmlPayload(),
+            _readData(HTML_DATA),
             ${solString(tail, "            ")}
         );
     }
 
-    function _deploymentCode() private pure returns (string memory) {
-        return ${solString(deploymentEncoded, "        ")};
+    function _deploymentCode() private view returns (string memory) {
+        return _readData(DEPLOYMENT_DATA);
+    }
+
+    function _readData(address d) private view returns (string memory s) {
+        assembly ("memory-safe") {
+            let sz := extcodesize(d)
+            s := mload(0x40)
+            mstore(s, sz)
+            let ptr := add(s, 0x20)
+            extcodecopy(d, ptr, 0, sz)
+            let padded := and(add(sz, 0x1f), not(0x1f))
+            mstore(add(ptr, padded), 0)
+            mstore(0x40, add(add(ptr, padded), 0x20))
+        }
     }
 
     function _textHeaders() private pure returns (KeyValue[] memory headers) {
@@ -318,7 +256,7 @@ ${fs.readFileSync(HTML_PATH, "utf8")}
 `;
 }
 
-function main() {
+async function main() {
   const factoryInit = factoryCreationCode();
   const factoryAddress = create2Address(FACTORY_SALT, factoryInit);
   const routerArtifact = JSON.parse(fs.readFileSync(ROUTER_ARTIFACT_PATH, "utf8"));
@@ -336,7 +274,7 @@ function main() {
     .replaceAll("__FACTORY_SALT__", `0x${FACTORY_SALT}`)
     .replaceAll("__ROUTER_SALT__", `0x${ROUTER_SALT}`)
     .replaceAll("__LOCAL_WETH__", localWethAddress);
-  const app = minifyHtml(htmlSource);
+  const app = await minifyHtml(htmlSource);
   assertScriptsParse(app);
   if (
     app.includes("__FACTORY__") ||
@@ -349,9 +287,11 @@ function main() {
   }
   const compressed = zlib.gzipSync(Buffer.from(app, "utf8"), { level: 9 });
   const encoded = compressed.toString("base64");
+  const encodedHex = Buffer.from(encoded, "utf8").toString("hex");
   const deploymentJson = JSON.stringify({ f: `0x${factoryInit}`, r: `0x${routerInit}` });
   const deploymentCompressed = zlib.gzipSync(Buffer.from(deploymentJson, "utf8"), { level: 9 });
   const deploymentEncoded = deploymentCompressed.toString("base64");
+  const deploymentEncodedHex = Buffer.from(deploymentEncoded, "utf8").toString("hex");
   const template =
     `<!doctype html><script>(async()=>{const B="${encoded}";try{let u=Uint8Array.from(atob(B),c=>c.charCodeAt()),h=await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream("gzip"))).text();document.open().write(h);document.close()}catch{document.body.textContent="TamaSwap load failed"}})()</script>`;
   const payloadIndex = template.indexOf(encoded);
@@ -376,7 +316,8 @@ function main() {
   const sol = render({
     head,
     tail,
-    encoded,
+    encodedHex,
+    deploymentEncodedHex,
     deploymentEncoded,
     factoryAddress,
     routerAddress,
@@ -384,6 +325,9 @@ function main() {
     compressed: compressed.length,
     deploymentCompressed: deploymentCompressed.length,
   });
+  if (Buffer.byteLength(encoded, "utf8") + Buffer.byteLength(deploymentEncoded, "utf8") > EIP_3860_INITCODE_CAP) {
+    throw new Error("combined data payloads may exceed EIP-3860 after constructor overhead");
+  }
   fs.mkdirSync(path.dirname(OUT_SOL), { recursive: true });
   fs.mkdirSync(path.dirname(MIN_HTML_PATH), { recursive: true });
   fs.writeFileSync(MIN_HTML_PATH, app);
@@ -409,4 +353,7 @@ function main() {
   console.log(`wrote         ${path.relative(ROOT, OUT_SOL)}`);
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

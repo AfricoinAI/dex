@@ -2,18 +2,18 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
-import {TamaSwapFrontend, TamaSwapFrontendData} from "../../src/TamaSwapFrontend.sol";
+import {TamaSwapFrontend} from "../../src/TamaSwapFrontend.sol";
 
 contract TamaSwapFrontendTest is Test {
-    TamaSwapFrontendData internal data;
     TamaSwapFrontend internal frontend;
     bytes32 internal constant ERC_5219_MODE = 0x3532313900000000000000000000000000000000000000000000000000000000;
     uint256 internal constant EIP_170_CAP = 24576;
-    uint256 internal constant MIN_WRAPPER_MARGIN = 900;
+    uint256 internal constant EIP_3860_INITCODE_CAP = 49152;
+    uint256 internal constant MIN_WRAPPER_MARGIN = 19000;
+    uint256 internal constant MIN_INITCODE_MARGIN = 700;
 
     function setUp() public {
-        data = new TamaSwapFrontendData();
-        frontend = new TamaSwapFrontend(address(data));
+        frontend = new TamaSwapFrontend();
     }
 
     function testGeneratedAppInjectsGlobalAddressesAndResourcePaths() public view {
@@ -46,7 +46,8 @@ contract TamaSwapFrontendTest is Test {
     function testHtmlStructureAndDataChunks() public view {
         assertLe(address(frontend).code.length, EIP_170_CAP, "wrapper exceeds EIP-170");
         assertGe(EIP_170_CAP - address(frontend).code.length, MIN_WRAPPER_MARGIN, "wrapper margin too small");
-        _assertContractOk(frontend.HTML_DATA(), "HTML_DATA");
+        _assertRawDataOk(frontend.HTML_DATA(), bytes(vm.toBase64(vm.readFileBinary("artifacts/tamaswap.min.html.gz"))), "HTML_DATA");
+        _assertRawDataOk(frontend.DEPLOYMENT_DATA(), bytes(_requestBody("deployment-code")), "DEPLOYMENT_DATA");
 
         bytes memory html = bytes(frontend.html());
         assertEq(string(_slice(html, 0, 15)), "<!doctype html>");
@@ -61,8 +62,14 @@ contract TamaSwapFrontendTest is Test {
 
         assertTrue(_contains(html, bytes("DecompressionStream")), "gzip bootstrap missing");
         assertTrue(_contains(html, bytes("atob(")), "base64 decode missing");
-        assertEq(keccak256(bytes(data.htmlPayload())), keccak256(bytes(vm.toBase64(vm.readFileBinary("artifacts/tamaswap.min.html.gz")))));
+        assertEq(
+            keccak256(frontend.HTML_DATA().code),
+            keccak256(bytes(vm.toBase64(vm.readFileBinary("artifacts/tamaswap.min.html.gz"))))
+        );
         assertGt(bytes(_requestBody("deployment-code")).length, 0, "deployment bundle empty");
+
+        (bool data2Ok,) = address(frontend).staticcall(abi.encodeWithSignature("HTML_DATA_2()"));
+        assertFalse(data2Ok, "unexpected second data contract");
 
         (bool headOk,) = address(frontend).staticcall(abi.encodeWithSignature("HEAD()"));
         assertFalse(headOk, "unexpected HEAD chunk");
@@ -81,6 +88,16 @@ contract TamaSwapFrontendTest is Test {
         assertEq(keccak256(bytes(frontend.html())), keccak256(bytes(expected)));
     }
 
+    function testWrapperRuntimeAndInitcodeStaySmall() public view {
+        assertLe(address(frontend).code.length, EIP_170_CAP, "wrapper exceeds EIP-170");
+        assertGe(EIP_170_CAP - address(frontend).code.length, MIN_WRAPPER_MARGIN, "wrapper margin too small");
+        assertGe(
+            EIP_3860_INITCODE_CAP - type(TamaSwapFrontend).creationCode.length,
+            MIN_INITCODE_MARGIN,
+            "initcode margin too small"
+        );
+    }
+
     function testRequestReturnsHtmlHeaders() public view {
         string[] memory resource = new string[](0);
         TamaSwapFrontend.KeyValue[] memory params = new TamaSwapFrontend.KeyValue[](0);
@@ -96,9 +113,8 @@ contract TamaSwapFrontendTest is Test {
         assertEq(headers[1].value, "public, max-age=31536000, immutable");
         assertEq(headers[2].key, "Content-Security-Policy");
         assertTrue(_contains(bytes(headers[2].value), bytes("default-src 'none'")));
-        assertTrue(
-            _contains(bytes(headers[2].value), bytes("connect-src 'self' https: http://localhost:* http://127.0.0.1:*"))
-        );
+        assertTrue(_contains(bytes(headers[2].value), bytes("connect-src 'self' https:")));
+        assertFalse(_contains(bytes(headers[2].value), bytes("localhost")));
     }
 
     function testRequestReturnsDeploymentResources() public view {
@@ -132,9 +148,9 @@ contract TamaSwapFrontendTest is Test {
         assertFalse(routerOk, "unexpected router getter");
     }
 
-    function testConstructorRequiresDataContract() public {
-        vm.expectRevert(bytes("missing data"));
-        new TamaSwapFrontend(address(0xBEEF));
+    function testConstructorDeploysDataContracts() public view {
+        assertTrue(frontend.HTML_DATA() != address(0), "html data missing");
+        assertTrue(frontend.DEPLOYMENT_DATA() != address(0), "deployment data missing");
     }
 
     function _expectedBootstrap(string memory encoded) internal pure returns (string memory) {
@@ -164,10 +180,12 @@ contract TamaSwapFrontendTest is Test {
         return response;
     }
 
-    function _assertContractOk(address d, string memory label) internal view {
+    function _assertRawDataOk(address d, bytes memory expected, string memory label) internal view {
         uint256 size = d.code.length;
         assertGt(size, 0, string.concat(label, " empty"));
         assertLe(size, EIP_170_CAP, string.concat(label, " exceeds EIP-170"));
+        assertEq(size, expected.length, string.concat(label, " length mismatch"));
+        assertEq(keccak256(d.code), keccak256(expected), string.concat(label, " content mismatch"));
     }
 
     function _slice(bytes memory src, uint256 a, uint256 z) internal pure returns (bytes memory out) {

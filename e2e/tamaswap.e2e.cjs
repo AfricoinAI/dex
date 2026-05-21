@@ -182,10 +182,26 @@ async function chooseToken(page, button, symbol) {
 }
 
 async function ensureConnected(page) {
-  if (!(await page.locator("#connect").textContent()).startsWith("0x")) {
+  await page.waitForFunction(() => document.readyState === "complete");
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if ((await page.locator("#connect").textContent()).startsWith("0x")) break;
     await page.locator("#connect").click();
+    await page
+      .waitForFunction(
+        () =>
+          document.querySelector("#connect").textContent.startsWith("0x") ||
+          document.querySelector("#walletModal.on #wallets .item"),
+        null,
+        { timeout: 6000 },
+      )
+      .catch(() => {});
     if (!(await page.locator("#connect").textContent()).startsWith("0x")) {
-      await page.getByRole("button", { name: /Primary Wallet/ }).click();
+      if (await page.locator("#walletModal.on #wallets .item").count()) {
+        await page.locator("#walletModal.on #wallets .item").first().click();
+      }
+      await page
+        .waitForFunction(() => document.querySelector("#connect").textContent.startsWith("0x"), null, { timeout: 6000 })
+        .catch(() => {});
     }
   }
   await page.waitForFunction(() => document.querySelector("#connect").textContent.startsWith("0x"));
@@ -256,7 +272,9 @@ async function main() {
       });
       page.on("pageerror", (error) => pageErrors.push(error.stack || error.message));
       page.on("requestfailed", (request) => {
-        requestErrors.push(`${request.url()} ${request.failure()?.errorText || ""}`.trim());
+        const failure = request.failure()?.errorText || "";
+        if (failure === "net::ERR_ABORTED") return;
+        requestErrors.push(`${request.url()} ${failure}`.trim());
       });
       await page.route("https://tokens.uniswap.org/", (route) => route.fulfill({ json: { tokens: [] } }));
       await page.route("https://coins.llama.fi/**", (route) => route.fulfill({ json: { coins: {} } }));
@@ -371,6 +389,16 @@ async function main() {
       );
 
       await page.goto(url);
+      await page.evaluate(() => {
+        localStorage.setItem("__walletConnected", "1");
+      });
+      await page.reload();
+      await page.waitForTimeout(900);
+      assert.equal(await page.locator("#connect").textContent(), "Connect");
+      await page.evaluate(() => {
+        localStorage.removeItem("__walletConnected");
+      });
+      await page.reload();
       const mark = await page.locator(".mark");
       assert.equal(await mark.textContent(), "玉");
       const markStyle = await mark.evaluate((el) => {
@@ -447,6 +475,7 @@ async function main() {
       await page.locator("#tabSwap").click();
       await page.waitForFunction(() => document.querySelector("#listStat").textContent.includes("4 tokens loaded"));
       await assert.match(await page.locator("#swapReview").getAttribute("class"), /hide/);
+      assert.equal(await page.evaluate(() => safeUrl("http://localhost:31337/admin")), "");
 
       await page.locator("#pickIn").click();
       await page.locator("#search").fill("TKA");
@@ -477,12 +506,34 @@ async function main() {
       assert.equal(storedManualToken.mainnet, null);
       assert.equal(storedManualToken.anvil[0].chainId, 31337);
       assert.equal(storedManualToken.anvil[0].symbol, "CUST");
+      await page.evaluate((deployment) => {
+        const key = "tamaUserTokens:31337";
+        const saved = JSON.parse(localStorage.getItem(key) || "[]");
+        saved.unshift({
+          chainId: 31337,
+          address: deployment.tokenA,
+          symbol: "FAKE",
+          name: "Spoofed Canonical Token",
+          decimals: 6,
+          logoURI: "",
+          unverified: true,
+        });
+        localStorage.setItem(key, JSON.stringify(saved));
+      }, deployment);
+      await page.reload();
+      await ensureConnected(page);
+      await page.waitForFunction(() => document.querySelector("#listStat").textContent.includes("tokens loaded"));
+      await page.locator("#pickIn").click();
+      await page.locator("#search").fill("TKA");
+      assert.match(await page.locator(".item", { hasText: "TKA" }).first().textContent(), /Test Token A/);
+      assert.equal(await page.locator(".item", { hasText: "FAKE" }).count(), 0);
+      await page.locator(".item", { hasText: "TKA" }).first().click();
       await page.locator("#pickOut").click();
       await page.locator("#search").fill("0x8888888888888888888888888888888888888888");
-      await page.waitForFunction(() => document.querySelector(".item .sym")?.textContent === "TOKEN");
-      const fallbackImportText = await page.locator(".item", { hasText: "TOKEN" }).first().textContent();
-      assert.doesNotMatch(fallbackImportText, /Import/);
-      assert.match(fallbackImportText, /Unverified token/);
+      await page.waitForFunction(() => document.querySelector(".item .sym")?.textContent === "Invalid");
+      const fallbackImportText = await page.locator(".item", { hasText: "Invalid" }).first().textContent();
+      assert.match(fallbackImportText, /Token metadata unavailable/);
+      assert.equal(await page.locator(".item", { hasText: "Invalid" }).first().isDisabled(), true);
       await page.locator("#closeModal").click();
 
       await page.getByRole("button", { name: "Settings" }).click();
@@ -520,6 +571,8 @@ async function main() {
       const nativeFullBalance = await page.locator("#balIn").getAttribute("data-value");
       await page.locator("#balIn").click();
       assert(BigInt(await page.evaluate((v) => parseAmt(v, 18).toString(), await page.locator("#swapAmt").inputValue())) < BigInt(await page.evaluate((v) => parseAmt(v, 18).toString(), nativeFullBalance)));
+      await page.locator("#swapAmt").fill(nativeFullBalance);
+      await page.waitForFunction(() => document.querySelector("#swapCta").textContent.startsWith("Insufficient"));
       await page.locator("#swapAmt").fill("1");
       await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Wrap");
       await page.locator("#swapCta").click();
@@ -603,16 +656,14 @@ async function main() {
       });
       await page.locator("#swapCta").click();
       await page.evaluate(() => updateAll());
-      await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Swap");
       await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("User rejected approval"));
       await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Approve TKA");
       await page.locator("#swapCta").click();
       await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"));
-      await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Swap");
-      await page.waitForTimeout(1200);
-      assert.equal(await page.locator("#swapCta").textContent(), "Swap");
+      await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Waiting for approval");
       await page.evaluate(() => {
         window.__forceZeroAllowance = false;
+        updateAll();
       });
       await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Swap");
 
@@ -696,20 +747,39 @@ async function main() {
       await assert.match(await page.locator("#lpPrice").textContent(), /Initial price/);
       await page.waitForFunction(() => document.querySelector("#lpCta").textContent === "Approve tokens");
       await assert.equal(await page.locator("#lpCta").textContent(), "Approve tokens");
+      const bothApprovalsBefore = await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")).length);
       await page.evaluate(() => {
         window.__holdReceipts = true;
       });
       await page.locator("#lpCta").click();
       await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
       await page.waitForFunction(() => document.querySelector("#lpCta").textContent === "Waiting for approvals");
+      assert.equal(
+        await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")).length),
+        bothApprovalsBefore + 1,
+      );
       await page.evaluate(() => {
         window.__holdReceipts = false;
       });
       await assert.match(await page.locator("#poolStat a").getAttribute("href"), /^https:\/\/explorer\.local\/tx\/0x/);
-      await page.waitForFunction(() => document.querySelector("#lpCta").textContent !== "Waiting for approvals");
-      if ((await page.locator("#lpCta").textContent()) === "Approve tokens") {
+      for (let i = 0; i < 4; i++) {
+        await page.waitForFunction(() => document.querySelector("#lpCta").textContent !== "Waiting for approvals");
+        if ((await page.locator("#lpCta").textContent()).includes("Create pool")) break;
+        assert.equal(await page.locator("#lpCta").textContent(), "Approve tokens");
+        const approvalsBeforeClick = await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")).length);
         await page.locator("#lpCta").click();
-        await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
+        await page.waitForFunction(
+          (count) =>
+            window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")).length === count + 1 ||
+            document.querySelector("#lpCta").textContent !== "Approve tokens",
+          approvalsBeforeClick,
+        );
+        if (
+          (await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")).length)) ===
+          approvalsBeforeClick + 1
+        ) {
+          await page.waitForFunction(() => document.querySelector("#poolStat").textContent.includes("Transaction submitted"));
+        }
       }
       await page.waitForFunction(() => document.querySelector("#lpCta").textContent.includes("Create pool"));
       await page.locator("#lpCta").click();
