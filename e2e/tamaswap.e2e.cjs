@@ -17,7 +17,7 @@ const DEPLOYMENT = path.join(TMP, "deployment.json");
 const ARACHNID_CREATE2 = "0x4e59b44847b379578588920ca78fbf26c0b4956c";
 const GLOBAL_FACTORY = "0x00000060cc856a2b760b870290faad078c146258";
 const GLOBAL_ROUTER = "0x0000002ec9919637129644e17039ee41d9bf9bce";
-const GLOBAL_FRONTEND = "0x000000b916d42e11d9ad4c0b3d83cf4b769a571d";
+const GLOBAL_FRONTEND = "0x00000062f71c1800e171221d4905228e4f7bbac5";
 
 function playwright() {
   const candidates = [
@@ -766,8 +766,9 @@ async function main() {
       await assert.match(await page.locator("#poolStat a").getAttribute("href"), /^https:\/\/explorer\.local\/tx\/0x/);
       for (let i = 0; i < 4; i++) {
         await page.waitForFunction(() => document.querySelector("#lpCta").textContent !== "Waiting for approvals");
-        if ((await page.locator("#lpCta").textContent()).includes("Create pool")) break;
-        assert.equal(await page.locator("#lpCta").textContent(), "Approve tokens");
+        const lpLabel = await page.locator("#lpCta").textContent();
+        if (lpLabel.includes("Create pool")) break;
+        assert.equal(lpLabel, "Approve tokens");
         const approvalsBeforeClick = await page.evaluate(() => window.__sentTxs.filter((tx) => tx.data?.startsWith("0x095ea7b3")).length);
         await page.locator("#lpCta").click();
         await page.waitForFunction(
