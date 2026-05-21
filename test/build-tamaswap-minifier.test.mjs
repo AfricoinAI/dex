@@ -43,11 +43,12 @@ test("frontend resets token selections when the wallet chain changes", () => {
 
 test("frontend requires explicit confirmation for high impact swaps", () => {
   const source = fs.readFileSync("html/tamaswap.html", "utf8");
+  const impact = source.match(/async function impact\(seq,a,b,input,output,exactOut\)\{.*?\n\}/s)?.[0] || "";
 
   expect(source).toMatch(/HIGH_IMPACT_PPM=150000n/);
   expect(source).toMatch(/HIGH_IMPACT_OK=false/);
   expect(source).toContain('Confirm high impact swap');
-  expect(source).toMatch(/if\(IMPACT_PPM>=HIGH_IMPACT_PPM&&!HIGH_IMPACT_OK\)/);
+  expect(impact).toMatch(/if\(\(lastAct\.swap==="in"\|\|lastAct\.swap==="out"\)&&IMPACT_PPM>=HIGH_IMPACT_PPM&&!HIGH_IMPACT_OK\)/);
 });
 
 test("frontend disables transaction CTAs while submit handlers are running", () => {
@@ -73,11 +74,15 @@ test("frontend does not reuse pre-swap allowance while a finite approval spend i
   const source = fs.readFileSync("html/tamaswap.html", "utf8");
 
   expect(source).toMatch(/spendPending=new Map\(\)/);
+  expect(source).toMatch(/allowSeq=0/);
+  expect(source).toMatch(/function resetAllowanceCache\(\)\{allowSeq\+\+;allowCache\.clear\(\)\}/);
   expect(source).toMatch(/function markSpend\(t,spender=ROUTER\)/);
   expect(source).toMatch(/function clearSpend\(k\)/);
   expect(source).toMatch(/spendPending\.has\(k\).*return 0n/);
+  expect(source).toMatch(/let g=allowSeq/);
+  expect(source).toMatch(/if\(g!==allowSeq\|\|spendPending\.has\(k\)\|\|pendingApprovals\.get\(k\)!=null\)return 0n/);
   expect(source).toMatch(/function submitted\(h,pool=false,spent=""\)/);
-  expect(source).toMatch(/clearSpend\(spent\);allowCache\.clear\(\);updateAll\(\)/);
+  expect(source).toMatch(/clearSpend\(spent\);resetAllowanceCache\(\);updateAll\(\)/);
   expect(source.match(/submitted\(await tx\(ROUTER,d\),false,markSpend\(a\)\)/g)?.length).toBeGreaterThanOrEqual(4);
   expect(source).toContain("submitted(await tx(ROUTER,d),true,[markSpend(a),markSpend(b)])");
   expect(source).toContain("submitted(await tx(ROUTER,d),true,markSpend(pairTok))");

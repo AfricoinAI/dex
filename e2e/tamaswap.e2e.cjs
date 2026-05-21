@@ -17,7 +17,7 @@ const DEPLOYMENT = path.join(TMP, "deployment.json");
 const ARACHNID_CREATE2 = "0x4e59b44847b379578588920ca78fbf26c0b4956c";
 const GLOBAL_FACTORY = "0x00000060cc856a2b760b870290faad078c146258";
 const GLOBAL_ROUTER = "0x0000002ec9919637129644e17039ee41d9bf9bce";
-const GLOBAL_FRONTEND = "0x0000002f0b0ce48cec22156ddce437d53d6f2e72";
+const GLOBAL_FRONTEND = "0x0000003a454433d3d81b3bebae0bffeccaf7d8fd";
 
 function playwright() {
   const candidates = [
@@ -671,6 +671,8 @@ async function main() {
       await page.locator("#swapCta").click();
       await page.waitForFunction(() => document.querySelector("#stat").textContent.includes("Transaction submitted"));
       await page.waitForFunction(() => document.querySelector("#swapCta").textContent === "Approve TKA");
+      await page.waitForTimeout(1500);
+      assert.equal(await page.locator("#swapCta").textContent(), "Approve TKA");
 
       await chooseToken(page, "#pickIn", "ETH");
       await chooseToken(page, "#pickOut", "TKA");
