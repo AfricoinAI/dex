@@ -93,3 +93,13 @@ test("frontend does not reuse pre-swap allowance while a finite approval spend i
   expect(source).toContain("await submitTx(ROUTER,d,0n,true,[markSpend(a),markSpend(b)])");
   expect(source).toContain("await submitTx(ROUTER,d,0n,true,markSpend(pairTok))");
 });
+
+test("frontend wires DeFiLlama prices into visible swap USD helper text", () => {
+  const source = fs.readFileSync("html/tamaswap.html", "utf8");
+
+  expect(source).toContain("id=usdIn");
+  expect(source).toContain("id=usdOut");
+  expect(source).toMatch(/\.usd\{/);
+  expect(source).toContain("updateUsd(swapAmt,a,usdIn)");
+  expect(source).toContain("updateUsd(swapOutAmt,b,usdOut)");
+});
