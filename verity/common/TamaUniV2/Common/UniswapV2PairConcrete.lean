@@ -528,9 +528,10 @@ def pairSyncTokensBehaveNormallyForCall
 
 inductive PairEconomicActionConcreteStep
     (caller : Address) : PairWalletWorldState → PairWalletWorldState → Prop where
-  /-- A concrete economic step records a successful pair call plus the plain
-  assumption that the caller's token and LP balances moved like ordinary ERC20
-  balances for that call. -/
+  /-- A concrete economic step records a successful pair call and the
+  corresponding caller-wallet transition used by the economic history. LP
+  balances are pair storage; the normal-behavior assumption only concerns the
+  external token0/token1 balances used by the action bridges. -/
   | mint
       {before after : PairWalletWorldState}
       (toAddr : Address) (preTokens : PairTokenBalances)
@@ -543,7 +544,7 @@ inductive PairEconomicActionConcreteStep
         after =
           pairWalletFromConcreteAndTokens caller
             (pairTokenWorldAfterCall preTokens s result) result.snd)
-      (hCallerBalancesBehaveNormally : PairWalletStep
+      (hWalletStep : PairWalletStep
         (PairWalletAction.callerMint
           (mintAmount0 s).val (mintAmount1 s).val liquidity.val)
         before after) :
@@ -560,7 +561,7 @@ inductive PairEconomicActionConcreteStep
         after =
           pairWalletFromConcreteAndTokens caller
             (pairTokenWorldAfterCall preTokens s result) result.snd)
-      (hCallerBalancesBehaveNormally : PairWalletStep
+      (hWalletStep : PairWalletStep
         (PairWalletAction.callerBurn
           (burnAmount0 s).val (burnAmount1 s).val (burnLiquidity s).val)
         before after) :
@@ -579,7 +580,7 @@ inductive PairEconomicActionConcreteStep
         after =
           pairWalletFromConcreteAndTokens caller
             (pairTokenWorldAfterCall preTokens s result) result.snd)
-      (hCallerBalancesBehaveNormally : PairWalletStep
+      (hWalletStep : PairWalletStep
         (PairWalletAction.callerSwap
           (swapAmount0In amount0Out balance0Now s).val
           (swapAmount1In amount1Out balance1Now s).val
@@ -597,7 +598,7 @@ inductive PairEconomicActionConcreteStep
         after =
           pairWalletFromConcreteAndTokens caller
             (pairTokenWorldAfterCall preTokens s result) result.snd)
-      (hCallerBalancesBehaveNormally : PairWalletStep
+      (hWalletStep : PairWalletStep
         (PairWalletAction.callerSkimReceive
           (PairWorldSurplus0 before.pair) (PairWorldSurplus1 before.pair))
         before after) :
@@ -613,7 +614,7 @@ inductive PairEconomicActionConcreteStep
         after =
           pairWalletFromConcreteAndTokens caller
             (pairTokenWorldAfterCall preTokens s result) result.snd)
-      (hCallerBalancesBehaveNormally :
+      (hWalletStep :
         PairWalletStep PairWalletAction.callerSync before after) :
       PairEconomicActionConcreteStep caller before after
 

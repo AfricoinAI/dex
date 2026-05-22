@@ -83,8 +83,8 @@ callbacks, and CREATE2 deployment.
 
 The headline economic property. From any reachable state, no finite sequence of
 successful pair calls can increase the caller's portfolio value at the initial
-spot price, assuming the tokens and caller token/LP balances behave like
-ordinary ERC20 balances for each call in the path.
+spot price, assuming token0 and token1 behave like ordinary ERC20s for each call
+in the path.
 -/
 
 def pair_actual_execution_no_free_lunch

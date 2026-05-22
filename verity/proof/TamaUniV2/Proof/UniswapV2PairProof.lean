@@ -5843,29 +5843,28 @@ private theorem pairEconomicActionConcreteStep_wallet
   intro h_step
   cases h_step with
   | mint toAddr preTokens s result liquidity hRun hSuccess hBefore
-      hAfter hCallerBalancesBehaveNormally =>
+      hAfter hWalletStep =>
       exact ⟨PairWalletAction.callerMint
         (mintAmount0 s).val (mintAmount1 s).val liquidity.val,
-        hCallerBalancesBehaveNormally⟩
+        hWalletStep⟩
   | burn toAddr preTokens s result hRun hSuccess hBefore
-      hAfter hCallerBalancesBehaveNormally =>
+      hAfter hWalletStep =>
       exact ⟨PairWalletAction.callerBurn
         (burnAmount0 s).val (burnAmount1 s).val (burnLiquidity s).val,
-        hCallerBalancesBehaveNormally⟩
+        hWalletStep⟩
   | swap amount0Out amount1Out toAddr data balance0Now balance1Now preTokens
-      s result hRun hSuccess hBefore hAfter hCallerBalancesBehaveNormally =>
+      s result hRun hSuccess hBefore hAfter hWalletStep =>
       exact ⟨PairWalletAction.callerSwap
         (swapAmount0In amount0Out balance0Now s).val
         (swapAmount1In amount1Out balance1Now s).val
-        amount0Out.val amount1Out.val, hCallerBalancesBehaveNormally⟩
+        amount0Out.val amount1Out.val, hWalletStep⟩
   | skim toAddr preTokens s result hRun hSuccess hBefore hAfter
-      hCallerBalancesBehaveNormally =>
+      hWalletStep =>
       exact ⟨PairWalletAction.callerSkimReceive
         (PairWorldSurplus0 before.pair) (PairWorldSurplus1 before.pair),
-        hCallerBalancesBehaveNormally⟩
-  | sync preTokens s result hRun hSuccess hBefore hAfter
-      hCallerBalancesBehaveNormally =>
-      exact ⟨PairWalletAction.callerSync, hCallerBalancesBehaveNormally⟩
+        hWalletStep⟩
+  | sync preTokens s result hRun hSuccess hBefore hAfter hWalletStep =>
+      exact ⟨PairWalletAction.callerSync, hWalletStep⟩
 
 private theorem pairEconomicActionConcretePath_walletHistory
     {caller : Address} {before after : PairWalletWorldState} :
