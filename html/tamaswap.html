@@ -116,7 +116,7 @@ function hexData(h,words=1){if(!/^0x[0-9a-fA-F]*$/.test(h||"")||h.length<2+64*wo
 function word(h,i=0){return hexData(h,i+1).slice(i*64,i*64+64)}
 function uintAt(h,i=0){return BigInt("0x"+word(h,i))}
 function addrAt(h,i=0){let w=word(h,i);return low("0x"+w.slice(24))}
-const rpc=(m,p)=>E.request({method:m,params:p}),cd=(s,a="")=>s+a,raw=async(to,data)=>await rpc("eth_call",[{to,data},"latest"]),tx=async(to,data,value=0n)=>{let q={from:AC,to,data};if(BigInt(value)>0n)q.value="0x"+BigInt(value).toString(16);return await rpc("eth_sendTransaction",[q])};
+const rpc=(m,p)=>E.request({method:m,params:p}),cd=(s,a="")=>s+a,raw=async(to,data)=>await rpc("eth_call",[{to,data},"latest"]),tx=async(to,data,value=0n)=>{let q={from:AC,to,data};if(BigInt(value)>0n)q.value="0x"+BigInt(value).toString(16);try{let g=BigInt(await rpc("eth_estimateGas",[q]));q.gas="0x"+(g+g/5n+5000n).toString(16)}catch(e){}return await rpc("eth_sendTransaction",[q])};
 function status(x,b=false,pool=false){const e=pool?poolStat:stat;x=b?errText(x):x;e.textContent=x||"";e.title=x||"";e.className=b?"status err":"status"}
 function explorer(kind,v){let h=localStorage["tamaExplorer:"+CID]||CHAIN[CID]?.e;if(!h)return "";h=safeUrl(/^https?:\/\//.test(h)?h:"https://"+h,{local:localListsOk()});return h?`${h}/${kind}/${v}`:""}
 function link(el,kind,v,label=sh(v)){let u=explorer(kind,v);el.textContent="";if(u){let a=document.createElement("a");a.href=u;a.target="_blank";a.rel="noopener noreferrer";a.textContent=label;el.append(a)}else el.textContent=label}

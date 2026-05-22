@@ -32,6 +32,10 @@ const SOCIAL_SVG =
   `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><rect width="1200" height="630" fill="#fff8fb"/><g transform="translate(600 170) rotate(-6)"><rect x="-100" y="-100" width="200" height="200" rx="28" fill="#b9442e"/><rect x="-90" y="-90" width="180" height="180" rx="20" fill="none" stroke="#fff0e6" stroke-opacity=".58" stroke-width="7"/><text y="58" text-anchor="middle" font-family="serif" font-size="118" font-weight="600" fill="#fffdf6">玉</text></g><text x="600" y="390" text-anchor="middle" font-family="Georgia,serif" font-size="112" font-weight="700" fill="#111827">TamaSwap</text><text x="600" y="462" text-anchor="middle" font-family="system-ui,sans-serif" font-size="34" font-weight="600" fill="#6b7280">${SOCIAL_DESCRIPTION}</text></svg>`;
 const BOOT_META =
   `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TamaSwap</title><meta name="description" content="${SOCIAL_DESCRIPTION}"><meta property="og:title" content="TamaSwap"><meta property="og:description" content="${SOCIAL_DESCRIPTION}"><meta property="og:image" content="social.svg"><meta property="og:image:type" content="image/svg+xml"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="TamaSwap"><meta name="twitter:description" content="${SOCIAL_DESCRIPTION}"><meta name="twitter:image" content="social.svg"><link rel="icon" type="image/svg+xml" href="${FAVICON_DATA_URI}">`;
+const BOOT_SCRIPT_HEAD =
+  '<script>(async()=>{const B="';
+const BOOT_SCRIPT_TAIL =
+  '";try{let u=Uint8Array.from(atob(B),c=>c.charCodeAt()),h=await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream("gzip"))).text(),d=new DOMParser().parseFromString(h,"text/html"),im=n=>document.importNode(n,true);document.head.replaceChildren(...[...d.head.childNodes].map(im));document.body.replaceChildren(...[...d.body.childNodes].map(im));for(let o of [...document.scripts]){let s=document.createElement("script");for(let a of o.attributes)s.setAttribute(a.name,a.value);s.text=o.textContent;o.replaceWith(s)}}catch{document.body.textContent="TamaSwap load failed"}})()</script>';
 
 function solString(value, indent = "        ") {
   const parts = [];
@@ -154,6 +158,7 @@ function render({
   compressed,
   deploymentCompressed,
 }) {
+  const faviconHex = Buffer.from(FAVICON_SVG, "utf8").toString("hex");
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
@@ -166,6 +171,7 @@ contract TamaSwapFrontend {
 
     address public immutable HTML_DATA;
     address public immutable DEPLOYMENT_DATA;
+    bytes private constant FAVICON_SVG = hex"${faviconHex}";
     bytes private constant SOCIAL_SVG = hex"${socialHex}";
     struct KeyValue { string key; string value; }
 
@@ -204,6 +210,12 @@ contract TamaSwapFrontend {
                 if (value == keccak256(bytes("social.svg"))) {
                     statusCode = 200;
                     body = string(SOCIAL_SVG);
+                    headers = _svgHeaders();
+                    return (statusCode, body, headers);
+                }
+                if (value == keccak256(bytes("favicon.ico")) || value == keccak256(bytes("favicon.svg"))) {
+                    statusCode = 200;
+                    body = string(FAVICON_SVG);
                     headers = _svgHeaders();
                     return (statusCode, body, headers);
                 }
@@ -319,7 +331,7 @@ async function main() {
   const deploymentEncodedHex = Buffer.from(deploymentEncoded, "utf8").toString("hex");
   const socialHex = Buffer.from(SOCIAL_SVG, "utf8").toString("hex");
   const template =
-    `<!doctype html>${BOOT_META}<script>(async()=>{const B="${encoded}";try{let u=Uint8Array.from(atob(B),c=>c.charCodeAt()),h=await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream("gzip"))).text();document.open().write(h);document.close()}catch{document.body.textContent="TamaSwap load failed"}})()</script>`;
+    `<!doctype html>${BOOT_META}${BOOT_SCRIPT_HEAD}${encoded}${BOOT_SCRIPT_TAIL}`;
   const payloadIndex = template.indexOf(encoded);
   if (payloadIndex < 0) {
     throw new Error("expected payload in bootstrap template");

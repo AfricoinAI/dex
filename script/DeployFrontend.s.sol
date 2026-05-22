@@ -6,8 +6,8 @@ import {TamaSwapFrontend} from "../src/TamaSwapFrontend.sol";
 
 contract DeployFrontend is Script {
     address internal constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-    address internal constant FRONTEND = 0x0000000aE0A81F78Fa3152964fF25006a3D57F4A;
-    bytes32 internal constant FRONTEND_SALT = 0x705b18ce4d9471c1dc327258195059c014549e69e256a95e710e79edcf9d7b38;
+    address internal constant FRONTEND = 0x000000120890a7AA1Df8AD3CA6f4FA58e0193891;
+    bytes32 internal constant FRONTEND_SALT = 0xf91bcb1325a6e0f2ddc6e2a60a09c516dd3c4dbc651d533abbf9ae5a1666ce12;
 
     function run() external returns (TamaSwapFrontend frontend) {
         require(CREATE2_DEPLOYER.code.length != 0, "ARACHNID_MISSING");

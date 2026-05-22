@@ -62,7 +62,11 @@ contract TamaSwapFrontendTest is Test {
         bytes memory html = bytes(frontend.html());
         assertEq(string(_slice(html, 0, 15)), "<!doctype html>");
         assertTrue(_contains(html, bytes("DecompressionStream(\"gzip\")")), "gzip stream missing");
-        assertTrue(_contains(html, bytes("document.open().write(h)")), "document write missing");
+        assertFalse(_contains(html, bytes("document.open().write(h)")), "document write should not replace provider bridge");
+        assertTrue(_contains(html, bytes("new DOMParser().parseFromString")), "DOM parser bootstrap missing");
+        assertTrue(_contains(html, bytes("document.head.replaceChildren")), "head replacement missing");
+        assertTrue(_contains(html, bytes("document.body.replaceChildren")), "body replacement missing");
+        assertTrue(_contains(html, bytes("document.createElement(\"script\")")), "script re-exec missing");
         assertFalse(_contains(html, bytes("0x38ed1739")), "raw app should be compressed");
         assertFalse(_contains(html, bytes("deployment-code")), "deployment resource should not be in root html");
     }
@@ -143,6 +147,14 @@ contract TamaSwapFrontendTest is Test {
             "social description missing"
         );
         assertTrue(_contains(bytes(social), bytes(unicode"玉")), "social logo missing");
+
+        (uint16 faviconStatus, string memory favicon, TamaSwapFrontend.KeyValue[] memory faviconHeaders) =
+            _request("favicon.ico");
+        assertEq(faviconStatus, 200);
+        assertEq(faviconHeaders[0].key, "Content-Type");
+        assertEq(faviconHeaders[0].value, "image/svg+xml");
+        assertTrue(_contains(bytes(favicon), bytes("viewBox=\"0 0 64 64\"")), "favicon viewbox missing");
+        assertTrue(_contains(bytes(favicon), bytes(unicode"玉")), "favicon logo missing");
     }
 
     function testWrapperRuntimeAndInitcodeStaySmall() public view {
@@ -216,7 +228,7 @@ contract TamaSwapFrontendTest is Test {
             _bootstrapMeta(),
             "<script>(async()=>{const B=\"",
             encoded,
-            "\";try{let u=Uint8Array.from(atob(B),c=>c.charCodeAt()),h=await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream(\"gzip\"))).text();document.open().write(h);document.close()}catch{document.body.textContent=\"TamaSwap load failed\"}})()</script>"
+            "\";try{let u=Uint8Array.from(atob(B),c=>c.charCodeAt()),h=await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream(\"gzip\"))).text(),d=new DOMParser().parseFromString(h,\"text/html\"),im=n=>document.importNode(n,true);document.head.replaceChildren(...[...d.head.childNodes].map(im));document.body.replaceChildren(...[...d.body.childNodes].map(im));for(let o of [...document.scripts]){let s=document.createElement(\"script\");for(let a of o.attributes)s.setAttribute(a.name,a.value);s.text=o.textContent;o.replaceWith(s)}}catch{document.body.textContent=\"TamaSwap load failed\"}})()</script>"
         );
     }
 

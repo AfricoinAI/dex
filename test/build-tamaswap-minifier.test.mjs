@@ -34,6 +34,24 @@ test("local frontend server exposes the deployment-code resource", () => {
   expect(source).toMatch(/readArtifact\(DEPLOYMENT_CODE_PATH\)/);
 });
 
+test("local frontend server serves the same compressed bootstrap path as ERC-5219", () => {
+  const source = fs.readFileSync("script/serve-tamaswap.mjs", "utf8");
+
+  expect(source).toMatch(/tamaswap\.min\.html\.gz/);
+  expect(source).toMatch(/DecompressionStream\("gzip"\)/);
+  expect(source).not.toMatch(/tamaswap\.min\.html"/);
+});
+
+test("compressed bootstrap preserves extension wallet bridges", () => {
+  const source = fs.readFileSync("script/build-tamaswap.mjs", "utf8");
+
+  expect(source).not.toMatch(/document\.open\(\)\.write/);
+  expect(source).not.toMatch(/document\.close\(\)/);
+  expect(source).toMatch(/DOMParser/);
+  expect(source).toMatch(/replaceChildren/);
+  expect(source).toMatch(/createElement\("script"\)/);
+});
+
 test("frontend resets token selections when the wallet chain changes", () => {
   const source = fs.readFileSync("html/tamaswap.html", "utf8");
 
@@ -60,6 +78,14 @@ test("frontend disables transaction CTAs while submit handlers are running", () 
   expect(source).toMatch(/swapCta\.onclick=\(\)=>submitWith\(swapCta,async\(\)=>/);
   expect(source).toMatch(/lpCta\.onclick=\(\)=>submitWith\(lpCta,async\(\)=>/);
   expect(source).toMatch(/burnCta\.onclick=\(\)=>submitWith\(burnCta,async\(\)=>/);
+});
+
+test("frontend buffers estimated gas before submitting transactions", () => {
+  const source = fs.readFileSync("html/tamaswap.html", "utf8");
+
+  expect(source).toMatch(/eth_estimateGas/);
+  expect(source).toMatch(/q\.gas="0x"\+\(g\+g\/5n\+5000n\)\.toString\(16\)/);
+  expect(source).toMatch(/eth_sendTransaction/);
 });
 
 test("frontend disables remove liquidity when pair supply cannot be read", () => {
