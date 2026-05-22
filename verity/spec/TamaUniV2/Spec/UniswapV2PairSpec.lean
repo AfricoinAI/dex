@@ -1817,6 +1817,20 @@ def pair_sync_success_run_matches_closed_world_step_from_run
         (pairWorldFromConcreteState s)
         (pairWorldAfterSyncRun s)
 
+/-- The actual-execution companion of the sync rule: a successful `sync` run
+drives the concrete state to the modeled post-sync world. `sync` writes the
+freshly observed token balances into the cached reserves and leaves LP supply
+and the oracle-read balances untouched, so the abstracted real post-state
+`result.snd` equals the modeled `pairWorldAfterSyncRun s` exactly. Unlike the
+matching rule above (which relates the closed-world transition to the modeled
+after-state), this connects that modeled state to the contract's real
+post-state, closing the gap between the ghost transition and execution. -/
+def pair_sync_success_run_reaches_world
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  result = (sync).run s →
+    result = ContractResult.success () result.snd →
+      pairWorldFromConcreteState result.snd = pairWorldAfterSyncRun s
+
 /-- A successful first `mint`, after its public-call accounting facts are known,
 is one caller-wallet mint step. -/
 def pair_successful_first_mint_matches_caller_wallet_mint

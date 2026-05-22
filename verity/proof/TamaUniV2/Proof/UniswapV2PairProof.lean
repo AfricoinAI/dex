@@ -1794,6 +1794,278 @@ theorem sync_success_run_matches_closed_world_step_from_run
     ⟨h_bound0, h_bound1⟩
   exact sync_expected_matches_closed_world_step s h_bound0 h_bound1
 
+private theorem sync_unlocked_raw
+    (s : ContractState) (h_unlocked : s.storage unlockedSlot.slot = 1) :
+    s.storage 11 = (1 : Uint256) := by simpa [unlockedSlot] using h_unlocked
+
+private theorem sync_bound_val
+    (s : ContractState)
+    (h0 : observedBalance0 s ≤ maxUint112) (h1 : observedBalance1 s ≤ maxUint112) :
+    (observedBalance0 s).val ≤ maxUint112.val ∧ (observedBalance1 s).val ≤ maxUint112.val := by
+  rw [Verity.Core.Uint256.le_def] at h0 h1
+  exact ⟨h0, h1⟩
+
+private theorem sync_post_reserve0_run
+    (s : ContractState)
+    (h_unlocked : s.storage unlockedSlot.slot = 1)
+    (h_bound0 : observedBalance0 s ≤ maxUint112)
+    (h_bound1 : observedBalance1 s ≤ maxUint112) :
+    (sync.run s).snd.storage reserve0Slot.slot = observedBalance0 s := by
+  have h_unlocked_raw := sync_unlocked_raw s h_unlocked
+  have h_bfold := sync_bound_val s h_bound0 h_bound1
+  dsimp only [observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    token0Slot, token1Slot, UniswapV2PairBase.token0Slot, UniswapV2PairBase.token1Slot,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run, ContractResult.fst,
+    Verity.pure, Pure.pure] at h_bfold
+  have h_blit := h_bfold
+  simp only [maxUint112, UniswapV2PairBase.maxUint112] at h_blit
+  simp [sync, UniswapV2PairBase.sync, getStorage, getStorageAddr, setStorage,
+    Verity.contractAddress, Verity.blockTimestamp, Contracts.balanceOf, Verity.require,
+    Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+    TamaUniV2.erc20BalanceOf, Contracts.rawLog, Contracts.mstore,
+    observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    h_unlocked_raw, h_blit,
+    -maxUint112, -UniswapV2PairBase.maxUint112,
+      -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+      -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+      -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+      -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+      -timestamp32, -oracleElapsed]
+  all_goals (try (split_ifs <;>
+    simp [getStorage, getStorageAddr, setStorage, Verity.bind, Bind.bind,
+      Contract.run, ContractResult.snd, Verity.pure, Pure.pure, Contracts.rawLog, Contracts.mstore,
+      h_bfold,
+      -maxUint112, -UniswapV2PairBase.maxUint112,
+      -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+      -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+      -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+      -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+      -timestamp32, -oracleElapsed]))
+  all_goals (try (split_ifs <;>
+    simp [getStorage, getStorageAddr, setStorage, Verity.bind, Bind.bind,
+      Contract.run, ContractResult.snd, Verity.pure, Pure.pure, Contracts.rawLog, Contracts.mstore,
+      h_bfold,
+      -maxUint112, -UniswapV2PairBase.maxUint112,
+      -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+      -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+      -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+      -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+      -timestamp32, -oracleElapsed]))
+
+private theorem sync_post_reserve1_run
+    (s : ContractState)
+    (h_unlocked : s.storage unlockedSlot.slot = 1)
+    (h_bound0 : observedBalance0 s ≤ maxUint112)
+    (h_bound1 : observedBalance1 s ≤ maxUint112) :
+    (sync.run s).snd.storage reserve1Slot.slot = observedBalance1 s := by
+  have h_unlocked_raw := sync_unlocked_raw s h_unlocked
+  have h_bfold := sync_bound_val s h_bound0 h_bound1
+  dsimp only [observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    token0Slot, token1Slot, UniswapV2PairBase.token0Slot, UniswapV2PairBase.token1Slot,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run, ContractResult.fst,
+    Verity.pure, Pure.pure] at h_bfold
+  have h_blit := h_bfold
+  simp only [maxUint112, UniswapV2PairBase.maxUint112] at h_blit
+  simp [sync, UniswapV2PairBase.sync, getStorage, getStorageAddr, setStorage,
+    Verity.contractAddress, Verity.blockTimestamp, Contracts.balanceOf, Verity.require,
+    Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+    TamaUniV2.erc20BalanceOf, Contracts.rawLog, Contracts.mstore,
+    observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    h_unlocked_raw, h_blit,
+    -maxUint112, -UniswapV2PairBase.maxUint112,
+      -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+      -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+      -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+      -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+      -timestamp32, -oracleElapsed]
+  all_goals (try (split_ifs <;>
+    simp [getStorage, getStorageAddr, setStorage, Verity.bind, Bind.bind,
+      Contract.run, ContractResult.snd, Verity.pure, Pure.pure, Contracts.rawLog, Contracts.mstore,
+      h_bfold,
+      -maxUint112, -UniswapV2PairBase.maxUint112,
+      -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+      -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+      -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+      -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+      -timestamp32, -oracleElapsed]))
+  all_goals (try (split_ifs <;>
+    simp [getStorage, getStorageAddr, setStorage, Verity.bind, Bind.bind,
+      Contract.run, ContractResult.snd, Verity.pure, Pure.pure, Contracts.rawLog, Contracts.mstore,
+      h_bfold,
+      -maxUint112, -UniswapV2PairBase.maxUint112,
+      -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+      -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+      -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+      -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+      -timestamp32, -oracleElapsed]))
+
+private theorem sync_post_supply_run
+    (s : ContractState)
+    (h_unlocked : s.storage unlockedSlot.slot = 1)
+    (h_bound0 : observedBalance0 s ≤ maxUint112)
+    (h_bound1 : observedBalance1 s ≤ maxUint112) :
+    (sync.run s).snd.storage totalSupplySlot.slot = s.storage totalSupplySlot.slot := by
+  have h_unlocked_raw := sync_unlocked_raw s h_unlocked
+  have h_bfold := sync_bound_val s h_bound0 h_bound1
+  dsimp only [observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    token0Slot, token1Slot, UniswapV2PairBase.token0Slot, UniswapV2PairBase.token1Slot,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run, ContractResult.fst,
+    Verity.pure, Pure.pure] at h_bfold
+  have h_blit := h_bfold
+  simp only [maxUint112, UniswapV2PairBase.maxUint112] at h_blit
+  simp [sync, UniswapV2PairBase.sync, getStorage, getStorageAddr, setStorage,
+    Verity.contractAddress, Verity.blockTimestamp, Contracts.balanceOf, Verity.require,
+    Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+    TamaUniV2.erc20BalanceOf, Contracts.rawLog, Contracts.mstore,
+    observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    h_unlocked_raw, h_blit,
+    -maxUint112, -UniswapV2PairBase.maxUint112,
+      -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+      -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+      -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+      -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+      -timestamp32, -oracleElapsed]
+  all_goals (try (split_ifs <;>
+    simp [getStorage, getStorageAddr, setStorage, Verity.bind, Bind.bind,
+      Contract.run, ContractResult.snd, Verity.pure, Pure.pure, Contracts.rawLog, Contracts.mstore,
+      h_bfold,
+      -maxUint112, -UniswapV2PairBase.maxUint112,
+      -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+      -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+      -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+      -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+      -timestamp32, -oracleElapsed]))
+  all_goals (try (split_ifs <;>
+    simp [getStorage, getStorageAddr, setStorage, Verity.bind, Bind.bind,
+      Contract.run, ContractResult.snd, Verity.pure, Pure.pure, Contracts.rawLog, Contracts.mstore,
+      h_bfold,
+      -maxUint112, -UniswapV2PairBase.maxUint112,
+      -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+      -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+      -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+      -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+      -timestamp32, -oracleElapsed]))
+
+private theorem sync_post_obs0_run
+    (s : ContractState)
+    (h_unlocked : s.storage unlockedSlot.slot = 1)
+    (h_bound0 : observedBalance0 s ≤ maxUint112)
+    (h_bound1 : observedBalance1 s ≤ maxUint112) :
+    observedBalance0 (sync.run s).snd = observedBalance0 s := by
+  have h_unlocked_raw := sync_unlocked_raw s h_unlocked
+  have h_bfold := sync_bound_val s h_bound0 h_bound1
+  dsimp only [observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    token0Slot, token1Slot, UniswapV2PairBase.token0Slot, UniswapV2PairBase.token1Slot,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run, ContractResult.fst,
+    Verity.pure, Pure.pure] at h_bfold
+  have h_blit := h_bfold
+  simp only [maxUint112, UniswapV2PairBase.maxUint112] at h_blit
+  simp [sync, UniswapV2PairBase.sync, getStorage, getStorageAddr, setStorage,
+    Verity.contractAddress, Verity.blockTimestamp, Contracts.balanceOf, Verity.require,
+    Contract.run, ContractResult.snd, ContractResult.fst, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+    TamaUniV2.erc20BalanceOf, Contracts.rawLog, Contracts.mstore,
+    observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    h_unlocked_raw, h_blit,
+    -maxUint112, -UniswapV2PairBase.maxUint112,
+      -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+      -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+      -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+      -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+      -timestamp32, -oracleElapsed]
+  all_goals (try (split_ifs <;>
+    simp [getStorage, getStorageAddr, setStorage, Verity.bind, Bind.bind,
+      Contract.run, ContractResult.snd, ContractResult.fst, Verity.pure, Pure.pure, Contracts.rawLog, Contracts.mstore, ContractResult.fst, TamaUniV2.erc20BalanceOf, Contracts.balanceOf,
+      observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+      h_bfold,
+      -maxUint112, -UniswapV2PairBase.maxUint112,
+      -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+      -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+      -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+      -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+      -timestamp32, -oracleElapsed]))
+  all_goals (try (split_ifs <;>
+    simp [getStorage, getStorageAddr, setStorage, Verity.bind, Bind.bind,
+      Contract.run, ContractResult.snd, ContractResult.fst, Verity.pure, Pure.pure, Contracts.rawLog, Contracts.mstore, ContractResult.fst, TamaUniV2.erc20BalanceOf, Contracts.balanceOf,
+      observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+      h_bfold,
+      -maxUint112, -UniswapV2PairBase.maxUint112,
+      -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+      -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+      -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+      -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+      -timestamp32, -oracleElapsed]))
+
+private theorem sync_post_obs1_run
+    (s : ContractState)
+    (h_unlocked : s.storage unlockedSlot.slot = 1)
+    (h_bound0 : observedBalance0 s ≤ maxUint112)
+    (h_bound1 : observedBalance1 s ≤ maxUint112) :
+    observedBalance1 (sync.run s).snd = observedBalance1 s := by
+  have h_unlocked_raw := sync_unlocked_raw s h_unlocked
+  have h_bfold := sync_bound_val s h_bound0 h_bound1
+  dsimp only [observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    token0Slot, token1Slot, UniswapV2PairBase.token0Slot, UniswapV2PairBase.token1Slot,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run, ContractResult.fst,
+    Verity.pure, Pure.pure] at h_bfold
+  have h_blit := h_bfold
+  simp only [maxUint112, UniswapV2PairBase.maxUint112] at h_blit
+  simp [sync, UniswapV2PairBase.sync, getStorage, getStorageAddr, setStorage,
+    Verity.contractAddress, Verity.blockTimestamp, Contracts.balanceOf, Verity.require,
+    Contract.run, ContractResult.snd, ContractResult.fst, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+    TamaUniV2.erc20BalanceOf, Contracts.rawLog, Contracts.mstore,
+    observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    h_unlocked_raw, h_blit,
+    -maxUint112, -UniswapV2PairBase.maxUint112,
+      -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+      -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+      -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+      -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+      -timestamp32, -oracleElapsed]
+  all_goals (try (split_ifs <;>
+    simp [getStorage, getStorageAddr, setStorage, Verity.bind, Bind.bind,
+      Contract.run, ContractResult.snd, ContractResult.fst, Verity.pure, Pure.pure, Contracts.rawLog, Contracts.mstore, ContractResult.fst, TamaUniV2.erc20BalanceOf, Contracts.balanceOf,
+      observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+      h_bfold,
+      -maxUint112, -UniswapV2PairBase.maxUint112,
+      -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+      -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+      -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+      -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+      -timestamp32, -oracleElapsed]))
+  all_goals (try (split_ifs <;>
+    simp [getStorage, getStorageAddr, setStorage, Verity.bind, Bind.bind,
+      Contract.run, ContractResult.snd, ContractResult.fst, Verity.pure, Pure.pure, Contracts.rawLog, Contracts.mstore, ContractResult.fst, TamaUniV2.erc20BalanceOf, Contracts.balanceOf,
+      observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+      h_bfold,
+      -maxUint112, -UniswapV2PairBase.maxUint112,
+      -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+      -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+      -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+      -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+      -timestamp32, -oracleElapsed]))
+
+-- tama: discharges=pair_sync_success_run_reaches_world
+theorem sync_success_run_reaches_world
+    (s : ContractState) (result : ContractResult Unit) :
+  pair_sync_success_run_reaches_world s result := by
+  intro h_run h_success
+  have h_unlocked : s.storage unlockedSlot.slot = 1 := by
+    by_contra h_not_open
+    have h_locked : s.storage unlockedSlot.slot != (1 : Uint256) := by
+      simpa using h_not_open
+    have h_revert := sync_run_revert_locked s h_locked
+    rw [← h_run, h_success] at h_revert
+    cases h_revert
+  rcases sync_success_run_implies_balances_fit_uint112 s result h_run h_success with
+    ⟨h_bound0, h_bound1⟩
+  subst h_run
+  simp only [pairWorldFromConcreteState, pairWorldAfterSyncRun, pairWorldLockedLiquidity,
+    sync_post_obs0_run s h_unlocked h_bound0 h_bound1,
+    sync_post_obs1_run s h_unlocked h_bound0 h_bound1,
+    sync_post_reserve0_run s h_unlocked h_bound0 h_bound1,
+    sync_post_reserve1_run s h_unlocked h_bound0 h_bound1,
+    sync_post_supply_run s h_unlocked h_bound0 h_bound1]
+
 -- tama: discharges=pair_flash_callback_module_gates_nonempty_data
 theorem flash_callback_module_gates_nonempty_data :
   pair_flash_callback_module_gates_nonempty_data := by
