@@ -159,15 +159,6 @@ minimal EIP-1193 wallet, and drives connection, token-list selection,
 liquidity, swap, and DeFiLlama fallback behavior with Playwright. Install
 `playwright` or set `PLAYWRIGHT_PATH` if it is not already available locally.
 
-Deploy the router and frontend after deploying the factory:
-
-```sh
-FACTORY=0x... WETH=0x... forge script script/DeployPeriphery.s.sol:DeployPeriphery \
-  --rpc-url $RPC_URL \
-  --account deployer \
-  --broadcast --verify
-```
-
 ## Repository layout
 
 ```text
