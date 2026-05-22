@@ -1784,6 +1784,19 @@ def pair_skim_success_run_matches_closed_world_step_from_run
         (pairWorldFromConcreteState s)
         (pairWorldAfterSkimRun s)
 
+/-- The actual-execution companion of the skim rule: a successful `skim` run
+leaves the abstracted pair state unchanged. `skim` sweeps only donated surplus,
+so the concrete post-state's cached reserves, LP supply, and oracle-read token
+balances all agree with the pre-state. Unlike the matching rule above (which
+pins the closed-world transition to the modeled `pairWorldAfterSkimRun`), this
+connects the closed-world state directly to the contract's real post-state
+`result.snd`. -/
+def pair_skim_success_run_preserves_world
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=
+  result = (skim toAddr).run s →
+    result = ContractResult.success () result.snd →
+      pairWorldFromConcreteState result.snd = pairWorldFromConcreteState s
+
 /-- A successful `swap` must have passed the first economic guard: at least one
 output amount is nonzero. A zero-output request fails before token transfers,
 callback repayment, or the K check can matter. -/

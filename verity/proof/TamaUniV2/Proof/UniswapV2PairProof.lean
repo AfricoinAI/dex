@@ -1602,6 +1602,34 @@ theorem skim_success_run_matches_closed_world_step_from_run
   rw [← h_run, h_success] at h_step
   exact h_step
 
+-- tama: discharges=pair_skim_success_run_preserves_world
+theorem skim_success_run_preserves_world
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) :
+  pair_skim_success_run_preserves_world toAddr s result := by
+  intro h_run h_success
+  have h_unlocked := skim_success_run_implies_lock_open toAddr s result h_run h_success
+  rcases skim_success_run_implies_balances_back_reserves toAddr s result h_run h_success with
+    ⟨h_b0, h_b1⟩
+  subst h_run
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by simpa [unlockedSlot] using h_unlocked
+  have h_require_raw :
+      (s.storage 3).val ≤ (observedBalance0 s).val ∧
+      (s.storage 4).val ≤ (observedBalance1 s).val := by
+    refine ⟨?_, ?_⟩
+    · simpa [reserve0Slot] using h_b0
+    · simpa [reserve1Slot] using h_b1
+  have h_require_raw_unfold := h_require_raw
+  dsimp [observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run, ContractResult.fst,
+    Verity.pure, Pure.pure] at h_require_raw_unfold
+  simp [skim, UniswapV2PairBase.skim, getStorage, getStorageAddr, setStorage,
+    Verity.contractAddress, Contracts.balanceOf, Verity.require, Contract.run,
+    ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+    TamaUniV2.pairSafeTransfer, TamaUniV2.tracePairTokenSafeTransfer,
+    TamaUniV2.pairTokenSafeTransferEvent, Contracts.safeTransfer,
+    pairWorldFromConcreteState, pairWorldLockedLiquidity,
+    h_unlocked_raw, h_require_raw_unfold]
+
 -- tama: discharges=pair_sync_run_revert_balance0_overflow
 theorem sync_run_revert_balance0_overflow (s : ContractState) :
   pair_sync_run_revert_balance0_overflow s := by
