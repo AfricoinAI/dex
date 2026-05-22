@@ -2467,7 +2467,7 @@ contract PairIntegrationSmoke is PairFixture {
         vm.expectEmit(true, true, false, true, address(pair));
         emit Transfer(address(0), address(this), 1_999_000);
         vm.expectEmit(false, false, false, true, address(pair));
-        emit Sync(amount0, amount1);
+        emit Sync(uint112(amount0), uint112(amount1));
         vm.expectEmit(true, false, false, true, address(pair));
         emit Mint(address(this), amount0, amount1);
         pair.mint(address(this));
@@ -2484,7 +2484,7 @@ contract PairIntegrationSmoke is PairFixture {
         vm.expectEmit(true, true, false, true, address(pair));
         emit Transfer(address(pair), address(0), liquidity);
         vm.expectEmit(false, false, false, true, address(pair));
-        emit Sync(reserve0 - amount0, reserve1 - amount1);
+        emit Sync(uint112(reserve0 - amount0), uint112(reserve1 - amount1));
         vm.expectEmit(true, true, false, true, address(pair));
         emit Burn(address(this), amount0, amount1, address(this));
         pair.burn(address(this));
@@ -2496,7 +2496,7 @@ contract PairIntegrationSmoke is PairFixture {
         t0.mint(address(pair), 1_000);
 
         vm.expectEmit(false, false, false, true, address(pair));
-        emit Sync(11_000, 9_094);
+        emit Sync(uint112(11_000), uint112(9_094));
         vm.expectEmit(true, true, false, true, address(pair));
         emit Swap(address(this), 1_000, 0, 0, 906, address(this));
         pair.swap(0, 906, address(this), "");
@@ -2541,7 +2541,7 @@ contract PairIntegrationSmoke is PairFixture {
         uint256 reserve1 = 10_000 + (pair.token0() == address(tokenA) ? 9 : 7);
 
         vm.expectEmit(false, false, false, true, address(pair));
-        emit Sync(reserve0, reserve1);
+        emit Sync(uint112(reserve0), uint112(reserve1));
         pair.sync();
     }
 

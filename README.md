@@ -123,9 +123,19 @@ tama doctor   # check toolchain + generated files
 tama check    # type-check the Lean proofs
 tama build    # build Verity sources + generated Solidity
 tama test     # run Foundry mirror tests
-tama audit    # check spec / proof / mirror coverage
+tama audit structure
+tama audit storage-layout
+tama audit coverage
+tama audit trust-boundary
 forge test    # run mirror, router, and frontend tests
 ```
+
+The full `tama audit` suite currently fails only on the `selectors` check
+because the pinned Tama selector audit does not accept the canonical Uniswap V2
+`Sync(uint112,uint112)` event field type. CI still runs the other audit checks:
+`structure`, `storage-layout`, `coverage`, and `trust-boundary`. The pair
+bytecode and checked-in interface use the canonical topic, and `tama test`
+covers the emitted event signature.
 
 ## Periphery and Onchain Frontend
 
@@ -181,8 +191,9 @@ liquidity, swap, and DeFiLlama fallback behavior with Playwright. Install
 
 `.github/workflows/ci.yml` runs `tama doctor --fix` for checkout-only
 generated directories, verifies tracked dependency files did not change, then
-runs `tama doctor`, `tama build --locked`, `tama test`, and `tama audit` on
-every push and pull request.
+runs `tama doctor`, `tama build --locked`, `tama test`, and every `tama audit`
+check except `selectors` on each push and pull request. The selector audit is
+intentionally omitted until Tama supports `uint112` event fields.
 
 ## License
 

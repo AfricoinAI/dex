@@ -532,7 +532,7 @@ abstract contract PairFixture is Test {
         uint256 amount1Out,
         address indexed to
     );
-    event Sync(uint256 reserve0, uint256 reserve1);
+    event Sync(uint112 reserve0, uint112 reserve1);
     event PairCreated(address indexed token0, address indexed token1, address pair, uint256 allPairsLength);
 
     function setUp() public virtual {

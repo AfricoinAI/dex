@@ -94,4 +94,7 @@ jobs:
         run: env -u CI lake exe cache get
       - run: env -u CI tama build --locked
       - run: env -u CI tama test
-      - run: env -u CI tama audit
+      - run: env -u CI tama audit structure
+      - run: env -u CI tama audit storage-layout
+      - run: env -u CI tama audit coverage
+      - run: env -u CI tama audit trust-boundary

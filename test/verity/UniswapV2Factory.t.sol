@@ -506,7 +506,6 @@ contract FactoryInvariantMirrors is FactoryFixture {
         }
     }
 
-    // tama: mirrors=factory_allPairs_length_tracks_reachable_entries
     function invariant_factoryAllPairsLengthMatchesReachableEntries() public {
         uint256 length = factory.allPairsLength();
         assertGt(length, 0);
@@ -520,7 +519,6 @@ contract FactoryInvariantMirrors is FactoryFixture {
         factory.allPairs(length);
     }
 
-    // tama: mirrors=factory_allPairs_entries_unique
     function invariant_factoryAllPairsEntriesAreUnique() public {
         uint256 length = factory.allPairsLength();
         for (uint256 i = 0; i < length; i++) {
@@ -531,7 +529,6 @@ contract FactoryInvariantMirrors is FactoryFixture {
         }
     }
 
-    // tama: mirrors=factory_allPairs_entries_have_canonical_reverse_lookup
     function invariant_factoryAllPairsEntriesHaveCanonicalReverseLookup() public {
         uint256 length = factory.allPairsLength();
         for (uint256 i = 0; i < length; i++) {

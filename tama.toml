@@ -36,6 +36,8 @@ metadata_bytecode_hash = "none"
 [trust.allow_surfaces]
 "contractAddress" = "Used by pair operations to read token balances held by the pair contract."
 "mstore" = "Used only to restore the EVM free-memory pointer to 0x80 before native event emission after ECMs that use scratch memory."
+"rawLog" = "Used only to emit canonical Uniswap V2 Sync(uint112,uint112) logs because the pinned Verity ABI renderer erases uint112 newtypes to uint256."
+"emit canonical Uniswap V2 Sync(uint112,uint112) log" = "Manually emits the canonical Sync(uint112,uint112) topic and two ABI-encoded reserve words."
 "restore free memory pointer before native events after ERC20 transfer ECMs" = "Documents the burn-path memory repair required after ERC20 transfer ECM calls and before native events."
 "restore free memory pointer before native events after callback/transfer ECMs" = "Documents the swap-path memory repair required after ERC20 transfer/callback ECM calls and before native events."
 

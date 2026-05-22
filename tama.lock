@@ -13,7 +13,7 @@ verity_git = "https://github.com/lfglabs-dev/verity.git"
 verity_rev = "9b0114efcc0af589af63dd3f2eafcdf1a24dbf1e"
 
 [inputs]
-"foundry.toml" = "61f08413416c82d3fbc2e89988fe402fbfea3f877c954d108d109b2dd4bebf54"
+"foundry.toml" = "145050374116f802785900626e658d5e96635d7a1fef07b0bf20de198e9f1e71"
 "lake-manifest.json" = "a83b7849704d410c1aa7b246a5fc6cb5b2fcbb78f6fcdc36fdb4f7eaf8e4a365"
 "lakefile.toml" = "bba2af87b88297d5ac942d77165e0319b94dcce50a3cd31432ab51474ff82a6a"
 lean-toolchain = "8f6680f8389e8adee06cb2bd44372c6d60dce0e8301630b61a99a5642d1bd71b"

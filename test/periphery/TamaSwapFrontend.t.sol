@@ -6,8 +6,8 @@ import {TamaSwapFrontend} from "../../src/TamaSwapFrontend.sol";
 
 contract TamaSwapFrontendTest is Test {
     TamaSwapFrontend internal frontend;
-    bytes20 internal constant GLOBAL_FACTORY = hex"00000060cc856a2b760b870290faad078c146258";
-    bytes20 internal constant GLOBAL_ROUTER = hex"0000002ec9919637129644e17039ee41d9bf9bce";
+    bytes20 internal constant GLOBAL_FACTORY = hex"00000072c4f812bf18766c5f3345298d0a3551bb";
+    bytes20 internal constant GLOBAL_ROUTER = hex"0000007c69b199e35c3485d0a9b7f8ea05b3272c";
     bytes32 internal constant ERC_5219_MODE = 0x3532313900000000000000000000000000000000000000000000000000000000;
     uint256 internal constant EIP_170_CAP = 24576;
     uint256 internal constant EIP_3860_INITCODE_CAP = 49152;
@@ -21,8 +21,8 @@ contract TamaSwapFrontendTest is Test {
     function testGeneratedAppInjectsGlobalAddressesAndResourcePaths() public view {
         bytes memory app = bytes(vm.readFile("artifacts/tamaswap.min.html"));
 
-        assertTrue(_contains(app, bytes("0x00000060cc856a2b760b870290faad078c146258")), "factory missing");
-        assertTrue(_contains(app, bytes("0x0000002ec9919637129644e17039ee41d9bf9bce")), "router missing");
+        assertTrue(_contains(app, bytes("0x00000072c4f812bf18766c5f3345298d0a3551bb")), "factory missing");
+        assertTrue(_contains(app, bytes("0x0000007c69b199e35c3485d0a9b7f8ea05b3272c")), "router missing");
         assertEq(GLOBAL_FACTORY[0], bytes1(0), "factory vanity byte 0");
         assertEq(GLOBAL_FACTORY[1], bytes1(0), "factory vanity byte 1");
         assertEq(GLOBAL_FACTORY[2], bytes1(0), "factory vanity byte 2");

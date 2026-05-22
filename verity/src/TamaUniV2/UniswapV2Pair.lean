@@ -27,6 +27,12 @@ def address (name : String) : EventParam :=
 def uint256 (name : String) : EventParam :=
   { name := name, ty := ParamType.uint256, kind := EventParamKind.unindexed }
 
+def uint112 (name : String) : EventParam :=
+  { name := name, ty := ParamType.newtypeOf "uint112" ParamType.uint256, kind := EventParamKind.unindexed }
+
+def syncTopic0 : Uint256 :=
+  0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1
+
 def mint : EventDef :=
   { name := "Mint"
     params := [
@@ -58,8 +64,8 @@ def swap : EventDef :=
 def sync : EventDef :=
   { name := "Sync"
     params := [
-      uint256 "reserve0",
-      uint256 "reserve1"
+      uint112 "reserve0",
+      uint112 "reserve1"
     ] }
 
 end UniswapV2PairEvents
@@ -345,7 +351,10 @@ verity_contract UniswapV2PairBase where
       setStorage reserve0Slot balance0Now
       setStorage reserve1Slot balance1Now
       setStorage blockTimestampLastSlot timestamp32
-      emit "Sync" [balance0Now, balance1Now]
+      unsafe "emit canonical Uniswap V2 Sync(uint112,uint112) log" do
+        mstore 0 balance0Now
+        mstore 32 balance1Now
+        rawLog [0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1] 0 64
       emit "Mint" [addressToWord sender, amount0, amount1]
       setStorage unlockedSlot 1
       return liquidity
@@ -384,7 +393,10 @@ verity_contract UniswapV2PairBase where
       setStorage reserve0Slot balance0Now
       setStorage reserve1Slot balance1Now
       setStorage blockTimestampLastSlot timestamp32
-      emit "Sync" [balance0Now, balance1Now]
+      unsafe "emit canonical Uniswap V2 Sync(uint112,uint112) log" do
+        mstore 0 balance0Now
+        mstore 32 balance1Now
+        rawLog [0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1] 0 64
       emit "Mint" [addressToWord sender, amount0, amount1]
       setStorage unlockedSlot 1
       return liquidity
@@ -440,7 +452,10 @@ verity_contract UniswapV2PairBase where
     setStorage reserve0Slot balance0After
     setStorage reserve1Slot balance1After
     setStorage blockTimestampLastSlot timestamp32
-    emit "Sync" [balance0After, balance1After]
+    unsafe "emit canonical Uniswap V2 Sync(uint112,uint112) log" do
+      mstore 0 balance0After
+      mstore 32 balance1After
+      rawLog [0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1] 0 64
     emit "Burn" [addressToWord sender, amount0, amount1, addressToWord toAddr]
     setStorage unlockedSlot 1
     return (amount0, amount1)
@@ -524,7 +539,10 @@ verity_contract UniswapV2PairBase where
     setStorage reserve0Slot balance0Now
     setStorage reserve1Slot balance1Now
     setStorage blockTimestampLastSlot timestamp32
-    emit "Sync" [balance0Now, balance1Now]
+    unsafe "emit canonical Uniswap V2 Sync(uint112,uint112) log" do
+      mstore 0 balance0Now
+      mstore 32 balance1Now
+      rawLog [0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1] 0 64
     emit "Swap" [
       addressToWord sender,
       amount0In,
@@ -582,7 +600,10 @@ verity_contract UniswapV2PairBase where
     setStorage reserve0Slot balance0Now
     setStorage reserve1Slot balance1Now
     setStorage blockTimestampLastSlot timestamp32
-    emit "Sync" [balance0Now, balance1Now]
+    unsafe "emit canonical Uniswap V2 Sync(uint112,uint112) log" do
+      mstore 0 balance0Now
+      mstore 32 balance1Now
+      rawLog [0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1] 0 64
     setStorage unlockedSlot 1
 
 namespace UniswapV2Pair
