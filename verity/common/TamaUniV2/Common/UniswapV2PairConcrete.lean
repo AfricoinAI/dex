@@ -475,83 +475,67 @@ def pairWorldAfterSwapRunAndTokens
     totalSupply := (s.storage totalSupplySlot.slot).val
     lockedLiquidity := pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) }
 
-def pairTokenBoundaryForExpectedState {α : Type}
+def pairTokensBehaveNormallyForCall {α : Type}
     (preTokens : PairTokenBalances) (s : ContractState)
     (result : ContractResult α)
-    (before expected : PairWorldState) : Prop :=
+    (before after : PairWorldState) : Prop :=
   let postTokens := pairTokenWorldAfterCall preTokens s result
   pairWorldFromConcreteAndTokens preTokens s = before ∧
-    pairWorldFromConcreteAndTokens postTokens result.snd = expected
+    pairWorldFromConcreteAndTokens postTokens result.snd = after
 
-def pairFirstMintTokenBoundary
+def pairFirstMintTokensBehaveNormallyForCall
     (preTokens : PairTokenBalances) (s : ContractState)
     (result : ContractResult Uint256) : Prop :=
-  pairTokenBoundaryForExpectedState preTokens s result
+  pairTokensBehaveNormallyForCall preTokens s result
     (pairWorldBeforeMintRun s)
-    (pairWorldAfterFirstMintRunAndTokens (pairTokenWorldAfterCall preTokens s result) s) ∧
-  pairWorldAfterFirstMintRunAndTokens
-      (pairTokenWorldAfterCall preTokens s result) s =
-    pairWorldAfterFirstMintRun s
+    (pairWorldAfterFirstMintRun s)
 
-def pairLaterMintTokenBoundary
+def pairLaterMintTokensBehaveNormallyForCall
     (preTokens : PairTokenBalances) (s : ContractState)
     (liquidity : Uint256) (result : ContractResult Uint256) : Prop :=
-  pairTokenBoundaryForExpectedState preTokens s result
+  pairTokensBehaveNormallyForCall preTokens s result
     (pairWorldBeforeMintRun s)
-    (pairWorldAfterSubsequentMintRunAndTokens
-      (pairTokenWorldAfterCall preTokens s result) liquidity s) ∧
-  pairWorldAfterSubsequentMintRunAndTokens
-      (pairTokenWorldAfterCall preTokens s result) liquidity s =
-    pairWorldAfterSubsequentMintRun liquidity s
+    (pairWorldAfterSubsequentMintRun liquidity s)
 
-def pairBurnTokenBoundary
+def pairBurnTokensBehaveNormallyForCall
     (preTokens : PairTokenBalances) (s : ContractState)
     (result : ContractResult (Uint256 × Uint256)) : Prop :=
-  pairTokenBoundaryForExpectedState preTokens s result
+  pairTokensBehaveNormallyForCall preTokens s result
     (pairWorldFromConcreteState s)
-    (pairWorldAfterBurnRunAndTokens (pairTokenWorldAfterCall preTokens s result) s) ∧
-  pairWorldAfterBurnRunAndTokens
-      (pairTokenWorldAfterCall preTokens s result) s =
-    pairWorldAfterBurnRun s
+    (pairWorldAfterBurnRun s)
 
-def pairSwapTokenBoundary
+def pairSwapTokensBehaveNormallyForCall
     (preTokens : PairTokenBalances) (s : ContractState)
     (balance0Now balance1Now : Uint256)
     (result : ContractResult Unit) : Prop :=
-  pairTokenBoundaryForExpectedState preTokens s result
+  pairTokensBehaveNormallyForCall preTokens s result
     (pairWorldFromConcreteState s)
-    (pairWorldAfterSwapRunAndTokens (pairTokenWorldAfterCall preTokens s result) s) ∧
-  pairWorldAfterSwapRunAndTokens
-      (pairTokenWorldAfterCall preTokens s result) s =
-    pairWorldAfterSwapRun balance0Now balance1Now s
+    (pairWorldAfterSwapRun balance0Now balance1Now s)
 
-def pairSkimTokenBoundary
+def pairSkimTokensBehaveNormallyForCall
     (preTokens : PairTokenBalances) (s : ContractState)
     (result : ContractResult Unit) : Prop :=
-  pairTokenBoundaryForExpectedState preTokens s result
+  pairTokensBehaveNormallyForCall preTokens s result
     (pairWorldFromConcreteState s)
-    (pairWorldAfterSkimRunAndTokens (pairTokenWorldAfterCall preTokens s result) s) ∧
-  pairWorldAfterSkimRunAndTokens
-      (pairTokenWorldAfterCall preTokens s result) s =
-    pairWorldAfterSkimRun s
+    (pairWorldAfterSkimRun s)
 
-def pairSyncTokenBoundary
+def pairSyncTokensBehaveNormallyForCall
     (preTokens : PairTokenBalances) (s : ContractState)
     (result : ContractResult Unit) : Prop :=
-  pairTokenBoundaryForExpectedState preTokens s result
+  pairTokensBehaveNormallyForCall preTokens s result
     (pairWorldFromConcreteState s)
-    (pairWorldAfterSyncRunAndTokens (pairTokenWorldAfterCall preTokens s result) s) ∧
-  pairWorldAfterSyncRunAndTokens
-      (pairTokenWorldAfterCall preTokens s result) s =
-    pairWorldAfterSyncRun s
+    (pairWorldAfterSyncRun s)
 
 inductive PairEconomicActionConcreteStep
     (caller : Address) : PairWalletWorldState → PairWalletWorldState → Prop where
+  /-- A concrete economic step records a successful pair call plus the plain
+  assumption that the caller's token and LP balances moved like ordinary ERC20
+  balances for that call. -/
   | mint
       {before after : PairWalletWorldState}
       (toAddr : Address) (preTokens : PairTokenBalances)
       (s : ContractState) (result : ContractResult Uint256)
-      (liquidity : Uint256) (expected : PairWorldState)
+      (liquidity : Uint256)
       (hRun : result = (TamaUniV2.UniswapV2Pair.mint toAddr).run s)
       (hSuccess : result = ContractResult.success liquidity result.snd)
       (hBefore : before = pairWalletFromConcreteAndTokens caller preTokens s)
@@ -559,8 +543,7 @@ inductive PairEconomicActionConcreteStep
         after =
           pairWalletFromConcreteAndTokens caller
             (pairTokenWorldAfterCall preTokens s result) result.snd)
-      (hExpected : after.pair = expected)
-      (hWallet : PairWalletStep
+      (hCallerBalancesBehaveNormally : PairWalletStep
         (PairWalletAction.callerMint
           (mintAmount0 s).val (mintAmount1 s).val liquidity.val)
         before after) :
@@ -569,7 +552,6 @@ inductive PairEconomicActionConcreteStep
       {before after : PairWalletWorldState}
       (toAddr : Address) (preTokens : PairTokenBalances)
       (s : ContractState) (result : ContractResult (Uint256 × Uint256))
-      (expected : PairWorldState)
       (hRun : result = (TamaUniV2.UniswapV2Pair.burn toAddr).run s)
       (hSuccess :
         result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd)
@@ -578,8 +560,7 @@ inductive PairEconomicActionConcreteStep
         after =
           pairWalletFromConcreteAndTokens caller
             (pairTokenWorldAfterCall preTokens s result) result.snd)
-      (hExpected : after.pair = expected)
-      (hWallet : PairWalletStep
+      (hCallerBalancesBehaveNormally : PairWalletStep
         (PairWalletAction.callerBurn
           (burnAmount0 s).val (burnAmount1 s).val (burnLiquidity s).val)
         before after) :
@@ -589,7 +570,6 @@ inductive PairEconomicActionConcreteStep
       (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
       (balance0Now balance1Now : Uint256) (preTokens : PairTokenBalances)
       (s : ContractState) (result : ContractResult Unit)
-      (expected : PairWorldState)
       (hRun :
         result =
           (TamaUniV2.UniswapV2Pair.swap amount0Out amount1Out toAddr data).run s)
@@ -599,8 +579,7 @@ inductive PairEconomicActionConcreteStep
         after =
           pairWalletFromConcreteAndTokens caller
             (pairTokenWorldAfterCall preTokens s result) result.snd)
-      (hExpected : after.pair = expected)
-      (hWallet : PairWalletStep
+      (hCallerBalancesBehaveNormally : PairWalletStep
         (PairWalletAction.callerSwap
           (swapAmount0In amount0Out balance0Now s).val
           (swapAmount1In amount1Out balance1Now s).val
@@ -611,7 +590,6 @@ inductive PairEconomicActionConcreteStep
       {before after : PairWalletWorldState}
       (toAddr : Address) (preTokens : PairTokenBalances)
       (s : ContractState) (result : ContractResult Unit)
-      (expected : PairWorldState)
       (hRun : result = (TamaUniV2.UniswapV2Pair.skim toAddr).run s)
       (hSuccess : result = ContractResult.success () result.snd)
       (hBefore : before = pairWalletFromConcreteAndTokens caller preTokens s)
@@ -619,8 +597,7 @@ inductive PairEconomicActionConcreteStep
         after =
           pairWalletFromConcreteAndTokens caller
             (pairTokenWorldAfterCall preTokens s result) result.snd)
-      (hExpected : after.pair = expected)
-      (hWallet : PairWalletStep
+      (hCallerBalancesBehaveNormally : PairWalletStep
         (PairWalletAction.callerSkimReceive
           (PairWorldSurplus0 before.pair) (PairWorldSurplus1 before.pair))
         before after) :
@@ -629,7 +606,6 @@ inductive PairEconomicActionConcreteStep
       {before after : PairWalletWorldState}
       (preTokens : PairTokenBalances)
       (s : ContractState) (result : ContractResult Unit)
-      (expected : PairWorldState)
       (hRun : result = (TamaUniV2.UniswapV2Pair.sync).run s)
       (hSuccess : result = ContractResult.success () result.snd)
       (hBefore : before = pairWalletFromConcreteAndTokens caller preTokens s)
@@ -637,8 +613,8 @@ inductive PairEconomicActionConcreteStep
         after =
           pairWalletFromConcreteAndTokens caller
             (pairTokenWorldAfterCall preTokens s result) result.snd)
-      (hExpected : after.pair = expected)
-      (hWallet : PairWalletStep PairWalletAction.callerSync before after) :
+      (hCallerBalancesBehaveNormally :
+        PairWalletStep PairWalletAction.callerSync before after) :
       PairEconomicActionConcreteStep caller before after
 
 inductive PairEconomicActionConcretePath

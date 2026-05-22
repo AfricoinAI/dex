@@ -59,10 +59,9 @@ callbacks, and CREATE2 deployment.
 10. **Exact-revert guards** — every guarded failure has a canonical revert
     payload and leaves the pre-call state unchanged.
 
-11. **ERC20 trace boundary** — token movement is modeled by pair-local ERC20
-    trace events; runtime mirrors document the external token behavior
-    envelope without treating the generic ERC20 ECM implementation as a
-    Uniswap protocol property.
+11. **Normal token behavior** — token movement is modeled by pair-local ERC20
+    trace events; runtime mirrors document the assumption that the external
+    tokens obey ordinary ERC20 balance/transfer semantics for the call.
 
 12. **LP ERC20 share ledger** — LP approve/transfer/transferFrom move share
     claims only; AMM state, reserves, and token balances are unchanged.
@@ -74,17 +73,18 @@ callbacks, and CREATE2 deployment.
     mutating state.
 
 15. **Actual execution bridges** — each successful public mutating call reaches
-    the expected pair state under explicit ERC20 token-accounting boundary
-    evidence, bridging the contract boundary into the models used by properties
+    the expected pair state when the tokens involved behave like ordinary ERC20s
+    for that call, bridging concrete calls into the models used by properties
     1–14.
 -/
 
 /-!
 ## 1. No free lunch
 
-The headline economic property. From any reachable state, no finite
-sequence of valid caller actions can increase the caller's portfolio
-value at the initial spot price.
+The headline economic property. From any reachable state, no finite sequence of
+successful pair calls can increase the caller's portfolio value at the initial
+spot price, assuming the tokens and caller token/LP balances behave like
+ordinary ERC20 balances for each call in the path.
 -/
 
 def pair_actual_execution_no_free_lunch
@@ -960,13 +960,12 @@ def pair_initialize_reverts_when_already_initialized
       result = ContractResult.revert "UniswapV2: ALREADY_INITIALIZED" s
 
 /-!
-## 11. ERC20 trace boundary
+## 11. Normal token behavior
 
-The pair affects token balances through the ERC20 helper boundary assumed by
-the compiled model. Each successful `safeTransfer` records a pair-local ghost
-event whose replay moves exactly that token amount. These trace facts define the
-pair's accounting view of ERC20 interactions without pretending to prove
-arbitrary token correctness or the generic ERC20 ECM implementation itself.
+The pair affects token balances through ERC20 calls. Each successful
+`safeTransfer` records a pair-local ghost event whose replay moves exactly that
+token amount. These trace facts define the pair's accounting view when the
+external tokens obey ordinary ERC20 balance/transfer semantics for the call.
 -/
 
 def pair_safeTransfer_traces_token_transfer
@@ -1333,27 +1332,28 @@ def pair_kLast_run_success_frames_state
 /-!
 ## 15. Actual execution bridges
 
-Each successful public mutating call reaches the expected pair state. The
-contract run and success result are concrete; token balance movement remains an
-explicit ERC20 boundary premise because Verity's frozen `balanceOf` ECM does not
-derive stateful token balances from external ERC20 calls.
+Each successful public mutating call reaches the expected pair state, assuming
+the tokens involved behave like ordinary ERC20s for that call. The contract run
+and success result are concrete; token balance movement remains an explicit
+premise because Verity's frozen `balanceOf` ECM does not derive stateful token
+balances from external ERC20 calls.
 -/
 
 /-- When the first `mint` succeeds, the lock gate was open and both observed
-token balances fit the `uint112` reserve domain; the ERC20 boundary ties those
-reads and the replayed token events to the token-backed expected post-state. -/
+token balances fit the `uint112` reserve domain; the token-behavior premise
+ties those reads and the replayed token events to the token-backed post-state. -/
 def pair_first_mint_success_reaches_expected_pair_state
     (toAddr : Address) (preTokens : PairTokenBalances) (s : ContractState)
     (result : ContractResult Uint256) : Prop :=
   let amount0 := mintAmount0 s
   let amount1 := mintAmount1 s
   let liquidity := mintFirstLiquidity s
-  let expected :=
-    pairWorldAfterFirstMintRunAndTokens
-      (pairTokenWorldAfterCall preTokens s result) s
+  let actual :=
+    pairWorldFromConcreteAndTokens
+      (pairTokenWorldAfterCall preTokens s result) result.snd
   result = (mint toAddr).run s →
     result = ContractResult.success liquidity result.snd →
-      pairFirstMintTokenBoundary preTokens s result →
+      pairFirstMintTokensBehaveNormallyForCall preTokens s result →
         s.storage totalSupplySlot.slot = 0 →
           s.storage reserve0Slot.slot ≤ observedBalance0 s →
             s.storage reserve1Slot.slot ≤ observedBalance1 s →
@@ -1364,10 +1364,7 @@ def pair_first_mint_success_reaches_expected_pair_state
                       PairWorldStep
                         (PairWorldAction.mint amount0.val amount1.val liquidity.val)
                         (pairWorldFromConcreteAndTokens preTokens s)
-                        expected ∧
-                      pairWorldFromConcreteAndTokens
-                        (pairTokenWorldAfterCall preTokens s result)
-                        result.snd = expected
+                        actual
 
 /--
 A successful first mint treats each token's balance increase as the deposit.
@@ -1426,12 +1423,12 @@ def pair_later_mint_success_reaches_expected_pair_state
     (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
   let amount0 := mintAmount0 s
   let amount1 := mintAmount1 s
-  let expected :=
-    pairWorldAfterSubsequentMintRunAndTokens
-      (pairTokenWorldAfterCall preTokens s result) liquidity s
+  let actual :=
+    pairWorldFromConcreteAndTokens
+      (pairTokenWorldAfterCall preTokens s result) result.snd
   result = (mint toAddr).run s →
     result = ContractResult.success liquidity result.snd →
-      pairLaterMintTokenBoundary preTokens s liquidity result →
+      pairLaterMintTokensBehaveNormallyForCall preTokens s liquidity result →
         0 < (s.storage totalSupplySlot.slot).val →
           s.storage reserve0Slot.slot > 0 →
             s.storage reserve1Slot.slot > 0 →
@@ -1447,10 +1444,7 @@ def pair_later_mint_success_reaches_expected_pair_state
                             PairWorldStep
                               (PairWorldAction.mint amount0.val amount1.val liquidity.val)
                               (pairWorldFromConcreteAndTokens preTokens s)
-                              expected ∧
-                            pairWorldFromConcreteAndTokens
-                              (pairTokenWorldAfterCall preTokens s result)
-                              result.snd = expected
+                              actual
 
 /--
 A successful later mint also treats each token's balance increase as the
@@ -1475,11 +1469,12 @@ def pair_burn_success_reaches_expected_pair_state
   let liquidity := burnLiquidity s
   let amount0 := burnAmount0 s
   let amount1 := burnAmount1 s
-  let expected :=
-    pairWorldAfterBurnRunAndTokens (pairTokenWorldAfterCall preTokens s result) s
+  let actual :=
+    pairWorldFromConcreteAndTokens
+      (pairTokenWorldAfterCall preTokens s result) result.snd
   result = (burn toAddr).run s →
     result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
-      pairBurnTokenBoundary preTokens s result →
+      pairBurnTokensBehaveNormallyForCall preTokens s result →
         0 < liquidity.val →
           0 < (burnSupply s).val →
             liquidity.val ≤ (burnSupply s).val →
@@ -1497,10 +1492,7 @@ def pair_burn_success_reaches_expected_pair_state
                                 PairWorldStep
                                   (PairWorldAction.burn amount0.val amount1.val liquidity.val)
                                   (pairWorldFromConcreteAndTokens preTokens s)
-                                  expected ∧
-                                pairWorldFromConcreteAndTokens
-                                  (pairTokenWorldAfterCall preTokens s result)
-                                  result.snd = expected
+                                  actual
 
 /--
 A successful burn destroys the LP tokens sitting on the pair itself and uses
@@ -1635,11 +1627,12 @@ def pair_swap_success_reaches_expected_pair_state
     (result : ContractResult Unit) : Prop :=
   let amount0In := swapAmount0In amount0Out balance0Now s
   let amount1In := swapAmount1In amount1Out balance1Now s
-  let expected :=
-    pairWorldAfterSwapRunAndTokens (pairTokenWorldAfterCall preTokens s result) s
+  let actual :=
+    pairWorldFromConcreteAndTokens
+      (pairTokenWorldAfterCall preTokens s result) result.snd
   result = (swap amount0Out amount1Out toAddr data).run s →
     result = ContractResult.success () result.snd →
-      pairSwapTokenBoundary preTokens s balance0Now balance1Now result →
+      pairSwapTokensBehaveNormallyForCall preTokens s balance0Now balance1Now result →
         amount0Out < s.storage reserve0Slot.slot →
           amount1Out < s.storage reserve1Slot.slot →
             (amount0In > 0 ∨ amount1In > 0) →
@@ -1663,10 +1656,7 @@ def pair_swap_success_reaches_expected_pair_state
                                 amount0In.val amount1In.val
                                 amount0Out.val amount1Out.val)
                               (pairWorldFromConcreteAndTokens preTokens s)
-                              expected ∧
-                              pairWorldFromConcreteAndTokens
-                                (pairTokenWorldAfterCall preTokens s result)
-                                result.snd = expected
+                              actual
 
 /--
 When `swap` succeeds, the final token balances account for the optimistic
@@ -1809,17 +1799,15 @@ proofs. -/
 def pair_skim_success_reaches_expected_pair_state
     (toAddr : Address) (preTokens : PairTokenBalances)
     (s : ContractState) (result : ContractResult Unit) : Prop :=
-  let expected :=
-    pairWorldAfterSkimRunAndTokens (pairTokenWorldAfterCall preTokens s result) s
+  let actual :=
+    pairWorldFromConcreteAndTokens
+      (pairTokenWorldAfterCall preTokens s result) result.snd
   result = (skim toAddr).run s →
     result = ContractResult.success () result.snd →
-      pairSkimTokenBoundary preTokens s result →
+      pairSkimTokensBehaveNormallyForCall preTokens s result →
         PairWorldStep PairWorldAction.skim
           (pairWorldFromConcreteAndTokens preTokens s)
-          expected ∧
-        pairWorldFromConcreteAndTokens
-          (pairTokenWorldAfterCall preTokens s result)
-          result.snd = expected
+          actual
 
 /-- A successful `swap` must have passed the first economic guard: at least one
 output amount is nonzero. A zero-output request fails before token transfers,
@@ -1836,17 +1824,15 @@ the call follows the sync rule used by the invariant proofs. -/
 def pair_sync_success_reaches_expected_pair_state
     (preTokens : PairTokenBalances)
     (s : ContractState) (result : ContractResult Unit) : Prop :=
-  let expected :=
-    pairWorldAfterSyncRunAndTokens (pairTokenWorldAfterCall preTokens s result) s
+  let actual :=
+    pairWorldFromConcreteAndTokens
+      (pairTokenWorldAfterCall preTokens s result) result.snd
   result = (sync).run s →
     result = ContractResult.success () result.snd →
-      pairSyncTokenBoundary preTokens s result →
+      pairSyncTokensBehaveNormallyForCall preTokens s result →
         PairWorldStep PairWorldAction.sync
           (pairWorldFromConcreteAndTokens preTokens s)
-          expected ∧
-        pairWorldFromConcreteAndTokens
-          (pairTokenWorldAfterCall preTokens s result)
-          result.snd = expected
+          actual
 
 /-!
 ## Closed-World Foundations
