@@ -103,3 +103,14 @@ test("frontend wires DeFiLlama prices into visible swap USD helper text", () => 
   expect(source).toContain("updateUsd(swapAmt,a,usdIn)");
   expect(source).toContain("updateUsd(swapOutAmt,b,usdOut)");
 });
+
+test("frontend wires DeFiLlama prices into visible pool USD helper text", () => {
+  const source = fs.readFileSync("html/tamaswap.html", "utf8");
+
+  expect(source).toContain("id=lpUsdA");
+  expect(source).toContain("id=lpUsdB");
+  expect(source).toContain("id=burnOutUsd");
+  expect(source).toContain("showUsd(lpAmtA,a,lpUsdA)");
+  expect(source).toContain("showUsd(lpAmtB,b,lpUsdB)");
+  expect(source).toContain("updateBurnUsd(seq,a,b,outA,outB)");
+});
