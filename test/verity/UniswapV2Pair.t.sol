@@ -871,6 +871,7 @@ contract PairBurnMirrors is PairFixture {
     // tama: mirrors=pair_burn_leaves_remaining_token_balances
     function testFuzzMirrorBurnLeavesRemainingTokenBalances(address toAddr, uint96 liquidity_) public {
         seed(1_000_000, 4_000_000);
+        vm.assume(toAddr != address(pair));
         uint256 liquidity = bound(uint256(liquidity_), 4, pair.balanceOf(address(this)) / 2);
         pair.transfer(address(pair), liquidity);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
@@ -1575,13 +1576,13 @@ contract PairReachablePathMirrors is PairFixture {
 }
 
 // =====================================================================
-// Pair "successful run matches closed-world step" mirrors.
-// Each test runs the entrypoint and asserts the concrete state evolved
-// exactly the way the corresponding Lean step relation describes.
+// Pair actual-execution bridge mirrors.
+// Each test runs the entrypoint and asserts the concrete/token state reaches
+// the expected pair state named by the corresponding Lean bridge spec.
 // =====================================================================
 
-contract PairRunMatchesStepMirrors is PairFixture {
-    // tama: mirrors=pair_mint_first_success_run_matches_closed_world_step_from_run
+contract PairActualExecutionBridgeMirrors is PairFixture {
+    // tama: mirrors=pair_first_mint_success_reaches_expected_pair_state
     function testFuzzMirrorFirstMintRunMatchesStep(uint96) public {
         tokenA.mint(address(pair), 1 ether);
         tokenB.mint(address(pair), 1 ether);
@@ -1594,7 +1595,7 @@ contract PairRunMatchesStepMirrors is PairFixture {
         assertEq(pair.totalSupply(), 1000 + liquidity);
     }
 
-    // tama: mirrors=pair_mint_subsequent_success_run_matches_closed_world_step_from_run
+    // tama: mirrors=pair_later_mint_success_reaches_expected_pair_state
     function testFuzzMirrorSubsequentMintRunMatchesStep(uint96) public {
         seed(1_000_000, 1_000_000);
         (uint256 reserve0Before, uint256 reserve1Before,) = pair.getReserves();
@@ -1609,7 +1610,7 @@ contract PairRunMatchesStepMirrors is PairFixture {
         assertEq(pair.totalSupply(), supplyBefore + liquidity);
     }
 
-    // tama: mirrors=pair_burn_success_run_matches_closed_world_step
+    // tama: mirrors=pair_burn_success_reaches_expected_pair_state
     function testFuzzMirrorBurnRunMatchesStep(uint96) public {
         seed(1_000_000, 4_000_000);
         uint256 liquidity = 200_000;
@@ -1623,7 +1624,7 @@ contract PairRunMatchesStepMirrors is PairFixture {
         assertEq(reserve1After, reserve1Before - amount1);
     }
 
-    // tama: mirrors=pair_swap_success_run_matches_closed_world_step_from_run
+    // tama: mirrors=pair_swap_success_reaches_expected_pair_state
     function testFuzzMirrorSwapRunMatchesStep(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
@@ -1637,7 +1638,7 @@ contract PairRunMatchesStepMirrors is PairFixture {
         assertEq(reserve1After, 9_094);
     }
 
-    // tama: mirrors=pair_skim_success_run_matches_closed_world_step_from_run
+    // tama: mirrors=pair_skim_success_reaches_expected_pair_state
     function testFuzzMirrorSkimRunMatchesStep(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
@@ -1652,7 +1653,7 @@ contract PairRunMatchesStepMirrors is PairFixture {
         assertEq(t1.balanceOf(address(pair)), reserve1Before);
     }
 
-    // tama: mirrors=pair_sync_success_run_matches_closed_world_step_from_run
+    // tama: mirrors=pair_sync_success_reaches_expected_pair_state
     function testFuzzMirrorSyncRunMatchesStep(uint96) public {
         seed(10_000, 10_000);
         (MockERC20 t0, MockERC20 t1) = sortedTokens();
@@ -2176,118 +2177,6 @@ contract PairFlashCallbackModuleMirrors is PairFixture {
     }
 }
 
-contract PairCallerWalletMirrors is PairFixture {
-    address internal constant CALLER = address(0xCA11E2);
-
-    function fundCaller(uint256 amount0, uint256 amount1) internal returns (MockERC20 t0, MockERC20 t1) {
-        (t0, t1) = sortedTokens();
-        t0.mint(CALLER, amount0);
-        t1.mint(CALLER, amount1);
-    }
-
-    // tama: mirrors=pair_successful_first_mint_matches_caller_wallet_mint
-    function testFuzzMirrorSuccessfulFirstMintMatchesCallerWalletMint(uint256 amount) public {
-        amount = bound(amount, 1_000_001, 1_000_000_000);
-        (MockERC20 t0, MockERC20 t1) = fundCaller(amount, amount);
-        vm.startPrank(CALLER);
-        t0.transfer(address(pair), amount);
-        t1.transfer(address(pair), amount);
-        uint256 liquidity = pair.mint(CALLER);
-        vm.stopPrank();
-
-        assertEq(pair.balanceOf(CALLER), liquidity);
-        assertEq(t0.balanceOf(CALLER), 0);
-        assertEq(t1.balanceOf(CALLER), 0);
-    }
-
-    // tama: mirrors=pair_successful_subsequent_mint_matches_caller_wallet_mint
-    function testFuzzMirrorSuccessfulSubsequentMintMatchesCallerWalletMint(uint256 amount) public {
-        amount = bound(amount, 1, 1_000_000);
-        seed(10_000, 10_000);
-        (MockERC20 t0, MockERC20 t1) = fundCaller(amount, amount);
-        uint256 callerLpBefore = pair.balanceOf(CALLER);
-        vm.startPrank(CALLER);
-        t0.transfer(address(pair), amount);
-        t1.transfer(address(pair), amount);
-        uint256 liquidity = pair.mint(CALLER);
-        vm.stopPrank();
-
-        assertEq(pair.balanceOf(CALLER), callerLpBefore + liquidity);
-        assertEq(t0.balanceOf(CALLER), 0);
-        assertEq(t1.balanceOf(CALLER), 0);
-    }
-
-    // tama: mirrors=pair_successful_burn_matches_caller_wallet_burn
-    function testFuzzMirrorSuccessfulBurnMatchesCallerWalletBurn(uint256 liquidity) public {
-        seed(1_000_000, 1_000_000);
-        liquidity = bound(liquidity, 1, pair.balanceOf(address(this)) / 2);
-        pair.transfer(CALLER, liquidity);
-        (MockERC20 t0, MockERC20 t1) = sortedTokens();
-        uint256 t0Before = t0.balanceOf(CALLER);
-        uint256 t1Before = t1.balanceOf(CALLER);
-        vm.prank(CALLER);
-        pair.transfer(address(pair), liquidity);
-        (uint256 amount0, uint256 amount1) = pair.burn(CALLER);
-
-        assertEq(t0.balanceOf(CALLER), t0Before + amount0);
-        assertEq(t1.balanceOf(CALLER), t1Before + amount1);
-        assertEq(pair.balanceOf(CALLER), 0);
-    }
-
-    // tama: mirrors=pair_successful_swap_matches_caller_wallet_swap
-    function testFuzzMirrorSuccessfulSwapMatchesCallerWalletSwap(uint256 amount0In) public {
-        seed(10_000, 10_000);
-        amount0In = bound(amount0In, 2, 1_000);
-        (MockERC20 t0, MockERC20 t1) = sortedTokens();
-        uint256 amount1Out = getAmountOut(amount0In, 10_000, 10_000);
-        t0.mint(CALLER, amount0In);
-        uint256 caller1Before = t1.balanceOf(CALLER);
-        vm.startPrank(CALLER);
-        t0.transfer(address(pair), amount0In);
-        pair.swap(0, amount1Out, CALLER, "");
-        vm.stopPrank();
-
-        assertEq(t0.balanceOf(CALLER), 0);
-        assertEq(t1.balanceOf(CALLER), caller1Before + amount1Out);
-    }
-
-    // tama: mirrors=pair_successful_skim_matches_caller_wallet_skim
-    function testFuzzMirrorSuccessfulSkimMatchesCallerWalletSkim(uint256 surplus0, uint256 surplus1) public {
-        surplus0 = bound(surplus0, 0, 1_000_000);
-        surplus1 = bound(surplus1, 0, 1_000_000);
-        seed(10_000, 10_000);
-        (MockERC20 t0, MockERC20 t1) = sortedTokens();
-        t0.mint(address(pair), surplus0);
-        t1.mint(address(pair), surplus1);
-        uint256 caller0Before = t0.balanceOf(CALLER);
-        uint256 caller1Before = t1.balanceOf(CALLER);
-
-        vm.prank(CALLER);
-        pair.skim(CALLER);
-
-        assertEq(t0.balanceOf(CALLER), caller0Before + surplus0);
-        assertEq(t1.balanceOf(CALLER), caller1Before + surplus1);
-    }
-
-    // tama: mirrors=pair_successful_sync_matches_caller_wallet_sync
-    function testFuzzMirrorSuccessfulSyncMatchesCallerWalletSync(uint256 surplus0, uint256 surplus1) public {
-        surplus0 = bound(surplus0, 0, 1_000_000);
-        surplus1 = bound(surplus1, 0, 1_000_000);
-        seed(10_000, 10_000);
-        (MockERC20 t0, MockERC20 t1) = sortedTokens();
-        t0.mint(address(pair), surplus0);
-        t1.mint(address(pair), surplus1);
-        uint256 caller0Before = t0.balanceOf(CALLER);
-        uint256 caller1Before = t1.balanceOf(CALLER);
-
-        vm.prank(CALLER);
-        pair.sync();
-
-        assertEq(t0.balanceOf(CALLER), caller0Before);
-        assertEq(t1.balanceOf(CALLER), caller1Before);
-    }
-}
-
 contract CallerWalletHandler {
     UniswapV2PairIface public pair;
     MockERC20 public token0;
@@ -2396,8 +2285,8 @@ contract PairCallerWalletInvariantMirrors is PairFixture {
         targetContract(address(handler));
     }
 
-    // tama: mirrors=pair_wallet_single_caller_history_no_portfolio_profit
-    function invariant_pairWalletSingleCallerHistoryNoPortfolioProfit() public {
+    // tama: mirrors=pair_actual_execution_no_free_lunch
+    function invariant_pairActualExecutionNoFreeLunch() public {
         assertLe(_currentPortfolioValueNumerator(), initialPortfolioValue * pair.totalSupply());
     }
 

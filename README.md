@@ -61,9 +61,10 @@ boundary mechanics. Every spec listed below has a matching Lean proof.
     fixed after the first `initialize`.
 14. **Views** — view functions return exactly one storage cell (or a
     constant) without mutating state.
-15. **Public-call matching** — each successful public mutating call matches
-    its closed-world transition, bridging the contract boundary into the
-    models used by properties 1–14.
+15. **Actual execution bridges** — each successful public mutating call reaches
+    the expected pair state under explicit ERC20 token-accounting boundary
+    evidence, bridging the contract boundary into the models used by
+    properties 1–14.
 
 ### `UniswapV2Factory` — 9 properties
 

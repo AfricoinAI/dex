@@ -1588,8 +1588,15 @@ theorem skim_success_run_restores_unlocked_from_run
   rw [h_run]
   exact h_restored
 
--- tama: discharges=pair_skim_success_run_matches_closed_world_step_from_run
-theorem skim_success_run_matches_closed_world_step_from_run
+private def pair_skim_success_run_matches_closed_world_step_from_run
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=
+  result = (skim toAddr).run s →
+    result = ContractResult.success () result.snd →
+      PairWorldStep PairWorldAction.skim
+        (pairWorldFromConcreteState s)
+        (pairWorldAfterSkimRun s)
+
+private theorem skim_success_run_matches_closed_world_step_from_run
     (toAddr : Address) (s : ContractState) (result : ContractResult Unit) :
   pair_skim_success_run_matches_closed_world_step_from_run toAddr s result := by
   intro h_run h_success
@@ -1602,8 +1609,13 @@ theorem skim_success_run_matches_closed_world_step_from_run
   rw [← h_run, h_success] at h_step
   exact h_step
 
--- tama: discharges=pair_skim_success_run_preserves_world
-theorem skim_success_run_preserves_world
+private def pair_skim_success_run_preserves_world
+    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=
+  result = (skim toAddr).run s →
+    result = ContractResult.success () result.snd →
+      pairWorldFromConcreteState result.snd = pairWorldFromConcreteState s
+
+private theorem skim_success_run_preserves_world
     (toAddr : Address) (s : ContractState) (result : ContractResult Unit) :
   pair_skim_success_run_preserves_world toAddr s result := by
   intro h_run h_success
@@ -1629,6 +1641,21 @@ theorem skim_success_run_preserves_world
     TamaUniV2.pairTokenSafeTransferEvent, Contracts.safeTransfer,
     pairWorldFromConcreteState, pairWorldLockedLiquidity,
     h_unlocked_raw, h_require_raw_unfold]
+
+-- tama: discharges=pair_skim_success_reaches_expected_pair_state
+theorem skim_success_reaches_expected_pair_state
+    (toAddr : Address) (preTokens : PairTokenBalances)
+    (s : ContractState) (result : ContractResult Unit) :
+  pair_skim_success_reaches_expected_pair_state toAddr preTokens s result := by
+  intro h_run h_success h_boundary
+  rcases h_boundary with ⟨⟨h_before, h_post⟩, h_expected⟩
+  have h_step :=
+    skim_success_run_matches_closed_world_step_from_run
+      toAddr s result h_run h_success
+  constructor
+  · rw [h_before, h_expected]
+    exact h_step
+  · exact h_post
 
 -- tama: discharges=pair_sync_run_revert_balance0_overflow
 theorem sync_run_revert_balance0_overflow (s : ContractState) :
@@ -1784,8 +1811,15 @@ private theorem sync_success_run_matches_closed_world_step
 
 
 
--- tama: discharges=pair_sync_success_run_matches_closed_world_step_from_run
-theorem sync_success_run_matches_closed_world_step_from_run
+private def pair_sync_success_run_matches_closed_world_step_from_run
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  result = (sync).run s →
+    result = ContractResult.success () result.snd →
+      PairWorldStep PairWorldAction.sync
+        (pairWorldFromConcreteState s)
+        (pairWorldAfterSyncRun s)
+
+private theorem sync_success_run_matches_closed_world_step_from_run
     (s : ContractState) (result : ContractResult Unit) :
   pair_sync_success_run_matches_closed_world_step_from_run s result := by
   intro h_run h_success
@@ -2044,8 +2078,13 @@ private theorem sync_post_obs1_run
       -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
       -timestamp32, -oracleElapsed]))
 
--- tama: discharges=pair_sync_success_run_reaches_world
-theorem sync_success_run_reaches_world
+private def pair_sync_success_run_reaches_world
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  result = (sync).run s →
+    result = ContractResult.success () result.snd →
+      pairWorldFromConcreteState result.snd = pairWorldAfterSyncRun s
+
+private theorem sync_success_run_reaches_world
     (s : ContractState) (result : ContractResult Unit) :
   pair_sync_success_run_reaches_world s result := by
   intro h_run h_success
@@ -2065,6 +2104,20 @@ theorem sync_success_run_reaches_world
     sync_post_reserve0_run s h_unlocked h_bound0 h_bound1,
     sync_post_reserve1_run s h_unlocked h_bound0 h_bound1,
     sync_post_supply_run s h_unlocked h_bound0 h_bound1]
+
+-- tama: discharges=pair_sync_success_reaches_expected_pair_state
+theorem sync_success_reaches_expected_pair_state
+    (preTokens : PairTokenBalances)
+    (s : ContractState) (result : ContractResult Unit) :
+  pair_sync_success_reaches_expected_pair_state preTokens s result := by
+  intro h_run h_success h_boundary
+  rcases h_boundary with ⟨⟨h_before, h_post⟩, h_expected⟩
+  have h_step :=
+    sync_success_run_matches_closed_world_step_from_run s result h_run h_success
+  constructor
+  · rw [h_before, h_expected]
+    exact h_step
+  · exact h_post
 
 -- tama: discharges=pair_flash_callback_module_gates_nonempty_data
 theorem flash_callback_module_gates_nonempty_data :
@@ -2316,8 +2369,27 @@ private theorem mint_first_success_run_matches_closed_world_step
     h_unlocked h_supply_zero h_bound0 h_bound1 h_reserve0 h_reserve1
     h_amount0 h_amount1 h_product h_root
 
--- tama: discharges=pair_mint_first_success_run_matches_closed_world_step_from_run
-theorem mint_first_success_run_matches_closed_world_step_from_run
+private def pair_mint_first_success_run_matches_closed_world_step_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  let liquidity := mintFirstLiquidity s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      s.storage totalSupplySlot.slot = 0 →
+        s.storage reserve0Slot.slot ≤ observedBalance0 s →
+          s.storage reserve1Slot.slot ≤ observedBalance1 s →
+            amount0 > 0 →
+              amount1 > 0 →
+                (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
+                  mintFirstRoot s > minimumLiquidity →
+                    PairWorldStep
+                      (PairWorldAction.mint amount0.val amount1.val liquidity.val)
+                      (pairWorldBeforeMintRun s)
+                      (pairWorldAfterFirstMintRun s)
+
+private theorem mint_first_success_run_matches_closed_world_step_from_run
     (toAddr : Address) (s : ContractState) :
   pair_mint_first_success_run_matches_closed_world_step_from_run toAddr s
     ((mint toAddr).run s) := by
@@ -2338,6 +2410,23 @@ theorem mint_first_success_run_matches_closed_world_step_from_run
   exact mint_first_expected_matches_closed_world_step toAddr s
     h_unlocked h_supply_zero h_bound0 h_bound1 h_reserve0 h_reserve1
     h_amount0 h_amount1 h_product h_root
+
+-- tama: discharges=pair_first_mint_success_reaches_expected_pair_state
+theorem first_mint_success_reaches_expected_pair_state
+    (toAddr : Address) (preTokens : PairTokenBalances) (s : ContractState) :
+  pair_first_mint_success_reaches_expected_pair_state
+    toAddr preTokens s ((mint toAddr).run s) := by
+  intro h_run h_success h_boundary h_supply_zero h_reserve0 h_reserve1
+    h_amount0 h_amount1 h_product h_root
+  rcases h_boundary with ⟨⟨h_before, h_post⟩, h_expected⟩
+  have h_step :=
+    mint_first_success_run_matches_closed_world_step_from_run
+      toAddr s h_run h_success h_supply_zero h_reserve0 h_reserve1
+      h_amount0 h_amount1 h_product h_root
+  constructor
+  · rw [h_before, h_expected]
+    exact h_step
+  · exact h_post
 
 -- tama: discharges=pair_first_mint_uses_balance_increase_as_deposit
 theorem first_mint_uses_balance_increase_as_deposit
@@ -2468,8 +2557,31 @@ private theorem mint_subsequent_success_run_matches_closed_world_step
   intro _h_run _h_success
   exact mint_subsequent_expected_matches_closed_world_step s liquidity
 
--- tama: discharges=pair_mint_subsequent_success_run_matches_closed_world_step_from_run
-theorem mint_subsequent_success_run_matches_closed_world_step_from_run
+private def pair_mint_subsequent_success_run_matches_closed_world_step_from_run
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
+  let amount0 := mintAmount0 s
+  let amount1 := mintAmount1 s
+  result = (mint toAddr).run s →
+    result = ContractResult.success liquidity result.snd →
+      0 < (s.storage totalSupplySlot.slot).val →
+        s.storage reserve0Slot.slot > 0 →
+          s.storage reserve1Slot.slot > 0 →
+            s.storage reserve0Slot.slot ≤ observedBalance0 s →
+              s.storage reserve1Slot.slot ≤ observedBalance1 s →
+                amount0 > 0 →
+                  amount1 > 0 →
+                    liquidity > 0 →
+                      liquidity.val * (s.storage reserve0Slot.slot).val ≤
+                          amount0.val * (s.storage totalSupplySlot.slot).val →
+                        liquidity.val * (s.storage reserve1Slot.slot).val ≤
+                            amount1.val * (s.storage totalSupplySlot.slot).val →
+                          PairWorldStep
+                            (PairWorldAction.mint amount0.val amount1.val liquidity.val)
+                            (pairWorldBeforeMintRun s)
+                            (pairWorldAfterSubsequentMintRun liquidity s)
+
+private theorem mint_subsequent_success_run_matches_closed_world_step_from_run
     (toAddr : Address) (s : ContractState)
     (liquidity : Uint256) :
   pair_mint_subsequent_success_run_matches_closed_world_step_from_run
@@ -2488,6 +2600,25 @@ theorem mint_subsequent_success_run_matches_closed_world_step_from_run
   exact mint_subsequent_expected_matches_closed_world_step s liquidity
     h_supply_pos h_reserve0_pos h_reserve1_pos h_bound0 h_bound1
     h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
+
+-- tama: discharges=pair_later_mint_success_reaches_expected_pair_state
+theorem later_mint_success_reaches_expected_pair_state
+    (toAddr : Address) (preTokens : PairTokenBalances) (s : ContractState)
+    (liquidity : Uint256) :
+  pair_later_mint_success_reaches_expected_pair_state
+    toAddr preTokens s ((mint toAddr).run s) liquidity := by
+  intro h_run h_success h_boundary h_supply_pos h_reserve0_pos h_reserve1_pos
+    h_reserve0 h_reserve1 h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1
+  rcases h_boundary with ⟨⟨h_before, h_post⟩, h_expected⟩
+  have h_step :=
+    mint_subsequent_success_run_matches_closed_world_step_from_run
+      toAddr s liquidity h_run h_success h_supply_pos h_reserve0_pos
+      h_reserve1_pos h_reserve0 h_reserve1 h_amount0 h_amount1
+      h_liquidity h_ratio0 h_ratio1
+  constructor
+  · rw [h_before, h_expected]
+    exact h_step
+  · exact h_post
 
 -- tama: discharges=pair_later_mint_uses_balance_increase_as_deposit
 theorem later_mint_uses_balance_increase_as_deposit
@@ -2592,12 +2723,57 @@ private theorem burn_expected_matches_closed_world_step
   · exact h_ratio0
   · exact h_ratio1
 
--- tama: discharges=pair_burn_success_run_matches_closed_world_step
-theorem burn_success_run_matches_closed_world_step
+private def pair_burn_success_run_matches_closed_world_step
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) : Prop :=
+  let liquidity := burnLiquidity s
+  let amount0 := burnAmount0 s
+  let amount1 := burnAmount1 s
+  result = (burn toAddr).run s →
+    result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
+      0 < liquidity.val →
+        0 < (burnSupply s).val →
+          liquidity.val ≤ (burnSupply s).val →
+            minimumLiquidityNat ≤ (burnSupply s).val - liquidity.val →
+              amount0 > 0 →
+                amount1 > 0 →
+                  amount0 ≤ observedBalance0 s →
+                    amount1 ≤ observedBalance1 s →
+                      burnBalance0After s ≤ maxUint112 →
+                        burnBalance1After s ≤ maxUint112 →
+                          amount0.val * (burnSupply s).val ≤
+                              liquidity.val * (observedBalance0 s).val →
+                            amount1.val * (burnSupply s).val ≤
+                                liquidity.val * (observedBalance1 s).val →
+                              PairWorldStep
+                                (PairWorldAction.burn amount0.val amount1.val liquidity.val)
+                                (pairWorldFromConcreteState s)
+                                (pairWorldAfterBurnRun s)
+
+private theorem burn_success_run_matches_closed_world_step
     (toAddr : Address) (s : ContractState) :
   pair_burn_success_run_matches_closed_world_step toAddr s ((burn toAddr).run s) := by
   intro _h_run _h_success
   exact burn_expected_matches_closed_world_step s
+
+-- tama: discharges=pair_burn_success_reaches_expected_pair_state
+theorem burn_success_reaches_expected_pair_state
+    (toAddr : Address) (preTokens : PairTokenBalances) (s : ContractState) :
+  pair_burn_success_reaches_expected_pair_state
+    toAddr preTokens s ((burn toAddr).run s) := by
+  intro h_run h_success h_boundary h_liquidity_pos h_supply_pos h_liquidity_le
+    h_locked_remaining h_amount0_pos h_amount1_pos h_amount0_le h_amount1_le
+    h_bound0 h_bound1 h_ratio0 h_ratio1
+  rcases h_boundary with ⟨⟨h_before, h_post⟩, h_expected⟩
+  have h_step :=
+    burn_success_run_matches_closed_world_step toAddr s h_run h_success
+      h_liquidity_pos h_supply_pos h_liquidity_le h_locked_remaining
+      h_amount0_pos h_amount1_pos h_amount0_le h_amount1_le h_bound0
+      h_bound1 h_ratio0 h_ratio1
+  constructor
+  · rw [h_before, h_expected]
+    exact h_step
+  · exact h_post
 
 -- tama: discharges=pair_burn_uses_pair_lp_balance_and_total_supply
 theorem burn_uses_pair_lp_balance_and_total_supply
@@ -2806,8 +2982,40 @@ theorem swap_checks_k_against_final_balances
   simpa [pair_swap_checks_k_against_final_balances,
     pairWorldAfterSwapRun, pairWorldFromConcreteState] using h_k
 
--- tama: discharges=pair_swap_success_run_matches_closed_world_step_from_run
-theorem swap_success_run_matches_closed_world_step_from_run
+private def pair_swap_success_run_matches_closed_world_step_from_run
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  let amount0In := swapAmount0In amount0Out balance0Now s
+  let amount1In := swapAmount1In amount1Out balance1Now s
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      amount0Out < s.storage reserve0Slot.slot →
+        amount1Out < s.storage reserve1Slot.slot →
+          (amount0In > 0 ∨ amount1In > 0) →
+            balance0Now.val =
+                (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
+              balance1Now.val =
+                  (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
+                balance0Now ≤ maxUint112 →
+                  balance1Now ≤ maxUint112 →
+                    amount0In.val * feeAdjustmentNat ≤
+                        balance0Now.val * feeDenominatorNat →
+                      amount1In.val * feeAdjustmentNat ≤
+                          balance1Now.val * feeDenominatorNat →
+                        feeAdjustedBalance balance0Now.val amount0In.val *
+                            feeAdjustedBalance balance1Now.val amount1In.val ≥
+                          requiredK
+                            (s.storage reserve0Slot.slot).val
+                            (s.storage reserve1Slot.slot).val →
+                            PairWorldStep
+                            (PairWorldAction.swap
+                              amount0In.val amount1In.val
+                              amount0Out.val amount1Out.val)
+                            (pairWorldFromConcreteState s)
+                            (pairWorldAfterSwapRun balance0Now balance1Now s)
+
+private theorem swap_success_run_matches_closed_world_step_from_run
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (balance0Now balance1Now : Uint256) (s : ContractState) :
   pair_swap_success_run_matches_closed_world_step_from_run
@@ -2827,6 +3035,27 @@ theorem swap_success_run_matches_closed_world_step_from_run
     amount0Out amount1Out balance0Now balance1Now s h_output
     h_liq0 h_liq1 h_input h_balance0 h_balance1 h_bound0 h_bound1
     h_fee0 h_fee1 h_adjusted_k
+
+-- tama: discharges=pair_swap_success_reaches_expected_pair_state
+theorem swap_success_reaches_expected_pair_state
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (preTokens : PairTokenBalances)
+    (s : ContractState) :
+  pair_swap_success_reaches_expected_pair_state
+    amount0Out amount1Out toAddr data balance0Now balance1Now preTokens s
+    ((swap amount0Out amount1Out toAddr data).run s) := by
+  intro h_run h_success h_boundary h_liq0 h_liq1 h_input h_balance0
+    h_balance1 h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
+  rcases h_boundary with ⟨⟨h_before, h_post⟩, h_expected⟩
+  have h_step :=
+    swap_success_run_matches_closed_world_step_from_run
+      amount0Out amount1Out toAddr data balance0Now balance1Now s
+      h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
+      h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
+  constructor
+  · rw [h_before, h_expected]
+    exact h_step
+  · exact h_post
 
 private theorem pairWorldStep_preserves_good
     {action : PairWorldAction} {before after : PairWorldState} :
@@ -5581,8 +5810,17 @@ private theorem pairWalletPortfolio_in_token1_eq_numerator
   field_simp
   ring
 
--- tama: discharges=pair_wallet_single_caller_history_no_portfolio_profit
-theorem wallet_single_caller_history_no_portfolio_profit
+private def pair_wallet_single_caller_history_no_portfolio_profit
+    (before after : PairWalletWorldState) : Prop :=
+  PairWalletGood before →
+    0 < before.pair.totalSupply →
+      0 < before.pair.reserve0 →
+        0 < before.pair.reserve1 →
+          PairWalletHistory before after →
+            PairWalletPortfolioValueInToken1 before.pair after ≤
+              PairWalletPortfolioValueInToken1 before.pair before
+
+private theorem wallet_single_caller_history_no_portfolio_profit
     (before after : PairWalletWorldState) :
   pair_wallet_single_caller_history_no_portfolio_profit before after := by
   intro h_good h_supply h_reserve0 h_reserve1 h_history
@@ -5610,6 +5848,58 @@ theorem wallet_single_caller_history_no_portfolio_profit
   rw [div_le_div_iff₀ (by positivity) (by positivity)]
   nlinarith [h_nat_rat, h_reserve0_rat]
 
+private theorem pairEconomicActionConcreteStep_wallet
+    {caller : Address} {before after : PairWalletWorldState} :
+  PairEconomicActionConcreteStep caller before after →
+    ∃ action, PairWalletStep action before after := by
+  intro h_step
+  cases h_step with
+  | mint toAddr preTokens s result liquidity expected hRun hSuccess hBefore
+      hAfter hExpected hWallet =>
+      exact ⟨PairWalletAction.callerMint
+        (mintAmount0 s).val (mintAmount1 s).val liquidity.val, hWallet⟩
+  | burn toAddr preTokens s result expected hRun hSuccess hBefore
+      hAfter hExpected hWallet =>
+      exact ⟨PairWalletAction.callerBurn
+        (burnAmount0 s).val (burnAmount1 s).val (burnLiquidity s).val, hWallet⟩
+  | swap amount0Out amount1Out toAddr data balance0Now balance1Now preTokens
+      s result expected hRun hSuccess hBefore hAfter hExpected hWallet =>
+      exact ⟨PairWalletAction.callerSwap
+        (swapAmount0In amount0Out balance0Now s).val
+        (swapAmount1In amount1Out balance1Now s).val
+        amount0Out.val amount1Out.val, hWallet⟩
+  | skim toAddr preTokens s result expected hRun hSuccess hBefore hAfter
+      hExpected hWallet =>
+      exact ⟨PairWalletAction.callerSkimReceive
+        (PairWorldSurplus0 before.pair) (PairWorldSurplus1 before.pair), hWallet⟩
+  | sync preTokens s result expected hRun hSuccess hBefore hAfter hExpected
+      hWallet =>
+      exact ⟨PairWalletAction.callerSync, hWallet⟩
+
+private theorem pairEconomicActionConcretePath_walletHistory
+    {caller : Address} {before after : PairWalletWorldState} :
+  PairEconomicActionConcretePath caller before after →
+    PairWalletHistory before after := by
+  intro h_path
+  induction h_path with
+  | refl =>
+      exact PairWalletHistory.refl before
+  | step h_prefix h_step ih =>
+      rcases pairEconomicActionConcreteStep_wallet h_step with
+        ⟨action, h_wallet⟩
+      exact PairWalletHistory.step action ih h_wallet
+
+-- tama: discharges=pair_actual_execution_no_free_lunch
+theorem actual_execution_no_free_lunch
+    (caller : Address) (initialTokens : PairTokenBalances)
+    (initialState : ContractState) (after : PairWalletWorldState) :
+  pair_actual_execution_no_free_lunch caller initialTokens initialState after := by
+  intro h_good h_supply h_reserve0 h_reserve1 h_path
+  exact wallet_single_caller_history_no_portfolio_profit
+    (pairWalletFromConcreteAndTokens caller initialTokens initialState)
+    after h_good h_supply h_reserve0 h_reserve1
+    (pairEconomicActionConcretePath_walletHistory h_path)
+
 -- tama: discharges=pair_wallet_history_preserves_good
 theorem wallet_history_preserves_good
     (before after : PairWalletWorldState) :
@@ -5632,151 +5922,6 @@ theorem wallet_history_preserves_unowned
   pair_wallet_history_preserves_unowned before after := by
   intro h_good h_supply h_hist
   exact pairWalletHistory_preserves_unowned h_good h_supply h_hist
-
--- tama: discharges=pair_successful_first_mint_matches_caller_wallet_mint
-theorem successful_first_mint_matches_caller_wallet_mint
-    (toAddr : Address) (s : ContractState) (result : ContractResult Uint256)
-    (before after : PairWalletWorldState) :
-  pair_successful_first_mint_matches_caller_wallet_mint
-    toAddr s result before after := by
-  intro h_run h_success h_zero h_balance0 h_balance1 h_amount0 h_amount1
-    h_product h_root h_before_pair h_after_pair h_surplus0 h_surplus1
-    h_caller0 h_caller1 h_lp
-  have h_success_run :
-      (mint toAddr).run s =
-        ContractResult.success (mintFirstLiquidity s) ((mint toAddr).run s).snd := by
-    rw [← h_run]
-    exact h_success
-  have h_pair_step :=
-    mint_first_success_run_matches_closed_world_step_from_run toAddr s
-      rfl h_success_run h_zero h_balance0 h_balance1 h_amount0 h_amount1
-      h_product h_root
-  simp [PairWalletStep]
-  exact ⟨by simpa [h_before_pair, h_after_pair] using h_pair_step,
-    by simpa [swapAmount0In, swapAmountIn, swapExpected0] using h_surplus0,
-    by simpa [swapAmount1In, swapAmountIn, swapExpected1] using h_surplus1,
-    h_caller0, h_caller1, h_lp⟩
-
--- tama: discharges=pair_successful_subsequent_mint_matches_caller_wallet_mint
-theorem successful_subsequent_mint_matches_caller_wallet_mint
-    (toAddr : Address) (s : ContractState) (result : ContractResult Uint256)
-    (liquidity : Uint256) (before after : PairWalletWorldState) :
-  pair_successful_subsequent_mint_matches_caller_wallet_mint
-    toAddr s result liquidity before after := by
-  intro h_run h_success h_supply h_reserve0 h_reserve1 h_balance0 h_balance1
-    h_amount0 h_amount1 h_liquidity h_ratio0 h_ratio1 h_before_pair
-    h_after_pair h_surplus0 h_surplus1 h_caller0 h_caller1 h_lp
-  have h_success_run :
-      (mint toAddr).run s =
-        ContractResult.success liquidity ((mint toAddr).run s).snd := by
-    rw [← h_run]
-    exact h_success
-  have h_pair_step :=
-    mint_subsequent_success_run_matches_closed_world_step_from_run
-      toAddr s liquidity rfl h_success_run h_supply h_reserve0
-      h_reserve1 h_balance0 h_balance1 h_amount0 h_amount1 h_liquidity
-      h_ratio0 h_ratio1
-  simp [PairWalletStep]
-  exact ⟨by simpa [h_before_pair, h_after_pair] using h_pair_step,
-    by simpa [swapAmount0In, swapAmountIn, swapExpected0] using h_surplus0,
-    by simpa [swapAmount1In, swapAmountIn, swapExpected1] using h_surplus1,
-    h_caller0, h_caller1, h_lp⟩
-
--- tama: discharges=pair_successful_burn_matches_caller_wallet_burn
-theorem successful_burn_matches_caller_wallet_burn
-    (toAddr : Address) (s : ContractState)
-    (result : ContractResult (Uint256 × Uint256))
-    (before after : PairWalletWorldState) :
-  pair_successful_burn_matches_caller_wallet_burn
-    toAddr s result before after := by
-  intro h_run h_success h_liquidity_pos h_supply_pos h_liquidity_le
-    h_locked_remaining h_amount0_pos h_amount1_pos h_amount0_le h_amount1_le
-    h_bound0 h_bound1 h_ratio0 h_ratio1 h_before_pair h_after_pair
-    h_caller_lp h_caller0 h_caller1 h_lp
-  have h_success_run :
-      (burn toAddr).run s =
-        ContractResult.success (burnAmount0 s, burnAmount1 s)
-          ((burn toAddr).run s).snd := by
-    rw [← h_run]
-    exact h_success
-  have h_expected :=
-    burn_success_run_matches_closed_world_step toAddr s rfl h_success_run
-  have h_pair_step :=
-    h_expected h_liquidity_pos h_supply_pos h_liquidity_le
-      h_locked_remaining h_amount0_pos h_amount1_pos h_amount0_le
-      h_amount1_le h_bound0 h_bound1 h_ratio0 h_ratio1
-  simp [PairWalletStep]
-  exact ⟨h_caller_lp,
-    by simpa [h_before_pair, h_after_pair] using h_pair_step,
-    h_caller0, h_caller1, h_lp⟩
-
--- tama: discharges=pair_successful_swap_matches_caller_wallet_swap
-theorem successful_swap_matches_caller_wallet_swap
-    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
-    (balance0Now balance1Now : Uint256) (s : ContractState)
-    (result : ContractResult Unit)
-    (before after : PairWalletWorldState) :
-  pair_successful_swap_matches_caller_wallet_swap
-    amount0Out amount1Out toAddr data balance0Now balance1Now s result
-    before after := by
-  intro h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
-    h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k h_before_pair
-    h_after_pair h_surplus0 h_surplus1 h_caller0 h_caller1 h_lp
-  have h_success_run :
-      (swap amount0Out amount1Out toAddr data).run s =
-        ContractResult.success ()
-          ((swap amount0Out amount1Out toAddr data).run s).snd := by
-    rw [← h_run]
-    exact h_success
-  have h_pair_step :=
-    swap_success_run_matches_closed_world_step_from_run
-      amount0Out amount1Out toAddr data balance0Now balance1Now s
-      rfl h_success_run h_liq0 h_liq1 h_input h_balance0 h_balance1
-      h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
-  simp [PairWalletStep]
-  exact ⟨by simpa [h_before_pair, h_after_pair] using h_pair_step,
-    by simpa [swapAmount0In, swapAmountIn, swapExpected0] using h_surplus0,
-    by simpa [swapAmount1In, swapAmountIn, swapExpected1] using h_surplus1,
-    h_caller0, h_caller1, h_lp⟩
-
--- tama: discharges=pair_successful_skim_matches_caller_wallet_skim
-theorem successful_skim_matches_caller_wallet_skim
-    (toAddr : Address) (s : ContractState) (result : ContractResult Unit)
-    (before after : PairWalletWorldState) :
-  pair_successful_skim_matches_caller_wallet_skim
-    toAddr s result before after := by
-  intro h_run h_success h_before_pair h_after_pair h_caller0 h_caller1 h_lp
-  have h_pair_step :=
-    skim_success_run_matches_closed_world_step_from_run toAddr s result
-      h_run h_success
-  change
-    PairWorldStep PairWorldAction.skim before.pair after.pair ∧
-      PairWorldSurplus0 before.pair = PairWorldSurplus0 before.pair ∧
-      PairWorldSurplus1 before.pair = PairWorldSurplus1 before.pair ∧
-      after.callerToken0 = before.callerToken0 + PairWorldSurplus0 before.pair ∧
-      after.callerToken1 = before.callerToken1 + PairWorldSurplus1 before.pair ∧
-      after.callerLp = before.callerLp
-  exact ⟨by simpa [h_before_pair, h_after_pair] using h_pair_step,
-    rfl, rfl, h_caller0, h_caller1, h_lp⟩
-
--- tama: discharges=pair_successful_sync_matches_caller_wallet_sync
-theorem successful_sync_matches_caller_wallet_sync
-    (s : ContractState) (result : ContractResult Unit)
-    (before after : PairWalletWorldState) :
-  pair_successful_sync_matches_caller_wallet_sync s result before after := by
-  intro h_run h_success h_before_pair h_after_pair h_caller0 h_caller1 h_lp
-  have h_pair_step :=
-    sync_success_run_matches_closed_world_step_from_run s result h_run h_success
-  simp [PairWalletStep]
-  exact ⟨by simpa [h_before_pair, h_after_pair] using h_pair_step,
-    h_caller0, h_caller1, h_lp⟩
-
-
-
-
-
-
-
 
 /-- Non-liquidity histories are the common operational case: swaps, surplus
 management, donations, and LP-token bookkeeping, but no mint and no burn. The
