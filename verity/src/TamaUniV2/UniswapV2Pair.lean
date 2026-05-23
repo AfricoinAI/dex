@@ -301,6 +301,138 @@ verity_contract UniswapV2PairBase where
     emit "Transfer" [addressToWord fromAddr, addressToWord toAddr, amount]
     return true
 
+  /-
+  @dev Shared reserve/oracle suffix for mint, burn, swap, and sync.
+
+  The public entrypoints call this through Verity's generated internal helper.
+  The final compilation model filters the helper selector out of the external
+  ABI while retaining the internal function used by these calls and by proofs.
+  -/
+  function no_external_calls updateReservesAndEmitSync
+      (balance0Now : Uint256, balance1Now : Uint256,
+        reserve0Value : Uint256, reserve1Value : Uint256,
+        timestamp32 : Uint256, previousTimestamp : Uint256) : Unit := do
+    if timestamp32 != previousTimestamp then
+      let elapsed := mod (sub (add timestamp32 uint32Modulus) previousTimestamp) uint32Modulus
+      if elapsed > 0 && reserve0Value > 0 && reserve1Value > 0 then
+        let price0 := div (mul reserve1Value q112) reserve0Value
+        let price1 := div (mul reserve0Value q112) reserve1Value
+        let price0Last ← getStorage price0CumulativeLastSlot
+        let price1Last ← getStorage price1CumulativeLastSlot
+        setStorage price0CumulativeLastSlot (add price0Last (mul price0 elapsed))
+        setStorage price1CumulativeLastSlot (add price1Last (mul price1 elapsed))
+      else
+        pure ()
+    else
+      pure ()
+    setStorage reserve0Slot balance0Now
+    setStorage reserve1Slot balance1Now
+    setStorage blockTimestampLastSlot timestamp32
+    unsafe "emit canonical Uniswap V2 Sync(uint112,uint112) log" do
+      mstore 0 balance0Now
+      mstore 32 balance1Now
+      rawLog [0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1] 0 64
+
+  /-
+  @dev First-mint storage suffix after the square-root and LP-balance gates.
+  -/
+  function no_external_calls finishFirstMint
+      (toAddr : Address, sender : Address,
+        balance0Now : Uint256, balance1Now : Uint256,
+        reserve0Value : Uint256, reserve1Value : Uint256,
+        amount0 : Uint256, amount1 : Uint256,
+        root : Uint256, liquidity : Uint256, newToBalance : Uint256,
+        timestamp32 : Uint256, previousTimestamp : Uint256) : Uint256 := do
+    setStorage totalSupplySlot root
+    setMapping balancesSlot zeroAddress minimumLiquidity
+    emit "Transfer" [addressToWord zeroAddress, addressToWord zeroAddress, minimumLiquidity]
+    setMapping balancesSlot toAddr newToBalance
+    emit "Transfer" [addressToWord zeroAddress, addressToWord toAddr, liquidity]
+    updateReservesAndEmitSync balance0Now balance1Now
+      reserve0Value reserve1Value timestamp32 previousTimestamp
+    emit "Mint" [addressToWord sender, amount0, amount1]
+    setStorage unlockedSlot 1
+    return liquidity
+
+  /-
+  @dev First-mint wrapper that checks the recipient LP balance before writes.
+  -/
+  function no_external_calls finishFirstMintChecked
+      (toAddr : Address, sender : Address,
+        balance0Now : Uint256, balance1Now : Uint256,
+        reserve0Value : Uint256, reserve1Value : Uint256,
+        amount0 : Uint256, amount1 : Uint256,
+        root : Uint256, timestamp32 : Uint256,
+        previousTimestamp : Uint256) : Uint256 := do
+    let liquidity := sub root minimumLiquidity
+    let toBalance ← getMapping balancesSlot toAddr
+    let newToBalance ← requireSomeUint (safeAdd toBalance liquidity) "UniswapV2: BALANCE_OVERFLOW"
+    let mintedLiquidity ← finishFirstMint toAddr sender balance0Now balance1Now
+      reserve0Value reserve1Value amount0 amount1 root liquidity newToBalance
+      timestamp32 previousTimestamp
+    return mintedLiquidity
+
+  /-
+  @dev Later-mint storage suffix after pro-rata liquidity has been checked.
+  -/
+  function no_external_calls finishLaterMint
+      (toAddr : Address, sender : Address,
+        balance0Now : Uint256, balance1Now : Uint256,
+        reserve0Value : Uint256, reserve1Value : Uint256,
+        amount0 : Uint256, amount1 : Uint256,
+        supply : Uint256, liquidity : Uint256,
+        timestamp32 : Uint256, previousTimestamp : Uint256) : Uint256 := do
+    let newSupply ← requireSomeUint (safeAdd supply liquidity) "UniswapV2: SUPPLY_OVERFLOW"
+    let toBalance ← getMapping balancesSlot toAddr
+    let newToBalance ← requireSomeUint (safeAdd toBalance liquidity) "UniswapV2: BALANCE_OVERFLOW"
+    setStorage totalSupplySlot newSupply
+    setMapping balancesSlot toAddr newToBalance
+    emit "Transfer" [addressToWord zeroAddress, addressToWord toAddr, liquidity]
+    updateReservesAndEmitSync balance0Now balance1Now
+      reserve0Value reserve1Value timestamp32 previousTimestamp
+    emit "Mint" [addressToWord sender, amount0, amount1]
+    setStorage unlockedSlot 1
+    return liquidity
+
+  function no_external_calls firstMintPath
+      (toAddr : Address, sender : Address,
+        balance0Now : Uint256, balance1Now : Uint256,
+        reserve0Value : Uint256, reserve1Value : Uint256,
+        amount0 : Uint256, amount1 : Uint256) : Uint256 := do
+    let product := mul amount0 amount1
+    require (amount0 == 0 || div product amount0 == amount1) "UniswapV2: MINT_OVERFLOW"
+    let root ← FixedPointMathLibBase.sqrt product
+    require (root > minimumLiquidity) "UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED"
+    let currentTimestamp ← Verity.blockTimestamp
+    let timestamp32 := mod currentTimestamp uint32Modulus
+    let previousTimestamp ← getStorage blockTimestampLastSlot
+    let liquidity ← finishFirstMintChecked toAddr sender balance0Now balance1Now
+      reserve0Value reserve1Value amount0 amount1 root timestamp32 previousTimestamp
+    return liquidity
+
+  function no_external_calls laterMintPath
+      (toAddr : Address, sender : Address,
+        balance0Now : Uint256, balance1Now : Uint256,
+        reserve0Value : Uint256, reserve1Value : Uint256,
+        amount0 : Uint256, amount1 : Uint256,
+        supply : Uint256) : Uint256 := do
+    require (reserve0Value > 0 && reserve1Value > 0) "UniswapV2: INSUFFICIENT_LIQUIDITY"
+    let liq0Product := mul amount0 supply
+    require (amount0 == 0 || div liq0Product amount0 == supply) "UniswapV2: MINT_OVERFLOW"
+    let liq1Product := mul amount1 supply
+    require (amount1 == 0 || div liq1Product amount1 == supply) "UniswapV2: MINT_OVERFLOW"
+    let liq0 := div liq0Product reserve0Value
+    let liq1 := div liq1Product reserve1Value
+    let liquidity := min liq0 liq1
+    require (liquidity > 0) "UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED"
+    let currentTimestamp ← Verity.blockTimestamp
+    let timestamp32 := mod currentTimestamp uint32Modulus
+    let previousTimestamp ← getStorage blockTimestampLastSlot
+    let mintedLiquidity ← finishLaterMint toAddr sender balance0Now balance1Now
+      reserve0Value reserve1Value amount0 amount1 supply liquidity
+      timestamp32 previousTimestamp
+    return mintedLiquidity
+
   function allow_post_interaction_writes mint (toAddr : Address) : Uint256 := do
     let lockValue ← getStorage unlockedSlot
     require (lockValue == 1) "UniswapV2: LOCKED"
@@ -320,86 +452,13 @@ verity_contract UniswapV2PairBase where
     require (amount0 > 0 && amount1 > 0) "UniswapV2: INSUFFICIENT_AMOUNT"
     let supply ← getStorage totalSupplySlot
     if supply == 0 then
-      let product := mul amount0 amount1
-      require (amount0 == 0 || div product amount0 == amount1) "UniswapV2: MINT_OVERFLOW"
-      let root ← FixedPointMathLibBase.sqrt product
-      require (root > minimumLiquidity) "UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED"
-      let liquidity := sub root minimumLiquidity
-      setStorage totalSupplySlot root
-      setMapping balancesSlot zeroAddress minimumLiquidity
-      emit "Transfer" [addressToWord zeroAddress, addressToWord zeroAddress, minimumLiquidity]
-      let toBalance ← getMapping balancesSlot toAddr
-      let newToBalance ← requireSomeUint (safeAdd toBalance liquidity) "UniswapV2: BALANCE_OVERFLOW"
-      setMapping balancesSlot toAddr newToBalance
-      emit "Transfer" [addressToWord zeroAddress, addressToWord toAddr, liquidity]
-      let currentTimestamp ← Verity.blockTimestamp
-      let timestamp32 := mod currentTimestamp uint32Modulus
-      let previousTimestamp ← getStorage blockTimestampLastSlot
-      if timestamp32 != previousTimestamp then
-        let elapsed := mod (sub (add timestamp32 uint32Modulus) previousTimestamp) uint32Modulus
-        if elapsed > 0 && reserve0Value > 0 && reserve1Value > 0 then
-          let price0 := div (mul reserve1Value q112) reserve0Value
-          let price1 := div (mul reserve0Value q112) reserve1Value
-          let price0Last ← getStorage price0CumulativeLastSlot
-          let price1Last ← getStorage price1CumulativeLastSlot
-          setStorage price0CumulativeLastSlot (add price0Last (mul price0 elapsed))
-          setStorage price1CumulativeLastSlot (add price1Last (mul price1 elapsed))
-        else
-          pure ()
-      else
-        pure ()
-      setStorage reserve0Slot balance0Now
-      setStorage reserve1Slot balance1Now
-      setStorage blockTimestampLastSlot timestamp32
-      unsafe "emit canonical Uniswap V2 Sync(uint112,uint112) log" do
-        mstore 0 balance0Now
-        mstore 32 balance1Now
-        rawLog [0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1] 0 64
-      emit "Mint" [addressToWord sender, amount0, amount1]
-      setStorage unlockedSlot 1
+      let liquidity ← firstMintPath toAddr sender balance0Now balance1Now
+        reserve0Value reserve1Value amount0 amount1
       return liquidity
     else
-      require (reserve0Value > 0 && reserve1Value > 0) "UniswapV2: INSUFFICIENT_LIQUIDITY"
-      let liq0Product := mul amount0 supply
-      require (amount0 == 0 || div liq0Product amount0 == supply) "UniswapV2: MINT_OVERFLOW"
-      let liq1Product := mul amount1 supply
-      require (amount1 == 0 || div liq1Product amount1 == supply) "UniswapV2: MINT_OVERFLOW"
-      let liq0 := div liq0Product reserve0Value
-      let liq1 := div liq1Product reserve1Value
-      let liquidity := min liq0 liq1
-      require (liquidity > 0) "UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED"
-      let newSupply ← requireSomeUint (safeAdd supply liquidity) "UniswapV2: SUPPLY_OVERFLOW"
-      let toBalance ← getMapping balancesSlot toAddr
-      let newToBalance ← requireSomeUint (safeAdd toBalance liquidity) "UniswapV2: BALANCE_OVERFLOW"
-      setStorage totalSupplySlot newSupply
-      setMapping balancesSlot toAddr newToBalance
-      emit "Transfer" [addressToWord zeroAddress, addressToWord toAddr, liquidity]
-      let currentTimestamp ← Verity.blockTimestamp
-      let timestamp32 := mod currentTimestamp uint32Modulus
-      let previousTimestamp ← getStorage blockTimestampLastSlot
-      if timestamp32 != previousTimestamp then
-        let elapsed := mod (sub (add timestamp32 uint32Modulus) previousTimestamp) uint32Modulus
-        if elapsed > 0 && reserve0Value > 0 && reserve1Value > 0 then
-          let price0 := div (mul reserve1Value q112) reserve0Value
-          let price1 := div (mul reserve0Value q112) reserve1Value
-          let price0Last ← getStorage price0CumulativeLastSlot
-          let price1Last ← getStorage price1CumulativeLastSlot
-          setStorage price0CumulativeLastSlot (add price0Last (mul price0 elapsed))
-          setStorage price1CumulativeLastSlot (add price1Last (mul price1 elapsed))
-        else
-          pure ()
-      else
-        pure ()
-      setStorage reserve0Slot balance0Now
-      setStorage reserve1Slot balance1Now
-      setStorage blockTimestampLastSlot timestamp32
-      unsafe "emit canonical Uniswap V2 Sync(uint112,uint112) log" do
-        mstore 0 balance0Now
-        mstore 32 balance1Now
-        rawLog [0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1] 0 64
-      emit "Mint" [addressToWord sender, amount0, amount1]
-      setStorage unlockedSlot 1
-      return liquidity
+      let mintedLiquidity ← laterMintPath toAddr sender balance0Now balance1Now
+        reserve0Value reserve1Value amount0 amount1 supply
+      return mintedLiquidity
 
   function allow_post_interaction_writes burn (toAddr : Address) : Tuple [Uint256, Uint256] := do
     let lockValue ← getStorage unlockedSlot
@@ -436,26 +495,8 @@ verity_contract UniswapV2PairBase where
     require (balance0After <= maxUint112 && balance1After <= maxUint112) "UniswapV2: OVERFLOW"
     unsafe "restore free memory pointer before native events after ERC20 transfer ECMs" do
       mstore 64 128
-    if timestamp32 != previousTimestamp then
-      let elapsed := mod (sub (add timestamp32 uint32Modulus) previousTimestamp) uint32Modulus
-      if elapsed > 0 && reserve0Value > 0 && reserve1Value > 0 then
-        let price0 := div (mul reserve1Value q112) reserve0Value
-        let price1 := div (mul reserve0Value q112) reserve1Value
-        let price0Last ← getStorage price0CumulativeLastSlot
-        let price1Last ← getStorage price1CumulativeLastSlot
-        setStorage price0CumulativeLastSlot (add price0Last (mul price0 elapsed))
-        setStorage price1CumulativeLastSlot (add price1Last (mul price1 elapsed))
-      else
-        pure ()
-    else
-      pure ()
-    setStorage reserve0Slot balance0After
-    setStorage reserve1Slot balance1After
-    setStorage blockTimestampLastSlot timestamp32
-    unsafe "emit canonical Uniswap V2 Sync(uint112,uint112) log" do
-      mstore 0 balance0After
-      mstore 32 balance1After
-      rawLog [0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1] 0 64
+    updateReservesAndEmitSync balance0After balance1After
+      reserve0Value reserve1Value timestamp32 previousTimestamp
     emit "Burn" [addressToWord sender, amount0, amount1, addressToWord toAddr]
     setStorage unlockedSlot 1
     return (amount0, amount1)
@@ -523,26 +564,8 @@ verity_contract UniswapV2PairBase where
     require (balance0Now <= maxUint112 && balance1Now <= maxUint112) "UniswapV2: OVERFLOW"
     unsafe "restore free memory pointer before native events after callback/transfer ECMs" do
       mstore 64 128
-    if timestamp32 != previousTimestamp then
-      let elapsed := mod (sub (add timestamp32 uint32Modulus) previousTimestamp) uint32Modulus
-      if elapsed > 0 && reserve0Value > 0 && reserve1Value > 0 then
-        let price0 := div (mul reserve1Value q112) reserve0Value
-        let price1 := div (mul reserve0Value q112) reserve1Value
-        let price0Last ← getStorage price0CumulativeLastSlot
-        let price1Last ← getStorage price1CumulativeLastSlot
-        setStorage price0CumulativeLastSlot (add price0Last (mul price0 elapsed))
-        setStorage price1CumulativeLastSlot (add price1Last (mul price1 elapsed))
-      else
-        pure ()
-    else
-      pure ()
-    setStorage reserve0Slot balance0Now
-    setStorage reserve1Slot balance1Now
-    setStorage blockTimestampLastSlot timestamp32
-    unsafe "emit canonical Uniswap V2 Sync(uint112,uint112) log" do
-      mstore 0 balance0Now
-      mstore 32 balance1Now
-      rawLog [0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1] 0 64
+    updateReservesAndEmitSync balance0Now balance1Now
+      reserve0Value reserve1Value timestamp32 previousTimestamp
     emit "Swap" [
       addressToWord sender,
       amount0In,
@@ -584,26 +607,8 @@ verity_contract UniswapV2PairBase where
     require (balance0Now <= maxUint112 && balance1Now <= maxUint112) "UniswapV2: OVERFLOW"
     let reserve0Value ← getStorage reserve0Slot
     let reserve1Value ← getStorage reserve1Slot
-    if timestamp32 != previousTimestamp then
-      let elapsed := mod (sub (add timestamp32 uint32Modulus) previousTimestamp) uint32Modulus
-      if elapsed > 0 && reserve0Value > 0 && reserve1Value > 0 then
-        let price0 := div (mul reserve1Value q112) reserve0Value
-        let price1 := div (mul reserve0Value q112) reserve1Value
-        let price0Last ← getStorage price0CumulativeLastSlot
-        let price1Last ← getStorage price1CumulativeLastSlot
-        setStorage price0CumulativeLastSlot (add price0Last (mul price0 elapsed))
-        setStorage price1CumulativeLastSlot (add price1Last (mul price1 elapsed))
-      else
-        pure ()
-    else
-      pure ()
-    setStorage reserve0Slot balance0Now
-    setStorage reserve1Slot balance1Now
-    setStorage blockTimestampLastSlot timestamp32
-    unsafe "emit canonical Uniswap V2 Sync(uint112,uint112) log" do
-      mstore 0 balance0Now
-      mstore 32 balance1Now
-      rawLog [0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1] 0 64
+    updateReservesAndEmitSync balance0Now balance1Now
+      reserve0Value reserve1Value timestamp32 previousTimestamp
     setStorage unlockedSlot 1
 
 namespace UniswapV2Pair
@@ -651,9 +656,18 @@ abbrev swap := UniswapV2PairBase.swap
 abbrev skim := UniswapV2PairBase.skim
 abbrev sync := UniswapV2PairBase.sync
 
+  def privateHelperFunctionNames : List String :=
+  ["updateReservesAndEmitSync", "finishFirstMint", "finishFirstMintChecked", "finishLaterMint",
+    "firstMintPath", "laterMintPath"]
+
+def exposedFunctions : List FunctionSpec :=
+  UniswapV2PairBase.spec.functions.filter fun fn =>
+    !privateHelperFunctionNames.contains fn.name
+
 def spec : CompilationModel :=
   { UniswapV2PairBase.spec with
     name := "UniswapV2Pair"
+    functions := exposedFunctions
     events := [
       Tamago.Common.Events.transfer,
       Tamago.Common.Events.approval,

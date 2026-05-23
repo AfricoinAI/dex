@@ -1332,11 +1332,9 @@ def pair_kLast_run_success_frames_state
 /-!
 ## 15. Actual execution bridges
 
-Each successful public mutating call reaches the expected pair state, assuming
-the tokens involved behave like ordinary ERC20s for that call. The contract run
-and success result are concrete; token balance movement remains an explicit
-premise because Verity's frozen `balanceOf` ECM does not derive stateful token
-balances from external ERC20 calls.
+Each successful public mutating call reaches the expected pair state by combining
+pair-internal storage postconditions proved from the actual run with field-level
+token-balance facts tied to the existing ERC20 balanceOf/transfer trust boundary.
 -/
 
 /-- When the first `mint` succeeds, the lock gate was open and both observed
@@ -1353,7 +1351,7 @@ def pair_first_mint_success_reaches_expected_pair_state
       (pairTokenWorldAfterCall preTokens s result) result.snd
   result = (mint toAddr).run s →
     result = ContractResult.success liquidity result.snd →
-      pairFirstMintTokensBehaveNormallyForCall preTokens s result →
+      pairFirstMintExternalTokenBalancesMatchCall preTokens s result →
         s.storage totalSupplySlot.slot = 0 →
           s.storage reserve0Slot.slot ≤ observedBalance0 s →
             s.storage reserve1Slot.slot ≤ observedBalance1 s →
@@ -1428,7 +1426,7 @@ def pair_later_mint_success_reaches_expected_pair_state
       (pairTokenWorldAfterCall preTokens s result) result.snd
   result = (mint toAddr).run s →
     result = ContractResult.success liquidity result.snd →
-      pairLaterMintTokensBehaveNormallyForCall preTokens s liquidity result →
+      pairLaterMintExternalTokenBalancesMatchCall preTokens s liquidity result →
         0 < (s.storage totalSupplySlot.slot).val →
           s.storage reserve0Slot.slot > 0 →
             s.storage reserve1Slot.slot > 0 →
@@ -1474,7 +1472,7 @@ def pair_burn_success_reaches_expected_pair_state
       (pairTokenWorldAfterCall preTokens s result) result.snd
   result = (burn toAddr).run s →
     result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
-      pairBurnTokensBehaveNormallyForCall preTokens s result →
+      pairBurnExternalTokenBalancesMatchCall preTokens s result →
         0 < liquidity.val →
           0 < (burnSupply s).val →
             liquidity.val ≤ (burnSupply s).val →
@@ -1632,7 +1630,7 @@ def pair_swap_success_reaches_expected_pair_state
       (pairTokenWorldAfterCall preTokens s result) result.snd
   result = (swap amount0Out amount1Out toAddr data).run s →
     result = ContractResult.success () result.snd →
-      pairSwapTokensBehaveNormallyForCall preTokens s balance0Now balance1Now result →
+      pairSwapExternalTokenBalancesMatchCall preTokens s balance0Now balance1Now result →
         amount0Out < s.storage reserve0Slot.slot →
           amount1Out < s.storage reserve1Slot.slot →
             (amount0In > 0 ∨ amount1In > 0) →
@@ -1804,7 +1802,7 @@ def pair_skim_success_reaches_expected_pair_state
       (pairTokenWorldAfterCall preTokens s result) result.snd
   result = (skim toAddr).run s →
     result = ContractResult.success () result.snd →
-      pairSkimTokensBehaveNormallyForCall preTokens s result →
+      pairSkimExternalTokenBalancesMatchCall preTokens s result →
         PairWorldStep PairWorldAction.skim
           (pairWorldFromConcreteAndTokens preTokens s)
           actual
@@ -1829,7 +1827,7 @@ def pair_sync_success_reaches_expected_pair_state
       (pairTokenWorldAfterCall preTokens s result) result.snd
   result = (sync).run s →
     result = ContractResult.success () result.snd →
-      pairSyncTokensBehaveNormallyForCall preTokens s result →
+      pairSyncExternalTokenBalancesMatchCall preTokens s result →
         PairWorldStep PairWorldAction.sync
           (pairWorldFromConcreteAndTokens preTokens s)
           actual

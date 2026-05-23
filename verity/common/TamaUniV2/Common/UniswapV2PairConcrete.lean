@@ -274,6 +274,19 @@ def pairWorldFromConcreteAndTokens
     totalSupply := (s.storage totalSupplySlot.slot).val
     lockedLiquidity := pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) }
 
+def pairConcreteStorageMatchesWorld
+    (s : ContractState) (w : PairWorldState) : Prop :=
+  (s.storage reserve0Slot.slot).val = w.reserve0 ∧
+  (s.storage reserve1Slot.slot).val = w.reserve1 ∧
+  (s.storage totalSupplySlot.slot).val = w.totalSupply ∧
+  pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) = w.lockedLiquidity
+
+def pairTokenBalancesMatchWorld
+    (tokens : PairTokenBalances) (s : ContractState)
+    (w : PairWorldState) : Prop :=
+  (pairTokenBalance0 tokens s).val = w.balance0 ∧
+  (pairTokenBalance1 tokens s).val = w.balance1
+
 def pairWalletFromConcreteAndTokens
     (caller : Address) (tokens : PairTokenBalances)
     (s : ContractState) : PairWalletWorldState :=
@@ -475,54 +488,54 @@ def pairWorldAfterSwapRunAndTokens
     totalSupply := (s.storage totalSupplySlot.slot).val
     lockedLiquidity := pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) }
 
-def pairTokensBehaveNormallyForCall {α : Type}
+def pairExternalTokenBalancesMatchCall {α : Type}
     (preTokens : PairTokenBalances) (s : ContractState)
     (result : ContractResult α)
     (before after : PairWorldState) : Prop :=
   let postTokens := pairTokenWorldAfterCall preTokens s result
-  pairWorldFromConcreteAndTokens preTokens s = before ∧
-    pairWorldFromConcreteAndTokens postTokens result.snd = after
+  pairTokenBalancesMatchWorld preTokens s before ∧
+    pairTokenBalancesMatchWorld postTokens result.snd after
 
-def pairFirstMintTokensBehaveNormallyForCall
+def pairFirstMintExternalTokenBalancesMatchCall
     (preTokens : PairTokenBalances) (s : ContractState)
     (result : ContractResult Uint256) : Prop :=
-  pairTokensBehaveNormallyForCall preTokens s result
+  pairExternalTokenBalancesMatchCall preTokens s result
     (pairWorldBeforeMintRun s)
     (pairWorldAfterFirstMintRun s)
 
-def pairLaterMintTokensBehaveNormallyForCall
+def pairLaterMintExternalTokenBalancesMatchCall
     (preTokens : PairTokenBalances) (s : ContractState)
     (liquidity : Uint256) (result : ContractResult Uint256) : Prop :=
-  pairTokensBehaveNormallyForCall preTokens s result
+  pairExternalTokenBalancesMatchCall preTokens s result
     (pairWorldBeforeMintRun s)
     (pairWorldAfterSubsequentMintRun liquidity s)
 
-def pairBurnTokensBehaveNormallyForCall
+def pairBurnExternalTokenBalancesMatchCall
     (preTokens : PairTokenBalances) (s : ContractState)
     (result : ContractResult (Uint256 × Uint256)) : Prop :=
-  pairTokensBehaveNormallyForCall preTokens s result
+  pairExternalTokenBalancesMatchCall preTokens s result
     (pairWorldFromConcreteState s)
     (pairWorldAfterBurnRun s)
 
-def pairSwapTokensBehaveNormallyForCall
+def pairSwapExternalTokenBalancesMatchCall
     (preTokens : PairTokenBalances) (s : ContractState)
     (balance0Now balance1Now : Uint256)
     (result : ContractResult Unit) : Prop :=
-  pairTokensBehaveNormallyForCall preTokens s result
+  pairExternalTokenBalancesMatchCall preTokens s result
     (pairWorldFromConcreteState s)
     (pairWorldAfterSwapRun balance0Now balance1Now s)
 
-def pairSkimTokensBehaveNormallyForCall
+def pairSkimExternalTokenBalancesMatchCall
     (preTokens : PairTokenBalances) (s : ContractState)
     (result : ContractResult Unit) : Prop :=
-  pairTokensBehaveNormallyForCall preTokens s result
+  pairExternalTokenBalancesMatchCall preTokens s result
     (pairWorldFromConcreteState s)
     (pairWorldAfterSkimRun s)
 
-def pairSyncTokensBehaveNormallyForCall
+def pairSyncExternalTokenBalancesMatchCall
     (preTokens : PairTokenBalances) (s : ContractState)
     (result : ContractResult Unit) : Prop :=
-  pairTokensBehaveNormallyForCall preTokens s result
+  pairExternalTokenBalancesMatchCall preTokens s result
     (pairWorldFromConcreteState s)
     (pairWorldAfterSyncRun s)
 
