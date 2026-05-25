@@ -632,8 +632,7 @@ inductive PairEconomicActionConcreteStep
         after =
           pairWalletFromConcreteAndTokens caller
             (pairTokenWorldAfterCall preTokens s result) result.snd)
-      (hWalletStep :
-        PairWalletStep PairWalletAction.callerSync before after) :
+      (hExternal : pairSyncExternalTokenBalancesMatchCall preTokens s result) :
       PairEconomicActionConcreteStep caller before after
 
 inductive PairEconomicActionConcretePath

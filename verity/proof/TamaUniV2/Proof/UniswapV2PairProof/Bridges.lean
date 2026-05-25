@@ -1050,6 +1050,87 @@ theorem sync_success_run_storage_matches_world
   · exact congrArg PairWorldState.totalSupply h_world
   · exact congrArg PairWorldState.lockedLiquidity h_world
 
+theorem sync_run_token_world_unchanged
+    (preTokens : PairTokenBalances) (s : ContractState) :
+  pairTokenWorldAfterCall preTokens s ((sync).run s) = preTokens := by
+  unfold sync UniswapV2PairBase.sync
+  simp [pairTokenWorldAfterCall, emittedPairEventsAfterCall,
+    getStorage, getStorageAddr, setStorage,
+    Verity.contractAddress, Verity.blockTimestamp, Contracts.balanceOf, Verity.require,
+    Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Pure.pure,
+    TamaUniV2.erc20BalanceOf, UniswapV2PairBase.updateReservesAndEmitSync,
+    pairTokenWorldAfterEvents, pairTokenWorldAfterEvent, Contracts.rawLog, Contracts.mstore,
+    -maxUint112, -UniswapV2PairBase.maxUint112,
+    -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+    -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+    -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+    -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+    -timestamp32, -oracleElapsed]
+  repeat' (first
+    | split_ifs
+    | simp [pairTokenWorldAfterEvents, pairTokenWorldAfterEvent, getStorage, setStorage,
+        Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Pure.pure,
+        Contracts.rawLog, Contracts.mstore,
+        -maxUint112, -UniswapV2PairBase.maxUint112,
+        -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+        -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+        -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+        -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+        -timestamp32, -oracleElapsed])
+
+theorem sync_run_storageAddr_frame
+    (s : ContractState) (i : Nat) :
+  ((sync).run s).snd.storageAddr i = s.storageAddr i := by
+  unfold sync UniswapV2PairBase.sync
+  simp [getStorage, getStorageAddr, setStorage,
+    Verity.contractAddress, Verity.blockTimestamp, Contracts.balanceOf, Verity.require,
+    Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Pure.pure,
+    TamaUniV2.erc20BalanceOf, UniswapV2PairBase.updateReservesAndEmitSync,
+    Contracts.rawLog, Contracts.mstore,
+    -maxUint112, -UniswapV2PairBase.maxUint112,
+    -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+    -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+    -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+    -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+    -timestamp32, -oracleElapsed]
+  repeat' (first
+    | split_ifs
+    | simp [getStorage, setStorage, Contract.run, ContractResult.snd,
+        Verity.bind, Bind.bind, Pure.pure, Contracts.rawLog, Contracts.mstore,
+        -maxUint112, -UniswapV2PairBase.maxUint112,
+        -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+        -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+        -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+        -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+        -timestamp32, -oracleElapsed])
+
+theorem sync_run_balances_frame
+    (s : ContractState) (a : Address) :
+  ((sync).run s).snd.storageMap balancesSlot.slot a =
+    s.storageMap balancesSlot.slot a := by
+  unfold sync UniswapV2PairBase.sync
+  simp [getStorage, getStorageAddr, setStorage,
+    Verity.contractAddress, Verity.blockTimestamp, Contracts.balanceOf, Verity.require,
+    Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Pure.pure,
+    TamaUniV2.erc20BalanceOf, UniswapV2PairBase.updateReservesAndEmitSync,
+    Contracts.rawLog, Contracts.mstore,
+    -maxUint112, -UniswapV2PairBase.maxUint112,
+    -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+    -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+    -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+    -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+    -timestamp32, -oracleElapsed]
+  repeat' (first
+    | split_ifs
+    | simp [getStorage, setStorage, Contract.run, ContractResult.snd,
+        Verity.bind, Bind.bind, Pure.pure, Contracts.rawLog, Contracts.mstore,
+        -maxUint112, -UniswapV2PairBase.maxUint112,
+        -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+        -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+        -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+        -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+        -timestamp32, -oracleElapsed])
+
 -- tama: discharges=pair_sync_success_reaches_expected_pair_state
 theorem sync_success_reaches_expected_pair_state
     (preTokens : PairTokenBalances)

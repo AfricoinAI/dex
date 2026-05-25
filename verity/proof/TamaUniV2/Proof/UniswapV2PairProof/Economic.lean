@@ -868,8 +868,52 @@ theorem pairEconomicActionConcreteStep_wallet
       exact ⟨PairWalletAction.callerSkimReceive
         (PairWorldSurplus0 before.pair) (PairWorldSurplus1 before.pair),
         hWalletStep⟩
-  | sync preTokens s result hRun hSuccess hBefore hAfter hWalletStep =>
-      exact ⟨PairWalletAction.callerSync, hWalletStep⟩
+  | sync preTokens s result hRun hSuccess hBefore hAfter hExternal =>
+      subst before
+      subst after
+      refine ⟨PairWalletAction.callerSync, ?_⟩
+      have hPair :
+          PairWorldStep PairWorldAction.sync
+            (pairWorldFromConcreteAndTokens preTokens s)
+            (pairWorldFromConcreteAndTokens
+              (pairTokenWorldAfterCall preTokens s result) result.snd) := by
+        exact sync_success_reaches_expected_pair_state
+          preTokens s result hRun hSuccess hExternal
+      have hTokens :
+          pairTokenWorldAfterCall preTokens s result = preTokens := by
+        rw [hRun]
+        exact sync_run_token_world_unchanged preTokens s
+      have hToken0Addr :
+          result.snd.storageAddr token0Slot.slot = s.storageAddr token0Slot.slot := by
+        rw [hRun]
+        exact sync_run_storageAddr_frame s token0Slot.slot
+      have hToken1Addr :
+          result.snd.storageAddr token1Slot.slot = s.storageAddr token1Slot.slot := by
+        rw [hRun]
+        exact sync_run_storageAddr_frame s token1Slot.slot
+      have hLp :
+          result.snd.storageMap balancesSlot.slot caller =
+            s.storageMap balancesSlot.slot caller := by
+        rw [hRun]
+        exact sync_run_balances_frame s caller
+      have hToken0AddrRaw :
+          result.snd.storageAddr 1 = s.storageAddr 1 := by
+        simpa [token0Slot, UniswapV2PairBase.token0Slot] using hToken0Addr
+      have hToken1AddrRaw :
+          result.snd.storageAddr 2 = s.storageAddr 2 := by
+        simpa [token1Slot, UniswapV2PairBase.token1Slot] using hToken1Addr
+      have hLpRaw :
+          result.snd.storageMap 9 caller = s.storageMap 9 caller := by
+        simpa [balancesSlot, UniswapV2PairBase.balancesSlot] using hLp
+      constructor
+      · simpa [pairWalletFromConcreteAndTokens] using hPair
+      constructor
+      · simp [pairWalletFromConcreteAndTokens, callerTokenBalance0, pairToken0,
+          hTokens, hToken0AddrRaw]
+      constructor
+      · simp [pairWalletFromConcreteAndTokens, callerTokenBalance1, pairToken1,
+          hTokens, hToken1AddrRaw]
+      · simp [pairWalletFromConcreteAndTokens, hLpRaw]
 
 theorem pairEconomicActionConcretePath_walletHistory
     {caller : Address} {before after : PairWalletWorldState} :
