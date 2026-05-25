@@ -5134,6 +5134,287 @@ theorem swapInteractionTail_pairTransfers
         reserve0Value reserve1Value amount0Out amount1Out timestamp32
         previousTimestamp s
 
+private def contractAppendsEvents {α : Type} (c : Contract α) : Prop :=
+  ∀ s, ∃ ev, (c.run s).snd.events = s.events ++ ev
+
+private theorem contractAppendsEvents_pure {α : Type} (a : α) :
+    contractAppendsEvents (Verity.pure a : Contract α) := by
+  intro s
+  exact ⟨[], by simp [Contract.run, Verity.pure, Pure.pure]⟩
+
+private theorem contractAppendsEvents_bind {α β : Type}
+    (ma : Contract α) (f : α → Contract β)
+    (h_ma : contractAppendsEvents ma)
+    (h_f : ∀ a, contractAppendsEvents (f a)) :
+    contractAppendsEvents (ma >>= f) := by
+  intro s
+  rcases h_ma s with ⟨ev1, h_ma_events⟩
+  unfold Contract.run at h_ma_events
+  cases h_run : ma s with
+  | success a mid =>
+      have h_mid_events : mid.events = s.events ++ ev1 := by
+        simpa [h_run, ContractResult.snd] using h_ma_events
+      unfold Contract.run
+      simp [Bind.bind, Verity.bind, h_run]
+      cases h_f_run : f a mid with
+      | success b post =>
+          rcases h_f a mid with ⟨ev2, h_f_events⟩
+          have h_post_events : post.events = mid.events ++ ev2 := by
+            simpa [Contract.run, h_f_run, ContractResult.snd] using h_f_events
+          exact ⟨ev1 ++ ev2, by simpa [h_mid_events, h_post_events, List.append_assoc]⟩
+      | «revert» reason post =>
+          exact ⟨[], by simp [ContractResult.snd]⟩
+  | «revert» reason mid =>
+      refine ⟨[], ?_⟩
+      unfold Contract.run
+      simp [Bind.bind, Verity.bind, h_run, ContractResult.snd]
+
+private theorem contractAppendsEvents_getStorage (sl : StorageSlot Uint256) :
+    contractAppendsEvents (getStorage sl) := by
+  intro s
+  exact ⟨[], by simp [Contract.run, getStorage]⟩
+
+private theorem contractAppendsEvents_getStorageAddr (sl : StorageSlot Address) :
+    contractAppendsEvents (getStorageAddr sl) := by
+  intro s
+  exact ⟨[], by simp [Contract.run, getStorageAddr]⟩
+
+private theorem contractAppendsEvents_setStorage (sl : StorageSlot Uint256)
+    (value : Uint256) :
+    contractAppendsEvents (setStorage sl value) := by
+  intro s
+  exact ⟨[], by simp [Contract.run, setStorage]⟩
+
+private theorem contractAppendsEvents_require (condition : Bool) (message : String) :
+    contractAppendsEvents (Verity.require condition message) := by
+  intro s
+  unfold Verity.require
+  cases condition <;> exact ⟨[], by simp [Contract.run]⟩
+
+private theorem contractAppendsEvents_blockTimestamp :
+    contractAppendsEvents Verity.blockTimestamp := by
+  intro s
+  exact ⟨[], by simp [Contract.run, Verity.blockTimestamp]⟩
+
+private theorem contractAppendsEvents_msgSender :
+    contractAppendsEvents msgSender := by
+  intro s
+  exact ⟨[], by simp [Contract.run, msgSender]⟩
+
+private theorem contractAppendsEvents_contractAddress :
+    contractAppendsEvents Verity.contractAddress := by
+  intro s
+  exact ⟨[], by simp [Contract.run, Verity.contractAddress]⟩
+
+private theorem contractAppendsEvents_mstore (offset value : Uint256) :
+    contractAppendsEvents (Contracts.mstore offset value) := by
+  intro s
+  exact ⟨[], by simp [Contracts.mstore, Contract.run, Verity.pure, Pure.pure]⟩
+
+private theorem contractAppendsEvents_rawLog
+    (topics : List Uint256) (dataOffset dataSize : Uint256) :
+    contractAppendsEvents (Contracts.rawLog topics dataOffset dataSize) := by
+  intro s
+  unfold Contracts.rawLog Contract.run
+  by_cases h_topics : topics.length > 4
+  · exact ⟨[], by simp [h_topics]⟩
+  · exact ⟨[{ name := s!"log{topics.length}", args := [dataOffset, dataSize],
+              indexedArgs := topics }], by simp [h_topics]⟩
+
+private theorem contractAppendsEvents_emit (name : String) (args : List Uint256) :
+    contractAppendsEvents (Contracts.emit name args) := by
+  intro s
+  exact ⟨[{ name := name, args := args, indexedArgs := [] }], by rfl⟩
+
+private theorem contractAppendsEvents_balanceOf (token owner : Address) :
+    contractAppendsEvents (Contracts.balanceOf token owner) := by
+  intro s
+  exact ⟨[], by simp [Contracts.balanceOf, Contract.run, Verity.pure, Pure.pure]⟩
+
+private theorem contractAppendsEvents_ecmDo {γ : Type}
+    (module : γ) (args : List Uint256) :
+    contractAppendsEvents (ecmDo module args : Contract Unit) := by
+  intro s
+  exact ⟨[], by simp [Contract.run, Verity.pure, Pure.pure]⟩
+
+private theorem contractAppendsEvents_safeTransfer
+    (token toAddr : Address) (amount : Uint256) :
+    contractAppendsEvents (Contracts.safeTransfer token toAddr amount) := by
+  intro s
+  exact ⟨[], by simp [Contracts.safeTransfer, Contract.run, Verity.pure, Pure.pure]⟩
+
+private theorem contractAppendsEvents_tracePairTokenSafeTransfer
+    (token toAddr : Address) (amount : Uint256) :
+    contractAppendsEvents (TamaUniV2.tracePairTokenSafeTransfer token toAddr amount) := by
+  intro s
+  exact ⟨[TamaUniV2.pairTokenSafeTransferEvent token s.thisAddress toAddr amount], by rfl⟩
+
+private theorem contractAppendsEvents_pairSafeTransfer
+    (token toAddr : Address) (amount : Uint256) :
+    contractAppendsEvents (TamaUniV2.pairSafeTransfer token toAddr amount) := by
+  unfold TamaUniV2.pairSafeTransfer
+  apply contractAppendsEvents_bind
+  · exact contractAppendsEvents_safeTransfer token toAddr amount
+  · intro _
+    apply contractAppendsEvents_bind
+    · exact contractAppendsEvents_tracePairTokenSafeTransfer token toAddr amount
+    · intro _
+      exact contractAppendsEvents_pure (1 : Uint256)
+
+private theorem contractAppendsEvents_updateReservesAndEmitSync
+    (balance0Now balance1Now reserve0Value reserve1Value
+      timestamp32 previousTimestamp : Uint256) :
+    contractAppendsEvents
+      (UniswapV2PairBase.updateReservesAndEmitSync balance0Now balance1Now
+        reserve0Value reserve1Value timestamp32 previousTimestamp) := by
+  intro s
+  refine ⟨List.drop s.events.length
+    ((UniswapV2PairBase.updateReservesAndEmitSync balance0Now balance1Now
+      reserve0Value reserve1Value timestamp32 previousTimestamp).run s).snd.events, ?_⟩
+  unfold UniswapV2PairBase.updateReservesAndEmitSync
+  simp [getStorage, setStorage, Contract.run, ContractResult.snd, Verity.bind,
+    Bind.bind, Verity.pure, Pure.pure, Contracts.rawLog, Contracts.mstore,
+    -maxUint112, -UniswapV2PairBase.maxUint112,
+    -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+    -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+    -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+    -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+    -timestamp32, -oracleElapsed]
+  repeat' (first
+    | split_ifs
+    | simp [getStorage, setStorage, Contract.run, ContractResult.snd,
+        Verity.bind, Bind.bind, Verity.pure, Pure.pure, Contracts.rawLog,
+        Contracts.mstore,
+        -maxUint112, -UniswapV2PairBase.maxUint112,
+        -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+        -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+        -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+        -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+        -timestamp32, -oracleElapsed])
+
+private theorem contractAppendsEvents_finishSwapUpdate
+    (sender toAddr : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value
+      amount0In amount1In amount0Out amount1Out timestamp32 previousTimestamp : Uint256) :
+    contractAppendsEvents
+      (UniswapV2PairBase.finishSwapUpdate sender
+        balance0Now balance1Now reserve0Value reserve1Value
+        amount0In amount1In amount0Out amount1Out toAddr timestamp32
+        previousTimestamp) := by
+  unfold UniswapV2PairBase.finishSwapUpdate
+  repeat
+    first
+    | exact contractAppendsEvents_mstore _ _
+    | exact contractAppendsEvents_updateReservesAndEmitSync _ _ _ _ _ _
+    | exact contractAppendsEvents_emit _ _
+    | exact contractAppendsEvents_setStorage _ _
+    | apply contractAppendsEvents_bind
+    | intro _
+
+theorem updateReservesAndEmitSync_run_events_append
+    (balance0Now balance1Now reserve0Value reserve1Value
+      timestamp32 previousTimestamp : Uint256)
+    (s : ContractState) :
+    ∃ ev,
+      ((UniswapV2PairBase.updateReservesAndEmitSync balance0Now balance1Now
+        reserve0Value reserve1Value timestamp32 previousTimestamp).run s).snd.events =
+        s.events ++ ev :=
+  contractAppendsEvents_updateReservesAndEmitSync
+    balance0Now balance1Now reserve0Value reserve1Value timestamp32 previousTimestamp s
+
+theorem finishSwapUpdate_run_events_append
+    (sender toAddr : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value
+      amount0In amount1In amount0Out amount1Out timestamp32 previousTimestamp : Uint256)
+    (s : ContractState) :
+    ∃ ev,
+      ((UniswapV2PairBase.finishSwapUpdate sender
+        balance0Now balance1Now reserve0Value reserve1Value
+        amount0In amount1In amount0Out amount1Out toAddr timestamp32
+        previousTimestamp).run s).snd.events = s.events ++ ev :=
+  contractAppendsEvents_finishSwapUpdate sender toAddr
+    balance0Now balance1Now reserve0Value reserve1Value amount0In amount1In
+    amount0Out amount1Out timestamp32 previousTimestamp s
+
+theorem finishSwap_run_events_append
+    (sender toAddr : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value
+      amount0Out amount1Out timestamp32 previousTimestamp : Uint256)
+    (s : ContractState) :
+    ∃ ev,
+      ((UniswapV2PairBase.finishSwap sender
+        balance0Now balance1Now reserve0Value reserve1Value
+        amount0Out amount1Out toAddr timestamp32 previousTimestamp).run s).snd.events =
+        s.events ++ ev := by
+  unfold UniswapV2PairBase.finishSwap Contract.run
+  dsimp only [Bind.bind, Verity.bind]
+  cases h_checked :
+      UniswapV2PairBase.finishSwapChecked sender
+        balance0Now balance1Now reserve0Value reserve1Value
+        amount0Out amount1Out s with
+  | success amounts checkedState =>
+      have h_checked_state : checkedState = s := by
+        have h_preserved :=
+          finishSwapChecked_preserves_state_raw sender
+            balance0Now balance1Now reserve0Value reserve1Value
+            amount0Out amount1Out s
+        rw [h_checked] at h_preserved
+        simpa only [ContractResult.snd] using h_preserved
+      subst checkedState
+      rcases amounts with ⟨amount0In, amount1In⟩
+      simpa [h_checked] using
+        finishSwapUpdate_run_events_append sender toAddr
+          balance0Now balance1Now reserve0Value reserve1Value
+          amount0In amount1In amount0Out amount1Out timestamp32
+          previousTimestamp s
+  | «revert» reason checkedState =>
+      have h_checked_state : checkedState = s := by
+        have h_preserved :=
+          finishSwapChecked_preserves_state_raw sender
+            balance0Now balance1Now reserve0Value reserve1Value
+            amount0Out amount1Out s
+        rw [h_checked] at h_preserved
+        simpa only [ContractResult.snd] using h_preserved
+      subst checkedState
+      exact ⟨[], by simp [h_checked]⟩
+
+theorem swapInteractionTail_run_events_append
+    (token0Value token1Value : Address)
+    (reserve0Value reserve1Value amount0Out amount1Out timestamp32 previousTimestamp : Uint256)
+    (toAddr : Address) (s : ContractState) :
+    ∃ ev,
+      (((do
+        let sender ← msgSender
+        ecmDo uniswapV2CallbackModule
+          [addressToWord toAddr, addressToWord sender, amount0Out, amount1Out]
+        let selfAddr ← Verity.contractAddress
+        let balance0Now ← TamaUniV2.erc20BalanceOf token0Value selfAddr
+        let balance1Now ← TamaUniV2.erc20BalanceOf token1Value selfAddr
+        UniswapV2PairBase.finishSwap sender balance0Now balance1Now
+          reserve0Value reserve1Value amount0Out amount1Out toAddr timestamp32
+          previousTimestamp) : Contract Unit).run s).snd.events = s.events ++ ev := by
+  let balance0Now :=
+    ((TamaUniV2.erc20BalanceOf token0Value s.thisAddress).run s).fst
+  let balance1Now :=
+    ((TamaUniV2.erc20BalanceOf token1Value s.thisAddress).run s).fst
+  simpa [balance0Now, balance1Now, msgSender, Verity.contractAddress,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run,
+    ContractResult.snd, ContractResult.fst, Verity.bind, Bind.bind,
+    Verity.pure, Pure.pure] using
+      finishSwap_run_events_append s.sender toAddr balance0Now balance1Now
+        reserve0Value reserve1Value amount0Out amount1Out timestamp32
+        previousTimestamp s
+
+theorem pairSafeTransfer_run_events_append
+    (token toAddr : Address) (amount : Uint256) (s : ContractState) :
+    ∃ ev, ((TamaUniV2.pairSafeTransfer token toAddr amount).run s).snd.events =
+      s.events ++ ev :=
+  contractAppendsEvents_pairSafeTransfer token toAddr amount s
+
+private theorem pure_run_events_append {α : Type} (a : α) (s : ContractState) :
+    ∃ ev, ((Verity.pure a : Contract α).run s).snd.events = s.events ++ ev :=
+  contractAppendsEvents_pure a s
+
 private theorem require_if_success_state
     {cond : Bool} {msg : String} {s s' : ContractState} {a : Unit} :
   (if cond = true then ContractResult.success () s
