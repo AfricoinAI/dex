@@ -1078,6 +1078,116 @@ theorem sync_run_token_world_unchanged
         -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
         -timestamp32, -oracleElapsed])
 
+theorem pairTokenWorldAfterEvent_eq_pairTransferOfEvent
+    (pre : PairTokenBalances) (event : Event) :
+  pairTokenWorldAfterEvent pre event =
+    match pairTransferOfEvent event with
+    | some tr => pairTokenWorldAfterPairTransfer pre tr
+    | none => pre := by
+  rcases event with ⟨name, args, indexedArgs⟩
+  by_cases h_name : name = "UniswapV2PairTokenSafeTransfer"
+  · subst name
+    cases args with
+    | nil =>
+        simp [pairTokenWorldAfterEvent, pairTransferOfEvent]
+    | cons tokenWord args =>
+        cases args with
+        | nil =>
+            simp [pairTokenWorldAfterEvent, pairTransferOfEvent]
+        | cons fromWord args =>
+            cases args with
+            | nil =>
+                simp [pairTokenWorldAfterEvent, pairTransferOfEvent]
+            | cons toWord args =>
+                cases args with
+                | nil =>
+                    simp [pairTokenWorldAfterEvent, pairTransferOfEvent]
+                | cons amount args =>
+                    cases args with
+                    | nil =>
+                        cases indexedArgs with
+                        | nil =>
+                            simp [pairTokenWorldAfterEvent, pairTransferOfEvent,
+                              pairTokenWorldAfterPairTransfer]
+                        | cons indexed indexedArgs =>
+                            simp [pairTokenWorldAfterEvent, pairTransferOfEvent]
+                    | cons extra args =>
+                        simp [pairTokenWorldAfterEvent, pairTransferOfEvent]
+  · simp [pairTokenWorldAfterEvent, pairTransferOfEvent, h_name]
+
+theorem pairTokenWorldAfterEvents_eq_pairTransfers
+    (pre : PairTokenBalances) (events : List Event) :
+  pairTokenWorldAfterEvents pre events =
+    pairTokenWorldAfterPairTransfers pre (pairTransfersAfterEvents events) := by
+  induction events generalizing pre with
+  | nil =>
+      rfl
+  | cons event events ih =>
+      rw [pairTokenWorldAfterEvents]
+      rw [ih]
+      rw [pairTokenWorldAfterEvent_eq_pairTransferOfEvent]
+      cases h_transfer : pairTransferOfEvent event <;>
+        simp [pairTransfersAfterEvents, pairTokenWorldAfterPairTransfers, h_transfer]
+
+theorem pairTokenWorldAfterCall_eq_pairTransfers {α : Type}
+    (pre : PairTokenBalances) (s : ContractState) (result : ContractResult α) :
+  pairTokenWorldAfterCall pre s result =
+    pairTokenWorldAfterPairTransfers pre (pairTransfersAfterCall s result) := by
+  simp [pairTokenWorldAfterCall, pairTransfersAfterCall,
+    pairTokenWorldAfterEvents_eq_pairTransfers]
+
+theorem pairTransfersAfterEvents_append (l1 l2 : List Event) :
+  pairTransfersAfterEvents (l1 ++ l2) =
+    pairTransfersAfterEvents l1 ++ pairTransfersAfterEvents l2 := by
+  simp [pairTransfersAfterEvents]
+
+theorem pairTransfersAfterCall_bind_success {α β : Type}
+    (c : Contract α) (k : α → Contract β)
+    (s mid : ContractState) (a : α)
+    (h : c.run s = ContractResult.success a mid)
+    (h_k_success : ∃ b post, (k a).run mid = ContractResult.success b post)
+    (h_mid_events :
+      mid.events = s.events ++ emittedPairEventsAfterCall s (c.run s))
+    (h_post_events :
+      ((k a).run mid).snd.events =
+        mid.events ++ emittedPairEventsAfterCall mid ((k a).run mid)) :
+  pairTransfersAfterCall s ((do let x ← c; k x).run s) =
+    pairTransfersAfterCall s (c.run s) ++
+    pairTransfersAfterCall mid ((k a).run mid) := by
+  rcases h_k_success with ⟨b, post, h_k_success⟩
+  have h_bind_raw : (Bind.bind c k) s = k a mid :=
+    contract_bind_success c k s mid a (Contract.eq_of_run_success h)
+  have h_bind : (Bind.bind c k).run s = (k a).run mid := by
+    unfold Contract.run
+    rw [h_bind_raw]
+    rw [Contract.eq_of_run_success h_k_success]
+  have h_post_events' :
+      post.events =
+        mid.events ++ emittedPairEventsAfterCall mid ((k a).run mid) := by
+    simpa [h_k_success] using h_post_events
+  have h_bind_events :
+      emittedPairEventsAfterCall s ((Bind.bind c k).run s) =
+        emittedPairEventsAfterCall s (c.run s) ++
+          emittedPairEventsAfterCall mid ((k a).run mid) := by
+    unfold emittedPairEventsAfterCall
+    rw [h_bind, h, h_k_success]
+    simp only [ContractResult.snd_success]
+    rw [h_post_events', h_mid_events]
+    simp [List.append_assoc, List.drop_left]
+  unfold pairTransfersAfterCall
+  rw [h_bind_events, pairTransfersAfterEvents_append]
+
+theorem pairSafeTransfer_pairTransfers
+    (token toAddr : Address) (amount : Uint256) (s : ContractState) :
+  pairTransfersAfterCall s
+    ((TamaUniV2.pairSafeTransfer token toAddr amount).run s) =
+    [{ token := token, fromAddr := pairSelf s, toAddr := toAddr, amount := amount }] := by
+  simp [pairTransfersAfterCall, emittedPairEventsAfterCall, pairTransfersAfterEvents,
+    pairTransferOfEvent, TamaUniV2.pairSafeTransfer,
+    TamaUniV2.tracePairTokenSafeTransfer, TamaUniV2.pairTokenSafeTransferEvent,
+    Contracts.safeTransfer, Contract.run, Verity.bind, Bind.bind, Verity.pure,
+    Pure.pure, pairSelf, addressOfNat_toNat_mod_uint256]
+
 theorem sync_run_storageAddr_frame
     (s : ContractState) (i : Nat) :
   ((sync).run s).snd.storageAddr i = s.storageAddr i := by

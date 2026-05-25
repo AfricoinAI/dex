@@ -152,6 +152,39 @@ def pairTokenWorldAfterCall {α : Type}
     PairTokenBalances :=
   pairTokenWorldAfterEvents pre (emittedPairEventsAfterCall s result)
 
+structure PairTransfer where
+  token : Address
+  fromAddr : Address
+  toAddr : Address
+  amount : Uint256
+
+def pairTransferOfEvent : Event → Option PairTransfer
+  | { name := "UniswapV2PairTokenSafeTransfer",
+      args := [tokenWord, fromWord, toWord, amount],
+      indexedArgs := [] } =>
+      some {
+        token := wordToAddress tokenWord
+        fromAddr := wordToAddress fromWord
+        toAddr := wordToAddress toWord
+        amount := amount
+      }
+  | _ => none
+
+def pairTransfersAfterEvents (events : List Event) : List PairTransfer :=
+  events.filterMap pairTransferOfEvent
+
+def pairTransfersAfterCall {α : Type}
+    (s : ContractState) (result : ContractResult α) : List PairTransfer :=
+  pairTransfersAfterEvents (emittedPairEventsAfterCall s result)
+
+def pairTokenWorldAfterPairTransfer
+    (pre : PairTokenBalances) (tr : PairTransfer) : PairTokenBalances :=
+  pairTokenWorldAfterTransfer pre tr.token tr.fromAddr tr.toAddr tr.amount
+
+def pairTokenWorldAfterPairTransfers :
+    PairTokenBalances → List PairTransfer → PairTokenBalances :=
+  List.foldl pairTokenWorldAfterPairTransfer
+
 def pairRevertedWithOriginalState {α : Type}
     (s : ContractState) (result : ContractResult α) : Prop :=
   ∃ reason, result = ContractResult.revert reason s
