@@ -433,6 +433,81 @@ verity_contract UniswapV2PairBase where
       timestamp32 previousTimestamp
     return mintedLiquidity
 
+  function no_external_calls finishSwapChecked
+      (sender : Address,
+        balance0Now : Uint256, balance1Now : Uint256,
+        reserve0Value : Uint256, reserve1Value : Uint256,
+        amount0Out : Uint256, amount1Out : Uint256) : Tuple [Uint256, Uint256] := do
+    let expected0 := sub reserve0Value amount0Out
+    let expected1 := sub reserve1Value amount1Out
+    let mut amount0In := 0
+    if balance0Now > expected0 then
+      amount0In := sub balance0Now expected0
+    else
+      pure ()
+    let mut amount1In := 0
+    if balance1Now > expected1 then
+      amount1In := sub balance1Now expected1
+    else
+      pure ()
+    require (amount0In > 0 || amount1In > 0) "UniswapV2: INSUFFICIENT_INPUT_AMOUNT"
+    let balance0Scaled := mul balance0Now feeDenominator
+    require (balance0Now == 0 || div balance0Scaled balance0Now == feeDenominator) "UniswapV2: K_OVERFLOW"
+    let balance1Scaled := mul balance1Now feeDenominator
+    require (balance1Now == 0 || div balance1Scaled balance1Now == feeDenominator) "UniswapV2: K_OVERFLOW"
+    let amount0Fee := mul amount0In feeAdjustment
+    require (amount0In == 0 || div amount0Fee amount0In == feeAdjustment) "UniswapV2: K_OVERFLOW"
+    let amount1Fee := mul amount1In feeAdjustment
+    require (amount1In == 0 || div amount1Fee amount1In == feeAdjustment) "UniswapV2: K_OVERFLOW"
+    require (balance0Scaled >= amount0Fee && balance1Scaled >= amount1Fee) "UniswapV2: K"
+    let balance0Adjusted := sub balance0Scaled amount0Fee
+    let balance1Adjusted := sub balance1Scaled amount1Fee
+    let adjustedProduct := mul balance0Adjusted balance1Adjusted
+    require (balance0Adjusted == 0 || div adjustedProduct balance0Adjusted == balance1Adjusted) "UniswapV2: K_OVERFLOW"
+    let reserveProduct := mul reserve0Value reserve1Value
+    require (reserve0Value == 0 || div reserveProduct reserve0Value == reserve1Value) "UniswapV2: K_OVERFLOW"
+    let scaleProduct := mul feeDenominator feeDenominator
+    require (div scaleProduct feeDenominator == feeDenominator) "UniswapV2: K_OVERFLOW"
+    let requiredProduct := mul reserveProduct scaleProduct
+    require (reserveProduct == 0 || div requiredProduct reserveProduct == scaleProduct) "UniswapV2: K_OVERFLOW"
+    require (adjustedProduct >= requiredProduct) "UniswapV2: K"
+    require (balance0Now <= maxUint112 && balance1Now <= maxUint112) "UniswapV2: OVERFLOW"
+    return (amount0In, amount1In)
+
+  function no_external_calls finishSwapUpdate
+      (sender : Address,
+        balance0Now : Uint256, balance1Now : Uint256,
+        reserve0Value : Uint256, reserve1Value : Uint256,
+        amount0In : Uint256, amount1In : Uint256,
+        amount0Out : Uint256, amount1Out : Uint256,
+        toAddr : Address,
+        timestamp32 : Uint256, previousTimestamp : Uint256) : Unit := do
+    unsafe "restore free memory pointer before native events after callback/transfer ECMs" do
+      mstore 64 128
+    updateReservesAndEmitSync balance0Now balance1Now
+      reserve0Value reserve1Value timestamp32 previousTimestamp
+    emit "Swap" [
+      addressToWord sender,
+      amount0In,
+      amount1In,
+      amount0Out,
+      amount1Out,
+      addressToWord toAddr
+    ]
+    setStorage unlockedSlot 1
+
+  function no_external_calls finishSwap
+      (sender : Address,
+        balance0Now : Uint256, balance1Now : Uint256,
+        reserve0Value : Uint256, reserve1Value : Uint256,
+        amount0Out : Uint256, amount1Out : Uint256,
+        toAddr : Address,
+        timestamp32 : Uint256, previousTimestamp : Uint256) : Unit := do
+    let (amount0In, amount1In) ← finishSwapChecked sender
+      balance0Now balance1Now reserve0Value reserve1Value amount0Out amount1Out
+    finishSwapUpdate sender balance0Now balance1Now reserve0Value reserve1Value
+      amount0In amount1In amount0Out amount1Out toAddr timestamp32 previousTimestamp
+
   function allow_post_interaction_writes mint (toAddr : Address) : Uint256 := do
     let lockValue ← getStorage unlockedSlot
     require (lockValue == 1) "UniswapV2: LOCKED"
@@ -528,53 +603,8 @@ verity_contract UniswapV2PairBase where
     let selfAddr ← Verity.contractAddress
     let balance0Now ← TamaUniV2.erc20BalanceOf token0Value selfAddr
     let balance1Now ← TamaUniV2.erc20BalanceOf token1Value selfAddr
-    let expected0 := sub reserve0Value amount0Out
-    let expected1 := sub reserve1Value amount1Out
-    let mut amount0In := 0
-    if balance0Now > expected0 then
-      amount0In := sub balance0Now expected0
-    else
-      pure ()
-    let mut amount1In := 0
-    if balance1Now > expected1 then
-      amount1In := sub balance1Now expected1
-    else
-      pure ()
-    require (amount0In > 0 || amount1In > 0) "UniswapV2: INSUFFICIENT_INPUT_AMOUNT"
-    let balance0Scaled := mul balance0Now feeDenominator
-    require (balance0Now == 0 || div balance0Scaled balance0Now == feeDenominator) "UniswapV2: K_OVERFLOW"
-    let balance1Scaled := mul balance1Now feeDenominator
-    require (balance1Now == 0 || div balance1Scaled balance1Now == feeDenominator) "UniswapV2: K_OVERFLOW"
-    let amount0Fee := mul amount0In feeAdjustment
-    require (amount0In == 0 || div amount0Fee amount0In == feeAdjustment) "UniswapV2: K_OVERFLOW"
-    let amount1Fee := mul amount1In feeAdjustment
-    require (amount1In == 0 || div amount1Fee amount1In == feeAdjustment) "UniswapV2: K_OVERFLOW"
-    require (balance0Scaled >= amount0Fee && balance1Scaled >= amount1Fee) "UniswapV2: K"
-    let balance0Adjusted := sub balance0Scaled amount0Fee
-    let balance1Adjusted := sub balance1Scaled amount1Fee
-    let adjustedProduct := mul balance0Adjusted balance1Adjusted
-    require (balance0Adjusted == 0 || div adjustedProduct balance0Adjusted == balance1Adjusted) "UniswapV2: K_OVERFLOW"
-    let reserveProduct := mul reserve0Value reserve1Value
-    require (reserve0Value == 0 || div reserveProduct reserve0Value == reserve1Value) "UniswapV2: K_OVERFLOW"
-    let scaleProduct := mul feeDenominator feeDenominator
-    require (div scaleProduct feeDenominator == feeDenominator) "UniswapV2: K_OVERFLOW"
-    let requiredProduct := mul reserveProduct scaleProduct
-    require (reserveProduct == 0 || div requiredProduct reserveProduct == scaleProduct) "UniswapV2: K_OVERFLOW"
-    require (adjustedProduct >= requiredProduct) "UniswapV2: K"
-    require (balance0Now <= maxUint112 && balance1Now <= maxUint112) "UniswapV2: OVERFLOW"
-    unsafe "restore free memory pointer before native events after callback/transfer ECMs" do
-      mstore 64 128
-    updateReservesAndEmitSync balance0Now balance1Now
-      reserve0Value reserve1Value timestamp32 previousTimestamp
-    emit "Swap" [
-      addressToWord sender,
-      amount0In,
-      amount1In,
-      amount0Out,
-      amount1Out,
-      addressToWord toAddr
-    ]
-    setStorage unlockedSlot 1
+    finishSwap sender balance0Now balance1Now reserve0Value reserve1Value
+      amount0Out amount1Out toAddr timestamp32 previousTimestamp
 
   function allow_post_interaction_writes skim (toAddr : Address) : Unit := do
     let lockValue ← getStorage unlockedSlot
@@ -658,7 +688,7 @@ abbrev sync := UniswapV2PairBase.sync
 
   def privateHelperFunctionNames : List String :=
   ["updateReservesAndEmitSync", "finishFirstMint", "finishFirstMintChecked", "finishLaterMint",
-    "firstMintPath", "laterMintPath"]
+    "firstMintPath", "laterMintPath", "finishSwapChecked", "finishSwapUpdate", "finishSwap"]
 
 def exposedFunctions : List FunctionSpec :=
   UniswapV2PairBase.spec.functions.filter fun fn =>

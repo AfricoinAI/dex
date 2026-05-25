@@ -1473,24 +1473,26 @@ def pair_burn_success_reaches_expected_pair_state
   result = (burn toAddr).run s →
     result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
       pairBurnExternalTokenBalancesMatchCall preTokens s result →
-        0 < liquidity.val →
-          0 < (burnSupply s).val →
-            liquidity.val ≤ (burnSupply s).val →
-              minimumLiquidityNat ≤ (burnSupply s).val - liquidity.val →
-                amount0 > 0 →
-                  amount1 > 0 →
-                    amount0 ≤ observedBalance0 s →
-                      amount1 ≤ observedBalance1 s →
-                        burnBalance0After s ≤ maxUint112 →
-                          burnBalance1After s ≤ maxUint112 →
-                            amount0.val * (burnSupply s).val ≤
-                                liquidity.val * (observedBalance0 s).val →
-                              amount1.val * (burnSupply s).val ≤
-                                  liquidity.val * (observedBalance1 s).val →
-                                PairWorldStep
-                                  (PairWorldAction.burn amount0.val amount1.val liquidity.val)
-                                  (pairWorldFromConcreteAndTokens preTokens s)
-                                  actual
+        pairPostCallSelfBalancesMatch s result.snd
+          (burnBalance0After s) (burnBalance1After s) →
+          0 < liquidity.val →
+            0 < (burnSupply s).val →
+              liquidity.val ≤ (burnSupply s).val →
+                minimumLiquidityNat ≤ (burnSupply s).val - liquidity.val →
+                  amount0 > 0 →
+                    amount1 > 0 →
+                      amount0 ≤ observedBalance0 s →
+                        amount1 ≤ observedBalance1 s →
+                          burnBalance0After s ≤ maxUint112 →
+                            burnBalance1After s ≤ maxUint112 →
+                              amount0.val * (burnSupply s).val ≤
+                                  liquidity.val * (observedBalance0 s).val →
+                                amount1.val * (burnSupply s).val ≤
+                                    liquidity.val * (observedBalance1 s).val →
+                                  PairWorldStep
+                                    (PairWorldAction.burn amount0.val amount1.val liquidity.val)
+                                    (pairWorldFromConcreteAndTokens preTokens s)
+                                    actual
 
 /--
 A successful burn destroys the LP tokens sitting on the pair itself and uses
@@ -1631,30 +1633,31 @@ def pair_swap_success_reaches_expected_pair_state
   result = (swap amount0Out amount1Out toAddr data).run s →
     result = ContractResult.success () result.snd →
       pairSwapExternalTokenBalancesMatchCall preTokens s balance0Now balance1Now result →
-        amount0Out < s.storage reserve0Slot.slot →
-          amount1Out < s.storage reserve1Slot.slot →
-            (amount0In > 0 ∨ amount1In > 0) →
-              balance0Now.val =
-                  (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
-                balance1Now.val =
-                    (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
-                  balance0Now ≤ maxUint112 →
-                    balance1Now ≤ maxUint112 →
-                      amount0In.val * feeAdjustmentNat ≤
-                          balance0Now.val * feeDenominatorNat →
-                        amount1In.val * feeAdjustmentNat ≤
-                            balance1Now.val * feeDenominatorNat →
-                          feeAdjustedBalance balance0Now.val amount0In.val *
-                              feeAdjustedBalance balance1Now.val amount1In.val ≥
-                            requiredK
-                              (s.storage reserve0Slot.slot).val
-                              (s.storage reserve1Slot.slot).val →
-                              PairWorldStep
-                              (PairWorldAction.swap
-                                amount0In.val amount1In.val
-                                amount0Out.val amount1Out.val)
-                              (pairWorldFromConcreteAndTokens preTokens s)
-                              actual
+        pairPostCallSelfBalancesMatch s result.snd balance0Now balance1Now →
+          amount0Out < s.storage reserve0Slot.slot →
+            amount1Out < s.storage reserve1Slot.slot →
+              (amount0In > 0 ∨ amount1In > 0) →
+                balance0Now.val =
+                    (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
+                  balance1Now.val =
+                      (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
+                    balance0Now ≤ maxUint112 →
+                      balance1Now ≤ maxUint112 →
+                        amount0In.val * feeAdjustmentNat ≤
+                            balance0Now.val * feeDenominatorNat →
+                          amount1In.val * feeAdjustmentNat ≤
+                              balance1Now.val * feeDenominatorNat →
+                            feeAdjustedBalance balance0Now.val amount0In.val *
+                                feeAdjustedBalance balance1Now.val amount1In.val ≥
+                              requiredK
+                                (s.storage reserve0Slot.slot).val
+                                (s.storage reserve1Slot.slot).val →
+                                PairWorldStep
+                                (PairWorldAction.swap
+                                  amount0In.val amount1In.val
+                                  amount0Out.val amount1Out.val)
+                                (pairWorldFromConcreteAndTokens preTokens s)
+                                actual
 
 /--
 When `swap` succeeds, the final token balances account for the optimistic

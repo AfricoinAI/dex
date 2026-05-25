@@ -496,6 +496,11 @@ def pairExternalTokenBalancesMatchCall {α : Type}
   pairTokenBalancesMatchWorld preTokens s before ∧
     pairTokenBalancesMatchWorld postTokens result.snd after
 
+def pairPostCallSelfBalancesMatch
+    (s : ContractState) (post : ContractState) (b0 b1 : Uint256) : Prop :=
+  ((TamaUniV2.erc20BalanceOf (pairToken0 s) (pairSelf s)).run post).fst = b0 ∧
+    ((TamaUniV2.erc20BalanceOf (pairToken1 s) (pairSelf s)).run post).fst = b1
+
 def pairFirstMintExternalTokenBalancesMatchCall
     (preTokens : PairTokenBalances) (s : ContractState)
     (result : ContractResult Uint256) : Prop :=

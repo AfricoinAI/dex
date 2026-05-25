@@ -106,4 +106,189 @@ theorem addressOfNat_toNat_mod_uint256 (a : Address) :
     simp [Core.Address.toNat, Core.Address.val_mod_modulus]
   simp [h_uint_mod, h_addr_mod]
 
+theorem observedBalance0_balanceOf_run_nf (s : ContractState) :
+    ((Contracts.balanceOf (s.storageAddr token0Slot.slot) s.thisAddress).run s).fst =
+      observedBalance0 s := by
+  rfl
+
+theorem observedBalance1_balanceOf_run_nf (s : ContractState) :
+    ((Contracts.balanceOf (s.storageAddr token1Slot.slot) s.thisAddress).run s).fst =
+      observedBalance1 s := by
+  rfl
+
+theorem mintAmount0_balanceOf_run_nf (s : ContractState) :
+    Verity.EVM.Uint256.sub
+        ((Contracts.balanceOf (s.storageAddr token0Slot.slot) s.thisAddress).run s).fst
+        (s.storage reserve0Slot.slot) =
+      mintAmount0 s := by
+  rfl
+
+theorem mintAmount1_balanceOf_run_nf (s : ContractState) :
+    Verity.EVM.Uint256.sub
+        ((Contracts.balanceOf (s.storageAddr token1Slot.slot) s.thisAddress).run s).fst
+        (s.storage reserve1Slot.slot) =
+      mintAmount1 s := by
+  rfl
+
+theorem observedBalance0_balanceOf_run_success_nf (s : ContractState) :
+    (Contracts.balanceOf (s.storageAddr token0Slot.slot) s.thisAddress).run s =
+      ContractResult.success (observedBalance0 s) s := by
+  rfl
+
+theorem observedBalance1_balanceOf_run_success_nf (s : ContractState) :
+    (Contracts.balanceOf (s.storageAddr token1Slot.slot) s.thisAddress).run s =
+      ContractResult.success (observedBalance1 s) s := by
+  rfl
+
+theorem mintLockedState_storage_reserve0 (s : ContractState) :
+    (mintLockedState s).storage reserve0Slot.slot = s.storage reserve0Slot.slot := by
+  simp [mintLockedState, reserve0Slot, unlockedSlot]
+
+theorem mintLockedState_storage_reserve1 (s : ContractState) :
+    (mintLockedState s).storage reserve1Slot.slot = s.storage reserve1Slot.slot := by
+  simp [mintLockedState, reserve1Slot, unlockedSlot]
+
+theorem mintLockedState_storage_totalSupply (s : ContractState) :
+    (mintLockedState s).storage totalSupplySlot.slot =
+      s.storage totalSupplySlot.slot := by
+  simp [mintLockedState, totalSupplySlot, unlockedSlot]
+
+theorem mintLockedState_storage_unlocked (s : ContractState) :
+    (mintLockedState s).storage unlockedSlot.slot = 0 := by
+  simp [mintLockedState, unlockedSlot]
+
+theorem mintLockedState_storageAddr (s : ContractState) :
+    (mintLockedState s).storageAddr = s.storageAddr := by
+  rfl
+
+theorem mintLockedState_sender (s : ContractState) :
+    (mintLockedState s).sender = s.sender := by
+  rfl
+
+theorem mintLockedState_thisAddress (s : ContractState) :
+    (mintLockedState s).thisAddress = s.thisAddress := by
+  rfl
+
+theorem mintLockedState_blockTimestamp (s : ContractState) :
+    (mintLockedState s).blockTimestamp = s.blockTimestamp := by
+  rfl
+
+theorem observedBalance0_mintLockedState (s : ContractState) :
+    observedBalance0 (mintLockedState s) = observedBalance0 s := by
+  rfl
+
+theorem observedBalance1_mintLockedState (s : ContractState) :
+    observedBalance1 (mintLockedState s) = observedBalance1 s := by
+  rfl
+
+theorem observedBalance0_balanceOf_mintLockedState_run_success_nf
+    (s : ContractState) :
+    (Contracts.balanceOf ((mintLockedState s).storageAddr token0Slot.slot)
+        (mintLockedState s).thisAddress).run (mintLockedState s) =
+      ContractResult.success (observedBalance0 s) (mintLockedState s) := by
+  rfl
+
+theorem observedBalance1_balanceOf_mintLockedState_run_success_nf
+    (s : ContractState) :
+    (Contracts.balanceOf ((mintLockedState s).storageAddr token1Slot.slot)
+        (mintLockedState s).thisAddress).run (mintLockedState s) =
+      ContractResult.success (observedBalance1 s) (mintLockedState s) := by
+  rfl
+
+theorem mintAmount0_mintLockedState (s : ContractState) :
+    mintAmount0 (mintLockedState s) = mintAmount0 s := by
+  simp only [mintAmount0, observedBalance0_mintLockedState,
+    mintLockedState_storage_reserve0]
+
+theorem mintAmount1_mintLockedState (s : ContractState) :
+    mintAmount1 (mintLockedState s) = mintAmount1 s := by
+  simp only [mintAmount1, observedBalance1_mintLockedState,
+    mintLockedState_storage_reserve1]
+
+/-- Fold a deposit amount computed from the already-folded observed balance back
+to `mintAmount0`.  Holds by definition (`mintAmount0 s := sub (observedBalance0 s) …`)
+and is needed once the balance read has folded to `observedBalance0 s` rather than the
+raw `((balanceOf …).run s).fst` form. -/
+theorem mintAmount0_observed_nf (s : ContractState) :
+    Verity.EVM.Uint256.sub (observedBalance0 s) (s.storage reserve0Slot.slot) =
+      mintAmount0 s := rfl
+
+theorem mintAmount1_observed_nf (s : ContractState) :
+    Verity.EVM.Uint256.sub (observedBalance1 s) (s.storage reserve1Slot.slot) =
+      mintAmount1 s := rfl
+
+/-- Taking the reentrancy lock (`setStorage unlockedSlot 0`) yields exactly
+`mintLockedState s`, letting the entrypoint reduction continue on a state the
+`mintLockedState` frame/read lemmas recognise (instead of an opaque record). -/
+theorem setStorage_unlockedSlot_run_mintLockedState (s : ContractState) :
+    (setStorage unlockedSlot (0 : Uint256)).run s =
+      ContractResult.success () (mintLockedState s) := rfl
+
+/-! Application-form ("`c state`", not "`c.run state`") variants of the lock/read
+folds.  Reducing a public entrypoint with `bind`/`Contract.run` unfolded leaves the
+primitive operations applied directly to the threaded state, so these are the forms
+that actually fire in the entrypoint prefix reduction. -/
+
+theorem setStorage_unlockedSlot_app_mintLockedState (s : ContractState) :
+    setStorage unlockedSlot (0 : Uint256) s =
+      ContractResult.success () (mintLockedState s) := rfl
+
+theorem observedBalance0_balanceOf_mintLockedState_app_nf (s : ContractState) :
+    Contracts.balanceOf ((mintLockedState s).storageAddr token0Slot.slot)
+        (mintLockedState s).thisAddress (mintLockedState s) =
+      ContractResult.success (observedBalance0 s) (mintLockedState s) := rfl
+
+theorem observedBalance1_balanceOf_mintLockedState_app_nf (s : ContractState) :
+    Contracts.balanceOf ((mintLockedState s).storageAddr token1Slot.slot)
+        (mintLockedState s).thisAddress (mintLockedState s) =
+      ContractResult.success (observedBalance1 s) (mintLockedState s) := rfl
+
+theorem pairPostCallSelfBalancesMatch_balance0_app_nf
+    {s post readState : ContractState} {b0 b1 : Uint256} :
+    pairPostCallSelfBalancesMatch s post b0 b1 →
+      TamaUniV2.erc20BalanceOf (pairToken0 s) (pairSelf s) readState =
+        ContractResult.success b0 readState := by
+  intro h_match
+  rcases h_match with ⟨h0, _h1⟩
+  simpa [pairPostCallSelfBalancesMatch, TamaUniV2.erc20BalanceOf,
+    Contracts.balanceOf, Contract.run, ContractResult.fst, Verity.pure,
+    Pure.pure] using h0
+
+theorem pairPostCallSelfBalancesMatch_balance1_app_nf
+    {s post readState : ContractState} {b0 b1 : Uint256} :
+    pairPostCallSelfBalancesMatch s post b0 b1 →
+      TamaUniV2.erc20BalanceOf (pairToken1 s) (pairSelf s) readState =
+        ContractResult.success b1 readState := by
+  intro h_match
+  rcases h_match with ⟨_h0, h1⟩
+  simpa [pairPostCallSelfBalancesMatch, TamaUniV2.erc20BalanceOf,
+    Contracts.balanceOf, Contract.run, ContractResult.fst, Verity.pure,
+    Pure.pure] using h1
+
+/-- Generic public-entrypoint rollback collapse, over an *abstract* path result `D`.
+The public `Contract.run` rolls a path revert back to the pre-call state `s`, while
+the path itself reverts from the locked state `ls`; on success both keep the path
+post-state.  Proving it over an abstract `D` keeps the `cases` cheap, so applying it
+closes the entrypoint adapter without the kernel reducing the (large) concrete path
+term. -/
+theorem run_rollback_collapse {α : Type} (D : ContractResult α) (s ls : ContractState) :
+    (match D with
+      | ContractResult.success a s' => ContractResult.success a s'
+      | ContractResult.revert msg _ => ContractResult.revert msg s) =
+      (match
+          (match D with
+            | ContractResult.success a s' => ContractResult.success a s'
+            | ContractResult.revert msg _ => ContractResult.revert msg ls) with
+        | ContractResult.success a s' => ContractResult.success a s'
+        | ContractResult.revert msg _ => ContractResult.revert msg s) := by
+  cases D <;> rfl
+
+theorem contract_bind_success {α β : Type}
+    (ma : Contract α) (f : α → Contract β)
+    (s s' : ContractState) (a : α)
+    (h : ma s = ContractResult.success a s') :
+    (Bind.bind ma f) s = f a s' := by
+  dsimp only [Bind.bind, Verity.bind]
+  rw [h]
+
 end TamaUniV2.Proof.UniswapV2PairProof
