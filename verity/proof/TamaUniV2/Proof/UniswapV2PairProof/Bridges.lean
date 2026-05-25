@@ -1188,6 +1188,242 @@ theorem pairSafeTransfer_pairTransfers
     Contracts.safeTransfer, Contract.run, Verity.bind, Bind.bind, Verity.pure,
     Pure.pure, pairSelf, addressOfNat_toNat_mod_uint256]
 
+theorem run_success_events_extend_of_append {α : Type}
+    (c : Contract α) (s s' : ContractState) (a : α)
+    (h_run : c.run s = ContractResult.success a s')
+    (emitted : List Event) (h_events : s'.events = s.events ++ emitted) :
+  s'.events = s.events ++ emittedPairEventsAfterCall s (c.run s) := by
+  unfold emittedPairEventsAfterCall
+  rw [h_run]
+  simp only [ContractResult.snd_success]
+  rw [h_events]
+  congr 1
+  rw [List.drop_left]
+
+theorem pairTransfersAfterCall_of_events_eq {α : Type}
+    (s t : ContractState) (result : ContractResult α)
+    (h_events : t.events = s.events) :
+  pairTransfersAfterCall s result = pairTransfersAfterCall t result := by
+  simp [pairTransfersAfterCall, emittedPairEventsAfterCall, h_events]
+
+theorem updateReservesAndEmitSync_pairTransfers
+    (balance0Now balance1Now reserve0Value reserve1Value
+      timestamp32 previousTimestamp : Uint256)
+    (s : ContractState) :
+  pairTransfersAfterCall s
+    ((UniswapV2PairBase.updateReservesAndEmitSync balance0Now balance1Now
+      reserve0Value reserve1Value timestamp32 previousTimestamp).run s) = [] := by
+  unfold UniswapV2PairBase.updateReservesAndEmitSync
+  simp [pairTransfersAfterCall, emittedPairEventsAfterCall, pairTransfersAfterEvents,
+    pairTransferOfEvent, getStorage, setStorage, Contract.run, ContractResult.snd,
+    Verity.bind, Bind.bind, Verity.pure, Pure.pure, Contracts.rawLog, Contracts.mstore,
+    -maxUint112, -UniswapV2PairBase.maxUint112,
+    -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+    -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+    -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+    -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+    -timestamp32, -oracleElapsed]
+  repeat' (first
+    | split_ifs
+    | simp [pairTransfersAfterEvents, pairTransferOfEvent, getStorage, setStorage,
+        Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Verity.pure,
+        Pure.pure, Contracts.rawLog, Contracts.mstore,
+        -maxUint112, -UniswapV2PairBase.maxUint112,
+        -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+        -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+        -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+        -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+        -timestamp32, -oracleElapsed])
+
+theorem finishFirstMint_pairTransfers
+    (toAddr sender : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value amount0 amount1
+      root liquidity newToBalance timestamp32 previousTimestamp : Uint256)
+    (s : ContractState) :
+  pairTransfersAfterCall s
+    ((UniswapV2PairBase.finishFirstMint toAddr sender balance0Now balance1Now
+      reserve0Value reserve1Value amount0 amount1 root liquidity newToBalance
+      timestamp32 previousTimestamp).run s) = [] := by
+  simp [pairTransfersAfterCall, emittedPairEventsAfterCall, pairTransfersAfterEvents,
+    pairTransferOfEvent, UniswapV2PairBase.finishFirstMint,
+    UniswapV2PairBase.updateReservesAndEmitSync, getStorage, setStorage, setMapping,
+    Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Verity.pure,
+    Pure.pure, Contracts.emit, emitEvent, Contracts.rawLog, Contracts.mstore,
+    -maxUint112, -UniswapV2PairBase.maxUint112,
+    -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+    -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+    -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+    -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+    -timestamp32, -oracleElapsed]
+  repeat' (first
+    | split_ifs
+    | simp [pairTransfersAfterEvents, pairTransferOfEvent, getStorage, setStorage,
+        setMapping, Contract.run, ContractResult.snd, Verity.bind, Bind.bind,
+        Verity.pure, Pure.pure, Contracts.emit, emitEvent, Contracts.rawLog,
+        Contracts.mstore,
+        -maxUint112, -UniswapV2PairBase.maxUint112,
+        -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+        -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+        -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+        -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+        -timestamp32, -oracleElapsed])
+
+theorem firstMintPath_pairTransfers
+    (toAddr sender : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value amount0 amount1 : Uint256)
+    (s : ContractState) :
+  pairTransfersAfterCall s
+    ((UniswapV2PairBase.firstMintPath toAddr sender balance0Now balance1Now
+      reserve0Value reserve1Value amount0 amount1).run s) = [] := by
+  simp [pairTransfersAfterCall, emittedPairEventsAfterCall, pairTransfersAfterEvents,
+    pairTransferOfEvent, UniswapV2PairBase.firstMintPath,
+    UniswapV2PairBase.finishFirstMintChecked, UniswapV2PairBase.finishFirstMint,
+    UniswapV2PairBase.updateReservesAndEmitSync, getStorage, setStorage, setMapping,
+    getMapping, Verity.blockTimestamp, Verity.require,
+    Verity.Stdlib.Math.requireSomeUint, Verity.Stdlib.Math.safeAdd,
+    Contract.run, ContractResult.snd, ContractResult.fst,
+    Verity.bind, Bind.bind, Verity.pure, Pure.pure, Contracts.emit,
+    emitEvent, Contracts.rawLog, Contracts.mstore,
+    -maxUint112, -UniswapV2PairBase.maxUint112,
+    -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+    -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+    -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+    -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+    -timestamp32, -oracleElapsed]
+  repeat' (first
+    | split_ifs
+    | simp [pairTransfersAfterEvents, pairTransferOfEvent, getStorage, setStorage,
+        setMapping, getMapping, Verity.blockTimestamp, Verity.require,
+        Verity.Stdlib.Math.requireSomeUint, Verity.Stdlib.Math.safeAdd,
+        Contract.run, ContractResult.snd, ContractResult.fst, Verity.bind,
+        Bind.bind, Verity.pure, Pure.pure, Contracts.emit, emitEvent,
+        Contracts.rawLog, Contracts.mstore,
+        -maxUint112, -UniswapV2PairBase.maxUint112,
+        -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+        -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+        -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+        -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+        -timestamp32, -oracleElapsed])
+
+theorem finishLaterMint_pairTransfers
+    (toAddr sender : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value amount0 amount1
+      supply liquidity timestamp32 previousTimestamp : Uint256)
+    (s : ContractState) :
+  pairTransfersAfterCall s
+    ((UniswapV2PairBase.finishLaterMint toAddr sender balance0Now balance1Now
+      reserve0Value reserve1Value amount0 amount1 supply liquidity timestamp32
+      previousTimestamp).run s) = [] := by
+  simp [pairTransfersAfterCall, emittedPairEventsAfterCall, pairTransfersAfterEvents,
+    pairTransferOfEvent, UniswapV2PairBase.finishLaterMint,
+    UniswapV2PairBase.updateReservesAndEmitSync, getStorage, setStorage, setMapping,
+    getMapping, Verity.require, Verity.Stdlib.Math.requireSomeUint,
+    Verity.Stdlib.Math.safeAdd, Contract.run, ContractResult.snd,
+    Verity.bind, Bind.bind, Verity.pure, Pure.pure, Contracts.emit, emitEvent,
+    Contracts.rawLog, Contracts.mstore,
+    -maxUint112, -UniswapV2PairBase.maxUint112,
+    -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+    -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+    -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+    -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+    -timestamp32, -oracleElapsed]
+  repeat' (first
+    | split_ifs
+    | simp [pairTransfersAfterEvents, pairTransferOfEvent, getStorage, setStorage,
+        setMapping, getMapping, Verity.require, Verity.Stdlib.Math.requireSomeUint,
+        Verity.Stdlib.Math.safeAdd, Contract.run, ContractResult.snd,
+        Verity.bind, Bind.bind, Verity.pure, Pure.pure, Contracts.emit, emitEvent,
+        Contracts.rawLog, Contracts.mstore,
+        -maxUint112, -UniswapV2PairBase.maxUint112,
+        -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+        -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+        -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+        -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+        -timestamp32, -oracleElapsed])
+
+theorem laterMintPath_pairTransfers
+    (toAddr sender : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value amount0 amount1
+      supply : Uint256)
+    (s : ContractState) :
+  pairTransfersAfterCall s
+    ((UniswapV2PairBase.laterMintPath toAddr sender balance0Now balance1Now
+      reserve0Value reserve1Value amount0 amount1 supply).run s) = [] := by
+  simp [pairTransfersAfterCall, emittedPairEventsAfterCall, pairTransfersAfterEvents,
+    pairTransferOfEvent, UniswapV2PairBase.laterMintPath,
+    UniswapV2PairBase.finishLaterMint, UniswapV2PairBase.updateReservesAndEmitSync,
+    getStorage, setStorage, setMapping, getMapping, Verity.blockTimestamp,
+    Verity.require, Verity.Stdlib.Math.requireSomeUint,
+    Verity.Stdlib.Math.safeAdd, Contract.run, ContractResult.snd,
+    Verity.bind, Bind.bind, Verity.pure, Pure.pure, Contracts.emit, emitEvent,
+    Contracts.rawLog, Contracts.mstore,
+    -maxUint112, -UniswapV2PairBase.maxUint112,
+    -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+    -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+    -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+    -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+    -timestamp32, -oracleElapsed]
+  repeat' (first
+    | split_ifs
+    | simp [pairTransfersAfterEvents, pairTransferOfEvent, getStorage, setStorage,
+        setMapping, getMapping, Verity.blockTimestamp, Verity.require,
+        Verity.Stdlib.Math.requireSomeUint, Verity.Stdlib.Math.safeAdd,
+        Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Verity.pure,
+        Pure.pure, Contracts.emit, emitEvent, Contracts.rawLog, Contracts.mstore,
+        -maxUint112, -UniswapV2PairBase.maxUint112,
+        -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+        -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+        -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+        -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+        -timestamp32, -oracleElapsed])
+
+theorem skim_success_pairTransfers
+    (toAddr : Address) (s : ContractState)
+    (h_success :
+      (skim toAddr).run s =
+        ContractResult.success () ((skim toAddr).run s).snd) :
+  pairTransfersAfterCall s ((skim toAddr).run s) =
+    [{ token := pairToken0 s, fromAddr := pairSelf s,
+       toAddr := toAddr, amount := skimExcess0 s },
+     { token := pairToken1 s, fromAddr := pairSelf s,
+       toAddr := toAddr, amount := skimExcess1 s }] := by
+  have h_unlocked := skim_success_run_implies_lock_open toAddr s
+    ((skim toAddr).run s) rfl h_success
+  rcases skim_success_run_implies_balances_back_reserves toAddr s
+      ((skim toAddr).run s) rfl h_success with ⟨h_balance0, h_balance1⟩
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_unlocked
+  have h_lock_guard :
+      (s.storage UniswapV2PairBase.unlockedSlot.slot == (1 : Uint256)) = true := by
+    simp [UniswapV2PairBase.unlockedSlot, h_unlocked_raw]
+  have h_require_raw :
+      (s.storage 3).val ≤ (observedBalance0 s).val ∧
+      (s.storage 4).val ≤ (observedBalance1 s).val := by
+    constructor
+    · simpa [reserve0Slot] using h_balance0
+    · simpa [reserve1Slot] using h_balance1
+  have h_require_raw_unfold := h_require_raw
+  dsimp [observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run,
+    ContractResult.fst, Verity.pure, Pure.pure] at h_require_raw_unfold
+  have h_require_guard_unfold := h_require_raw_unfold
+  simp only [token0Slot, token1Slot, UniswapV2PairBase.token0Slot,
+    UniswapV2PairBase.token1Slot] at h_require_guard_unfold
+  simp [pairTransfersAfterCall, emittedPairEventsAfterCall, pairTransfersAfterEvents,
+    pairTransferOfEvent, skim, UniswapV2PairBase.skim, unlockedSlot, token0Slot,
+    token1Slot, reserve0Slot, reserve1Slot, getStorage, getStorageAddr, setStorage,
+    Verity.contractAddress, Contracts.balanceOf, Verity.require, Contract.run,
+    ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+    TamaUniV2.pairSafeTransfer, TamaUniV2.tracePairTokenSafeTransfer,
+    TamaUniV2.pairTokenSafeTransferEvent, Contracts.safeTransfer,
+    observedBalance0, observedBalance1, pairToken0, pairToken1, pairSelf,
+    skimExcess0, skimExcess1, h_unlocked_raw, h_lock_guard,
+    h_require_guard_unfold, h_require_raw_unfold,
+    addressOfNat_toNat_mod_uint256,
+    UniswapV2PairBase.unlockedSlot, UniswapV2PairBase.token0Slot,
+    UniswapV2PairBase.token1Slot, UniswapV2PairBase.reserve0Slot,
+    UniswapV2PairBase.reserve1Slot]
+
 theorem sync_run_storageAddr_frame
     (s : ContractState) (i : Nat) :
   ((sync).run s).snd.storageAddr i = s.storageAddr i := by
