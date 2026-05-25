@@ -1206,6 +1206,64 @@ theorem pairTransfersAfterCall_of_events_eq {α : Type}
   pairTransfersAfterCall s result = pairTransfersAfterCall t result := by
   simp [pairTransfersAfterCall, emittedPairEventsAfterCall, h_events]
 
+/-- Peel one event-free prefix step at the TRACE level: if `c s` succeeds landing
+in `s'` with no new events, the pair-transfer trace of `(c >>= k).run s` equals
+that of the continuation `(k a).run s'`. No continuation term is written, so this
+is robust to the exact residual shape. -/
+theorem pairTransfersAfterCall_bind_no_event {α β : Type}
+    (c : Contract α) (k : α → Contract β) (s s' : ContractState) (a : α)
+    (h : c s = ContractResult.success a s')
+    (h_events : s'.events = s.events) :
+  pairTransfersAfterCall s ((Bind.bind c k).run s) =
+    pairTransfersAfterCall s' ((k a).run s') := by
+  have hbind : (Bind.bind c k) s = k a s' := contract_bind_success c k s s' a h
+  have hev :
+      ((Bind.bind c k).run s).snd.events = ((k a).run s').snd.events := by
+    unfold Contract.run
+    rw [hbind]
+    cases hka : k a s' with
+    | success b p => simp [ContractResult.snd]
+    | «revert» msg p => simp [ContractResult.snd, h_events]
+  unfold pairTransfersAfterCall emittedPairEventsAfterCall
+  rw [hev, h_events]
+
+/-- Transport a success result one bind step inward without writing the
+continuation: if `(c >>= k).run s` succeeds and `c s` succeeds in `s'`, then
+`(k a).run s'` is that same success. -/
+theorem run_success_bind_peel {α β : Type}
+    (c : Contract α) (k : α → Contract β) (s s' final : ContractState) (a : α) (b : β)
+    (h : c s = ContractResult.success a s')
+    (h_succ : (Bind.bind c k).run s = ContractResult.success b final) :
+  (k a).run s' = ContractResult.success b final := by
+  have hbind : (Bind.bind c k) s = k a s' := contract_bind_success c k s s' a h
+  unfold Contract.run at h_succ ⊢
+  rw [hbind] at h_succ
+  cases hka : k a s' with
+  | success b' p' => rw [hka] at h_succ; simpa using h_succ
+  | «revert» msg p' => rw [hka] at h_succ; simp at h_succ
+
+/-- Peel a `pairSafeTransfer` step at the trace level: it prepends one
+PairTransfer (from the pair to `toAddr`), then the continuation's trace follows. -/
+theorem pairTransfersAfterCall_bind_safeTransfer {β : Type}
+    (token toAddr amt : Address) (k : Uint256 → Contract β)
+    (s mid : ContractState)
+    (h_xfer : (TamaUniV2.pairSafeTransfer token toAddr amt).run s =
+      ContractResult.success 1 mid)
+    (h_k_succ : ∃ b post, (k 1).run mid = ContractResult.success b post)
+    (h_mid_ev : mid.events =
+      s.events ++ emittedPairEventsAfterCall s
+        ((TamaUniV2.pairSafeTransfer token toAddr amt).run s))
+    (h_post_ev : ((k 1).run mid).snd.events =
+      mid.events ++ emittedPairEventsAfterCall mid ((k 1).run mid)) :
+  pairTransfersAfterCall s
+      ((Bind.bind (TamaUniV2.pairSafeTransfer token toAddr amt) k).run s) =
+    { token := token, fromAddr := pairSelf s, toAddr := toAddr, amount := amt } ::
+      pairTransfersAfterCall mid ((k 1).run mid) := by
+  rw [pairTransfersAfterCall_bind_success
+    (TamaUniV2.pairSafeTransfer token toAddr amt) k s mid 1 h_xfer h_k_succ h_mid_ev h_post_ev]
+  rw [pairSafeTransfer_pairTransfers]
+  rfl
+
 theorem updateReservesAndEmitSync_pairTransfers
     (balance0Now balance1Now reserve0Value reserve1Value
       timestamp32 previousTimestamp : Uint256)
