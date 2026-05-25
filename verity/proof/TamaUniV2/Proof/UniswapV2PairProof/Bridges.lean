@@ -4926,6 +4926,156 @@ private theorem uniswapV2Callback_snd_thisAddress
     s.thisAddress := by
   rfl
 
+private theorem pairTransfersAfterCall_eq_nil_of_snd_eq {α : Type}
+    (s : ContractState) (result : ContractResult α)
+    (h_snd : result.snd = s) :
+  pairTransfersAfterCall s result = [] := by
+  simp [pairTransfersAfterCall, emittedPairEventsAfterCall, pairTransfersAfterEvents,
+    h_snd]
+
+theorem finishSwapChecked_pairTransfers
+    (sender : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value
+      amount0Out amount1Out : Uint256)
+    (s : ContractState) :
+  pairTransfersAfterCall s
+    ((UniswapV2PairBase.finishSwapChecked sender
+      balance0Now balance1Now reserve0Value reserve1Value
+      amount0Out amount1Out).run s) = [] := by
+  apply pairTransfersAfterCall_eq_nil_of_snd_eq
+  exact contractPreservesState_run_snd
+    (UniswapV2PairBase.finishSwapChecked sender
+      balance0Now balance1Now reserve0Value reserve1Value
+      amount0Out amount1Out)
+    (finishSwapChecked_preserves_state_raw sender
+      balance0Now balance1Now reserve0Value reserve1Value
+      amount0Out amount1Out) s
+
+theorem finishSwapUpdate_pairTransfers
+    (sender toAddr : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value
+      amount0In amount1In amount0Out amount1Out timestamp32 previousTimestamp : Uint256)
+    (s : ContractState) :
+  pairTransfersAfterCall s
+    ((UniswapV2PairBase.finishSwapUpdate sender
+      balance0Now balance1Now reserve0Value reserve1Value
+      amount0In amount1In amount0Out amount1Out toAddr timestamp32
+      previousTimestamp).run s) = [] := by
+  have h_update_transfers :=
+    updateReservesAndEmitSync_pairTransfers balance0Now balance1Now
+      reserve0Value reserve1Value timestamp32 previousTimestamp s
+  unfold UniswapV2PairBase.finishSwapUpdate Contract.run
+  dsimp only [Contracts.mstore, Pure.pure, Verity.pure, Bind.bind, Verity.bind]
+  cases h_update :
+      UniswapV2PairBase.updateReservesAndEmitSync balance0Now balance1Now
+        reserve0Value reserve1Value timestamp32 previousTimestamp s with
+  | success value postUpdate =>
+      have h_update_transfers' :
+          pairTransfersAfterEvents (List.drop s.events.length postUpdate.events) = [] := by
+        simpa [pairTransfersAfterCall, emittedPairEventsAfterCall, Contract.run,
+          h_update] using h_update_transfers
+      unfold pairTransfersAfterEvents at h_update_transfers'
+      unfold pairTransfersAfterCall emittedPairEventsAfterCall pairTransfersAfterEvents
+      simp [h_update, Contracts.emit, emitEvent, setStorage]
+      rw [List.drop_append]
+      rw [List.filterMap_eq_nil_iff] at h_update_transfers'
+      intro event h_event
+      rw [List.mem_append] at h_event
+      rcases h_event with h_event | h_event
+      · exact h_update_transfers' event h_event
+      · have h_event_eq :
+            event =
+              { name := "Swap",
+                args :=
+                  [addressToWord sender, amount0In, amount1In, amount0Out,
+                    amount1Out, addressToWord toAddr],
+                indexedArgs := [] } := by
+          simpa using (List.mem_of_mem_drop h_event)
+        rw [h_event_eq]
+        simp [pairTransferOfEvent]
+  | «revert» reason postUpdate =>
+      simpa [pairTransfersAfterCall, emittedPairEventsAfterCall,
+        pairTransfersAfterEvents, Contract.run, h_update] using h_update_transfers
+
+theorem finishSwap_pairTransfers
+    (sender toAddr : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value
+      amount0Out amount1Out timestamp32 previousTimestamp : Uint256)
+    (s : ContractState) :
+  pairTransfersAfterCall s
+    ((UniswapV2PairBase.finishSwap sender
+      balance0Now balance1Now reserve0Value reserve1Value
+      amount0Out amount1Out toAddr timestamp32 previousTimestamp).run s) = [] := by
+  unfold UniswapV2PairBase.finishSwap Contract.run
+  dsimp only [Bind.bind, Verity.bind]
+  cases h_checked :
+      UniswapV2PairBase.finishSwapChecked sender
+        balance0Now balance1Now reserve0Value reserve1Value
+        amount0Out amount1Out s with
+  | success amounts checkedState =>
+      have h_checked_state : checkedState = s := by
+        have h_preserved :=
+          finishSwapChecked_preserves_state_raw sender
+            balance0Now balance1Now reserve0Value reserve1Value
+            amount0Out amount1Out s
+        rw [h_checked] at h_preserved
+        simpa only [ContractResult.snd] using h_preserved
+      subst checkedState
+      rcases amounts with ⟨amount0In, amount1In⟩
+      simpa [h_checked] using
+        finishSwapUpdate_pairTransfers sender toAddr
+          balance0Now balance1Now reserve0Value reserve1Value
+          amount0In amount1In amount0Out amount1Out timestamp32
+          previousTimestamp s
+  | «revert» reason checkedState =>
+      have h_checked_state : checkedState = s := by
+        have h_preserved :=
+          finishSwapChecked_preserves_state_raw sender
+            balance0Now balance1Now reserve0Value reserve1Value
+            amount0Out amount1Out s
+        rw [h_checked] at h_preserved
+        simpa only [ContractResult.snd] using h_preserved
+      subst checkedState
+      simp [h_checked, pairTransfersAfterCall, emittedPairEventsAfterCall,
+        pairTransfersAfterEvents]
+
+theorem uniswapV2Callback_pairTransfers
+    (toAddr sender : Address) (amount0Out amount1Out : Uint256)
+    (s : ContractState) :
+  pairTransfersAfterCall s
+    (((ecmDo uniswapV2CallbackModule
+      [addressToWord toAddr, addressToWord sender, amount0Out, amount1Out] :
+        Contract Unit).run s)) = [] := by
+  apply pairTransfersAfterCall_eq_nil_of_snd_eq
+  rfl
+
+theorem swapInteractionTail_pairTransfers
+    (token0Value token1Value : Address)
+    (reserve0Value reserve1Value amount0Out amount1Out timestamp32 previousTimestamp : Uint256)
+    (toAddr : Address) (s : ContractState) :
+  pairTransfersAfterCall s
+    (((do
+      let sender ← msgSender
+      ecmDo uniswapV2CallbackModule
+        [addressToWord toAddr, addressToWord sender, amount0Out, amount1Out]
+      let selfAddr ← Verity.contractAddress
+      let balance0Now ← TamaUniV2.erc20BalanceOf token0Value selfAddr
+      let balance1Now ← TamaUniV2.erc20BalanceOf token1Value selfAddr
+      UniswapV2PairBase.finishSwap sender balance0Now balance1Now
+        reserve0Value reserve1Value amount0Out amount1Out toAddr timestamp32
+        previousTimestamp) : Contract Unit).run s) = [] := by
+  let balance0Now :=
+    ((TamaUniV2.erc20BalanceOf token0Value s.thisAddress).run s).fst
+  let balance1Now :=
+    ((TamaUniV2.erc20BalanceOf token1Value s.thisAddress).run s).fst
+  simpa [balance0Now, balance1Now, msgSender, Verity.contractAddress,
+    TamaUniV2.erc20BalanceOf, Contracts.balanceOf, Contract.run,
+    ContractResult.snd, ContractResult.fst, Verity.bind, Bind.bind,
+    Verity.pure, Pure.pure] using
+      finishSwap_pairTransfers s.sender toAddr balance0Now balance1Now
+        reserve0Value reserve1Value amount0Out amount1Out timestamp32
+        previousTimestamp s
+
 private theorem require_if_success_state
     {cond : Bool} {msg : String} {s s' : ContractState} {a : Unit} :
   (if cond = true then ContractResult.success () s
