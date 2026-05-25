@@ -336,7 +336,7 @@ verity_contract UniswapV2PairBase where
   /-
   @dev First-mint storage suffix after the square-root and LP-balance gates.
   -/
-  function no_external_calls finishFirstMint
+  function allow_post_interaction_writes finishFirstMint
       (toAddr : Address, sender : Address,
         balance0Now : Uint256, balance1Now : Uint256,
         reserve0Value : Uint256, reserve1Value : Uint256,
@@ -357,7 +357,7 @@ verity_contract UniswapV2PairBase where
   /-
   @dev First-mint wrapper that checks the recipient LP balance before writes.
   -/
-  function no_external_calls finishFirstMintChecked
+  function allow_post_interaction_writes finishFirstMintChecked
       (toAddr : Address, sender : Address,
         balance0Now : Uint256, balance1Now : Uint256,
         reserve0Value : Uint256, reserve1Value : Uint256,
@@ -375,7 +375,7 @@ verity_contract UniswapV2PairBase where
   /-
   @dev Later-mint storage suffix after pro-rata liquidity has been checked.
   -/
-  function no_external_calls finishLaterMint
+  function allow_post_interaction_writes finishLaterMint
       (toAddr : Address, sender : Address,
         balance0Now : Uint256, balance1Now : Uint256,
         reserve0Value : Uint256, reserve1Value : Uint256,
@@ -394,7 +394,7 @@ verity_contract UniswapV2PairBase where
     setStorage unlockedSlot 1
     return liquidity
 
-  function no_external_calls firstMintPath
+  function allow_post_interaction_writes firstMintPath
       (toAddr : Address, sender : Address,
         balance0Now : Uint256, balance1Now : Uint256,
         reserve0Value : Uint256, reserve1Value : Uint256,
@@ -410,7 +410,7 @@ verity_contract UniswapV2PairBase where
       reserve0Value reserve1Value amount0 amount1 root timestamp32 previousTimestamp
     return liquidity
 
-  function no_external_calls laterMintPath
+  function allow_post_interaction_writes laterMintPath
       (toAddr : Address, sender : Address,
         balance0Now : Uint256, balance1Now : Uint256,
         reserve0Value : Uint256, reserve1Value : Uint256,
@@ -474,7 +474,7 @@ verity_contract UniswapV2PairBase where
     require (balance0Now <= maxUint112 && balance1Now <= maxUint112) "UniswapV2: OVERFLOW"
     return (amount0In, amount1In)
 
-  function no_external_calls finishSwapUpdate
+  function allow_post_interaction_writes finishSwapUpdate
       (sender : Address,
         balance0Now : Uint256, balance1Now : Uint256,
         reserve0Value : Uint256, reserve1Value : Uint256,
@@ -496,7 +496,7 @@ verity_contract UniswapV2PairBase where
     ]
     setStorage unlockedSlot 1
 
-  function no_external_calls finishSwap
+  function allow_post_interaction_writes finishSwap
       (sender : Address,
         balance0Now : Uint256, balance1Now : Uint256,
         reserve0Value : Uint256, reserve1Value : Uint256,
