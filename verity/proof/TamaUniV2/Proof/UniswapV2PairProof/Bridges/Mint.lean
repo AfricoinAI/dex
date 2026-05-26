@@ -516,6 +516,78 @@ theorem finishFirstMintChecked_success_run_storage_matches_world
       (sub root minimumLiquidity) ((sub root minimumLiquidity) + (s.storageMap 9 toAddr))
       timestamp32 previousTimestamp s original h_root h_b0 h_b1 h_root_gt
 
+theorem finishFirstMintChecked_success_run_lp_write
+    (toAddr sender : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value amount0 amount1 root
+      timestamp32 previousTimestamp : Uint256)
+    (s : ContractState) (result : ContractResult Uint256) :
+  result =
+      (UniswapV2PairBase.finishFirstMintChecked toAddr sender
+        balance0Now balance1Now reserve0Value reserve1Value amount0 amount1
+        root timestamp32 previousTimestamp).run s →
+    result = ContractResult.success (sub root minimumLiquidity) result.snd →
+      (result.snd.storageMap balancesSlot.slot toAddr).val =
+        (s.storageMap balancesSlot.slot toAddr).val + (sub root minimumLiquidity).val := by
+  intro h_run h_success
+  subst h_run
+  by_cases h_over : Verity.Stdlib.Math.MAX_UINT256 <
+      (s.storageMap 9 toAddr).val + (sub root minimumLiquidity).val
+  · simp [UniswapV2PairBase.finishFirstMintChecked, getStorage, getMapping,
+      Contract.run, ContractResult.snd, ContractResult.fst, Verity.bind, Bind.bind,
+      Verity.pure, Pure.pure, Verity.Stdlib.Math.safeAdd,
+      Verity.Stdlib.Math.requireSomeUint, h_over] at h_success
+    cases h_success
+  · have h_balance_ok :
+        (s.storageMap balancesSlot.slot toAddr).val + (sub root minimumLiquidity).val ≤
+          Verity.Stdlib.Math.MAX_UINT256 := by
+      simpa [balancesSlot, gt_iff_lt] using h_over
+    have h_add_val :
+        (s.storageMap balancesSlot.slot toAddr + (sub root minimumLiquidity)).val =
+          (s.storageMap balancesSlot.slot toAddr).val + (sub root minimumLiquidity).val := by
+      have h_lt :
+          (s.storageMap balancesSlot.slot toAddr).val + (sub root minimumLiquidity).val <
+            Core.Uint256.modulus := by
+        rw [← Core.Uint256.max_uint256_succ_eq_modulus]
+        exact Nat.lt_succ_of_le h_balance_ok
+      simpa using
+        (Core.Uint256.add_eq_of_lt
+          (a := s.storageMap balancesSlot.slot toAddr)
+          (b := sub root minimumLiquidity) h_lt)
+    have h_add_val_comm :
+        ((sub root minimumLiquidity) + s.storageMap balancesSlot.slot toAddr).val =
+          (s.storageMap balancesSlot.slot toAddr).val + (sub root minimumLiquidity).val := by
+      have h_lt :
+          (sub root minimumLiquidity).val + (s.storageMap balancesSlot.slot toAddr).val <
+            Core.Uint256.modulus := by
+        rw [Nat.add_comm]
+        rw [← Core.Uint256.max_uint256_succ_eq_modulus]
+        exact Nat.lt_succ_of_le h_balance_ok
+      have h_val :=
+        (Core.Uint256.add_eq_of_lt
+          (a := sub root minimumLiquidity)
+          (b := s.storageMap balancesSlot.slot toAddr) h_lt)
+      simpa [Nat.add_comm] using h_val
+    have h_add_val_comm_raw :
+        ((sub root UniswapV2PairBase.minimumLiquidity) + s.storageMap 9 toAddr).val =
+          (s.storageMap 9 toAddr).val + (sub root minimumLiquidity).val := by
+      simpa [balancesSlot, minimumLiquidity, UniswapV2PairBase.minimumLiquidity]
+        using h_add_val_comm
+    have h_not_raw :
+        ¬ Verity.Stdlib.Math.MAX_UINT256 <
+          (s.storageMap 9 toAddr).val + (sub root minimumLiquidity).val := h_over
+    simp [UniswapV2PairBase.finishFirstMintChecked,
+      UniswapV2PairBase.finishFirstMint,
+      UniswapV2PairBase.updateReservesAndEmitSync, getStorage, getMapping,
+      setStorage, setMapping, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+      emitEvent, Contracts.emit, Contract.run, ContractResult.snd,
+      ContractResult.fst, Contracts.rawLog, Contracts.mstore,
+      Verity.Stdlib.Math.safeAdd, Verity.Stdlib.Math.requireSomeUint,
+      h_not_raw, h_add_val, h_add_val_comm, h_add_val_comm_raw]
+    all_goals (split_ifs <;> simp [getStorage, setStorage, setMapping, getMapping,
+      Contract.run, ContractResult.snd, ContractResult.fst, Verity.bind, Bind.bind,
+      Verity.pure, Pure.pure, emitEvent, Contracts.emit, Contracts.rawLog,
+      Contracts.mstore, h_not_raw, h_add_val, h_add_val_comm, h_add_val_comm_raw])
+
 theorem firstMintPath_run_storage_matches_world
     (toAddr sender : Address) (original : ContractState)
     (result : ContractResult Uint256) :
@@ -642,6 +714,145 @@ theorem firstMintPath_run_storage_matches_world
             (pairWorldAfterFirstMintRun original) := by
         simpa only [h_checked_case, ContractResult.snd] using h_checked_storage
       simpa only [ContractResult.snd] using h_checked_storage_post
+  | «revert» reason post =>
+      have h_impossible : False := by
+        change pathResult = ContractResult.success (mintFirstLiquidity original)
+          pathResult.snd at h_success
+        rw [h_path_reduced, h_checked_case] at h_success
+        simp only [ContractResult.snd] at h_success
+        cases h_success
+      cases h_impossible
+
+theorem firstMintPath_run_lp_write
+    (toAddr sender : Address) (original : ContractState)
+    (result : ContractResult Uint256) :
+  result =
+      (UniswapV2PairBase.firstMintPath toAddr sender
+        (observedBalance0 original) (observedBalance1 original)
+        (original.storage reserve0Slot.slot) (original.storage reserve1Slot.slot)
+        (mintAmount0 original) (mintAmount1 original)).run
+        (mintLockedState original) →
+    result = ContractResult.success (mintFirstLiquidity original) result.snd →
+      (mintAmount0 original == 0 ||
+          div (mintFirstProduct original) (mintAmount0 original) == mintAmount1 original) = true →
+        mintFirstRoot original > minimumLiquidity →
+          (result.snd.storageMap balancesSlot.slot toAddr).val =
+            ((mintLockedState original).storageMap balancesSlot.slot toAddr).val +
+              (mintFirstLiquidity original).val := by
+  intro h_run h_success h_product h_root
+  subst h_run
+  let checked :=
+    (UniswapV2PairBase.finishFirstMintChecked toAddr sender
+      (observedBalance0 original) (observedBalance1 original)
+      (original.storage reserve0Slot.slot) (original.storage reserve1Slot.slot)
+      (mintAmount0 original) (mintAmount1 original) (mintFirstRoot original)
+      (mod original.blockTimestamp UniswapV2PairBase.uint32Modulus)
+      (if (5 == 11) = true then 0 else original.storage 5)).run
+      (mintLockedState original)
+  have h_product_raw :
+      (mintAmount0 original == 0 ||
+        div (mul (mintAmount0 original) (mintAmount1 original))
+          (mintAmount0 original) == mintAmount1 original) = true := by
+    simpa [mintFirstProduct] using h_product
+  have h_root_val :
+      Core.Uint256.val 1000 <
+        (sqrtValue (mul (mintAmount0 original) (mintAmount1 original))
+          (mintLockedState original)).val := by
+    simpa [mintFirstRoot, mintFirstProduct, minimumLiquidity,
+      UniswapV2PairBase.minimumLiquidity] using h_root
+  have h_root_val2 := h_root_val
+  simp [mintLockedState, unlockedSlot, UniswapV2PairBase.unlockedSlot] at h_root_val2
+  have h_root_guard :
+      Core.Uint256.val 1000 <
+        (sqrtValue (mul (mintAmount0 original) (mintAmount1 original))
+          { original with «storage» := fun slotIdx =>
+              if (slotIdx == 11) = true then 0 else original.storage slotIdx }).val := by
+    simpa [mintLockedState, unlockedSlot, UniswapV2PairBase.unlockedSlot] using h_root_val
+  have h_product_fold := h_product_raw
+  simp [mintAmount0, mintAmount1, mintFirstProduct, observedBalance0,
+    observedBalance1, pairToken0, pairToken1, pairSelf, TamaUniV2.erc20BalanceOf,
+    Contracts.balanceOf, Contract.run, ContractResult.fst, Verity.pure, Pure.pure]
+    at h_product_fold
+  let pathResult :=
+    (UniswapV2PairBase.firstMintPath toAddr sender
+      (observedBalance0 original) (observedBalance1 original)
+      (original.storage reserve0Slot.slot) (original.storage reserve1Slot.slot)
+      (mintAmount0 original) (mintAmount1 original)).run
+      (mintLockedState original)
+  have h_path_reduced : pathResult = checked := by
+    dsimp only [pathResult]
+    simp only [UniswapV2PairBase.firstMintPath, Contract.bind_pure_left,
+      Contract.bind_pure_right]
+    simp only [Contract.run, Verity.bind, Bind.bind]
+    simp only [Verity.require, h_product_raw, if_true]
+    simp only [sqrt_run_success_frames_state]
+    simp only [Verity.Core.Uint256.lt_def, minimumLiquidity,
+      UniswapV2PairBase.minimumLiquidity]
+    rw [if_pos (by simpa only [decide_eq_true_eq] using h_root_guard)]
+    simp only [Verity.blockTimestamp, getStorage]
+    simp only [Verity.pure, Pure.pure, ContractResult.fst, ContractResult.snd]
+    simp only [checked, Contract.run, mintFirstRoot, mintFirstProduct,
+      mintLockedState, timestamp32, reserve0Slot, reserve1Slot,
+      blockTimestampLastSlot, unlockedSlot, UniswapV2PairBase.reserve0Slot,
+      UniswapV2PairBase.reserve1Slot,
+      UniswapV2PairBase.blockTimestampLastSlot,
+      UniswapV2PairBase.unlockedSlot,
+      -maxUint112, -UniswapV2PairBase.maxUint112,
+      -q112, -UniswapV2PairBase.q112, -uint32Modulus,
+      -UniswapV2PairBase.uint32Modulus,
+      -oraclePrice0, -oraclePrice1, -oraclePrice0Increment,
+      -oraclePrice1Increment, -oraclePrice0CumulativeAfterElapsed,
+      -oraclePrice1CumulativeAfterElapsed,
+      -oraclePrice0CumulativeAfterSync,
+      -oraclePrice1CumulativeAfterSync, -timestamp32, -oracleElapsed]
+    cases h_finish :
+        UniswapV2PairBase.finishFirstMintChecked toAddr sender
+          (observedBalance0 original) (observedBalance1 original)
+          (original.storage 3) (original.storage 4)
+          (mintAmount0 original) (mintAmount1 original)
+          (sqrtValue (mul (mintAmount0 original) (mintAmount1 original))
+            { original with «storage» := fun slotIdx =>
+                if (slotIdx == 11) = true then 0 else original.storage slotIdx })
+          (mod original.blockTimestamp UniswapV2PairBase.uint32Modulus)
+          (if (5 == 11) = true then 0 else original.storage 5)
+          { original with «storage» := fun slotIdx =>
+              if (slotIdx == 11) = true then 0 else original.storage slotIdx } <;>
+      simp only [h_finish]
+  cases h_checked_case : checked with
+  | success liquidity post =>
+      have h_liquidity : liquidity = mintFirstLiquidity original := by
+        change pathResult = ContractResult.success (mintFirstLiquidity original)
+          pathResult.snd at h_success
+        rw [h_path_reduced, h_checked_case] at h_success
+        simp only [ContractResult.snd] at h_success
+        cases h_success
+        rfl
+      subst liquidity
+      have h_checked_success :
+          checked = ContractResult.success (mintFirstLiquidity original) checked.snd := by
+        simp [h_checked_case]
+      have h_checked_lp :
+          (checked.snd.storageMap balancesSlot.slot toAddr).val =
+            ((mintLockedState original).storageMap balancesSlot.slot toAddr).val +
+              (mintFirstLiquidity original).val := by
+        simpa [mintFirstLiquidity] using
+          finishFirstMintChecked_success_run_lp_write toAddr sender
+            (observedBalance0 original) (observedBalance1 original)
+            (original.storage reserve0Slot.slot) (original.storage reserve1Slot.slot)
+            (mintAmount0 original) (mintAmount1 original) (mintFirstRoot original)
+            (mod original.blockTimestamp UniswapV2PairBase.uint32Modulus)
+            (if (5 == 11) = true then 0 else original.storage 5)
+            (mintLockedState original) checked rfl h_checked_success
+      change (pathResult.snd.storageMap balancesSlot.slot toAddr).val =
+        ((mintLockedState original).storageMap balancesSlot.slot toAddr).val +
+          (mintFirstLiquidity original).val
+      rw [h_path_reduced, h_checked_case]
+      have h_checked_lp_post :
+          (post.storageMap balancesSlot.slot toAddr).val =
+            ((mintLockedState original).storageMap balancesSlot.slot toAddr).val +
+              (mintFirstLiquidity original).val := by
+        simpa only [h_checked_case, ContractResult.snd] using h_checked_lp
+      simpa only [ContractResult.snd] using h_checked_lp_post
   | «revert» reason post =>
       have h_impossible : False := by
         change pathResult = ContractResult.success (mintFirstLiquidity original)
@@ -1174,6 +1385,76 @@ theorem finishLaterMint_success_run_storage_matches_world
         h_balance_not_raw, h_add_val, h_add_val_comm, h_add_val_comm_raw,
         h_nonzero, h_nonzero_raw, h_add_nonzero] <;> contradiction)
 
+theorem finishLaterMint_success_run_lp_write
+    (toAddr sender : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value amount0 amount1
+      supply liquidity timestamp32 previousTimestamp : Uint256)
+    (s : ContractState) (result : ContractResult Uint256) :
+  result =
+      (UniswapV2PairBase.finishLaterMint toAddr sender
+        balance0Now balance1Now reserve0Value reserve1Value amount0 amount1
+        supply liquidity timestamp32 previousTimestamp).run s →
+    result = ContractResult.success liquidity result.snd →
+      (result.snd.storageMap balancesSlot.slot toAddr).val =
+        (s.storageMap balancesSlot.slot toAddr).val + liquidity.val := by
+  intro h_run h_success
+  subst h_run
+  by_cases h_supply_over : Verity.Stdlib.Math.MAX_UINT256 < supply.val + liquidity.val
+  · simp [UniswapV2PairBase.finishLaterMint, getStorage, getMapping,
+      Contract.run, ContractResult.snd, ContractResult.fst, Verity.bind, Bind.bind,
+      Verity.pure, Pure.pure, Verity.require, Verity.Stdlib.Math.safeAdd,
+      Verity.Stdlib.Math.requireSomeUint, h_supply_over] at h_success
+  · by_cases h_balance_over :
+        Verity.Stdlib.Math.MAX_UINT256 < (s.storageMap 9 toAddr).val + liquidity.val
+    · simp [UniswapV2PairBase.finishLaterMint, getStorage, getMapping,
+        Contract.run, ContractResult.snd, ContractResult.fst, Verity.bind, Bind.bind,
+        Verity.pure, Pure.pure, Verity.require, Verity.Stdlib.Math.safeAdd,
+        Verity.Stdlib.Math.requireSomeUint, h_supply_over, h_balance_over] at h_success
+    · have h_balance_ok :
+          (s.storageMap balancesSlot.slot toAddr).val + liquidity.val ≤
+            Verity.Stdlib.Math.MAX_UINT256 := by
+        simpa [balancesSlot, gt_iff_lt] using h_balance_over
+      have h_add_val :
+          (s.storageMap balancesSlot.slot toAddr + liquidity).val =
+            (s.storageMap balancesSlot.slot toAddr).val + liquidity.val := by
+        have h_lt :
+            (s.storageMap balancesSlot.slot toAddr).val + liquidity.val <
+              Core.Uint256.modulus := by
+          rw [← Core.Uint256.max_uint256_succ_eq_modulus]
+          exact Nat.lt_succ_of_le h_balance_ok
+        simpa using
+          (Core.Uint256.add_eq_of_lt
+            (a := s.storageMap balancesSlot.slot toAddr) (b := liquidity) h_lt)
+      have h_add_val_comm :
+          (liquidity + s.storageMap balancesSlot.slot toAddr).val =
+            (s.storageMap balancesSlot.slot toAddr).val + liquidity.val := by
+        have h_lt :
+            liquidity.val + (s.storageMap balancesSlot.slot toAddr).val <
+              Core.Uint256.modulus := by
+          rw [Nat.add_comm]
+          rw [← Core.Uint256.max_uint256_succ_eq_modulus]
+          exact Nat.lt_succ_of_le h_balance_ok
+        have h_val :=
+          (Core.Uint256.add_eq_of_lt
+            (a := liquidity) (b := s.storageMap balancesSlot.slot toAddr) h_lt)
+        simpa [Nat.add_comm] using h_val
+      have h_add_val_comm_raw :
+          (liquidity + s.storageMap 9 toAddr).val =
+            (s.storageMap 9 toAddr).val + liquidity.val := by
+        simpa [balancesSlot] using h_add_val_comm
+      simp [UniswapV2PairBase.finishLaterMint,
+        UniswapV2PairBase.updateReservesAndEmitSync, getStorage, getMapping,
+        setStorage, setMapping, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+        emitEvent, Contracts.emit, Contract.run, ContractResult.snd,
+        ContractResult.fst, Contracts.rawLog, Contracts.mstore, Verity.Stdlib.Math.safeAdd,
+        Verity.Stdlib.Math.requireSomeUint, h_supply_over, h_balance_over,
+        h_add_val, h_add_val_comm, h_add_val_comm_raw]
+      all_goals (split_ifs <;> simp [getStorage, setStorage, setMapping, getMapping,
+        Contract.run, ContractResult.snd, ContractResult.fst, Verity.bind, Bind.bind,
+        Verity.pure, Pure.pure, emitEvent, Contracts.emit, Contracts.rawLog,
+        Contracts.mstore, h_supply_over, h_balance_over, h_add_val,
+        h_add_val_comm, h_add_val_comm_raw])
+
 theorem finishLaterMint_success_value_eq
     (toAddr sender : Address)
     (balance0Now balance1Now reserve0Value reserve1Value amount0 amount1
@@ -1457,6 +1738,210 @@ theorem laterMintPath_run_storage_matches_world
             (pairWorldAfterSubsequentMintRun computedLiquidity original) := by
         simpa only [h_checked_case, ContractResult.snd] using h_checked_storage
       simpa only [ContractResult.snd] using h_checked_storage_post
+  | «revert» reason post =>
+      have h_impossible : False := by
+        change pathResult = ContractResult.success liquidity pathResult.snd at h_success
+        rw [h_path_reduced, h_checked_case] at h_success
+        simp only [ContractResult.snd] at h_success
+        cases h_success
+      cases h_impossible
+
+theorem laterMintPath_run_lp_write
+    (toAddr sender : Address) (original : ContractState)
+    (liquidity : Uint256) (result : ContractResult Uint256) :
+  result =
+      (UniswapV2PairBase.laterMintPath toAddr sender
+        (observedBalance0 original) (observedBalance1 original)
+        (original.storage reserve0Slot.slot) (original.storage reserve1Slot.slot)
+        (mintAmount0 original) (mintAmount1 original)
+        (original.storage totalSupplySlot.slot)).run
+        (mintLockedState original) →
+    result = ContractResult.success liquidity result.snd →
+      0 < (original.storage totalSupplySlot.slot).val →
+        original.storage reserve0Slot.slot > 0 →
+          original.storage reserve1Slot.slot > 0 →
+            mintAmount0 original > 0 →
+              mintAmount1 original > 0 →
+                liquidity > 0 →
+                  (result.snd.storageMap balancesSlot.slot toAddr).val =
+                    ((mintLockedState original).storageMap balancesSlot.slot toAddr).val +
+                      liquidity.val := by
+  intro h_run h_success h_supply_pos h_reserve0_pos h_reserve1_pos
+    h_amount0 h_amount1 h_liquidity
+  subst h_run
+  let computedLiquidity :=
+    Contracts.min
+      (div (mul (mintAmount0 original) (original.storage totalSupplySlot.slot))
+        (original.storage reserve0Slot.slot))
+      (div (mul (mintAmount1 original) (original.storage totalSupplySlot.slot))
+        (original.storage reserve1Slot.slot))
+  have h_reserve_guard :
+      (original.storage reserve0Slot.slot > 0 &&
+        original.storage reserve1Slot.slot > 0) = true := by
+    simp only [Bool.and_eq_true]
+    exact ⟨by simpa only [decide_eq_true_eq] using h_reserve0_pos,
+      by simpa only [decide_eq_true_eq] using h_reserve1_pos⟩
+  have h_amount0_over :
+      (mintAmount0 original == 0 ||
+        div (mul (mintAmount0 original) (original.storage totalSupplySlot.slot))
+          (mintAmount0 original) == original.storage totalSupplySlot.slot) = true := by
+    by_contra h_not
+    have h_false :
+        (mintAmount0 original == 0 ||
+          div (mul (mintAmount0 original) (original.storage totalSupplySlot.slot))
+            (mintAmount0 original) == original.storage totalSupplySlot.slot) = false :=
+      Bool.eq_false_of_not_eq_true h_not
+    simp only [UniswapV2PairBase.laterMintPath, Contract.bind_pure_left,
+      Contract.bind_pure_right, Contract.run, Verity.bind, Bind.bind,
+      Verity.require, h_reserve_guard, h_false, if_true, if_false,
+      ContractResult.snd] at h_success
+    cases h_success
+  have h_amount1_over :
+      (mintAmount1 original == 0 ||
+        div (mul (mintAmount1 original) (original.storage totalSupplySlot.slot))
+          (mintAmount1 original) == original.storage totalSupplySlot.slot) = true := by
+    by_contra h_not
+    have h_false :
+        (mintAmount1 original == 0 ||
+          div (mul (mintAmount1 original) (original.storage totalSupplySlot.slot))
+            (mintAmount1 original) == original.storage totalSupplySlot.slot) = false :=
+      Bool.eq_false_of_not_eq_true h_not
+    simp only [UniswapV2PairBase.laterMintPath, Contract.bind_pure_left,
+      Contract.bind_pure_right, Contract.run, Verity.bind, Bind.bind,
+      Verity.require, h_reserve_guard, h_amount0_over, h_false, if_true, if_false,
+      ContractResult.snd] at h_success
+    cases h_success
+  have h_amount0_over_raw :
+      (mintAmount0 original == 0 ||
+        div (mul (mintAmount0 original) (original.storage 8))
+          (mintAmount0 original) == original.storage 8) = true := by
+    simpa [totalSupplySlot] using h_amount0_over
+  have h_amount1_over_raw :
+      (mintAmount1 original == 0 ||
+        div (mul (mintAmount1 original) (original.storage 8))
+          (mintAmount1 original) == original.storage 8) = true := by
+    simpa [totalSupplySlot] using h_amount1_over
+  have h_computed_guard : decide (computedLiquidity > 0) = true := by
+    by_contra h_not
+    have h_false : decide (computedLiquidity > 0) = false :=
+      Bool.eq_false_of_not_eq_true h_not
+    simp only [UniswapV2PairBase.laterMintPath, Contract.bind_pure_left,
+      Contract.bind_pure_right, Contract.run, Verity.bind, Bind.bind,
+      Verity.require, h_reserve_guard, h_amount0_over, h_amount1_over,
+      if_true, computedLiquidity, h_false, if_false, ContractResult.snd] at h_success
+    cases h_success
+  have h_computed_guard_raw :
+      decide
+          (Contracts.min
+            (div (mul (mintAmount0 original) (original.storage totalSupplySlot.slot))
+              (original.storage reserve0Slot.slot))
+            (div (mul (mintAmount1 original) (original.storage totalSupplySlot.slot))
+              (original.storage reserve1Slot.slot)) > 0) = true := by
+    simpa [computedLiquidity] using h_computed_guard
+  have h_computed_eq_raw :
+      computedLiquidity =
+        Contracts.min
+          (div (mul (mintAmount0 original) (original.storage 8))
+            (original.storage 3))
+          (div (mul (mintAmount1 original) (original.storage 8))
+            (original.storage 4)) := by
+    simpa [computedLiquidity, totalSupplySlot, reserve0Slot, reserve1Slot]
+  let checked :=
+    (UniswapV2PairBase.finishLaterMint toAddr sender
+      (observedBalance0 original) (observedBalance1 original)
+      (original.storage reserve0Slot.slot) (original.storage reserve1Slot.slot)
+      (mintAmount0 original) (mintAmount1 original)
+      (original.storage totalSupplySlot.slot) computedLiquidity
+      (mod original.blockTimestamp UniswapV2PairBase.uint32Modulus)
+      (if (5 == 11) = true then 0 else original.storage 5)).run
+      (mintLockedState original)
+  let pathResult :=
+    (UniswapV2PairBase.laterMintPath toAddr sender
+      (observedBalance0 original) (observedBalance1 original)
+      (original.storage reserve0Slot.slot) (original.storage reserve1Slot.slot)
+      (mintAmount0 original) (mintAmount1 original)
+      (original.storage totalSupplySlot.slot)).run
+      (mintLockedState original)
+  have h_path_reduced : pathResult = checked := by
+    dsimp only [pathResult]
+    simp only [UniswapV2PairBase.laterMintPath, Contract.bind_pure_left,
+      Contract.bind_pure_right]
+    simp only [Contract.run, Verity.bind, Bind.bind]
+    simp only [Verity.require, h_reserve_guard, h_amount0_over, h_amount1_over,
+      if_true]
+    simp only [Verity.require, h_computed_guard_raw, if_true]
+    simp only [Verity.blockTimestamp, getStorage]
+    simp only [Verity.pure, Pure.pure, ContractResult.fst, ContractResult.snd]
+    simp only [checked, Contract.run, mintLockedState, timestamp32,
+      reserve0Slot, reserve1Slot, totalSupplySlot, blockTimestampLastSlot,
+      unlockedSlot, UniswapV2PairBase.reserve0Slot,
+      UniswapV2PairBase.reserve1Slot, UniswapV2PairBase.totalSupplySlot,
+      UniswapV2PairBase.blockTimestampLastSlot,
+      UniswapV2PairBase.unlockedSlot]
+    rw [h_computed_eq_raw]
+    cases h_finish :
+        UniswapV2PairBase.finishLaterMint toAddr sender
+          (observedBalance0 original) (observedBalance1 original)
+          (original.storage 3) (original.storage 4)
+          (mintAmount0 original) (mintAmount1 original)
+          (original.storage 8)
+          (Contracts.min
+            (div (mul (mintAmount0 original) (original.storage 8))
+              (original.storage 3))
+            (div (mul (mintAmount1 original) (original.storage 8))
+              (original.storage 4)))
+          (mod original.blockTimestamp UniswapV2PairBase.uint32Modulus)
+          (if (5 == 11) = true then 0 else original.storage 5)
+          { original with «storage» := fun slotIdx =>
+              if (slotIdx == 11) = true then 0 else original.storage slotIdx } <;>
+      simp only [h_finish]
+  cases h_checked_case : checked with
+  | success minted post =>
+      have h_minted : minted = liquidity := by
+        change pathResult = ContractResult.success liquidity pathResult.snd at h_success
+        rw [h_path_reduced, h_checked_case] at h_success
+        simp only [ContractResult.snd] at h_success
+        cases h_success
+        rfl
+      have h_minted_computed : minted = computedLiquidity := by
+        exact finishLaterMint_success_value_eq toAddr sender
+          (observedBalance0 original) (observedBalance1 original)
+          (original.storage reserve0Slot.slot) (original.storage reserve1Slot.slot)
+          (mintAmount0 original) (mintAmount1 original)
+          (original.storage totalSupplySlot.slot) computedLiquidity
+          (mod original.blockTimestamp UniswapV2PairBase.uint32Modulus)
+          (if (5 == 11) = true then 0 else original.storage 5)
+          minted (mintLockedState original) checked rfl
+          (by simp [h_checked_case])
+      have h_liquidity_eq : liquidity = computedLiquidity := by
+        rw [← h_minted, h_minted_computed]
+      subst minted
+      subst liquidity
+      have h_checked_success :
+          checked = ContractResult.success computedLiquidity checked.snd := by
+        simp [h_checked_case]
+      have h_checked_lp :
+          (checked.snd.storageMap balancesSlot.slot toAddr).val =
+            ((mintLockedState original).storageMap balancesSlot.slot toAddr).val +
+              computedLiquidity.val :=
+        finishLaterMint_success_run_lp_write toAddr sender
+          (observedBalance0 original) (observedBalance1 original)
+          (original.storage reserve0Slot.slot) (original.storage reserve1Slot.slot)
+          (mintAmount0 original) (mintAmount1 original)
+          (original.storage totalSupplySlot.slot) computedLiquidity
+          (mod original.blockTimestamp UniswapV2PairBase.uint32Modulus)
+          (if (5 == 11) = true then 0 else original.storage 5)
+          (mintLockedState original) checked rfl h_checked_success
+      change (pathResult.snd.storageMap balancesSlot.slot toAddr).val =
+        ((mintLockedState original).storageMap balancesSlot.slot toAddr).val +
+          computedLiquidity.val
+      rw [h_path_reduced, h_checked_case]
+      have h_checked_lp_post :
+          (post.storageMap balancesSlot.slot toAddr).val =
+            ((mintLockedState original).storageMap balancesSlot.slot toAddr).val +
+              computedLiquidity.val := by
+        simpa only [h_checked_case, ContractResult.snd] using h_checked_lp
+      simpa only [ContractResult.snd] using h_checked_lp_post
   | «revert» reason post =>
       have h_impossible : False := by
         change pathResult = ContractResult.success liquidity pathResult.snd at h_success
@@ -2155,6 +2640,137 @@ theorem mint_success_pairTransfers
     exact mint_later_pairTransfers toAddr s liquidity h_success h_supply_pos
       h_reserve0_pos h_reserve1_pos h_reserve0 h_reserve1 h_amount0
       h_amount1 h_liquidity
+
+theorem mint_first_caller_lp_add
+    (toAddr caller : Address) (s : ContractState) :
+  toAddr = caller →
+    (mint toAddr).run s =
+      ContractResult.success (mintFirstLiquidity s) ((mint toAddr).run s).snd →
+    s.storage totalSupplySlot.slot = 0 →
+      s.storage reserve0Slot.slot ≤ observedBalance0 s →
+        s.storage reserve1Slot.slot ≤ observedBalance1 s →
+          mintAmount0 s > 0 →
+            mintAmount1 s > 0 →
+              (mintAmount0 s == 0 || div (mintFirstProduct s) (mintAmount0 s) == mintAmount1 s) = true →
+                mintFirstRoot s > minimumLiquidity →
+                  (((mint toAddr).run s).snd.storageMap balancesSlot.slot caller).val =
+                    (s.storageMap balancesSlot.slot caller).val +
+                      (mintFirstLiquidity s).val := by
+  intro h_to h_success h_supply_zero h_reserve0 h_reserve1 h_amount0 h_amount1
+    h_product h_root
+  subst toAddr
+  have h_path_eq :=
+    mint_first_run_eq_path caller s h_success h_supply_zero h_reserve0
+      h_reserve1 h_amount0 h_amount1 h_product h_root
+  have h_path_success :
+      (UniswapV2PairBase.firstMintPath caller s.sender
+        (observedBalance0 s) (observedBalance1 s)
+        (s.storage reserve0Slot.slot) (s.storage reserve1Slot.slot)
+        (mintAmount0 s) (mintAmount1 s)).run (mintLockedState s) =
+        ContractResult.success (mintFirstLiquidity s)
+          ((UniswapV2PairBase.firstMintPath caller s.sender
+            (observedBalance0 s) (observedBalance1 s)
+            (s.storage reserve0Slot.slot) (s.storage reserve1Slot.slot)
+            (mintAmount0 s) (mintAmount1 s)).run (mintLockedState s)).snd := by
+    rw [← h_path_eq]
+    exact h_success
+  have h_lp :=
+    firstMintPath_run_lp_write caller s.sender s
+      ((UniswapV2PairBase.firstMintPath caller s.sender
+        (observedBalance0 s) (observedBalance1 s)
+        (s.storage reserve0Slot.slot) (s.storage reserve1Slot.slot)
+        (mintAmount0 s) (mintAmount1 s)).run (mintLockedState s))
+      rfl h_path_success h_product h_root
+  rw [h_path_eq]
+  simpa [mintLockedState_storageMap] using h_lp
+
+theorem mint_later_caller_lp_add
+    (toAddr caller : Address) (s : ContractState) (liquidity : Uint256) :
+  toAddr = caller →
+    (mint toAddr).run s =
+      ContractResult.success liquidity ((mint toAddr).run s).snd →
+    0 < (s.storage totalSupplySlot.slot).val →
+      s.storage reserve0Slot.slot > 0 →
+        s.storage reserve1Slot.slot > 0 →
+          s.storage reserve0Slot.slot ≤ observedBalance0 s →
+            s.storage reserve1Slot.slot ≤ observedBalance1 s →
+              mintAmount0 s > 0 →
+                mintAmount1 s > 0 →
+                  liquidity > 0 →
+                    (((mint toAddr).run s).snd.storageMap balancesSlot.slot caller).val =
+                      (s.storageMap balancesSlot.slot caller).val + liquidity.val := by
+  intro h_to h_success h_supply_pos h_reserve0_pos h_reserve1_pos h_reserve0 h_reserve1
+    h_amount0 h_amount1 h_liquidity
+  subst toAddr
+  have h_path_eq :=
+    mint_later_run_eq_path caller s liquidity h_success h_supply_pos
+      h_reserve0_pos h_reserve1_pos h_reserve0 h_reserve1 h_amount0
+      h_amount1 h_liquidity
+  have h_path_success :
+      (UniswapV2PairBase.laterMintPath caller s.sender
+        (observedBalance0 s) (observedBalance1 s)
+        (s.storage reserve0Slot.slot) (s.storage reserve1Slot.slot)
+        (mintAmount0 s) (mintAmount1 s)
+        (s.storage totalSupplySlot.slot)).run (mintLockedState s) =
+        ContractResult.success liquidity
+          ((UniswapV2PairBase.laterMintPath caller s.sender
+            (observedBalance0 s) (observedBalance1 s)
+            (s.storage reserve0Slot.slot) (s.storage reserve1Slot.slot)
+            (mintAmount0 s) (mintAmount1 s)
+            (s.storage totalSupplySlot.slot)).run (mintLockedState s)).snd := by
+    rw [← h_path_eq]
+    exact h_success
+  have h_lp :=
+    laterMintPath_run_lp_write caller s.sender s liquidity
+      ((UniswapV2PairBase.laterMintPath caller s.sender
+        (observedBalance0 s) (observedBalance1 s)
+        (s.storage reserve0Slot.slot) (s.storage reserve1Slot.slot)
+        (mintAmount0 s) (mintAmount1 s)
+        (s.storage totalSupplySlot.slot)).run (mintLockedState s))
+      rfl h_path_success h_supply_pos h_reserve0_pos h_reserve1_pos
+      h_amount0 h_amount1 h_liquidity
+  rw [h_path_eq]
+  simpa [mintLockedState_storageMap] using h_lp
+
+theorem mint_success_caller_lp_add
+    (toAddr caller : Address) (s : ContractState) (liquidity : Uint256) :
+  toAddr = caller →
+    (mint toAddr).run s =
+      ContractResult.success liquidity ((mint toAddr).run s).snd →
+    s.storage reserve0Slot.slot ≤ observedBalance0 s →
+      s.storage reserve1Slot.slot ≤ observedBalance1 s →
+        mintAmount0 s > 0 →
+          mintAmount1 s > 0 →
+            (s.storage totalSupplySlot.slot = 0 →
+              liquidity = mintFirstLiquidity s ∧
+              (mintAmount0 s == 0 ||
+                div (mintFirstProduct s) (mintAmount0 s) == mintAmount1 s) = true ∧
+              mintFirstRoot s > minimumLiquidity) →
+              (s.storage totalSupplySlot.slot ≠ 0 →
+                s.storage reserve0Slot.slot > 0 ∧
+                s.storage reserve1Slot.slot > 0 ∧
+                liquidity > 0) →
+                (((mint toAddr).run s).snd.storageMap balancesSlot.slot caller).val =
+                  (s.storageMap balancesSlot.slot caller).val + liquidity.val := by
+  intro h_to h_success h_reserve0 h_reserve1 h_amount0 h_amount1 h_first h_later
+  by_cases h_supply_zero : s.storage totalSupplySlot.slot = 0
+  · rcases h_first h_supply_zero with ⟨h_liquidity_first, h_product, h_root⟩
+    have h_success_first :
+        (mint toAddr).run s =
+          ContractResult.success (mintFirstLiquidity s) ((mint toAddr).run s).snd := by
+      simpa [h_liquidity_first] using h_success
+    have h_lp :=
+      mint_first_caller_lp_add toAddr caller s h_to h_success_first
+        h_supply_zero h_reserve0 h_reserve1 h_amount0 h_amount1 h_product h_root
+    simpa [h_liquidity_first] using h_lp
+  · rcases h_later h_supply_zero with
+      ⟨h_reserve0_pos, h_reserve1_pos, h_liquidity⟩
+    have h_supply_pos : 0 < (s.storage totalSupplySlot.slot).val := by
+      simpa [Verity.Core.Uint256.lt_def] using
+        uint256_pos_of_ne_zero h_supply_zero
+    exact mint_later_caller_lp_add toAddr caller s liquidity h_to h_success
+      h_supply_pos h_reserve0_pos h_reserve1_pos h_reserve0 h_reserve1
+      h_amount0 h_amount1 h_liquidity
 
 def pair_mint_subsequent_success_run_matches_closed_world_step_from_run
     (toAddr : Address) (s : ContractState)
