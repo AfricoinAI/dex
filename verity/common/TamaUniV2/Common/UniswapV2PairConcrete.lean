@@ -655,12 +655,53 @@ inductive PairEconomicActionConcreteStep
         after =
           pairWalletFromConcreteAndTokens caller
             (pairTokenWorldAfterCall preTokens s result) result.snd)
-      (hWalletStep : PairWalletStep
-        (PairWalletAction.callerSwap
-          (swapAmount0In amount0Out balance0Now s).val
-          (swapAmount1In amount1Out balance1Now s).val
-          amount0Out.val amount1Out.val)
-        before after) :
+      (hExternal :
+        pairSwapExternalTokenBalancesMatchCall
+          preTokens s balance0Now balance1Now result)
+      (hObserved0 :
+        (observedBalance0 s).val = balance0Now.val + amount0Out.val)
+      (hObserved1 :
+        (observedBalance1 s).val = balance1Now.val + amount1Out.val)
+      (hToAddr : toAddr = caller)
+      (hCallerNeSelf : caller ≠ pairSelf s)
+      (hTokenDistinct : pairToken0 s ≠ pairToken1 s)
+      (hCallerToken0Add :
+        (callerTokenBalance0 caller preTokens s).val + amount0Out.val <
+          Core.Uint256.modulus)
+      (hCallerToken1Add :
+        (callerTokenBalance1 caller preTokens s).val + amount1Out.val <
+          Core.Uint256.modulus)
+      (hPostBalances :
+        pairPostCallSelfBalancesMatch s result.snd balance0Now balance1Now)
+      (hAmount0OutLt : amount0Out < s.storage reserve0Slot.slot)
+      (hAmount1OutLt : amount1Out < s.storage reserve1Slot.slot)
+      (hInput :
+        swapAmount0In amount0Out balance0Now s > 0 ∨
+          swapAmount1In amount1Out balance1Now s > 0)
+      (hBalance0 :
+        balance0Now.val =
+          (s.storage reserve0Slot.slot).val +
+            (swapAmount0In amount0Out balance0Now s).val - amount0Out.val)
+      (hBalance1 :
+        balance1Now.val =
+          (s.storage reserve1Slot.slot).val +
+            (swapAmount1In amount1Out balance1Now s).val - amount1Out.val)
+      (hBound0 : balance0Now ≤ maxUint112)
+      (hBound1 : balance1Now ≤ maxUint112)
+      (hFee0 :
+        (swapAmount0In amount0Out balance0Now s).val * feeAdjustmentNat ≤
+          balance0Now.val * feeDenominatorNat)
+      (hFee1 :
+        (swapAmount1In amount1Out balance1Now s).val * feeAdjustmentNat ≤
+          balance1Now.val * feeDenominatorNat)
+      (hAdjustedK :
+        feeAdjustedBalance balance0Now.val
+            (swapAmount0In amount0Out balance0Now s).val *
+          feeAdjustedBalance balance1Now.val
+            (swapAmount1In amount1Out balance1Now s).val ≥
+            requiredK
+              (s.storage reserve0Slot.slot).val
+              (s.storage reserve1Slot.slot).val) :
       PairEconomicActionConcreteStep caller before after
   | skim
       {before after : PairWalletWorldState}
@@ -673,10 +714,16 @@ inductive PairEconomicActionConcreteStep
         after =
           pairWalletFromConcreteAndTokens caller
             (pairTokenWorldAfterCall preTokens s result) result.snd)
-      (hWalletStep : PairWalletStep
-        (PairWalletAction.callerSkimReceive
-          (PairWorldSurplus0 before.pair) (PairWorldSurplus1 before.pair))
-        before after) :
+      (hExternal : pairSkimExternalTokenBalancesMatchCall preTokens s result)
+      (hToAddr : toAddr = caller)
+      (hCallerNeSelf : caller ≠ pairSelf s)
+      (hTokenDistinct : pairToken0 s ≠ pairToken1 s)
+      (hCallerToken0Add :
+        (callerTokenBalance0 caller preTokens s).val + (skimExcess0 s).val <
+          Core.Uint256.modulus)
+      (hCallerToken1Add :
+        (callerTokenBalance1 caller preTokens s).val + (skimExcess1 s).val <
+          Core.Uint256.modulus) :
       PairEconomicActionConcreteStep caller before after
   | sync
       {before after : PairWalletWorldState}

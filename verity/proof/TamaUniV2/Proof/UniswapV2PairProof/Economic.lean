@@ -964,16 +964,403 @@ theorem pairEconomicActionConcreteStep_wallet
         (burnAmount0 s).val (burnAmount1 s).val (burnLiquidity s).val,
         hWalletStep⟩
   | swap amount0Out amount1Out toAddr data balance0Now balance1Now preTokens
-      s result hRun hSuccess hBefore hAfter hWalletStep =>
-      exact ⟨PairWalletAction.callerSwap
+      s result hRun hSuccess hBefore hAfter hExternal hObserved0 hObserved1
+      hToAddr hCallerNeSelf hTokenDistinct hCallerToken0Add hCallerToken1Add
+      hPostBalances hAmount0OutLt hAmount1OutLt hInput hBalance0 hBalance1
+      hBound0 hBound1 hFee0 hFee1 hAdjustedK =>
+      subst before
+      subst after
+      subst result
+      subst toAddr
+      refine ⟨PairWalletAction.callerSwap
         (swapAmount0In amount0Out balance0Now s).val
         (swapAmount1In amount1Out balance1Now s).val
-        amount0Out.val amount1Out.val, hWalletStep⟩
+        amount0Out.val amount1Out.val, ?_⟩
+      have hPair :
+          PairWorldStep
+            (PairWorldAction.swap
+              (swapAmount0In amount0Out balance0Now s).val
+              (swapAmount1In amount1Out balance1Now s).val
+              amount0Out.val amount1Out.val)
+            (pairWorldFromConcreteAndTokens preTokens s)
+            (pairWorldFromConcreteAndTokens
+              (pairTokenWorldAfterCall preTokens s
+                ((swap amount0Out amount1Out caller data).run s))
+              ((swap amount0Out amount1Out caller data).run s).snd) := by
+        exact swap_success_reaches_expected_pair_state
+          amount0Out amount1Out caller data balance0Now balance1Now preTokens s
+          rfl hSuccess hExternal hPostBalances hAmount0OutLt hAmount1OutLt
+          hInput hBalance0 hBalance1 hBound0 hBound1 hFee0 hFee1 hAdjustedK
+      have hBeforeWorld :
+          pairWorldFromConcreteAndTokens preTokens s =
+            pairWorldFromConcreteState s := by
+        exact pairWorldFromConcreteAndTokens_eq_of_parts preTokens s
+          (pairWorldFromConcreteState s) hExternal.1
+          (by simp [pairConcreteStorageMatchesWorld, pairWorldFromConcreteState])
+      have hTransfers :
+          pairTransfersAfterCall s
+              ((swap amount0Out amount1Out caller data).run s) =
+            (if amount0Out > 0 then
+              [{ token := pairToken0 s, fromAddr := pairSelf s, toAddr := caller,
+                 amount := amount0Out }]
+            else []) ++
+            (if amount1Out > 0 then
+              [{ token := pairToken1 s, fromAddr := pairSelf s, toAddr := caller,
+                 amount := amount1Out }]
+            else []) := by
+        exact swap_success_pairTransfers amount0Out amount1Out caller data s hSuccess
+      have hTokens :
+          pairTokenWorldAfterCall preTokens s
+              ((swap amount0Out amount1Out caller data).run s) =
+            pairTokenWorldAfterPairTransfers preTokens
+              ((if amount0Out > 0 then
+                [{ token := pairToken0 s, fromAddr := pairSelf s, toAddr := caller,
+                   amount := amount0Out }]
+              else []) ++
+              (if amount1Out > 0 then
+                [{ token := pairToken1 s, fromAddr := pairSelf s, toAddr := caller,
+                   amount := amount1Out }]
+              else [])) := by
+        rw [pairTokenWorldAfterCall_eq_pairTransfers, hTransfers]
+      have hToken0Addr :
+          ((swap amount0Out amount1Out caller data).run s).snd.storageAddr
+              token0Slot.slot =
+            s.storageAddr token0Slot.slot := by
+        exact swap_run_storageAddr_frame amount0Out amount1Out caller data s
+          token0Slot.slot
+      have hToken1Addr :
+          ((swap amount0Out amount1Out caller data).run s).snd.storageAddr
+              token1Slot.slot =
+            s.storageAddr token1Slot.slot := by
+        exact swap_run_storageAddr_frame amount0Out amount1Out caller data s
+          token1Slot.slot
+      have hLp :
+          ((swap amount0Out amount1Out caller data).run s).snd.storageMap
+              balancesSlot.slot caller =
+            s.storageMap balancesSlot.slot caller := by
+        exact swap_caller_lp_frame amount0Out amount1Out caller caller data s
+      have hSelfNeCaller : pairSelf s ≠ caller := by
+        intro h_eq
+        exact hCallerNeSelf h_eq.symm
+      have hTokenDistinctSymm : pairToken1 s ≠ pairToken0 s := by
+        intro h_eq
+        exact hTokenDistinct h_eq.symm
+      have hCallerNeSelfRaw : caller ≠ s.thisAddress := by
+        simpa [pairSelf] using hCallerNeSelf
+      have hSelfNeCallerRaw : s.thisAddress ≠ caller := by
+        simpa [pairSelf] using hSelfNeCaller
+      have hTokenDistinctRaw : s.storageAddr 1 ≠ s.storageAddr 2 := by
+        simpa [pairToken0, pairToken1, token0Slot, token1Slot,
+          UniswapV2PairBase.token0Slot, UniswapV2PairBase.token1Slot]
+          using hTokenDistinct
+      have hTokenDistinctRawSymm : s.storageAddr 2 ≠ s.storageAddr 1 := by
+        intro h_eq
+        exact hTokenDistinctRaw h_eq.symm
+      have hAccounts :=
+        swap_success_accounts_for_input_and_output
+          amount0Out amount1Out caller data balance0Now balance1Now s
+          rfl hSuccess hAmount0OutLt hAmount1OutLt hInput hBalance0 hBalance1
+          hBound0 hBound1 hFee0 hFee1 hAdjustedK
+      have hBalance0Account :
+          balance0Now.val + amount0Out.val =
+            (s.storage reserve0Slot.slot).val +
+              (swapAmount0In amount0Out balance0Now s).val := by
+        simpa [pairWorldAfterSwapRun, pairWorldFromConcreteState] using hAccounts.1
+      have hBalance1Account :
+          balance1Now.val + amount1Out.val =
+            (s.storage reserve1Slot.slot).val +
+              (swapAmount1In amount1Out balance1Now s).val := by
+        simpa [pairWorldAfterSwapRun, pairWorldFromConcreteState] using hAccounts.2
+      have hObserved0Account :
+          (observedBalance0 s).val =
+            (s.storage reserve0Slot.slot).val +
+              (swapAmount0In amount0Out balance0Now s).val := by
+        omega
+      have hObserved1Account :
+          (observedBalance1 s).val =
+            (s.storage reserve1Slot.slot).val +
+              (swapAmount1In amount1Out balance1Now s).val := by
+        omega
+      have hCaller0 :
+          (callerTokenBalance0 caller
+            (pairTokenWorldAfterCall preTokens s
+              ((swap amount0Out amount1Out caller data).run s))
+            ((swap amount0Out amount1Out caller data).run s).snd).val =
+            (callerTokenBalance0 caller preTokens s).val + amount0Out.val := by
+        by_cases h0 : amount0Out > 0
+        · by_cases h1 : amount1Out > 0
+          · have h_add :=
+              Core.Uint256.add_eq_of_lt
+                (a := amount0Out)
+                (b := callerTokenBalance0 caller preTokens s)
+                (by simpa [Nat.add_comm] using hCallerToken0Add)
+            simp only [callerTokenBalance0, pairToken0, hTokens]
+            rw [hToken0Addr]
+            simpa [pairTokenWorldAfterPairTransfers,
+              pairTokenWorldAfterPairTransfer, pairTokenWorldAfterTransfer,
+              h0, h1, hSelfNeCaller, hCallerNeSelf, hTokenDistinct,
+              hTokenDistinctSymm, hSelfNeCallerRaw, hCallerNeSelfRaw,
+              hTokenDistinctRaw, hTokenDistinctRawSymm, callerTokenBalance0,
+              pairToken0, Nat.add_comm] using h_add
+          · have h_add :=
+              Core.Uint256.add_eq_of_lt
+                (a := amount0Out)
+                (b := callerTokenBalance0 caller preTokens s)
+                (by simpa [Nat.add_comm] using hCallerToken0Add)
+            simp only [callerTokenBalance0, pairToken0, hTokens]
+            rw [hToken0Addr]
+            simpa [pairTokenWorldAfterPairTransfers,
+              pairTokenWorldAfterPairTransfer, pairTokenWorldAfterTransfer,
+              h0, h1, hSelfNeCaller, hCallerNeSelf, hTokenDistinct,
+              hTokenDistinctSymm, hSelfNeCallerRaw, hCallerNeSelfRaw,
+              hTokenDistinctRaw, hTokenDistinctRawSymm, callerTokenBalance0,
+              pairToken0, Nat.add_comm] using h_add
+        · have h0Val : amount0Out.val = 0 := by
+            by_contra h_ne
+            have h_pos : amount0Out > 0 := by
+              change 0 < amount0Out.val
+              omega
+            exact h0 h_pos
+          by_cases h1 : amount1Out > 0
+          · simp only [callerTokenBalance0, pairToken0, hTokens]
+            rw [hToken0Addr]
+            simp [pairTokenWorldAfterPairTransfers,
+              pairTokenWorldAfterPairTransfer, pairTokenWorldAfterTransfer,
+              h0, h1, hSelfNeCaller, hCallerNeSelf, hTokenDistinct,
+              hTokenDistinctSymm, hSelfNeCallerRaw, hCallerNeSelfRaw,
+              hTokenDistinctRaw, hTokenDistinctRawSymm, callerTokenBalance0,
+              pairToken0, h0Val]
+          · simp only [callerTokenBalance0, pairToken0, hTokens]
+            rw [hToken0Addr]
+            simp [pairTokenWorldAfterPairTransfers,
+              pairTokenWorldAfterPairTransfer, pairTokenWorldAfterTransfer,
+              h0, h1, hSelfNeCaller, hCallerNeSelf, hTokenDistinct,
+              hTokenDistinctSymm, hSelfNeCallerRaw, hCallerNeSelfRaw,
+              hTokenDistinctRaw, hTokenDistinctRawSymm, callerTokenBalance0,
+              pairToken0, h0Val]
+      have hCaller1 :
+          (callerTokenBalance1 caller
+            (pairTokenWorldAfterCall preTokens s
+              ((swap amount0Out amount1Out caller data).run s))
+            ((swap amount0Out amount1Out caller data).run s).snd).val =
+            (callerTokenBalance1 caller preTokens s).val + amount1Out.val := by
+        by_cases h0 : amount0Out > 0
+        · by_cases h1 : amount1Out > 0
+          · have h_add :=
+              Core.Uint256.add_eq_of_lt
+                (a := amount1Out)
+                (b := callerTokenBalance1 caller preTokens s)
+                (by simpa [Nat.add_comm] using hCallerToken1Add)
+            simp only [callerTokenBalance1, pairToken1, hTokens]
+            rw [hToken1Addr]
+            simpa [pairTokenWorldAfterPairTransfers,
+              pairTokenWorldAfterPairTransfer, pairTokenWorldAfterTransfer,
+              h0, h1, hSelfNeCaller, hCallerNeSelf, hTokenDistinct,
+              hTokenDistinctSymm, hSelfNeCallerRaw, hCallerNeSelfRaw,
+              hTokenDistinctRaw, hTokenDistinctRawSymm, callerTokenBalance1,
+              pairToken1, Nat.add_comm] using h_add
+          · have h1Val : amount1Out.val = 0 := by
+              by_contra h_ne
+              have h_pos : amount1Out > 0 := by
+                change 0 < amount1Out.val
+                omega
+              exact h1 h_pos
+            simp only [callerTokenBalance1, pairToken1, hTokens]
+            rw [hToken1Addr]
+            simp [pairTokenWorldAfterPairTransfers,
+              pairTokenWorldAfterPairTransfer, pairTokenWorldAfterTransfer,
+              h0, h1, hSelfNeCaller, hCallerNeSelf, hTokenDistinct,
+              hTokenDistinctSymm, hSelfNeCallerRaw, hCallerNeSelfRaw,
+              hTokenDistinctRaw, hTokenDistinctRawSymm, callerTokenBalance1,
+              pairToken1, h1Val]
+        · by_cases h1 : amount1Out > 0
+          · have h_add :=
+              Core.Uint256.add_eq_of_lt
+                (a := amount1Out)
+                (b := callerTokenBalance1 caller preTokens s)
+                (by simpa [Nat.add_comm] using hCallerToken1Add)
+            simp only [callerTokenBalance1, pairToken1, hTokens]
+            rw [hToken1Addr]
+            simpa [pairTokenWorldAfterPairTransfers,
+              pairTokenWorldAfterPairTransfer, pairTokenWorldAfterTransfer,
+              h0, h1, hSelfNeCaller, hCallerNeSelf, hTokenDistinct,
+              hTokenDistinctSymm, hSelfNeCallerRaw, hCallerNeSelfRaw,
+              hTokenDistinctRaw, hTokenDistinctRawSymm, callerTokenBalance1,
+              pairToken1, Nat.add_comm] using h_add
+          · have h1Val : amount1Out.val = 0 := by
+              by_contra h_ne
+              have h_pos : amount1Out > 0 := by
+                change 0 < amount1Out.val
+                omega
+              exact h1 h_pos
+            simp only [callerTokenBalance1, pairToken1, hTokens]
+            rw [hToken1Addr]
+            simp [pairTokenWorldAfterPairTransfers,
+              pairTokenWorldAfterPairTransfer, pairTokenWorldAfterTransfer,
+              h0, h1, hSelfNeCaller, hCallerNeSelf, hTokenDistinct,
+              hTokenDistinctSymm, hSelfNeCallerRaw, hCallerNeSelfRaw,
+              hTokenDistinctRaw, hTokenDistinctRawSymm, callerTokenBalance1,
+              pairToken1, h1Val]
+      constructor
+      · simpa [pairWalletFromConcreteAndTokens] using hPair
+      constructor
+      · change
+          (swapAmount0In amount0Out balance0Now s).val =
+            PairWorldSurplus0 (pairWorldFromConcreteAndTokens preTokens s)
+        rw [hBeforeWorld]
+        change
+          (swapAmount0In amount0Out balance0Now s).val =
+            (observedBalance0 s).val - (s.storage reserve0Slot.slot).val
+        omega
+      constructor
+      · change
+          (swapAmount1In amount1Out balance1Now s).val =
+            PairWorldSurplus1 (pairWorldFromConcreteAndTokens preTokens s)
+        rw [hBeforeWorld]
+        change
+          (swapAmount1In amount1Out balance1Now s).val =
+            (observedBalance1 s).val - (s.storage reserve1Slot.slot).val
+        omega
+      constructor
+      · simpa [pairWalletFromConcreteAndTokens] using hCaller0
+      constructor
+      · simpa [pairWalletFromConcreteAndTokens] using hCaller1
+      · simpa [pairWalletFromConcreteAndTokens] using congrArg (fun x => x.val) hLp
   | skim toAddr preTokens s result hRun hSuccess hBefore hAfter
-      hWalletStep =>
-      exact ⟨PairWalletAction.callerSkimReceive
-        (PairWorldSurplus0 before.pair) (PairWorldSurplus1 before.pair),
-        hWalletStep⟩
+      hExternal hToAddr hCallerNeSelf hTokenDistinct hCallerToken0Add
+      hCallerToken1Add =>
+      subst before
+      subst after
+      subst result
+      subst toAddr
+      refine ⟨PairWalletAction.callerSkimReceive
+        (PairWorldSurplus0 (pairWorldFromConcreteAndTokens preTokens s))
+        (PairWorldSurplus1 (pairWorldFromConcreteAndTokens preTokens s)), ?_⟩
+      have hPair :
+          PairWorldStep PairWorldAction.skim
+            (pairWorldFromConcreteAndTokens preTokens s)
+            (pairWorldFromConcreteAndTokens
+              (pairTokenWorldAfterCall preTokens s ((skim caller).run s))
+              ((skim caller).run s).snd) := by
+        exact skim_success_reaches_expected_pair_state caller preTokens s
+          ((skim caller).run s) rfl hSuccess hExternal
+      have hBeforeWorld :
+          pairWorldFromConcreteAndTokens preTokens s =
+            pairWorldFromConcreteState s := by
+        exact pairWorldFromConcreteAndTokens_eq_of_parts preTokens s
+          (pairWorldFromConcreteState s) hExternal.1
+          (by simp [pairConcreteStorageMatchesWorld, pairWorldFromConcreteState])
+      rcases skim_success_run_implies_balances_back_reserves caller s
+          ((skim caller).run s) rfl hSuccess with ⟨hReserve0, hReserve1⟩
+      have hSurplus0 :
+          PairWorldSurplus0 (pairWorldFromConcreteAndTokens preTokens s) =
+            (skimExcess0 s).val := by
+        rw [hBeforeWorld]
+        symm
+        simpa [pairWorldFromConcreteState, PairWorldSurplus0, skimExcess0] using
+          (Core.Uint256.sub_eq_of_le
+            (a := observedBalance0 s) (b := s.storage reserve0Slot.slot)
+            hReserve0)
+      have hSurplus1 :
+          PairWorldSurplus1 (pairWorldFromConcreteAndTokens preTokens s) =
+            (skimExcess1 s).val := by
+        rw [hBeforeWorld]
+        symm
+        simpa [pairWorldFromConcreteState, PairWorldSurplus1, skimExcess1] using
+          (Core.Uint256.sub_eq_of_le
+            (a := observedBalance1 s) (b := s.storage reserve1Slot.slot)
+            hReserve1)
+      have hTransfers :
+          pairTransfersAfterCall s ((skim caller).run s) =
+            [{ token := pairToken0 s, fromAddr := pairSelf s,
+               toAddr := caller, amount := skimExcess0 s },
+             { token := pairToken1 s, fromAddr := pairSelf s,
+               toAddr := caller, amount := skimExcess1 s }] := by
+        exact skim_success_pairTransfers caller s hSuccess
+      have hTokens :
+          pairTokenWorldAfterCall preTokens s ((skim caller).run s) =
+            pairTokenWorldAfterPairTransfers preTokens
+              [{ token := pairToken0 s, fromAddr := pairSelf s,
+                 toAddr := caller, amount := skimExcess0 s },
+               { token := pairToken1 s, fromAddr := pairSelf s,
+                 toAddr := caller, amount := skimExcess1 s }] := by
+        rw [pairTokenWorldAfterCall_eq_pairTransfers, hTransfers]
+      have hToken0Addr :
+          ((skim caller).run s).snd.storageAddr token0Slot.slot =
+            s.storageAddr token0Slot.slot := by
+        exact skim_run_storageAddr_frame caller s token0Slot.slot
+      have hToken1Addr :
+          ((skim caller).run s).snd.storageAddr token1Slot.slot =
+            s.storageAddr token1Slot.slot := by
+        exact skim_run_storageAddr_frame caller s token1Slot.slot
+      have hLp :
+          ((skim caller).run s).snd.storageMap balancesSlot.slot caller =
+            s.storageMap balancesSlot.slot caller := by
+        exact skim_caller_lp_frame caller caller s
+      have hSelfNeCaller : pairSelf s ≠ caller := by
+        intro h_eq
+        exact hCallerNeSelf h_eq.symm
+      have hTokenDistinctSymm : pairToken1 s ≠ pairToken0 s := by
+        intro h_eq
+        exact hTokenDistinct h_eq.symm
+      have hCallerNeSelfRaw : caller ≠ s.thisAddress := by
+        simpa [pairSelf] using hCallerNeSelf
+      have hSelfNeCallerRaw : s.thisAddress ≠ caller := by
+        simpa [pairSelf] using hSelfNeCaller
+      have hTokenDistinctRaw : s.storageAddr 1 ≠ s.storageAddr 2 := by
+        simpa [pairToken0, pairToken1, token0Slot, token1Slot,
+          UniswapV2PairBase.token0Slot, UniswapV2PairBase.token1Slot]
+          using hTokenDistinct
+      have hTokenDistinctRawSymm : s.storageAddr 2 ≠ s.storageAddr 1 := by
+        intro h_eq
+        exact hTokenDistinctRaw h_eq.symm
+      have hCaller0 :
+          (callerTokenBalance0 caller
+            (pairTokenWorldAfterCall preTokens s ((skim caller).run s))
+            ((skim caller).run s).snd).val =
+            (callerTokenBalance0 caller preTokens s).val + (skimExcess0 s).val := by
+        have h_add :=
+          Core.Uint256.add_eq_of_lt
+            (a := callerTokenBalance0 caller preTokens s)
+            (b := skimExcess0 s) hCallerToken0Add
+        simp only [callerTokenBalance0, pairToken0, hTokens]
+        rw [hToken0Addr]
+        simpa [pairTokenWorldAfterPairTransfers, pairTokenWorldAfterPairTransfer,
+          pairTokenWorldAfterTransfer, hSelfNeCaller, hCallerNeSelf,
+          hTokenDistinct, hTokenDistinctSymm, hSelfNeCallerRaw,
+          hCallerNeSelfRaw, hTokenDistinctRaw, hTokenDistinctRawSymm,
+          callerTokenBalance0, pairToken0]
+          using h_add
+      have hCaller1 :
+          (callerTokenBalance1 caller
+            (pairTokenWorldAfterCall preTokens s ((skim caller).run s))
+            ((skim caller).run s).snd).val =
+            (callerTokenBalance1 caller preTokens s).val + (skimExcess1 s).val := by
+        have h_add :=
+          Core.Uint256.add_eq_of_lt
+            (a := callerTokenBalance1 caller preTokens s)
+            (b := skimExcess1 s) hCallerToken1Add
+        simp only [callerTokenBalance1, pairToken1, hTokens]
+        rw [hToken1Addr]
+        simpa [pairTokenWorldAfterPairTransfers, pairTokenWorldAfterPairTransfer,
+          pairTokenWorldAfterTransfer, hSelfNeCaller, hCallerNeSelf,
+          hTokenDistinct, hTokenDistinctSymm, hSelfNeCallerRaw,
+          hCallerNeSelfRaw, hTokenDistinctRaw, hTokenDistinctRawSymm,
+          callerTokenBalance1, pairToken1]
+          using h_add
+      constructor
+      · simpa [pairWalletFromConcreteAndTokens] using hPair
+      constructor
+      · rfl
+      constructor
+      · rfl
+      constructor
+      · rw [hSurplus0]
+        simpa [pairWalletFromConcreteAndTokens] using hCaller0
+      constructor
+      · rw [hSurplus1]
+        simpa [pairWalletFromConcreteAndTokens] using hCaller1
+      · simpa [pairWalletFromConcreteAndTokens] using congrArg (fun x => x.val) hLp
   | sync preTokens s result hRun hSuccess hBefore hAfter hExternal =>
       subst before
       subst after
