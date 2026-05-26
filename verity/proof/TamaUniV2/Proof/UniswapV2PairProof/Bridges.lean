@@ -1245,7 +1245,7 @@ theorem run_success_bind_peel {α β : Type}
 /-- Peel a `pairSafeTransfer` step at the trace level: it prepends one
 PairTransfer (from the pair to `toAddr`), then the continuation's trace follows. -/
 theorem pairTransfersAfterCall_bind_safeTransfer {β : Type}
-    (token toAddr amt : Address) (k : Uint256 → Contract β)
+    (token toAddr : Address) (amt : Uint256) (k : Uint256 → Contract β)
     (s mid : ContractState)
     (h_xfer : (TamaUniV2.pairSafeTransfer token toAddr amt).run s =
       ContractResult.success 1 mid)
@@ -5414,6 +5414,573 @@ theorem pairSafeTransfer_run_events_append
 private theorem pure_run_events_append {α : Type} (a : α) (s : ContractState) :
     ∃ ev, ((Verity.pure a : Contract α).run s).snd.events = s.events ++ ev :=
   contractAppendsEvents_pure a s
+
+private def swapInteractionTailContract
+    (token0Value token1Value : Address)
+    (reserve0Value reserve1Value amount0Out amount1Out timestamp32 previousTimestamp : Uint256)
+    (toAddr : Address) : Contract Unit := do
+  let sender ← msgSender
+  ecmDo uniswapV2CallbackModule
+    [addressToWord toAddr, addressToWord sender, amount0Out, amount1Out]
+  let selfAddr ← Verity.contractAddress
+  let balance0Now ← TamaUniV2.erc20BalanceOf token0Value selfAddr
+  let balance1Now ← TamaUniV2.erc20BalanceOf token1Value selfAddr
+  UniswapV2PairBase.finishSwap sender balance0Now balance1Now
+    reserve0Value reserve1Value amount0Out amount1Out toAddr timestamp32
+    previousTimestamp
+
+private theorem swapInteractionTailContract_pairTransfers
+    (token0Value token1Value : Address)
+    (reserve0Value reserve1Value amount0Out amount1Out timestamp32 previousTimestamp : Uint256)
+    (toAddr : Address) (s : ContractState) :
+  pairTransfersAfterCall s
+    ((swapInteractionTailContract token0Value token1Value reserve0Value reserve1Value
+      amount0Out amount1Out timestamp32 previousTimestamp toAddr).run s) = [] := by
+  unfold swapInteractionTailContract
+  exact swapInteractionTail_pairTransfers token0Value token1Value reserve0Value
+    reserve1Value amount0Out amount1Out timestamp32 previousTimestamp toAddr s
+
+private theorem contractAppendsEvents_swapInteractionTailContract
+    (token0Value token1Value : Address)
+    (reserve0Value reserve1Value amount0Out amount1Out timestamp32 previousTimestamp : Uint256)
+    (toAddr : Address) :
+  contractAppendsEvents
+    (swapInteractionTailContract token0Value token1Value reserve0Value reserve1Value
+      amount0Out amount1Out timestamp32 previousTimestamp toAddr) := by
+  intro s
+  unfold swapInteractionTailContract
+  exact swapInteractionTail_run_events_append token0Value token1Value reserve0Value
+    reserve1Value amount0Out amount1Out timestamp32 previousTimestamp toAddr s
+
+private theorem pairSafeTransfer_run_success
+    (token toAddr : Address) (amount : Uint256) (s : ContractState) :
+  (TamaUniV2.pairSafeTransfer token toAddr amount).run s =
+    ContractResult.success 1
+      ((TamaUniV2.pairSafeTransfer token toAddr amount).run s).snd := by
+  unfold TamaUniV2.pairSafeTransfer
+  simp [Contract.run, Contracts.safeTransfer, TamaUniV2.tracePairTokenSafeTransfer,
+    TamaUniV2.pairTokenSafeTransferEvent, Verity.bind, Bind.bind, Verity.pure,
+    Pure.pure, ContractResult.snd]
+
+private theorem contractAppendsEvents_pure_then {β : Type} (tail : Contract β)
+    (h_tail : contractAppendsEvents tail) :
+  contractAppendsEvents
+    ((do
+      (Verity.pure () : Contract Unit)
+      tail) : Contract β) := by
+  apply contractAppendsEvents_bind
+  · exact contractAppendsEvents_pure ()
+  · intro _
+    exact h_tail
+
+private theorem contractAppendsEvents_safeTransfer_pure_then {β : Type}
+    (token toAddr : Address) (amount : Uint256) (tail : Contract β)
+    (h_tail : contractAppendsEvents tail) :
+  contractAppendsEvents
+    ((do
+      let _ ← TamaUniV2.pairSafeTransfer token toAddr amount
+      (Verity.pure () : Contract Unit)
+      tail) : Contract β) := by
+  apply contractAppendsEvents_bind
+  · exact contractAppendsEvents_pairSafeTransfer token toAddr amount
+  · intro _
+    exact contractAppendsEvents_pure_then tail h_tail
+
+private theorem pairTransfersAfterCall_safeTransfer_pure_then
+    (token toAddr : Address) (amount : Uint256) (tail : Contract Unit)
+    (s : ContractState)
+    (h_success :
+      ((do
+        let _ ← TamaUniV2.pairSafeTransfer token toAddr amount
+        (Verity.pure () : Contract Unit)
+        tail) : Contract Unit).run s =
+        ContractResult.success ()
+          (((do
+            let _ ← TamaUniV2.pairSafeTransfer token toAddr amount
+            (Verity.pure () : Contract Unit)
+            tail) : Contract Unit).run s).snd)
+    (h_tail : contractAppendsEvents tail) :
+  pairTransfersAfterCall s
+      (((do
+        let _ ← TamaUniV2.pairSafeTransfer token toAddr amount
+        (Verity.pure () : Contract Unit)
+        tail) : Contract Unit).run s) =
+    { token := token, fromAddr := pairSelf s, toAddr := toAddr, amount := amount } ::
+      pairTransfersAfterCall
+        ((TamaUniV2.pairSafeTransfer token toAddr amount).run s).snd
+        (tail.run ((TamaUniV2.pairSafeTransfer token toAddr amount).run s).snd) := by
+  let mid := ((TamaUniV2.pairSafeTransfer token toAddr amount).run s).snd
+  have hx :
+      (TamaUniV2.pairSafeTransfer token toAddr amount).run s =
+        ContractResult.success 1 mid := by
+    dsimp only [mid]
+    exact pairSafeTransfer_run_success token toAddr amount s
+  have h_cont_success :
+      (((do
+        (Verity.pure () : Contract Unit)
+        tail) : Contract Unit).run mid) =
+        ContractResult.success ()
+          (((do
+            let _ ← TamaUniV2.pairSafeTransfer token toAddr amount
+            (Verity.pure () : Contract Unit)
+            tail) : Contract Unit).run s).snd := by
+    exact run_success_bind_peel
+      (TamaUniV2.pairSafeTransfer token toAddr amount)
+      (fun _ => ((do
+        (Verity.pure () : Contract Unit)
+        tail) : Contract Unit))
+      s mid
+      (((do
+        let _ ← TamaUniV2.pairSafeTransfer token toAddr amount
+        (Verity.pure () : Contract Unit)
+        tail) : Contract Unit).run s).snd
+      1 () hx h_success
+  have h_cont_appends :
+      contractAppendsEvents
+        ((do
+          (Verity.pure () : Contract Unit)
+          tail) : Contract Unit) :=
+    contractAppendsEvents_pure_then tail h_tail
+  rcases h_cont_appends mid with ⟨evCont, hevCont⟩
+  have h_cont_success_self :
+      (((do
+        (Verity.pure () : Contract Unit)
+        tail) : Contract Unit).run mid) =
+        ContractResult.success ()
+          (((do
+            (Verity.pure () : Contract Unit)
+            tail) : Contract Unit).run mid).snd := by
+    rw [h_cont_success]
+    rfl
+  have h_post_ev :
+      ((((do
+        (Verity.pure () : Contract Unit)
+        tail) : Contract Unit).run mid)).snd.events =
+        mid.events ++ emittedPairEventsAfterCall mid
+          (((do
+            (Verity.pure () : Contract Unit)
+            tail) : Contract Unit).run mid) :=
+    run_success_events_extend_of_append
+      ((do
+        (Verity.pure () : Contract Unit)
+        tail) : Contract Unit)
+      mid _
+      () h_cont_success_self evCont hevCont
+  rcases pairSafeTransfer_run_events_append token toAddr amount s with
+    ⟨evXfer, hevXfer⟩
+  rw [pairTransfersAfterCall_bind_safeTransfer token toAddr amount
+    (fun _ => ((do
+      (Verity.pure () : Contract Unit)
+      tail) : Contract Unit))
+    s mid hx
+    ⟨(), _, h_cont_success⟩
+    (run_success_events_extend_of_append
+      (TamaUniV2.pairSafeTransfer token toAddr amount)
+      s mid 1 hx evXfer hevXfer)
+    h_post_ev]
+  rw [pairTransfersAfterCall_bind_no_event
+    (Verity.pure () : Contract Unit) (fun _ => tail)
+    mid mid () rfl rfl]
+
+private def swapConditionalTransfersAndTail
+    (token0Value token1Value : Address)
+    (reserve0Value reserve1Value amount0Out amount1Out timestamp32 previousTimestamp : Uint256)
+    (toAddr : Address) : Contract Unit := do
+  if amount0Out > 0 then
+    let _ ← TamaUniV2.pairSafeTransfer token0Value toAddr amount0Out
+    (Verity.pure () : Contract Unit)
+  else
+    (Verity.pure () : Contract Unit)
+  if amount1Out > 0 then
+    let _ ← TamaUniV2.pairSafeTransfer token1Value toAddr amount1Out
+    (Verity.pure () : Contract Unit)
+  else
+    (Verity.pure () : Contract Unit)
+  swapInteractionTailContract token0Value token1Value reserve0Value reserve1Value
+    amount0Out amount1Out timestamp32 previousTimestamp toAddr
+
+private theorem swapConditionalTransfersAndTail_pairTransfers
+    (token0Value token1Value : Address)
+    (reserve0Value reserve1Value amount0Out amount1Out timestamp32 previousTimestamp : Uint256)
+    (toAddr : Address) (s : ContractState)
+    (h_success :
+      (swapConditionalTransfersAndTail token0Value token1Value reserve0Value reserve1Value
+        amount0Out amount1Out timestamp32 previousTimestamp toAddr).run s =
+        ContractResult.success ()
+          ((swapConditionalTransfersAndTail token0Value token1Value reserve0Value reserve1Value
+            amount0Out amount1Out timestamp32 previousTimestamp toAddr).run s).snd) :
+  pairTransfersAfterCall s
+      ((swapConditionalTransfersAndTail token0Value token1Value reserve0Value reserve1Value
+        amount0Out amount1Out timestamp32 previousTimestamp toAddr).run s) =
+    (if amount0Out > 0 then
+      [{ token := token0Value, fromAddr := pairSelf s, toAddr := toAddr,
+         amount := amount0Out }]
+    else []) ++
+    (if amount1Out > 0 then
+      [{ token := token1Value, fromAddr := pairSelf s, toAddr := toAddr,
+         amount := amount1Out }]
+    else []) := by
+  let tail :=
+    swapInteractionTailContract token0Value token1Value reserve0Value reserve1Value
+      amount0Out amount1Out timestamp32 previousTimestamp toAddr
+  have h_tail_appends : contractAppendsEvents tail := by
+    dsimp only [tail]
+    exact contractAppendsEvents_swapInteractionTailContract token0Value token1Value
+      reserve0Value reserve1Value amount0Out amount1Out timestamp32 previousTimestamp toAddr
+  by_cases h0 : amount0Out > 0 <;> by_cases h1 : amount1Out > 0
+  · let rest1 : Contract Unit := do
+      let _ ← TamaUniV2.pairSafeTransfer token1Value toAddr amount1Out
+      (Verity.pure () : Contract Unit)
+      tail
+    have h_rest1_appends : contractAppendsEvents rest1 := by
+      dsimp only [rest1]
+      exact contractAppendsEvents_safeTransfer_pure_then token1Value toAddr amount1Out
+        tail h_tail_appends
+    simp only [swapConditionalTransfersAndTail, if_pos h0, if_pos h1, tail] at h_success ⊢
+    let mid0 := ((TamaUniV2.pairSafeTransfer token0Value toAddr amount0Out).run s).snd
+    have hx0 :
+        (TamaUniV2.pairSafeTransfer token0Value toAddr amount0Out).run s =
+          ContractResult.success 1 mid0 := by
+      dsimp only [mid0]
+      exact pairSafeTransfer_run_success token0Value toAddr amount0Out s
+    have h_mid0_this : mid0.thisAddress = s.thisAddress := by
+      simp [mid0, Contract.run, TamaUniV2.pairSafeTransfer,
+        Contracts.safeTransfer, TamaUniV2.tracePairTokenSafeTransfer,
+        Bind.bind, Verity.bind, Pure.pure, Verity.pure]
+    have h_cont0_success :
+        (((do
+          (Verity.pure () : Contract Unit)
+          rest1) : Contract Unit).run mid0) =
+          ContractResult.success ()
+            (((do
+              let _ ← TamaUniV2.pairSafeTransfer token0Value toAddr amount0Out
+              (Verity.pure () : Contract Unit)
+              rest1) : Contract Unit).run s).snd := by
+      exact run_success_bind_peel
+        (TamaUniV2.pairSafeTransfer token0Value toAddr amount0Out)
+        (fun _ => ((do
+          (Verity.pure () : Contract Unit)
+          rest1) : Contract Unit))
+        s mid0
+        (((do
+          let _ ← TamaUniV2.pairSafeTransfer token0Value toAddr amount0Out
+          (Verity.pure () : Contract Unit)
+          rest1) : Contract Unit).run s).snd
+        1 () hx0 h_success
+    have h_rest1_success_raw :
+        rest1.run mid0 =
+          ContractResult.success ()
+            (((do
+              let _ ← TamaUniV2.pairSafeTransfer token0Value toAddr amount0Out
+              (Verity.pure () : Contract Unit)
+              rest1) : Contract Unit).run s).snd := by
+      exact run_success_bind_peel
+        (Verity.pure () : Contract Unit) (fun _ => rest1)
+        mid0 mid0
+        (((do
+          let _ ← TamaUniV2.pairSafeTransfer token0Value toAddr amount0Out
+          (Verity.pure () : Contract Unit)
+          rest1) : Contract Unit).run s).snd
+        () () rfl h_cont0_success
+    have h_rest1_success :
+        rest1.run mid0 = ContractResult.success () (rest1.run mid0).snd := by
+      rw [h_rest1_success_raw]
+      rfl
+    rw [pairTransfersAfterCall_safeTransfer_pure_then token0Value toAddr amount0Out
+      rest1 s h_success h_rest1_appends]
+    rw [pairTransfersAfterCall_safeTransfer_pure_then token1Value toAddr amount1Out
+      tail mid0 h_rest1_success h_tail_appends]
+    simp [swapInteractionTailContract_pairTransfers, tail, List.singleton_append,
+      pairSelf, h_mid0_this]
+  · simp only [swapConditionalTransfersAndTail, if_pos h0, if_neg h1, tail] at h_success ⊢
+    let tailWithPure : Contract Unit := do
+      (Verity.pure () : Contract Unit)
+      tail
+    have h_tailWithPure_appends : contractAppendsEvents tailWithPure := by
+      dsimp only [tailWithPure]
+      exact contractAppendsEvents_pure_then tail h_tail_appends
+    have h_success' :
+        ((do
+          let _ ← TamaUniV2.pairSafeTransfer token0Value toAddr amount0Out
+          (Verity.pure () : Contract Unit)
+          tailWithPure) : Contract Unit).run s =
+          ContractResult.success ()
+            (((do
+              let _ ← TamaUniV2.pairSafeTransfer token0Value toAddr amount0Out
+              (Verity.pure () : Contract Unit)
+              tailWithPure) : Contract Unit).run s).snd := by
+      simpa [tailWithPure] using h_success
+    rw [pairTransfersAfterCall_safeTransfer_pure_then token0Value toAddr amount0Out
+      tailWithPure s h_success' h_tailWithPure_appends]
+    rw [pairTransfersAfterCall_bind_no_event
+      (Verity.pure () : Contract Unit) (fun _ => tail)
+      ((TamaUniV2.pairSafeTransfer token0Value toAddr amount0Out).run s).snd
+      ((TamaUniV2.pairSafeTransfer token0Value toAddr amount0Out).run s).snd
+      () rfl rfl]
+    simp [swapInteractionTailContract_pairTransfers, tail, tailWithPure]
+  · let rest1 : Contract Unit := do
+      let _ ← TamaUniV2.pairSafeTransfer token1Value toAddr amount1Out
+      (Verity.pure () : Contract Unit)
+      tail
+    have h_rest1_appends : contractAppendsEvents rest1 := by
+      dsimp only [rest1]
+      exact contractAppendsEvents_safeTransfer_pure_then token1Value toAddr amount1Out
+        tail h_tail_appends
+    simp only [swapConditionalTransfersAndTail, if_neg h0, if_pos h1, tail] at h_success ⊢
+    have h_rest1_success_raw :
+        rest1.run s =
+          ContractResult.success ()
+            (((do
+              (Verity.pure () : Contract Unit)
+              rest1) : Contract Unit).run s).snd := by
+      exact run_success_bind_peel
+        (Verity.pure () : Contract Unit) (fun _ => rest1)
+        s s
+        (((do
+          (Verity.pure () : Contract Unit)
+          rest1) : Contract Unit).run s).snd
+        () () rfl h_success
+    have h_rest1_success :
+        rest1.run s = ContractResult.success () (rest1.run s).snd := by
+      rw [h_rest1_success_raw]
+      rfl
+    rw [pairTransfersAfterCall_bind_no_event
+      (Verity.pure () : Contract Unit) (fun _ => rest1)
+      s s () rfl rfl]
+    rw [pairTransfersAfterCall_safeTransfer_pure_then token1Value toAddr amount1Out
+      tail s h_rest1_success h_tail_appends]
+    simp [swapInteractionTailContract_pairTransfers, tail]
+  · simp only [swapConditionalTransfersAndTail, if_neg h0, if_neg h1, tail] at h_success ⊢
+    rw [pairTransfersAfterCall_bind_no_event
+      (Verity.pure () : Contract Unit)
+      (fun _ => ((do
+        (Verity.pure () : Contract Unit)
+        tail) : Contract Unit))
+      s s () rfl rfl]
+    rw [pairTransfersAfterCall_bind_no_event
+      (Verity.pure () : Contract Unit) (fun _ => tail)
+      s s () rfl rfl]
+    simp [swapInteractionTailContract_pairTransfers, tail]
+
+theorem swap_success_pairTransfers
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState)
+    (h_success :
+      (swap amount0Out amount1Out toAddr data).run s =
+        ContractResult.success () ((swap amount0Out amount1Out toAddr data).run s).snd) :
+  pairTransfersAfterCall s ((swap amount0Out amount1Out toAddr data).run s) =
+    (if amount0Out > 0 then
+      [{ token := pairToken0 s, fromAddr := pairSelf s, toAddr := toAddr,
+         amount := amount0Out }]
+    else []) ++
+    (if amount1Out > 0 then
+      [{ token := pairToken1 s, fromAddr := pairSelf s, toAddr := toAddr,
+         amount := amount1Out }]
+    else []) := by
+  have h_unlocked := swap_success_run_implies_lock_open amount0Out amount1Out
+    toAddr data s ((swap amount0Out amount1Out toAddr data).run s) rfl h_success
+  have h_nonzero := swap_success_run_implies_nonzero_output amount0Out amount1Out
+    toAddr data s ((swap amount0Out amount1Out toAddr data).run s) rfl h_success
+  have h_output : amount0Out > 0 ∨ amount1Out > 0 := by
+    rcases h_nonzero with h_amount0 | h_amount1
+    · exact Or.inl (uint256_pos_of_ne_zero h_amount0)
+    · exact Or.inr (uint256_pos_of_ne_zero h_amount1)
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_unlocked
+  have h_lock_guard :
+      (s.storage UniswapV2PairBase.unlockedSlot.slot == (1 : Uint256)) = true := by
+    simp [UniswapV2PairBase.unlockedSlot, h_unlocked_raw]
+  have h_output_guard : (amount0Out > 0 || amount1Out > 0) = true := by
+    simpa [Bool.or_eq_true] using h_output
+  have h_get_lock :
+      getStorage UniswapV2PairBase.unlockedSlot s =
+        ContractResult.success (s.storage UniswapV2PairBase.unlockedSlot.slot) s := rfl
+  have h_req_lock :
+      Verity.require (s.storage UniswapV2PairBase.unlockedSlot.slot == (1 : Uint256))
+        "UniswapV2: LOCKED" s = ContractResult.success () s := by
+    simp only [Verity.require, h_lock_guard, if_true]
+  have h_timestamp :
+      Verity.blockTimestamp s = ContractResult.success s.blockTimestamp s := rfl
+  have h_previous :
+      getStorage UniswapV2PairBase.blockTimestampLastSlot s =
+        ContractResult.success (s.storage blockTimestampLastSlot.slot) s := by
+    simp only [getStorage, blockTimestampLastSlot, UniswapV2PairBase.blockTimestampLastSlot]
+  have h_req_output :
+      Verity.require (amount0Out > 0 || amount1Out > 0)
+        "UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT" s =
+          ContractResult.success () s := by
+    simp only [Verity.require, h_output_guard, if_true]
+  have h_set_lock :
+      setStorage UniswapV2PairBase.unlockedSlot (0 : Uint256) s =
+        ContractResult.success () (mintLockedState s) := by
+    simpa only [UniswapV2PairBase.unlockedSlot] using
+      setStorage_unlockedSlot_app_mintLockedState s
+  have h_get_reserve0 :
+      getStorage UniswapV2PairBase.reserve0Slot (mintLockedState s) =
+        ContractResult.success (s.storage reserve0Slot.slot) (mintLockedState s) := by
+    simp only [getStorage]
+    rw [mintLockedState_storage_reserve0]
+  have h_get_reserve1 :
+      getStorage UniswapV2PairBase.reserve1Slot (mintLockedState s) =
+        ContractResult.success (s.storage reserve1Slot.slot) (mintLockedState s) := by
+    simp only [getStorage]
+    rw [mintLockedState_storage_reserve1]
+  have h_liq_guard :
+      (amount0Out < s.storage reserve0Slot.slot &&
+        amount1Out < s.storage reserve1Slot.slot) = true := by
+    by_cases h_guard :
+        (amount0Out < s.storage reserve0Slot.slot &&
+          amount1Out < s.storage reserve1Slot.slot) = true
+    · exact h_guard
+    · exfalso
+      have h_req_liq_false :
+          Verity.require
+              (amount0Out < s.storage reserve0Slot.slot &&
+                amount1Out < s.storage reserve1Slot.slot)
+              "UniswapV2: INSUFFICIENT_LIQUIDITY" (mintLockedState s) =
+            ContractResult.revert "UniswapV2: INSUFFICIENT_LIQUIDITY"
+              (mintLockedState s) := by
+        simp only [Verity.require]
+        rw [if_neg h_guard]
+      have h_swap_liq :
+          (swap amount0Out amount1Out toAddr data).run s =
+            ContractResult.revert "UniswapV2: INSUFFICIENT_LIQUIDITY" s := by
+        unfold swap UniswapV2PairBase.swap Contract.run
+        rw [contract_bind_success _ _ _ _ _ h_get_lock]
+        rw [contract_bind_success _ _ _ _ _ h_req_lock]
+        rw [contract_bind_success _ _ _ _ _ h_timestamp]
+        rw [contract_bind_success _ _ _ _ _ h_previous]
+        rw [contract_bind_success _ _ _ _ _ h_req_output]
+        rw [contract_bind_success _ _ _ _ _ h_set_lock]
+        rw [contract_bind_success _ _ _ _ _ h_get_reserve0]
+        rw [contract_bind_success _ _ _ _ _ h_get_reserve1]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_req_liq_false]
+      rw [h_swap_liq] at h_success
+      cases h_success
+  have h_req_liq :
+      Verity.require
+          (amount0Out < s.storage reserve0Slot.slot &&
+            amount1Out < s.storage reserve1Slot.slot)
+          "UniswapV2: INSUFFICIENT_LIQUIDITY" (mintLockedState s) =
+        ContractResult.success () (mintLockedState s) := by
+    simp only [Verity.require, h_liq_guard, if_true]
+  have h_token0 :
+      getStorageAddr UniswapV2PairBase.token0Slot (mintLockedState s) =
+        ContractResult.success ((mintLockedState s).storageAddr UniswapV2PairBase.token0Slot.slot)
+          (mintLockedState s) := rfl
+  have h_token1 :
+      getStorageAddr UniswapV2PairBase.token1Slot (mintLockedState s) =
+        ContractResult.success ((mintLockedState s).storageAddr UniswapV2PairBase.token1Slot.slot)
+          (mintLockedState s) := rfl
+  have h_to_guard :
+      (toAddr != (mintLockedState s).storageAddr UniswapV2PairBase.token0Slot.slot &&
+        toAddr != (mintLockedState s).storageAddr UniswapV2PairBase.token1Slot.slot) = true := by
+    by_cases h_guard :
+        (toAddr != (mintLockedState s).storageAddr UniswapV2PairBase.token0Slot.slot &&
+          toAddr != (mintLockedState s).storageAddr UniswapV2PairBase.token1Slot.slot) = true
+    · exact h_guard
+    · exfalso
+      have h_req_to_false :
+          Verity.require
+              (toAddr != (mintLockedState s).storageAddr UniswapV2PairBase.token0Slot.slot &&
+                toAddr != (mintLockedState s).storageAddr UniswapV2PairBase.token1Slot.slot)
+              "UniswapV2: INVALID_TO" (mintLockedState s) =
+            ContractResult.revert "UniswapV2: INVALID_TO" (mintLockedState s) := by
+        simp only [Verity.require]
+        rw [if_neg h_guard]
+      have h_swap_invalid :
+          (swap amount0Out amount1Out toAddr data).run s =
+            ContractResult.revert "UniswapV2: INVALID_TO" s := by
+        unfold swap UniswapV2PairBase.swap Contract.run
+        rw [contract_bind_success _ _ _ _ _ h_get_lock]
+        rw [contract_bind_success _ _ _ _ _ h_req_lock]
+        rw [contract_bind_success _ _ _ _ _ h_timestamp]
+        rw [contract_bind_success _ _ _ _ _ h_previous]
+        rw [contract_bind_success _ _ _ _ _ h_req_output]
+        rw [contract_bind_success _ _ _ _ _ h_set_lock]
+        rw [contract_bind_success _ _ _ _ _ h_get_reserve0]
+        rw [contract_bind_success _ _ _ _ _ h_get_reserve1]
+        rw [contract_bind_success _ _ _ _ _ h_req_liq]
+        rw [contract_bind_success _ _ _ _ _ h_token0]
+        rw [contract_bind_success _ _ _ _ _ h_token1]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_req_to_false]
+      rw [h_swap_invalid] at h_success
+      cases h_success
+  have h_req_to :
+      Verity.require
+          (toAddr != (mintLockedState s).storageAddr UniswapV2PairBase.token0Slot.slot &&
+            toAddr != (mintLockedState s).storageAddr UniswapV2PairBase.token1Slot.slot)
+          "UniswapV2: INVALID_TO" (mintLockedState s) =
+        ContractResult.success () (mintLockedState s) := by
+    simp only [Verity.require, h_to_guard, if_true]
+  let mLS := mintLockedState s
+  let tok0 := mLS.storageAddr token0Slot.slot
+  let tok1 := mLS.storageAddr token1Slot.slot
+  let body :=
+    swapConditionalTransfersAndTail tok0 tok1
+      (s.storage reserve0Slot.slot) (s.storage reserve1Slot.slot)
+      amount0Out amount1Out (mod s.blockTimestamp uint32Modulus)
+      (s.storage blockTimestampLastSlot.slot) toAddr
+  have h_swap_body_wrapped :
+      (swap amount0Out amount1Out toAddr data).run s =
+        Contract.run (fun _ => body mLS) s := by
+    unfold swap UniswapV2PairBase.swap Contract.run
+    rw [contract_bind_success _ _ _ _ _ h_get_lock]
+    rw [contract_bind_success _ _ _ _ _ h_req_lock]
+    rw [contract_bind_success _ _ _ _ _ h_timestamp]
+    rw [contract_bind_success _ _ _ _ _ h_previous]
+    rw [contract_bind_success _ _ _ _ _ h_req_output]
+    rw [contract_bind_success _ _ _ _ _ h_set_lock]
+    rw [contract_bind_success _ _ _ _ _ h_get_reserve0]
+    rw [contract_bind_success _ _ _ _ _ h_get_reserve1]
+    rw [contract_bind_success _ _ _ _ _ h_req_liq]
+    rw [contract_bind_success _ _ _ _ _ h_token0]
+    rw [contract_bind_success _ _ _ _ _ h_token1]
+    rw [contract_bind_success _ _ _ _ _ h_req_to]
+    dsimp [body, mLS, tok0, tok1, swapConditionalTransfersAndTail,
+      swapInteractionTailContract]
+    simp [Verity.pure, Pure.pure]
+  have h_wrapped_success :
+      Contract.run (fun _ => body mLS) s =
+        ContractResult.success () (Contract.run (fun _ => body mLS) s).snd := by
+    rw [← h_swap_body_wrapped]
+    exact h_success
+  have h_body_success :
+      body.run mLS = ContractResult.success () (body.run mLS).snd := by
+    unfold Contract.run at h_wrapped_success ⊢
+    cases h_body_run : body mLS with
+    | success value post =>
+        cases value
+        rfl
+    | «revert» msg post =>
+        rw [h_body_run] at h_wrapped_success
+        simp [ContractResult.snd] at h_wrapped_success
+  have h_wrapped_eq_body :
+      Contract.run (fun _ => body mLS) s = body.run mLS := by
+    have h_body_raw := Contract.eq_of_run_success h_body_success
+    unfold Contract.run
+    rw [h_body_raw]
+  have h_tok0_eq : tok0 = pairToken0 s := by
+    dsimp [tok0, mLS, pairToken0]
+    rw [mintLockedState_storageAddr]
+  have h_tok1_eq : tok1 = pairToken1 s := by
+    dsimp [tok1, mLS, pairToken1]
+    rw [mintLockedState_storageAddr]
+  have h_self_eq : pairSelf mLS = pairSelf s := by
+    dsimp [mLS, pairSelf]
+    rw [mintLockedState_thisAddress]
+  rw [h_swap_body_wrapped, h_wrapped_eq_body]
+  rw [pairTransfersAfterCall_of_events_eq s mLS _
+    (by dsimp [mLS]; exact mintLockedState_events_eq s)]
+  rw [← h_tok0_eq, ← h_tok1_eq, ← h_self_eq]
+  exact swapConditionalTransfersAndTail_pairTransfers tok0 tok1
+    (s.storage reserve0Slot.slot) (s.storage reserve1Slot.slot)
+    amount0Out amount1Out (mod s.blockTimestamp uint32Modulus)
+    (s.storage blockTimestampLastSlot.slot) toAddr mLS (by
+      dsimp only [body] at h_body_success
+      exact h_body_success)
 
 private theorem require_if_success_state
     {cond : Bool} {msg : String} {s s' : ContractState} {a : Unit} :
