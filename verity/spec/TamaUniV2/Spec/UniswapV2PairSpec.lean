@@ -1930,7 +1930,7 @@ def pair_wallet_history_total_value_conserved
     (spot : PairWorldState) (before after : PairWalletWorldState) : Prop :=
   PairWalletGood before →
     0 < before.pair.totalSupply →
-      PairWalletHistory before after →
+      OrdinaryPairWalletHistory before after →
         PairWalletTotalTokenValueAtSpot spot before =
           PairWalletTotalTokenValueAtSpot spot after
 
@@ -1943,7 +1943,7 @@ def pair_wallet_history_preserves_unowned
     (before after : PairWalletWorldState) : Prop :=
   PairWalletGood before →
     0 < before.pair.totalSupply →
-      PairWalletHistory before after →
+      OrdinaryPairWalletHistory before after →
         after.pair.totalSupply - after.callerLp =
           before.pair.totalSupply - before.callerLp
 

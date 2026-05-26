@@ -326,7 +326,26 @@ def pairWalletFromConcreteAndTokens
   { pair := pairWorldFromConcreteAndTokens tokens s
     callerToken0 := (callerTokenBalance0 caller tokens s).val
     callerToken1 := (callerTokenBalance1 caller tokens s).val
-    callerLp := (s.storageMap balancesSlot.slot caller).val }
+    callerLp := (s.storageMap balancesSlot.slot caller).val
+    pairLp := (s.storageMap balancesSlot.slot (pairSelf s)).val
+    recv0 := 0
+    recv1 := 0
+    recvLp := 0
+    give0 := 0
+    give1 := 0
+    giveLp := 0 }
+
+def pairWalletWithStepFlows
+    (snapshot before : PairWalletWorldState)
+    (recv0 recv1 recvLp give0 give1 giveLp : Nat) : PairWalletWorldState :=
+  { snapshot with
+    pairLp := before.pairLp
+    recv0 := before.recv0 + recv0
+    recv1 := before.recv1 + recv1
+    recvLp := before.recvLp + recvLp
+    give0 := before.give0 + give0
+    give1 := before.give1 + give1
+    giveLp := before.giveLp + giveLp }
 
 def pairWorldBeforeMintRunAndTokens
     (tokens : PairTokenBalances) (s : ContractState) : PairWorldState :=
@@ -593,8 +612,11 @@ inductive PairEconomicActionConcreteStep
       (hBefore : before = pairWalletFromConcreteAndTokens caller preTokens s)
       (hAfter :
         after =
-          pairWalletFromConcreteAndTokens caller
-            (pairTokenWorldAfterCall preTokens s result) result.snd)
+          pairWalletWithStepFlows
+            (pairWalletFromConcreteAndTokens caller
+              (pairTokenWorldAfterCall preTokens s result) result.snd)
+            before
+            0 0 liquidity.val 0 0 0)
       (hToAddr : toAddr = caller)
       (hReserve0 : s.storage reserve0Slot.slot ≤ observedBalance0 s)
       (hReserve1 : s.storage reserve1Slot.slot ≤ observedBalance1 s)
@@ -645,9 +667,17 @@ inductive PairEconomicActionConcreteStep
       (hBefore : before = pairWalletFromConcreteAndTokens caller preTokens s)
       (hAfter :
         after =
-          pairWalletFromConcreteAndTokens caller
-            (pairTokenWorldAfterCall preTokens transferResult.snd burnResult)
-            burnResult.snd)
+          pairWalletWithStepFlows
+            (pairWalletFromConcreteAndTokens caller
+              (pairTokenWorldAfterCall preTokens transferResult.snd burnResult)
+              burnResult.snd)
+            before
+            (burnAmount0 transferResult.snd).val
+            (burnAmount1 transferResult.snd).val
+            0
+            0
+            0
+            transferLiquidity.val)
       (hToAddr : toAddr = caller)
       (hSender : s.sender = caller)
       (hCallerNeSelf : caller ≠ pairSelf s)
@@ -710,8 +740,11 @@ inductive PairEconomicActionConcreteStep
       (hBefore : before = pairWalletFromConcreteAndTokens caller preTokens s)
       (hAfter :
         after =
-          pairWalletFromConcreteAndTokens caller
-            (pairTokenWorldAfterCall preTokens s result) result.snd)
+          pairWalletWithStepFlows
+            (pairWalletFromConcreteAndTokens caller
+              (pairTokenWorldAfterCall preTokens s result) result.snd)
+            before
+            amount0Out.val amount1Out.val 0 0 0 0)
       (hExternal :
         pairSwapExternalTokenBalancesMatchCall
           preTokens s balance0Now balance1Now result)
@@ -769,8 +802,11 @@ inductive PairEconomicActionConcreteStep
       (hBefore : before = pairWalletFromConcreteAndTokens caller preTokens s)
       (hAfter :
         after =
-          pairWalletFromConcreteAndTokens caller
-            (pairTokenWorldAfterCall preTokens s result) result.snd)
+          pairWalletWithStepFlows
+            (pairWalletFromConcreteAndTokens caller
+              (pairTokenWorldAfterCall preTokens s result) result.snd)
+            before
+            (skimExcess0 s).val (skimExcess1 s).val 0 0 0 0)
       (hExternal : pairSkimExternalTokenBalancesMatchCall preTokens s result)
       (hToAddr : toAddr = caller)
       (hCallerNeSelf : caller ≠ pairSelf s)
@@ -791,8 +827,11 @@ inductive PairEconomicActionConcreteStep
       (hBefore : before = pairWalletFromConcreteAndTokens caller preTokens s)
       (hAfter :
         after =
-          pairWalletFromConcreteAndTokens caller
-            (pairTokenWorldAfterCall preTokens s result) result.snd)
+          pairWalletWithStepFlows
+            (pairWalletFromConcreteAndTokens caller
+              (pairTokenWorldAfterCall preTokens s result) result.snd)
+            before
+            0 0 0 0 0 0)
       (hExternal : pairSyncExternalTokenBalancesMatchCall preTokens s result) :
       PairEconomicActionConcreteStep caller before after
 
