@@ -716,11 +716,6 @@ inductive PairEconomicActionConcreteStep
       (hToAddr : toAddr = caller)
       (hSender : s.sender = caller)
       (hCallerNeSelf : caller ≠ pairSelf s)
-      (hTransferBalance :
-        transferLiquidity.val ≤ (s.storageMap balancesSlot.slot caller).val)
-      (hTransferNoOverflow :
-        (s.storageMap balancesSlot.slot (pairSelf s)).val + transferLiquidity.val ≤
-          Verity.Stdlib.Math.MAX_UINT256)
       (hExternal :
         pairBurnExternalTokenBalancesMatchCall
           preTokens transferResult.snd burnResult)
@@ -728,30 +723,12 @@ inductive PairEconomicActionConcreteStep
         pairPostCallSelfBalancesMatch transferResult.snd burnResult.snd
           (burnBalance0After transferResult.snd)
           (burnBalance1After transferResult.snd))
-      (hLiquidityPos : 0 < (burnLiquidity transferResult.snd).val)
-      (hSupplyPos : 0 < (burnSupply transferResult.snd).val)
       (hLiquidityLe :
         (burnLiquidity transferResult.snd).val ≤ (burnSupply transferResult.snd).val)
       (hLockedRemaining :
         minimumLiquidityNat ≤
           (burnSupply transferResult.snd).val -
             (burnLiquidity transferResult.snd).val)
-      (hAmount0Pos : burnAmount0 transferResult.snd > 0)
-      (hAmount1Pos : burnAmount1 transferResult.snd > 0)
-      (hAmount0Le :
-        burnAmount0 transferResult.snd ≤ observedBalance0 transferResult.snd)
-      (hAmount1Le :
-        burnAmount1 transferResult.snd ≤ observedBalance1 transferResult.snd)
-      (hBound0 : burnBalance0After transferResult.snd ≤ maxUint112)
-      (hBound1 : burnBalance1After transferResult.snd ≤ maxUint112)
-      (hRatio0 :
-        (burnAmount0 transferResult.snd).val * (burnSupply transferResult.snd).val ≤
-          (burnLiquidity transferResult.snd).val *
-            (observedBalance0 transferResult.snd).val)
-      (hRatio1 :
-        (burnAmount1 transferResult.snd).val * (burnSupply transferResult.snd).val ≤
-          (burnLiquidity transferResult.snd).val *
-            (observedBalance1 transferResult.snd).val)
       (hTokenDistinct : pairToken0 transferResult.snd ≠ pairToken1 transferResult.snd)
       (hCallerToken0Add :
         (callerTokenBalance0 caller preTokens transferResult.snd).val +

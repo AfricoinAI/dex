@@ -53,6 +53,95 @@ attribute [local simp] decimals totalSupply balanceOf allowance factory token0 t
   Contracts.emit emitEvent
 
 attribute [local simp] sqrt_run_success_frames_state
+theorem burn_run_revert_insufficient_liquidity_prefix
+    (toAddr : Address) (s : ContractState) :
+  s.storage unlockedSlot.slot = 1 →
+    (decide (burnLiquidity s > 0) && decide (burnSupply s > 0)) = false →
+      (burn toAddr).run s =
+        ContractResult.revert "UniswapV2: INSUFFICIENT_LIQUIDITY_BURNED" s := by
+  intro h_unlocked h_guard_false
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_unlocked
+  have h_lock_guard :
+      (s.storage UniswapV2PairBase.unlockedSlot.slot == (1 : Uint256)) = true := by
+    simp [UniswapV2PairBase.unlockedSlot, h_unlocked_raw]
+  have h_get_lock :
+      getStorage UniswapV2PairBase.unlockedSlot s =
+        ContractResult.success (s.storage UniswapV2PairBase.unlockedSlot.slot) s := rfl
+  have h_req_lock :
+      Verity.require (s.storage UniswapV2PairBase.unlockedSlot.slot == (1 : Uint256))
+        "UniswapV2: LOCKED" s = ContractResult.success () s := by
+    simp only [Verity.require, h_lock_guard, if_true]
+  have h_timestamp :
+      Verity.blockTimestamp s = ContractResult.success s.blockTimestamp s := rfl
+  have h_previous :
+      getStorage UniswapV2PairBase.blockTimestampLastSlot s =
+        ContractResult.success (s.storage blockTimestampLastSlot.slot) s := by
+    simp only [getStorage, blockTimestampLastSlot, UniswapV2PairBase.blockTimestampLastSlot]
+  have h_set_lock :
+      setStorage UniswapV2PairBase.unlockedSlot (0 : Uint256) s =
+        ContractResult.success () (mintLockedState s) := by
+    simpa only [UniswapV2PairBase.unlockedSlot] using
+      setStorage_unlockedSlot_app_mintLockedState s
+  have h_sender :
+      msgSender (mintLockedState s) =
+        ContractResult.success s.sender (mintLockedState s) := rfl
+  have h_token0 :
+      getStorageAddr UniswapV2PairBase.token0Slot (mintLockedState s) =
+        ContractResult.success ((mintLockedState s).storageAddr UniswapV2PairBase.token0Slot.slot)
+          (mintLockedState s) := rfl
+  have h_token1 :
+      getStorageAddr UniswapV2PairBase.token1Slot (mintLockedState s) =
+        ContractResult.success ((mintLockedState s).storageAddr UniswapV2PairBase.token1Slot.slot)
+          (mintLockedState s) := rfl
+  have h_self :
+      contractAddress (mintLockedState s) =
+        ContractResult.success (mintLockedState s).thisAddress (mintLockedState s) := rfl
+  have h_balance0 :
+      TamaUniV2.erc20BalanceOf ((mintLockedState s).storageAddr token0Slot.slot)
+          (mintLockedState s).thisAddress (mintLockedState s) =
+        ContractResult.success (observedBalance0 s) (mintLockedState s) := by
+    simpa only [TamaUniV2.erc20BalanceOf] using
+      observedBalance0_balanceOf_mintLockedState_app_nf s
+  have h_balance1 :
+      TamaUniV2.erc20BalanceOf ((mintLockedState s).storageAddr token1Slot.slot)
+          (mintLockedState s).thisAddress (mintLockedState s) =
+        ContractResult.success (observedBalance1 s) (mintLockedState s) := by
+    simpa only [TamaUniV2.erc20BalanceOf] using
+      observedBalance1_balanceOf_mintLockedState_app_nf s
+  have h_liquidity :
+      getMapping UniswapV2PairBase.balancesSlot (mintLockedState s).thisAddress
+          (mintLockedState s) =
+        ContractResult.success (burnLiquidity s) (mintLockedState s) := by
+    simp [getMapping, burnLiquidity, pairSelf, balancesSlot,
+      UniswapV2PairBase.balancesSlot, mintLockedState, mintLockedState_thisAddress]
+  have h_supply :
+      getStorage UniswapV2PairBase.totalSupplySlot (mintLockedState s) =
+        ContractResult.success (burnSupply s) (mintLockedState s) := by
+    simp [getStorage, burnSupply, totalSupplySlot, UniswapV2PairBase.totalSupplySlot,
+      mintLockedState, mintLockedState_storage_totalSupply]
+  have h_req_liquidity :
+      Verity.require (decide (burnLiquidity s > 0) && decide (burnSupply s > 0))
+        "UniswapV2: INSUFFICIENT_LIQUIDITY_BURNED" (mintLockedState s) =
+          ContractResult.revert "UniswapV2: INSUFFICIENT_LIQUIDITY_BURNED"
+            (mintLockedState s) := by
+    simp only [Verity.require, h_guard_false, Bool.false_eq_true, if_false]
+  unfold burn UniswapV2PairBase.burn Contract.run
+  rw [contract_bind_success _ _ _ _ _ h_get_lock]
+  rw [contract_bind_success _ _ _ _ _ h_req_lock]
+  rw [contract_bind_success _ _ _ _ _ h_timestamp]
+  rw [contract_bind_success _ _ _ _ _ h_previous]
+  rw [contract_bind_success _ _ _ _ _ h_set_lock]
+  rw [contract_bind_success _ _ _ _ _ h_sender]
+  rw [contract_bind_success _ _ _ _ _ h_token0]
+  rw [contract_bind_success _ _ _ _ _ h_token1]
+  rw [contract_bind_success _ _ _ _ _ h_self]
+  rw [contract_bind_success _ _ _ _ _ h_balance0]
+  rw [contract_bind_success _ _ _ _ _ h_balance1]
+  rw [contract_bind_success _ _ _ _ _ h_liquidity]
+  rw [contract_bind_success _ _ _ _ _ h_supply]
+  simp only [Bind.bind, Verity.bind, h_req_liquidity]
+
 theorem burn_run_revert_amount0_product_overflow
     (toAddr : Address) (s : ContractState) :
   s.storage unlockedSlot.slot = 1 →
@@ -285,6 +374,385 @@ theorem burn_run_revert_amount1_product_overflow
   rw [contract_bind_success _ _ _ _ _ h_req_overflow0]
   simp only [Bind.bind, Verity.bind, h_req_overflow1]
 
+theorem burn_run_revert_insufficient_amount_prefix
+    (toAddr : Address) (s : ContractState) :
+  s.storage unlockedSlot.slot = 1 →
+    burnLiquidity s > 0 →
+      burnSupply s > 0 →
+        (burnLiquidity s == 0 ||
+            div (burnAmount0Product s) (burnLiquidity s) == observedBalance0 s) = true →
+          (burnLiquidity s == 0 ||
+              div (burnAmount1Product s) (burnLiquidity s) == observedBalance1 s) = true →
+            (decide (burnAmount0 s > 0) && decide (burnAmount1 s > 0)) = false →
+              (burn toAddr).run s =
+                ContractResult.revert "UniswapV2: INSUFFICIENT_LIQUIDITY_BURNED" s := by
+  intro h_unlocked h_liquidity_pos h_supply_pos h_guard0 h_guard1 h_amount_false
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_unlocked
+  have h_lock_guard :
+      (s.storage UniswapV2PairBase.unlockedSlot.slot == (1 : Uint256)) = true := by
+    simp [UniswapV2PairBase.unlockedSlot, h_unlocked_raw]
+  have h_liquidity_guard :
+      (decide (burnLiquidity s > 0) && decide (burnSupply s > 0)) = true := by
+    simpa [Bool.and_eq_true] using And.intro h_liquidity_pos h_supply_pos
+  have h_get_lock :
+      getStorage UniswapV2PairBase.unlockedSlot s =
+        ContractResult.success (s.storage UniswapV2PairBase.unlockedSlot.slot) s := rfl
+  have h_req_lock :
+      Verity.require (s.storage UniswapV2PairBase.unlockedSlot.slot == (1 : Uint256))
+        "UniswapV2: LOCKED" s = ContractResult.success () s := by
+    simp only [Verity.require, h_lock_guard, if_true]
+  have h_timestamp :
+      Verity.blockTimestamp s = ContractResult.success s.blockTimestamp s := rfl
+  have h_previous :
+      getStorage UniswapV2PairBase.blockTimestampLastSlot s =
+        ContractResult.success (s.storage blockTimestampLastSlot.slot) s := by
+    simp only [getStorage, blockTimestampLastSlot, UniswapV2PairBase.blockTimestampLastSlot]
+  have h_set_lock :
+      setStorage UniswapV2PairBase.unlockedSlot (0 : Uint256) s =
+        ContractResult.success () (mintLockedState s) := by
+    simpa only [UniswapV2PairBase.unlockedSlot] using
+      setStorage_unlockedSlot_app_mintLockedState s
+  have h_sender :
+      msgSender (mintLockedState s) =
+        ContractResult.success s.sender (mintLockedState s) := rfl
+  have h_token0 :
+      getStorageAddr UniswapV2PairBase.token0Slot (mintLockedState s) =
+        ContractResult.success ((mintLockedState s).storageAddr UniswapV2PairBase.token0Slot.slot)
+          (mintLockedState s) := rfl
+  have h_token1 :
+      getStorageAddr UniswapV2PairBase.token1Slot (mintLockedState s) =
+        ContractResult.success ((mintLockedState s).storageAddr UniswapV2PairBase.token1Slot.slot)
+          (mintLockedState s) := rfl
+  have h_self :
+      contractAddress (mintLockedState s) =
+        ContractResult.success (mintLockedState s).thisAddress (mintLockedState s) := rfl
+  have h_balance0 :
+      TamaUniV2.erc20BalanceOf ((mintLockedState s).storageAddr token0Slot.slot)
+          (mintLockedState s).thisAddress (mintLockedState s) =
+        ContractResult.success (observedBalance0 s) (mintLockedState s) := by
+    simpa only [TamaUniV2.erc20BalanceOf] using
+      observedBalance0_balanceOf_mintLockedState_app_nf s
+  have h_balance1 :
+      TamaUniV2.erc20BalanceOf ((mintLockedState s).storageAddr token1Slot.slot)
+          (mintLockedState s).thisAddress (mintLockedState s) =
+        ContractResult.success (observedBalance1 s) (mintLockedState s) := by
+    simpa only [TamaUniV2.erc20BalanceOf] using
+      observedBalance1_balanceOf_mintLockedState_app_nf s
+  have h_liquidity :
+      getMapping UniswapV2PairBase.balancesSlot (mintLockedState s).thisAddress
+          (mintLockedState s) =
+        ContractResult.success (burnLiquidity s) (mintLockedState s) := by
+    simp [getMapping, burnLiquidity, pairSelf, balancesSlot,
+      UniswapV2PairBase.balancesSlot, mintLockedState, mintLockedState_thisAddress]
+  have h_supply :
+      getStorage UniswapV2PairBase.totalSupplySlot (mintLockedState s) =
+        ContractResult.success (burnSupply s) (mintLockedState s) := by
+    simp [getStorage, burnSupply, totalSupplySlot, UniswapV2PairBase.totalSupplySlot,
+      mintLockedState, mintLockedState_storage_totalSupply]
+  have h_req_liquidity :
+      Verity.require (decide (burnLiquidity s > 0) && decide (burnSupply s > 0))
+        "UniswapV2: INSUFFICIENT_LIQUIDITY_BURNED" (mintLockedState s) =
+          ContractResult.success () (mintLockedState s) := by
+    simp only [Verity.require, h_liquidity_guard, if_true]
+  have h_req_overflow0 :
+      Verity.require
+          (burnLiquidity s == 0 ||
+            div (mul (burnLiquidity s) (observedBalance0 s)) (burnLiquidity s) ==
+              observedBalance0 s)
+          "UniswapV2: BURN_OVERFLOW" (mintLockedState s) =
+        ContractResult.success () (mintLockedState s) := by
+    have h_guard0_mul :
+        (burnLiquidity s == 0 ||
+            div (mul (burnLiquidity s) (observedBalance0 s)) (burnLiquidity s) ==
+              observedBalance0 s) = true := by
+      simpa [burnAmount0Product] using h_guard0
+    simp only [Verity.require, h_guard0_mul, if_true]
+  have h_req_overflow1 :
+      Verity.require
+          (burnLiquidity s == 0 ||
+            div (mul (burnLiquidity s) (observedBalance1 s)) (burnLiquidity s) ==
+              observedBalance1 s)
+          "UniswapV2: BURN_OVERFLOW" (mintLockedState s) =
+        ContractResult.success () (mintLockedState s) := by
+    have h_guard1_mul :
+        (burnLiquidity s == 0 ||
+            div (mul (burnLiquidity s) (observedBalance1 s)) (burnLiquidity s) ==
+              observedBalance1 s) = true := by
+      simpa [burnAmount1Product] using h_guard1
+    simp only [Verity.require, h_guard1_mul, if_true]
+  have h_req_amount :
+      Verity.require
+          (decide (div (mul (burnLiquidity s) (observedBalance0 s)) (burnSupply s) > 0) &&
+            decide (div (mul (burnLiquidity s) (observedBalance1 s)) (burnSupply s) > 0))
+        "UniswapV2: INSUFFICIENT_LIQUIDITY_BURNED" (mintLockedState s) =
+          ContractResult.revert "UniswapV2: INSUFFICIENT_LIQUIDITY_BURNED"
+            (mintLockedState s) := by
+    have h_amount_false_mul :
+        (decide (div (mul (burnLiquidity s) (observedBalance0 s)) (burnSupply s) > 0) &&
+          decide (div (mul (burnLiquidity s) (observedBalance1 s)) (burnSupply s) > 0)) =
+            false := by
+      simpa [burnAmount0, burnAmount1, burnAmount0Product, burnAmount1Product]
+        using h_amount_false
+    simp only [Verity.require, h_amount_false_mul, Bool.false_eq_true, if_false]
+  unfold burn UniswapV2PairBase.burn Contract.run
+  rw [contract_bind_success _ _ _ _ _ h_get_lock]
+  rw [contract_bind_success _ _ _ _ _ h_req_lock]
+  rw [contract_bind_success _ _ _ _ _ h_timestamp]
+  rw [contract_bind_success _ _ _ _ _ h_previous]
+  rw [contract_bind_success _ _ _ _ _ h_set_lock]
+  rw [contract_bind_success _ _ _ _ _ h_sender]
+  rw [contract_bind_success _ _ _ _ _ h_token0]
+  rw [contract_bind_success _ _ _ _ _ h_token1]
+  rw [contract_bind_success _ _ _ _ _ h_self]
+  rw [contract_bind_success _ _ _ _ _ h_balance0]
+  rw [contract_bind_success _ _ _ _ _ h_balance1]
+  rw [contract_bind_success _ _ _ _ _ h_liquidity]
+  rw [contract_bind_success _ _ _ _ _ h_supply]
+  rw [contract_bind_success _ _ _ _ _ h_req_liquidity]
+  rw [contract_bind_success _ _ _ _ _ h_req_overflow0]
+  rw [contract_bind_success _ _ _ _ _ h_req_overflow1]
+  simp only [Bind.bind, Verity.bind, h_req_amount]
+
+theorem burn_run_revert_observed_balances_overflow_prefix
+    (toAddr : Address) (s : ContractState) :
+  s.storage unlockedSlot.slot = 1 →
+    burnLiquidity s > 0 →
+      burnSupply s > 0 →
+        (burnLiquidity s == 0 ||
+            div (burnAmount0Product s) (burnLiquidity s) == observedBalance0 s) = true →
+          (burnLiquidity s == 0 ||
+              div (burnAmount1Product s) (burnLiquidity s) == observedBalance1 s) = true →
+            burnAmount0 s > 0 →
+              burnAmount1 s > 0 →
+                (decide (observedBalance0 s ≤ maxUint112) &&
+                    decide (observedBalance1 s ≤ maxUint112)) = false →
+                  (burn toAddr).run s =
+                    ContractResult.revert "UniswapV2: OVERFLOW" s := by
+  intro h_unlocked h_liquidity_pos h_supply_pos h_guard0 h_guard1
+    h_amount0_pos h_amount1_pos h_bound_false
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_unlocked
+  have h_lock_guard :
+      (s.storage UniswapV2PairBase.unlockedSlot.slot == (1 : Uint256)) = true := by
+    simp [UniswapV2PairBase.unlockedSlot, h_unlocked_raw]
+  have h_liquidity_guard :
+      (decide (burnLiquidity s > 0) && decide (burnSupply s > 0)) = true := by
+    simpa [Bool.and_eq_true] using And.intro h_liquidity_pos h_supply_pos
+  have h_amount_guard :
+      (decide (burnAmount0 s > 0) && decide (burnAmount1 s > 0)) = true := by
+    simpa [Bool.and_eq_true] using And.intro h_amount0_pos h_amount1_pos
+  have h_get_lock :
+      getStorage UniswapV2PairBase.unlockedSlot s =
+        ContractResult.success (s.storage UniswapV2PairBase.unlockedSlot.slot) s := rfl
+  have h_req_lock :
+      Verity.require (s.storage UniswapV2PairBase.unlockedSlot.slot == (1 : Uint256))
+        "UniswapV2: LOCKED" s = ContractResult.success () s := by
+    simp only [Verity.require, h_lock_guard, if_true]
+  have h_timestamp :
+      Verity.blockTimestamp s = ContractResult.success s.blockTimestamp s := rfl
+  have h_previous :
+      getStorage UniswapV2PairBase.blockTimestampLastSlot s =
+        ContractResult.success (s.storage blockTimestampLastSlot.slot) s := by
+    simp only [getStorage, blockTimestampLastSlot, UniswapV2PairBase.blockTimestampLastSlot]
+  have h_set_lock :
+      setStorage UniswapV2PairBase.unlockedSlot (0 : Uint256) s =
+        ContractResult.success () (mintLockedState s) := by
+    simpa only [UniswapV2PairBase.unlockedSlot] using
+      setStorage_unlockedSlot_app_mintLockedState s
+  have h_sender :
+      msgSender (mintLockedState s) =
+        ContractResult.success s.sender (mintLockedState s) := rfl
+  have h_token0 :
+      getStorageAddr UniswapV2PairBase.token0Slot (mintLockedState s) =
+        ContractResult.success ((mintLockedState s).storageAddr UniswapV2PairBase.token0Slot.slot)
+          (mintLockedState s) := rfl
+  have h_token1 :
+      getStorageAddr UniswapV2PairBase.token1Slot (mintLockedState s) =
+        ContractResult.success ((mintLockedState s).storageAddr UniswapV2PairBase.token1Slot.slot)
+          (mintLockedState s) := rfl
+  have h_self :
+      contractAddress (mintLockedState s) =
+        ContractResult.success (mintLockedState s).thisAddress (mintLockedState s) := rfl
+  have h_balance0 :
+      TamaUniV2.erc20BalanceOf ((mintLockedState s).storageAddr token0Slot.slot)
+          (mintLockedState s).thisAddress (mintLockedState s) =
+        ContractResult.success (observedBalance0 s) (mintLockedState s) := by
+    simpa only [TamaUniV2.erc20BalanceOf] using
+      observedBalance0_balanceOf_mintLockedState_app_nf s
+  have h_balance1 :
+      TamaUniV2.erc20BalanceOf ((mintLockedState s).storageAddr token1Slot.slot)
+          (mintLockedState s).thisAddress (mintLockedState s) =
+        ContractResult.success (observedBalance1 s) (mintLockedState s) := by
+    simpa only [TamaUniV2.erc20BalanceOf] using
+      observedBalance1_balanceOf_mintLockedState_app_nf s
+  have h_liquidity :
+      getMapping UniswapV2PairBase.balancesSlot (mintLockedState s).thisAddress
+          (mintLockedState s) =
+        ContractResult.success (burnLiquidity s) (mintLockedState s) := by
+    simp [getMapping, burnLiquidity, pairSelf, balancesSlot,
+      UniswapV2PairBase.balancesSlot, mintLockedState, mintLockedState_thisAddress]
+  have h_supply :
+      getStorage UniswapV2PairBase.totalSupplySlot (mintLockedState s) =
+        ContractResult.success (burnSupply s) (mintLockedState s) := by
+    simp [getStorage, burnSupply, totalSupplySlot, UniswapV2PairBase.totalSupplySlot,
+      mintLockedState, mintLockedState_storage_totalSupply]
+  have h_req_liquidity :
+      Verity.require (decide (burnLiquidity s > 0) && decide (burnSupply s > 0))
+        "UniswapV2: INSUFFICIENT_LIQUIDITY_BURNED" (mintLockedState s) =
+          ContractResult.success () (mintLockedState s) := by
+    simp only [Verity.require, h_liquidity_guard, if_true]
+  have h_req_overflow0 :
+      Verity.require
+          (burnLiquidity s == 0 ||
+            div (mul (burnLiquidity s) (observedBalance0 s)) (burnLiquidity s) ==
+              observedBalance0 s)
+          "UniswapV2: BURN_OVERFLOW" (mintLockedState s) =
+        ContractResult.success () (mintLockedState s) := by
+    have h_guard0_mul :
+        (burnLiquidity s == 0 ||
+            div (mul (burnLiquidity s) (observedBalance0 s)) (burnLiquidity s) ==
+              observedBalance0 s) = true := by
+      simpa [burnAmount0Product] using h_guard0
+    simp only [Verity.require, h_guard0_mul, if_true]
+  have h_req_overflow1 :
+      Verity.require
+          (burnLiquidity s == 0 ||
+            div (mul (burnLiquidity s) (observedBalance1 s)) (burnLiquidity s) ==
+              observedBalance1 s)
+          "UniswapV2: BURN_OVERFLOW" (mintLockedState s) =
+        ContractResult.success () (mintLockedState s) := by
+    have h_guard1_mul :
+        (burnLiquidity s == 0 ||
+            div (mul (burnLiquidity s) (observedBalance1 s)) (burnLiquidity s) ==
+              observedBalance1 s) = true := by
+      simpa [burnAmount1Product] using h_guard1
+    simp only [Verity.require, h_guard1_mul, if_true]
+  have h_req_amount :
+      Verity.require
+          (decide (div (mul (burnLiquidity s) (observedBalance0 s)) (burnSupply s) > 0) &&
+            decide (div (mul (burnLiquidity s) (observedBalance1 s)) (burnSupply s) > 0))
+        "UniswapV2: INSUFFICIENT_LIQUIDITY_BURNED" (mintLockedState s) =
+          ContractResult.success () (mintLockedState s) := by
+    have h_amount_guard_mul :
+        (decide (div (mul (burnLiquidity s) (observedBalance0 s)) (burnSupply s) > 0) &&
+          decide (div (mul (burnLiquidity s) (observedBalance1 s)) (burnSupply s) > 0)) =
+            true := by
+      simpa [burnAmount0, burnAmount1, burnAmount0Product, burnAmount1Product]
+        using h_amount_guard
+    simp only [Verity.require, h_amount_guard_mul, if_true]
+  have h_get_reserve0 :
+      getStorage UniswapV2PairBase.reserve0Slot (mintLockedState s) =
+        ContractResult.success (s.storage reserve0Slot.slot) (mintLockedState s) := by
+    simp only [getStorage]
+    rw [mintLockedState_storage_reserve0]
+  have h_get_reserve1 :
+      getStorage UniswapV2PairBase.reserve1Slot (mintLockedState s) =
+        ContractResult.success (s.storage reserve1Slot.slot) (mintLockedState s) := by
+    simp only [getStorage]
+    rw [mintLockedState_storage_reserve1]
+  let burnZeroBalanceState :=
+    (setMapping UniswapV2PairBase.balancesSlot (mintLockedState s).thisAddress
+      (0 : Uint256) (mintLockedState s)).snd
+  let burnSupplyState :=
+    (setStorage UniswapV2PairBase.totalSupplySlot
+      (Verity.EVM.Uint256.sub (burnSupply s) (burnLiquidity s))
+      burnZeroBalanceState).snd
+  let burnTransferEventState :=
+    (Contracts.emit "Transfer"
+      [addressToWord (mintLockedState s).thisAddress, addressToWord zeroAddress,
+        burnLiquidity s] burnSupplyState).snd
+  let burnTransfer0State :=
+    (TamaUniV2.pairSafeTransfer
+      ((mintLockedState s).storageAddr token0Slot.slot) toAddr
+        (div (mul (burnLiquidity s) (observedBalance0 s)) (burnSupply s))
+      burnTransferEventState).snd
+  let burnTransfer1State :=
+    (TamaUniV2.pairSafeTransfer
+      ((mintLockedState s).storageAddr token1Slot.slot) toAddr
+        (div (mul (burnLiquidity s) (observedBalance1 s)) (burnSupply s))
+      burnTransfer0State).snd
+  have h_zero_balance :
+      setMapping UniswapV2PairBase.balancesSlot (mintLockedState s).thisAddress
+          (0 : Uint256) (mintLockedState s) =
+        ContractResult.success () burnZeroBalanceState := by
+    rfl
+  have h_set_supply :
+      setStorage UniswapV2PairBase.totalSupplySlot
+          (Verity.EVM.Uint256.sub (burnSupply s) (burnLiquidity s))
+          burnZeroBalanceState =
+        ContractResult.success () burnSupplyState := by
+    rfl
+  have h_emit_transfer :
+      Contracts.emit "Transfer"
+          [addressToWord (mintLockedState s).thisAddress, addressToWord zeroAddress,
+            burnLiquidity s] burnSupplyState =
+        ContractResult.success () burnTransferEventState := by
+    rfl
+  have h_transfer0 :
+      TamaUniV2.pairSafeTransfer
+          ((mintLockedState s).storageAddr token0Slot.slot) toAddr
+          (div (mul (burnLiquidity s) (observedBalance0 s)) (burnSupply s))
+          burnTransferEventState =
+        ContractResult.success 1 burnTransfer0State := by
+    rfl
+  have h_transfer1 :
+      TamaUniV2.pairSafeTransfer
+          ((mintLockedState s).storageAddr token1Slot.slot) toAddr
+          (div (mul (burnLiquidity s) (observedBalance1 s)) (burnSupply s))
+          burnTransfer0State =
+        ContractResult.success 1 burnTransfer1State := by
+    rfl
+  have h_balance0_after :
+      TamaUniV2.erc20BalanceOf ((mintLockedState s).storageAddr token0Slot.slot)
+          (mintLockedState s).thisAddress burnTransfer1State =
+        ContractResult.success (observedBalance0 s) burnTransfer1State := by
+    rfl
+  have h_balance1_after :
+      TamaUniV2.erc20BalanceOf ((mintLockedState s).storageAddr token1Slot.slot)
+          (mintLockedState s).thisAddress burnTransfer1State =
+        ContractResult.success (observedBalance1 s) burnTransfer1State := by
+    rfl
+  have h_req_bound :
+      Verity.require
+          (decide (observedBalance0 s ≤ UniswapV2PairBase.maxUint112) &&
+            decide (observedBalance1 s ≤ UniswapV2PairBase.maxUint112))
+          "UniswapV2: OVERFLOW" burnTransfer1State =
+        ContractResult.revert "UniswapV2: OVERFLOW" burnTransfer1State := by
+    have h_bound_false_raw :
+        (decide (observedBalance0 s ≤ UniswapV2PairBase.maxUint112) &&
+          decide (observedBalance1 s ≤ UniswapV2PairBase.maxUint112)) = false := by
+      simpa [maxUint112, UniswapV2PairBase.maxUint112] using h_bound_false
+    simp only [Verity.require, h_bound_false_raw, Bool.false_eq_true, if_false]
+  unfold burn UniswapV2PairBase.burn Contract.run
+  rw [contract_bind_success _ _ _ _ _ h_get_lock]
+  rw [contract_bind_success _ _ _ _ _ h_req_lock]
+  rw [contract_bind_success _ _ _ _ _ h_timestamp]
+  rw [contract_bind_success _ _ _ _ _ h_previous]
+  rw [contract_bind_success _ _ _ _ _ h_set_lock]
+  rw [contract_bind_success _ _ _ _ _ h_sender]
+  rw [contract_bind_success _ _ _ _ _ h_token0]
+  rw [contract_bind_success _ _ _ _ _ h_token1]
+  rw [contract_bind_success _ _ _ _ _ h_self]
+  rw [contract_bind_success _ _ _ _ _ h_balance0]
+  rw [contract_bind_success _ _ _ _ _ h_balance1]
+  rw [contract_bind_success _ _ _ _ _ h_liquidity]
+  rw [contract_bind_success _ _ _ _ _ h_supply]
+  rw [contract_bind_success _ _ _ _ _ h_req_liquidity]
+  rw [contract_bind_success _ _ _ _ _ h_req_overflow0]
+  rw [contract_bind_success _ _ _ _ _ h_req_overflow1]
+  rw [contract_bind_success _ _ _ _ _ h_req_amount]
+  rw [contract_bind_success _ _ _ _ _ h_get_reserve0]
+  rw [contract_bind_success _ _ _ _ _ h_get_reserve1]
+  rw [contract_bind_success _ _ _ _ _ h_zero_balance]
+  rw [contract_bind_success _ _ _ _ _ h_set_supply]
+  rw [contract_bind_success _ _ _ _ _ h_emit_transfer]
+  rw [contract_bind_success _ _ _ _ _ h_transfer0]
+  rw [contract_bind_success _ _ _ _ _ h_transfer1]
+  rw [contract_bind_success _ _ _ _ _ h_balance0_after]
+  rw [contract_bind_success _ _ _ _ _ h_balance1_after]
+  simp only [Bind.bind, Verity.bind, h_req_bound]
+
 theorem burn_success_run_implies_lock_open
     (toAddr : Address) (s : ContractState)
     (result : ContractResult (Uint256 × Uint256)) :
@@ -298,6 +766,28 @@ theorem burn_success_run_implies_lock_open
   have h_revert := burn_run_revert_locked toAddr s h_locked
   rw [← h_run, h_success] at h_revert
   cases h_revert
+
+theorem burn_success_run_implies_liquidity_supply_pos
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) :
+  result = (burn toAddr).run s →
+    result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
+      burnLiquidity s > 0 ∧ burnSupply s > 0 := by
+  intro h_run h_success
+  have h_unlocked :=
+    burn_success_run_implies_lock_open toAddr s result h_run h_success
+  have h_guard :
+      (decide (burnLiquidity s > 0) && decide (burnSupply s > 0)) = true := by
+    by_contra h_not_true
+    have h_guard_false :
+        (decide (burnLiquidity s > 0) && decide (burnSupply s > 0)) = false := by
+      exact Bool.eq_false_of_not_eq_true h_not_true
+    have h_revert :=
+      burn_run_revert_insufficient_liquidity_prefix toAddr s h_unlocked
+        h_guard_false
+    rw [← h_run, h_success] at h_revert
+    cases h_revert
+  simpa [Bool.and_eq_true] using h_guard
 
 theorem burn_success_run_implies_amount0_product_guard
     (toAddr : Address) (s : ContractState)
@@ -355,6 +845,285 @@ theorem burn_success_run_implies_amount1_product_guard
       h_liquidity_pos h_supply_pos h_guard0 h_guard_false
   rw [← h_run, h_success] at h_revert
   cases h_revert
+
+theorem burn_success_run_implies_amounts_pos
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) :
+  result = (burn toAddr).run s →
+    result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
+      burnAmount0 s > 0 ∧ burnAmount1 s > 0 := by
+  intro h_run h_success
+  have h_unlocked :=
+    burn_success_run_implies_lock_open toAddr s result h_run h_success
+  rcases burn_success_run_implies_liquidity_supply_pos toAddr s result
+      h_run h_success with
+    ⟨h_liquidity_pos, h_supply_pos⟩
+  have h_guard0 :=
+    burn_success_run_implies_amount0_product_guard toAddr s result h_run
+      h_success h_liquidity_pos h_supply_pos
+  have h_guard1 :=
+    burn_success_run_implies_amount1_product_guard toAddr s result h_run
+      h_success h_liquidity_pos h_supply_pos
+  have h_amount_guard :
+      (decide (burnAmount0 s > 0) && decide (burnAmount1 s > 0)) = true := by
+    by_contra h_not_true
+    have h_amount_false :
+        (decide (burnAmount0 s > 0) && decide (burnAmount1 s > 0)) = false := by
+      exact Bool.eq_false_of_not_eq_true h_not_true
+    have h_revert :=
+      burn_run_revert_insufficient_amount_prefix toAddr s h_unlocked
+        h_liquidity_pos h_supply_pos h_guard0 h_guard1 h_amount_false
+    rw [← h_run, h_success] at h_revert
+    cases h_revert
+  simpa [Bool.and_eq_true] using h_amount_guard
+
+theorem burn_success_run_implies_observed_balances_fit_uint112
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) :
+  result = (burn toAddr).run s →
+    result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
+      observedBalance0 s ≤ maxUint112 ∧ observedBalance1 s ≤ maxUint112 := by
+  intro h_run h_success
+  have h_unlocked :=
+    burn_success_run_implies_lock_open toAddr s result h_run h_success
+  rcases burn_success_run_implies_liquidity_supply_pos toAddr s result
+      h_run h_success with
+    ⟨h_liquidity_pos, h_supply_pos⟩
+  have h_guard0 :=
+    burn_success_run_implies_amount0_product_guard toAddr s result h_run
+      h_success h_liquidity_pos h_supply_pos
+  have h_guard1 :=
+    burn_success_run_implies_amount1_product_guard toAddr s result h_run
+      h_success h_liquidity_pos h_supply_pos
+  rcases burn_success_run_implies_amounts_pos toAddr s result h_run h_success with
+    ⟨h_amount0_pos, h_amount1_pos⟩
+  have h_bound_guard :
+      (decide (observedBalance0 s ≤ maxUint112) &&
+        decide (observedBalance1 s ≤ maxUint112)) = true := by
+    by_contra h_not_true
+    have h_bound_false :
+        (decide (observedBalance0 s ≤ maxUint112) &&
+          decide (observedBalance1 s ≤ maxUint112)) = false := by
+      exact Bool.eq_false_of_not_eq_true h_not_true
+    have h_revert :=
+      burn_run_revert_observed_balances_overflow_prefix toAddr s h_unlocked
+        h_liquidity_pos h_supply_pos h_guard0 h_guard1 h_amount0_pos
+        h_amount1_pos h_bound_false
+    rw [← h_run, h_success] at h_revert
+    cases h_revert
+  simpa [Bool.and_eq_true] using h_bound_guard
+
+private theorem burn_balance0_after_bound_of_observed_bound
+    (s : ContractState) :
+  burnAmount0 s ≤ observedBalance0 s →
+    observedBalance0 s ≤ maxUint112 →
+      burnBalance0After s ≤ maxUint112 := by
+  intro h_amount_le h_observed_bound
+  rw [Verity.Core.Uint256.le_def]
+  have h_sub :
+      (burnBalance0After s).val =
+        (observedBalance0 s).val - (burnAmount0 s).val := by
+    simpa [burnBalance0After] using
+      (Verity.Core.Uint256.sub_eq_of_le
+        (a := observedBalance0 s) (b := burnAmount0 s) h_amount_le)
+  rw [h_sub]
+  have h_obs : (observedBalance0 s).val ≤ maxUint112.val := by
+    simpa [Verity.Core.Uint256.le_def] using h_observed_bound
+  omega
+
+private theorem burn_balance1_after_bound_of_observed_bound
+    (s : ContractState) :
+  burnAmount1 s ≤ observedBalance1 s →
+    observedBalance1 s ≤ maxUint112 →
+      burnBalance1After s ≤ maxUint112 := by
+  intro h_amount_le h_observed_bound
+  rw [Verity.Core.Uint256.le_def]
+  have h_sub :
+      (burnBalance1After s).val =
+        (observedBalance1 s).val - (burnAmount1 s).val := by
+    simpa [burnBalance1After] using
+      (Verity.Core.Uint256.sub_eq_of_le
+        (a := observedBalance1 s) (b := burnAmount1 s) h_amount_le)
+  rw [h_sub]
+  have h_obs : (observedBalance1 s).val ≤ maxUint112.val := by
+    simpa [Verity.Core.Uint256.le_def] using h_observed_bound
+  omega
+
+theorem transfer_success_run_implies_balance_guard
+    (toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) :
+  result = (transfer toAddr amount).run s →
+    result = ContractResult.success true result.snd →
+      amount.val ≤ (s.storageMap balancesSlot.slot s.sender).val := by
+  intro h_run h_success
+  by_contra h_not
+  have h_low : amount.val > (s.storageMap balancesSlot.slot s.sender).val := by
+    omega
+  have h_revert := transfer_run_revert_balance_low toAddr amount s h_low
+  rw [← h_run, h_success] at h_revert
+  cases h_revert
+
+theorem transfer_success_run_implies_recipient_no_overflow
+    (toAddr : Address) (amount : Uint256) (s : ContractState)
+    (result : ContractResult Bool) :
+  result = (transfer toAddr amount).run s →
+    result = ContractResult.success true result.snd →
+      s.sender ≠ toAddr →
+        (s.storageMap balancesSlot.slot toAddr).val + amount.val ≤
+          Verity.Stdlib.Math.MAX_UINT256 := by
+  intro h_run h_success h_sender_ne
+  have h_balance :=
+    transfer_success_run_implies_balance_guard toAddr amount s result
+      h_run h_success
+  by_contra h_not
+  have h_overflow :
+      (s.storageMap balancesSlot.slot toAddr).val + amount.val >
+        Verity.Stdlib.Math.MAX_UINT256 := by
+    omega
+  have h_revert :=
+    transfer_run_revert_recipient_balance_overflow toAddr amount s
+      h_balance h_sender_ne h_overflow
+  rw [← h_run, h_success] at h_revert
+  cases h_revert
+
+private theorem burn_uint256_mul_val_le_nat_mul (a b : Uint256) :
+    (mul a b).val ≤ a.val * b.val := by
+  simp [Verity.EVM.Uint256.mul, Verity.Core.Uint256.mul,
+    Verity.Core.Uint256.ofNat]
+  exact Nat.mod_le _ _
+
+private theorem burn_uint256_div_mul_le_num
+    (a b : Uint256) (hb : 0 < b.val) :
+    (div a b).val * b.val ≤ a.val := by
+  have hb_ne : b.val ≠ 0 := Nat.ne_of_gt hb
+  have hq_lt : a.val / b.val < Verity.Core.Uint256.modulus := by
+    exact Nat.lt_of_le_of_lt (Nat.div_le_self a.val b.val) a.isLt
+  simp [Verity.EVM.Uint256.div, Verity.Core.Uint256.div, hb_ne,
+    Verity.Core.Uint256.ofNat, Nat.mod_eq_of_lt hq_lt]
+  exact Nat.div_mul_le_self a.val b.val
+
+private theorem burn_uint256_div_le_of_num_le_mul
+    (a b c : Uint256) (hb : 0 < b.val) :
+    a.val ≤ b.val * c.val →
+      (div a b).val ≤ c.val := by
+  intro h_num
+  have hb_ne : b.val ≠ 0 := Nat.ne_of_gt hb
+  have hq_lt : a.val / b.val < Verity.Core.Uint256.modulus := by
+    exact Nat.lt_of_le_of_lt (Nat.div_le_self a.val b.val) a.isLt
+  simp [Verity.EVM.Uint256.div, Verity.Core.Uint256.div, hb_ne,
+    Verity.Core.Uint256.ofNat, Nat.mod_eq_of_lt hq_lt]
+  exact Nat.div_le_of_le_mul h_num
+
+theorem burn_amount0_le_observed_of_liquidity_le
+    (s : ContractState) :
+  0 < (burnSupply s).val →
+    (burnLiquidity s).val ≤ (burnSupply s).val →
+      burnAmount0 s ≤ observedBalance0 s := by
+  intro h_supply_pos h_liquidity_le
+  rw [Verity.Core.Uint256.le_def]
+  unfold burnAmount0 burnAmount0Product
+  apply burn_uint256_div_le_of_num_le_mul
+      (mul (burnLiquidity s) (observedBalance0 s))
+      (burnSupply s) (observedBalance0 s) h_supply_pos
+  calc
+    (mul (burnLiquidity s) (observedBalance0 s)).val ≤
+        (burnLiquidity s).val * (observedBalance0 s).val := by
+      exact burn_uint256_mul_val_le_nat_mul (burnLiquidity s) (observedBalance0 s)
+    _ ≤ (burnSupply s).val * (observedBalance0 s).val := by
+      exact Nat.mul_le_mul_right _ h_liquidity_le
+
+theorem burn_amount1_le_observed_of_liquidity_le
+    (s : ContractState) :
+  0 < (burnSupply s).val →
+    (burnLiquidity s).val ≤ (burnSupply s).val →
+      burnAmount1 s ≤ observedBalance1 s := by
+  intro h_supply_pos h_liquidity_le
+  rw [Verity.Core.Uint256.le_def]
+  unfold burnAmount1 burnAmount1Product
+  apply burn_uint256_div_le_of_num_le_mul
+      (mul (burnLiquidity s) (observedBalance1 s))
+      (burnSupply s) (observedBalance1 s) h_supply_pos
+  calc
+    (mul (burnLiquidity s) (observedBalance1 s)).val ≤
+        (burnLiquidity s).val * (observedBalance1 s).val := by
+      exact burn_uint256_mul_val_le_nat_mul (burnLiquidity s) (observedBalance1 s)
+    _ ≤ (burnSupply s).val * (observedBalance1 s).val := by
+      exact Nat.mul_le_mul_right _ h_liquidity_le
+
+theorem burn_amount0_ratio_of_success_math
+    (s : ContractState) :
+  0 < (burnSupply s).val →
+    (burnAmount0 s).val * (burnSupply s).val ≤
+      (burnLiquidity s).val * (observedBalance0 s).val := by
+  intro h_supply_pos
+  unfold burnAmount0 burnAmount0Product
+  calc
+    (div (mul (burnLiquidity s) (observedBalance0 s)) (burnSupply s)).val *
+        (burnSupply s).val ≤
+        (mul (burnLiquidity s) (observedBalance0 s)).val := by
+      exact burn_uint256_div_mul_le_num
+        (mul (burnLiquidity s) (observedBalance0 s)) (burnSupply s)
+        h_supply_pos
+    _ ≤ (burnLiquidity s).val * (observedBalance0 s).val := by
+      exact burn_uint256_mul_val_le_nat_mul (burnLiquidity s) (observedBalance0 s)
+
+theorem burn_amount1_ratio_of_success_math
+    (s : ContractState) :
+  0 < (burnSupply s).val →
+    (burnAmount1 s).val * (burnSupply s).val ≤
+      (burnLiquidity s).val * (observedBalance1 s).val := by
+  intro h_supply_pos
+  unfold burnAmount1 burnAmount1Product
+  calc
+    (div (mul (burnLiquidity s) (observedBalance1 s)) (burnSupply s)).val *
+        (burnSupply s).val ≤
+        (mul (burnLiquidity s) (observedBalance1 s)).val := by
+      exact burn_uint256_div_mul_le_num
+        (mul (burnLiquidity s) (observedBalance1 s)) (burnSupply s)
+        h_supply_pos
+    _ ≤ (burnLiquidity s).val * (observedBalance1 s).val := by
+      exact burn_uint256_mul_val_le_nat_mul (burnLiquidity s) (observedBalance1 s)
+
+theorem burn_success_implies_guards
+    (toAddr : Address) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) :
+  result = (burn toAddr).run s →
+    result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
+      (burnLiquidity s).val ≤ (burnSupply s).val →
+        0 < (burnLiquidity s).val ∧
+          0 < (burnSupply s).val ∧
+          burnAmount0 s > 0 ∧
+          burnAmount1 s > 0 ∧
+          burnAmount0 s ≤ observedBalance0 s ∧
+          burnAmount1 s ≤ observedBalance1 s ∧
+          burnBalance0After s ≤ maxUint112 ∧
+          burnBalance1After s ≤ maxUint112 ∧
+          (burnAmount0 s).val * (burnSupply s).val ≤
+            (burnLiquidity s).val * (observedBalance0 s).val ∧
+          (burnAmount1 s).val * (burnSupply s).val ≤
+            (burnLiquidity s).val * (observedBalance1 s).val := by
+  intro h_run h_success h_liquidity_le
+  rcases burn_success_run_implies_liquidity_supply_pos toAddr s result
+      h_run h_success with
+    ⟨h_liquidity_pos, h_supply_pos_uint⟩
+  rcases burn_success_run_implies_amounts_pos toAddr s result h_run
+      h_success with
+    ⟨h_amount0_pos, h_amount1_pos⟩
+  rcases burn_success_run_implies_observed_balances_fit_uint112 toAddr s
+      result h_run h_success with
+    ⟨h_observed0_bound, h_observed1_bound⟩
+  have h_supply_pos : 0 < (burnSupply s).val := by
+    simpa [Verity.Core.Uint256.lt_def] using h_supply_pos_uint
+  have h_amount0_le :=
+    burn_amount0_le_observed_of_liquidity_le s h_supply_pos h_liquidity_le
+  have h_amount1_le :=
+    burn_amount1_le_observed_of_liquidity_le s h_supply_pos h_liquidity_le
+  exact ⟨by simpa [Verity.Core.Uint256.lt_def] using h_liquidity_pos,
+    h_supply_pos, h_amount0_pos, h_amount1_pos, h_amount0_le, h_amount1_le,
+    burn_balance0_after_bound_of_observed_bound s h_amount0_le h_observed0_bound,
+    burn_balance1_after_bound_of_observed_bound s h_amount1_le h_observed1_bound,
+    burn_amount0_ratio_of_success_math s h_supply_pos,
+    burn_amount1_ratio_of_success_math s h_supply_pos⟩
 
 def pair_burn_expected_matches_closed_world_step
     (s : ContractState) : Prop :=

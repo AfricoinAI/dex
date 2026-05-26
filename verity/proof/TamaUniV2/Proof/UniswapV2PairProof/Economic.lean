@@ -1529,12 +1529,9 @@ theorem pairEconomicActionConcreteStep_wallet
       · simpa [pairWalletFromConcreteAndTokens] using hLp
       · simp [pairWalletFromConcreteAndTokens]
   | burn toAddr preTokens s transferLiquidity transferResult burnResult
-      hTransferRun _hTransferSuccess hBurnRun hSuccess hBefore hAfter hToAddr
-      hSender hCallerNeSelf hTransferBalance hTransferNoOverflow
-      hExternal hPostBalances hLiquidityPos hSupplyPos hLiquidityLe
-      hLockedRemaining hAmount0Pos hAmount1Pos hAmount0Le hAmount1Le hBound0
-      hBound1 hRatio0 hRatio1 hTokenDistinct hCallerToken0Add
-      hCallerToken1Add =>
+      hTransferRun hTransferSuccess hBurnRun hSuccess hBefore hAfter hToAddr
+      hSender hCallerNeSelf hExternal hPostBalances hLiquidityLe
+      hLockedRemaining hTokenDistinct hCallerToken0Add hCallerToken1Add =>
       subst before
       subst after
       subst toAddr
@@ -1579,6 +1576,21 @@ theorem pairEconomicActionConcreteStep_wallet
           pairSelf transferResult.snd ≠ caller := by
         intro h_eq
         exact hCallerNeSelfTransfer h_eq.symm
+      have hTransferBalanceSender :
+          transferLiquidity.val ≤ (s.storageMap balancesSlot.slot s.sender).val :=
+        transfer_success_run_implies_balance_guard (pairSelf s)
+          transferLiquidity s transferResult hTransferRun hTransferSuccess
+      have hTransferBalance :
+          transferLiquidity.val ≤ (s.storageMap balancesSlot.slot caller).val := by
+        simpa [hSender] using hTransferBalanceSender
+      have hSenderNePairSelf : s.sender ≠ pairSelf s := by
+        simpa [hSender] using hCallerNeSelf
+      have hTransferNoOverflow :
+          (s.storageMap balancesSlot.slot (pairSelf s)).val + transferLiquidity.val ≤
+            Verity.Stdlib.Math.MAX_UINT256 :=
+        transfer_success_run_implies_recipient_no_overflow (pairSelf s)
+          transferLiquidity s transferResult hTransferRun hTransferSuccess
+          hSenderNePairSelf
       have hTransferPairWorld :
           pairWorldFromConcreteAndTokens preTokens s =
             pairWorldFromConcreteAndTokens preTokens transferResult.snd := by
@@ -1589,6 +1601,18 @@ theorem pairEconomicActionConcreteStep_wallet
         constructor
         · rw [hTransferToken0AddrRaw]
         · rw [hTransferToken1AddrRaw]
+      have hBurnSuccessRun :
+          (burn caller).run transferResult.snd =
+            ContractResult.success
+              (burnAmount0 transferResult.snd, burnAmount1 transferResult.snd)
+              ((burn caller).run transferResult.snd).snd := by
+        rw [← hBurnRun]
+        exact hSuccess
+      rcases burn_success_implies_guards caller transferResult.snd
+          ((burn caller).run transferResult.snd) rfl hBurnSuccessRun
+          hLiquidityLe with
+        ⟨hLiquidityPos, hSupplyPos, hAmount0Pos, hAmount1Pos, hAmount0Le,
+          hAmount1Le, hBound0, hBound1, hRatio0, hRatio1⟩
       have hPair :
           PairWorldStep
             (PairWorldAction.burn
@@ -1611,13 +1635,6 @@ theorem pairEconomicActionConcreteStep_wallet
               (burnBalance1After transferResult.snd) := by
           rw [← hBurnRun]
           exact hPostBalances
-        have hBurnSuccessRun :
-            (burn caller).run transferResult.snd =
-              ContractResult.success
-                (burnAmount0 transferResult.snd, burnAmount1 transferResult.snd)
-                ((burn caller).run transferResult.snd).snd := by
-          rw [← hBurnRun]
-          exact hSuccess
         have hBurnPair :=
           burn_success_reaches_expected_pair_state caller preTokens
             transferResult.snd rfl hBurnSuccessRun hExternalRun
@@ -1637,13 +1654,6 @@ theorem pairEconomicActionConcreteStep_wallet
           rw [hBurnRun]
           exact hBurnPair
         rwa [hTransferPairWorld]
-      have hBurnSuccessRun :
-          (burn caller).run transferResult.snd =
-            ContractResult.success
-              (burnAmount0 transferResult.snd, burnAmount1 transferResult.snd)
-              ((burn caller).run transferResult.snd).snd := by
-        rw [← hBurnRun]
-        exact hSuccess
       have hTransfers :
           pairTransfersAfterCall transferResult.snd burnResult =
             [{ token := pairToken0 transferResult.snd,
