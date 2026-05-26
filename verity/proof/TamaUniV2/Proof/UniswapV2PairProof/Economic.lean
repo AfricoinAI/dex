@@ -1415,8 +1415,9 @@ theorem pairEconomicActionConcreteStep_wallet
   intro h_step
   cases h_step with
   | mint toAddr preTokens s result liquidity hRun hSuccess hBefore
-      hAfter hToAddr hReserve0 hReserve1 hAmount0 hAmount1
-      hFirstExternal hLaterExternal hFirstGuards hLaterGuards =>
+      hAfter hToAddr hReserve0 hReserve1 hFirstExternal hLaterExternal =>
+      have ⟨hAmount0, hAmount1, hFirstGuards, hLaterGuards⟩ :=
+        mint_success_implies_guards toAddr s result liquidity hRun hSuccess
       subst before
       subst after
       subst result
