@@ -2296,12 +2296,12 @@ theorem actual_execution_no_free_lunch
     (initialState : ContractState) (after : PairWalletWorldState) :
   pair_actual_execution_no_free_lunch caller initialTokens initialState after := by
   intro h_good h_supply h_reserve0 h_reserve1 h_path
-  exact wallet_single_caller_history_no_portfolio_profit
+  exact wallet_single_caller_history_no_extraction
     (pairWalletFromConcreteAndTokens caller initialTokens initialState)
-    after h_good h_supply h_reserve0 h_reserve1
-    (pairEconomicActionConcretePath_ordinaryWalletHistory
-      (by simp [PairWalletFlowEmpty, pairWalletFromConcreteAndTokens])
-      h_path)
+    after h_good
+    (by simp [PairWalletFlowEmpty, pairWalletFromConcreteAndTokens])
+    h_supply h_reserve0 h_reserve1
+    (pairEconomicActionConcretePath_walletHistory h_path)
 
 -- tama: discharges=pair_wallet_history_preserves_good
 theorem wallet_history_preserves_good

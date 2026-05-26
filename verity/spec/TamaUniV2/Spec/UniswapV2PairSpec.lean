@@ -82,9 +82,12 @@ callbacks, and CREATE2 deployment.
 ## 1. No free lunch
 
 The headline economic property. From any reachable state, no finite sequence of
-successful pair calls can increase the caller's portfolio value at the initial
-spot price, assuming token0 and token1 behave like ordinary ERC20s for each call
-in the path.
+successful pair calls lets the caller take more value out of the pair than they
+put into it, plus the value they could already claim at the start — all measured
+at the initial spot price, and assuming token0 and token1 behave like ordinary
+ERC20s for each call in the path. Value crossing the pair boundary is what is
+counted; trades the caller makes elsewhere are not the pair's doing and do not
+enter the measure.
 -/
 
 def pair_actual_execution_no_free_lunch
@@ -96,8 +99,9 @@ def pair_actual_execution_no_free_lunch
       0 < before.pair.reserve0 →
         0 < before.pair.reserve1 →
           PairEconomicActionConcretePath caller before after →
-            PairWalletPortfolioValueInToken1 before.pair after ≤
-              PairWalletPortfolioValueInToken1 before.pair before
+            PairWalletFlowReceivedValueAtSpot before.pair after ≤
+              PairWalletFlowGivenValueAtSpot before.pair after +
+                PairWalletInitialClaimValueAtSpot before.pair before
 
 /-!
 ## 2. LP-share backing
