@@ -53,6 +53,9 @@ attribute [local simp] decimals totalSupply balanceOf allowance factory token0 t
   Contracts.emit emitEvent
 
 attribute [local simp] sqrt_run_success_frames_state
+theorem mintLockedState_storageMap (s : ContractState) :
+    (mintLockedState s).storageMap = s.storageMap := rfl
+
 theorem pairTokenWorldAfterEvent_eq_pairTransferOfEvent
     (pre : PairTokenBalances) (event : Event) :
   pairTokenWorldAfterEvent pre event =
@@ -446,23 +449,99 @@ theorem contractPreservesStorageAddr_run_snd {α : Type}
   | «revert» reason post =>
       rfl
 
+def contractPreservesStorageMap {α : Type} (key : Address) (c : Contract α) : Prop :=
+  ∀ s, (c s).snd.storageMap balancesSlot.slot key = s.storageMap balancesSlot.slot key
+
+theorem contractPreservesStorageMap_of_preservesState {α : Type}
+    (key : Address) (c : Contract α) (h_c : contractPreservesState c) :
+    contractPreservesStorageMap key c := by
+  intro s
+  rw [h_c s]
+
+theorem contractPreservesStorageMap_pure {α : Type} (key : Address) (a : α) :
+    contractPreservesStorageMap key (Verity.pure a : Contract α) := by
+  intro s
+  rfl
+
+theorem contractPreservesStorageMap_require (key : Address)
+    (condition : Bool) (message : String) :
+    contractPreservesStorageMap key (Verity.require condition message) := by
+  exact contractPreservesStorageMap_of_preservesState key _
+    (contractPreservesState_require condition message)
+
+theorem contractPreservesStorageMap_bind {α β : Type}
+    (key : Address) (ma : Contract α) (f : α → Contract β)
+    (h_ma : contractPreservesStorageMap key ma)
+    (h_f : ∀ a, contractPreservesStorageMap key (f a)) :
+    contractPreservesStorageMap key (ma >>= f) := by
+  intro s
+  change ((Verity.bind ma f) s).snd.storageMap balancesSlot.slot key =
+    s.storageMap balancesSlot.slot key
+  unfold Verity.bind
+  cases h_run : ma s with
+  | success a mid =>
+      calc
+        ((f a mid).snd).storageMap balancesSlot.slot key =
+            mid.storageMap balancesSlot.slot key := h_f a mid
+        _ = s.storageMap balancesSlot.slot key := by
+          have h_preserved := h_ma s
+          rw [h_run] at h_preserved
+          simpa only [ContractResult.snd] using h_preserved
+  | «revert» reason mid =>
+      have h_preserved := h_ma s
+      rw [h_run] at h_preserved
+      simpa only [ContractResult.snd] using h_preserved
+
+theorem contractPreservesStorageMap_run_snd {α : Type}
+    (key : Address) (c : Contract α) (h_c : contractPreservesStorageMap key c)
+    (s : ContractState) :
+    (c.run s).snd.storageMap balancesSlot.slot key = s.storageMap balancesSlot.slot key := by
+  unfold Contract.run
+  cases h_run : c s with
+  | success a post =>
+      have h_preserved := h_c s
+      rw [h_run] at h_preserved
+      simpa only [ContractResult.snd] using h_preserved
+  | «revert» reason post =>
+      rfl
+
 theorem contractPreservesStorageAddr_getStorage (sl : StorageSlot Uint256) :
     contractPreservesStorageAddr (getStorage sl) := by
   exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
 
+theorem contractPreservesStorageMap_getStorage (key : Address) (sl : StorageSlot Uint256) :
+    contractPreservesStorageMap key (getStorage sl) := by
+  exact contractPreservesStorageMap_of_preservesState key _ (by intro s; rfl)
+
 theorem contractPreservesStorageAddr_getStorageAddr (sl : StorageSlot Address) :
     contractPreservesStorageAddr (getStorageAddr sl) := by
   exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
+
+theorem contractPreservesStorageMap_getStorageAddr
+    (key : Address) (sl : StorageSlot Address) :
+    contractPreservesStorageMap key (getStorageAddr sl) := by
+  exact contractPreservesStorageMap_of_preservesState key _ (by intro s; rfl)
 
 theorem contractPreservesStorageAddr_getMapping
     (sl : StorageSlot (Address → Uint256)) (key : Address) :
     contractPreservesStorageAddr (getMapping sl key) := by
   exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
 
+theorem contractPreservesStorageMap_getMapping
+    (key : Address) (sl : StorageSlot (Address → Uint256)) (mapKey : Address) :
+    contractPreservesStorageMap key (getMapping sl mapKey) := by
+  exact contractPreservesStorageMap_of_preservesState key _ (by intro s; rfl)
+
 theorem contractPreservesStorageAddr_setStorage (sl : StorageSlot Uint256)
     (value : Uint256) :
     contractPreservesStorageAddr (setStorage sl value) := by
   intro s i
+  rfl
+
+theorem contractPreservesStorageMap_setStorage
+    (key : Address) (sl : StorageSlot Uint256) (value : Uint256) :
+    contractPreservesStorageMap key (setStorage sl value) := by
+  intro s
   rfl
 
 theorem contractPreservesStorageAddr_setMapping
@@ -471,6 +550,33 @@ theorem contractPreservesStorageAddr_setMapping
   intro s i
   rfl
 
+theorem contractPreservesStorageMap_setMapping_of_ne
+    (key : Address) (sl : StorageSlot (Address → Uint256))
+    (mapKey : Address) (value : Uint256)
+    (h_ne : sl.slot ≠ balancesSlot.slot ∨ mapKey ≠ key) :
+    contractPreservesStorageMap key (setMapping sl mapKey value) := by
+  intro s
+  unfold setMapping
+  change
+    (if balancesSlot.slot == sl.slot && key == mapKey then value
+      else s.storageMap balancesSlot.slot key) =
+      s.storageMap balancesSlot.slot key
+  by_cases h_cond : (balancesSlot.slot == sl.slot && key == mapKey) = true
+  · have h_parts :
+        (balancesSlot.slot == sl.slot) = true ∧ (key == mapKey) = true := by
+      simpa [Bool.and_eq_true] using h_cond
+    have h_slot_eq : balancesSlot.slot = sl.slot := by
+      exact beq_iff_eq.mp h_parts.1
+    have h_key_eq : key = mapKey := by
+      exact beq_iff_eq.mp h_parts.2
+    rcases h_ne with h_slot | h_key
+    · exact False.elim (h_slot h_slot_eq.symm)
+    · exact False.elim (h_key h_key_eq.symm)
+  · have h_false : (balancesSlot.slot == sl.slot && key == mapKey) = false :=
+      Bool.eq_false_of_not_eq_true h_cond
+    rw [h_false]
+    simp
+
 theorem contractPreservesStorageAddr_setMapping2
     (sl : StorageSlot (Address → Address → Uint256))
     (key1 key2 : Address) (value : Uint256) :
@@ -478,10 +584,22 @@ theorem contractPreservesStorageAddr_setMapping2
   intro s i
   rfl
 
+theorem contractPreservesStorageMap_setMapping2
+    (key : Address) (sl : StorageSlot (Address → Address → Uint256))
+    (key1 key2 : Address) (value : Uint256) :
+    contractPreservesStorageMap key (setMapping2 sl key1 key2 value) := by
+  intro s
+  rfl
+
 theorem contractPreservesStorageAddr_requireSomeUint
     (opt : Option Uint256) (message : String) :
     contractPreservesStorageAddr (Verity.Stdlib.Math.requireSomeUint opt message) := by
   cases opt <;> exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
+
+theorem contractPreservesStorageMap_requireSomeUint
+    (key : Address) (opt : Option Uint256) (message : String) :
+    contractPreservesStorageMap key (Verity.Stdlib.Math.requireSomeUint opt message) := by
+  cases opt <;> exact contractPreservesStorageMap_of_preservesState key _ (by intro s; rfl)
 
 theorem contractPreservesStorageAddr_sqrt (x : Uint256) :
     contractPreservesStorageAddr (Tamago.Utils.FixedPointMathLibBase.sqrt x) := by
@@ -489,26 +607,55 @@ theorem contractPreservesStorageAddr_sqrt (x : Uint256) :
   rw [sqrt_run_success_frames_state]
   rfl
 
+theorem contractPreservesStorageMap_sqrt (key : Address) (x : Uint256) :
+    contractPreservesStorageMap key (Tamago.Utils.FixedPointMathLibBase.sqrt x) := by
+  intro s
+  rw [sqrt_run_success_frames_state]
+  rfl
+
 theorem contractPreservesStorageAddr_blockTimestamp :
     contractPreservesStorageAddr Verity.blockTimestamp := by
   exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
+
+theorem contractPreservesStorageMap_blockTimestamp (key : Address) :
+    contractPreservesStorageMap key Verity.blockTimestamp := by
+  exact contractPreservesStorageMap_of_preservesState key _ (by intro s; rfl)
 
 theorem contractPreservesStorageAddr_msgSender :
     contractPreservesStorageAddr msgSender := by
   exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
 
+theorem contractPreservesStorageMap_msgSender (key : Address) :
+    contractPreservesStorageMap key msgSender := by
+  exact contractPreservesStorageMap_of_preservesState key _ (by intro s; rfl)
+
 theorem contractPreservesStorageAddr_contractAddress :
     contractPreservesStorageAddr Verity.contractAddress := by
   exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
+
+theorem contractPreservesStorageMap_contractAddress (key : Address) :
+    contractPreservesStorageMap key Verity.contractAddress := by
+  exact contractPreservesStorageMap_of_preservesState key _ (by intro s; rfl)
 
 theorem contractPreservesStorageAddr_mstore (offset value : Uint256) :
     contractPreservesStorageAddr (Contracts.mstore offset value) := by
   exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
 
+theorem contractPreservesStorageMap_mstore (key : Address) (offset value : Uint256) :
+    contractPreservesStorageMap key (Contracts.mstore offset value) := by
+  exact contractPreservesStorageMap_of_preservesState key _ (by intro s; rfl)
+
 theorem contractPreservesStorageAddr_rawLog
     (topics : List Uint256) (dataOffset dataSize : Uint256) :
     contractPreservesStorageAddr (Contracts.rawLog topics dataOffset dataSize) := by
   intro s i
+  unfold Contracts.rawLog
+  by_cases h_topics : topics.length > 4 <;> simp [h_topics]
+
+theorem contractPreservesStorageMap_rawLog
+    (key : Address) (topics : List Uint256) (dataOffset dataSize : Uint256) :
+    contractPreservesStorageMap key (Contracts.rawLog topics dataOffset dataSize) := by
+  intro s
   unfold Contracts.rawLog
   by_cases h_topics : topics.length > 4 <;> simp [h_topics]
 
@@ -518,34 +665,73 @@ theorem contractPreservesStorageAddr_emitEvent
   intro s i
   rfl
 
+theorem contractPreservesStorageMap_emitEvent
+    (key : Address) (name : String) (args indexedArgs : List Uint256) :
+    contractPreservesStorageMap key (emitEvent name args indexedArgs) := by
+  intro s
+  rfl
+
 theorem contractPreservesStorageAddr_emit (name : String) (args : List Uint256) :
     contractPreservesStorageAddr (Contracts.emit name args) := by
   intro s i
+  rfl
+
+theorem contractPreservesStorageMap_emit
+    (key : Address) (name : String) (args : List Uint256) :
+    contractPreservesStorageMap key (Contracts.emit name args) := by
+  intro s
   rfl
 
 theorem contractPreservesStorageAddr_balanceOf (token owner : Address) :
     contractPreservesStorageAddr (Contracts.balanceOf token owner) := by
   exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
 
+theorem contractPreservesStorageMap_balanceOf
+    (key : Address) (token owner : Address) :
+    contractPreservesStorageMap key (Contracts.balanceOf token owner) := by
+  exact contractPreservesStorageMap_of_preservesState key _ (by intro s; rfl)
+
 theorem contractPreservesStorageAddr_erc20BalanceOf (token owner : Address) :
     contractPreservesStorageAddr (TamaUniV2.erc20BalanceOf token owner) := by
   exact contractPreservesStorageAddr_balanceOf token owner
+
+theorem contractPreservesStorageMap_erc20BalanceOf
+    (key : Address) (token owner : Address) :
+    contractPreservesStorageMap key (TamaUniV2.erc20BalanceOf token owner) := by
+  exact contractPreservesStorageMap_balanceOf key token owner
 
 theorem contractPreservesStorageAddr_ecmDo {γ : Type}
     (module : γ) (args : List Uint256) :
     contractPreservesStorageAddr (ecmDo module args : Contract Unit) := by
   exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
 
+theorem contractPreservesStorageMap_ecmDo {γ : Type}
+    (key : Address) (module : γ) (args : List Uint256) :
+    contractPreservesStorageMap key (ecmDo module args : Contract Unit) := by
+  exact contractPreservesStorageMap_of_preservesState key _ (by intro s; rfl)
+
 theorem contractPreservesStorageAddr_safeTransfer
     (token toAddr : Address) (amount : Uint256) :
     contractPreservesStorageAddr (Contracts.safeTransfer token toAddr amount) := by
   exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
+
+theorem contractPreservesStorageMap_safeTransfer
+    (key : Address) (token toAddr : Address) (amount : Uint256) :
+    contractPreservesStorageMap key (Contracts.safeTransfer token toAddr amount) := by
+  exact contractPreservesStorageMap_of_preservesState key _ (by intro s; rfl)
 
 theorem contractPreservesStorageAddr_tracePairTokenSafeTransfer
     (token toAddr : Address) (amount : Uint256) :
     contractPreservesStorageAddr
       (TamaUniV2.tracePairTokenSafeTransfer token toAddr amount) := by
   intro s i
+  rfl
+
+theorem contractPreservesStorageMap_tracePairTokenSafeTransfer
+    (key : Address) (token toAddr : Address) (amount : Uint256) :
+    contractPreservesStorageMap key
+      (TamaUniV2.tracePairTokenSafeTransfer token toAddr amount) := by
+  intro s
   rfl
 
 theorem contractPreservesStorageAddr_pairSafeTransfer
@@ -559,6 +745,18 @@ theorem contractPreservesStorageAddr_pairSafeTransfer
     · exact contractPreservesStorageAddr_tracePairTokenSafeTransfer token toAddr amount
     · intro _
       exact contractPreservesStorageAddr_pure (1 : Uint256)
+
+theorem contractPreservesStorageMap_pairSafeTransfer
+    (key : Address) (token toAddr : Address) (amount : Uint256) :
+    contractPreservesStorageMap key (TamaUniV2.pairSafeTransfer token toAddr amount) := by
+  unfold TamaUniV2.pairSafeTransfer
+  apply contractPreservesStorageMap_bind
+  · exact contractPreservesStorageMap_safeTransfer key token toAddr amount
+  · intro _
+    apply contractPreservesStorageMap_bind
+    · exact contractPreservesStorageMap_tracePairTokenSafeTransfer key token toAddr amount
+    · intro _
+      exact contractPreservesStorageMap_pure key (1 : Uint256)
 
 def contractAppendsEvents {α : Type} (c : Contract α) : Prop :=
   ∀ s, ∃ ev, (c.run s).snd.events = s.events ++ ev
@@ -761,6 +959,50 @@ theorem contractPreservesStorageAddr_updateReservesAndEmitSync
         -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
         -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
         -timestamp32, -oracleElapsed])
+
+theorem contractPreservesStorageMap_updateReservesAndEmitSync
+    (key : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value
+      timestamp32 previousTimestamp : Uint256) :
+    contractPreservesStorageMap key
+      (UniswapV2PairBase.updateReservesAndEmitSync balance0Now balance1Now
+        reserve0Value reserve1Value timestamp32 previousTimestamp) := by
+  intro s
+  unfold UniswapV2PairBase.updateReservesAndEmitSync
+  simp [getStorage, setStorage, ContractResult.snd, Verity.bind,
+    Bind.bind, Verity.pure, Pure.pure, Contracts.rawLog, Contracts.mstore,
+    -maxUint112, -UniswapV2PairBase.maxUint112,
+    -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+    -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+    -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+    -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+    -timestamp32, -oracleElapsed]
+  repeat' (first
+    | split_ifs
+    | simp [getStorage, setStorage, ContractResult.snd, Verity.bind,
+        Bind.bind, Verity.pure, Pure.pure, Contracts.rawLog, Contracts.mstore,
+        -maxUint112, -UniswapV2PairBase.maxUint112,
+        -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+        -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+        -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+        -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+        -timestamp32, -oracleElapsed])
+
+theorem updateReservesAndEmitSync_run_storageMap_balances
+    (key : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value
+      timestamp32 previousTimestamp : Uint256)
+    (s : ContractState) :
+    ((UniswapV2PairBase.updateReservesAndEmitSync balance0Now balance1Now
+      reserve0Value reserve1Value timestamp32 previousTimestamp).run s).snd.storageMap
+        balancesSlot.slot key =
+      s.storageMap balancesSlot.slot key :=
+  contractPreservesStorageMap_run_snd key
+    (UniswapV2PairBase.updateReservesAndEmitSync balance0Now balance1Now
+      reserve0Value reserve1Value timestamp32 previousTimestamp)
+    (contractPreservesStorageMap_updateReservesAndEmitSync key
+      balance0Now balance1Now reserve0Value reserve1Value timestamp32 previousTimestamp)
+    s
 
 
 end TamaUniV2.Proof.UniswapV2PairProof

@@ -283,12 +283,34 @@ private theorem contractPreservesStorageAddr_skim (toAddr : Address) :
     | apply contractPreservesStorageAddr_bind
     | intro _
 
+private theorem contractPreservesStorageMap_skim (key toAddr : Address) :
+    contractPreservesStorageMap key (skim toAddr) := by
+  unfold skim UniswapV2PairBase.skim
+  repeat
+    first
+    | exact contractPreservesStorageMap_getStorage key _
+    | exact contractPreservesStorageMap_getStorageAddr key _
+    | exact contractPreservesStorageMap_require key _ _
+    | exact contractPreservesStorageMap_setStorage key _ _
+    | exact contractPreservesStorageMap_contractAddress key
+    | exact contractPreservesStorageMap_erc20BalanceOf key _ _
+    | exact contractPreservesStorageMap_pairSafeTransfer key _ _ _
+    | exact contractPreservesStorageMap_pure key _
+    | apply contractPreservesStorageMap_bind
+    | intro _
+
 theorem skim_run_storageAddr_frame
     (toAddr : Address) (s : ContractState) (i : Nat) :
   ((skim toAddr).run s).snd.storageAddr i = s.storageAddr i :=
   contractPreservesStorageAddr_run_snd (skim toAddr)
     (contractPreservesStorageAddr_skim toAddr) s i
 
+theorem skim_caller_lp_frame
+    (toAddr caller : Address) (s : ContractState) :
+  ((skim toAddr).run s).snd.storageMap balancesSlot.slot caller =
+    s.storageMap balancesSlot.slot caller := by
+  exact contractPreservesStorageMap_run_snd caller (skim toAddr)
+    (contractPreservesStorageMap_skim caller toAddr) s
 
 
 

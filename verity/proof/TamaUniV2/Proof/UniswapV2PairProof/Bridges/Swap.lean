@@ -1991,6 +1991,18 @@ private theorem contractPreservesStorageAddr_finishSwapChecked
     (finishSwapChecked_preserves_state_raw sender balance0Now balance1Now
       reserve0Value reserve1Value amount0Out amount1Out)
 
+private theorem contractPreservesStorageMap_finishSwapChecked
+    (key sender : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value
+      amount0Out amount1Out : Uint256) :
+    contractPreservesStorageMap key
+      (UniswapV2PairBase.finishSwapChecked sender
+        balance0Now balance1Now reserve0Value reserve1Value
+        amount0Out amount1Out) :=
+  contractPreservesStorageMap_of_preservesState key _
+    (finishSwapChecked_preserves_state_raw sender balance0Now balance1Now
+      reserve0Value reserve1Value amount0Out amount1Out)
+
 private theorem contractPreservesStorageAddr_finishSwapUpdate
     (sender toAddr : Address)
     (balance0Now balance1Now reserve0Value reserve1Value
@@ -2011,6 +2023,26 @@ private theorem contractPreservesStorageAddr_finishSwapUpdate
     | apply contractPreservesStorageAddr_bind
     | intro _
 
+private theorem contractPreservesStorageMap_finishSwapUpdate
+    (key sender toAddr : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value
+      amount0In amount1In amount0Out amount1Out timestamp32 previousTimestamp : Uint256) :
+    contractPreservesStorageMap key
+      (UniswapV2PairBase.finishSwapUpdate sender
+        balance0Now balance1Now reserve0Value reserve1Value
+        amount0In amount1In amount0Out amount1Out toAddr timestamp32
+        previousTimestamp) := by
+  unfold UniswapV2PairBase.finishSwapUpdate
+  repeat
+    first
+    | exact contractPreservesStorageMap_mstore key _ _
+    | exact contractPreservesStorageMap_updateReservesAndEmitSync key _ _ _ _ _ _
+    | exact contractPreservesStorageMap_emit key _ _
+    | exact contractPreservesStorageMap_setStorage key _ _
+    | exact contractPreservesStorageMap_pure key _
+    | apply contractPreservesStorageMap_bind
+    | intro _
+
 private theorem contractPreservesStorageAddr_finishSwap
     (sender toAddr : Address)
     (balance0Now balance1Now reserve0Value reserve1Value
@@ -2026,6 +2058,24 @@ private theorem contractPreservesStorageAddr_finishSwap
   · intro amounts
     rcases amounts with ⟨amount0In, amount1In⟩
     exact contractPreservesStorageAddr_finishSwapUpdate sender toAddr
+      balance0Now balance1Now reserve0Value reserve1Value amount0In amount1In
+      amount0Out amount1Out timestamp32 previousTimestamp
+
+private theorem contractPreservesStorageMap_finishSwap
+    (key sender toAddr : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value
+      amount0Out amount1Out timestamp32 previousTimestamp : Uint256) :
+    contractPreservesStorageMap key
+      (UniswapV2PairBase.finishSwap sender
+        balance0Now balance1Now reserve0Value reserve1Value
+        amount0Out amount1Out toAddr timestamp32 previousTimestamp) := by
+  unfold UniswapV2PairBase.finishSwap
+  apply contractPreservesStorageMap_bind
+  · exact contractPreservesStorageMap_finishSwapChecked key sender
+      balance0Now balance1Now reserve0Value reserve1Value amount0Out amount1Out
+  · intro amounts
+    rcases amounts with ⟨amount0In, amount1In⟩
+    exact contractPreservesStorageMap_finishSwapUpdate key sender toAddr
       balance0Now balance1Now reserve0Value reserve1Value amount0In amount1In
       amount0Out amount1Out timestamp32 previousTimestamp
 
@@ -2051,6 +2101,29 @@ private theorem contractPreservesStorageAddr_swap
     | intro _
     | split_ifs
 
+private theorem contractPreservesStorageMap_swap
+    (key : Address)
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray) :
+    contractPreservesStorageMap key (swap amount0Out amount1Out toAddr data) := by
+  unfold swap UniswapV2PairBase.swap
+  repeat
+    first
+    | exact contractPreservesStorageMap_getStorage key _
+    | exact contractPreservesStorageMap_getStorageAddr key _
+    | exact contractPreservesStorageMap_require key _ _
+    | exact contractPreservesStorageMap_setStorage key _ _
+    | exact contractPreservesStorageMap_blockTimestamp key
+    | exact contractPreservesStorageMap_pairSafeTransfer key _ _ _
+    | exact contractPreservesStorageMap_msgSender key
+    | exact contractPreservesStorageMap_ecmDo key _ _
+    | exact contractPreservesStorageMap_contractAddress key
+    | exact contractPreservesStorageMap_erc20BalanceOf key _ _
+    | exact contractPreservesStorageMap_finishSwap key _ _ _ _ _ _ _ _ _ _
+    | exact contractPreservesStorageMap_pure key _
+    | apply contractPreservesStorageMap_bind
+    | intro _
+    | split_ifs
+
 theorem swap_run_storageAddr_frame
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (s : ContractState) (i : Nat) :
@@ -2059,6 +2132,14 @@ theorem swap_run_storageAddr_frame
   contractPreservesStorageAddr_run_snd (swap amount0Out amount1Out toAddr data)
     (contractPreservesStorageAddr_swap amount0Out amount1Out toAddr data) s i
 
+theorem swap_caller_lp_frame
+    (amount0Out amount1Out : Uint256) (toAddr caller : Address) (data : ByteArray)
+    (s : ContractState) :
+  ((swap amount0Out amount1Out toAddr data).run s).snd.storageMap balancesSlot.slot caller =
+    s.storageMap balancesSlot.slot caller := by
+  exact contractPreservesStorageMap_run_snd caller
+    (swap amount0Out amount1Out toAddr data)
+    (contractPreservesStorageMap_swap caller amount0Out amount1Out toAddr data) s
 
 
 
