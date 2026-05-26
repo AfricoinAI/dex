@@ -88,6 +88,120 @@ theorem swap_success_run_implies_nonzero_output
     · exact Or.inr h_amount1
   · exact Or.inl h_amount0
 
+theorem swap_success_run_implies_output_lt_reserves
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) (result : ContractResult Unit) :
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      amount0Out < s.storage reserve0Slot.slot ∧
+      amount1Out < s.storage reserve1Slot.slot := by
+  intro h_run h_success
+  have h_unlocked :=
+    swap_success_run_implies_lock_open amount0Out amount1Out
+      toAddr data s result h_run h_success
+  have h_nonzero :=
+    swap_success_run_implies_nonzero_output amount0Out amount1Out
+      toAddr data s result h_run h_success
+  have h_output : amount0Out > 0 ∨ amount1Out > 0 := by
+    rcases h_nonzero with h_amount0 | h_amount1
+    · exact Or.inl (uint256_pos_of_ne_zero h_amount0)
+    · exact Or.inr (uint256_pos_of_ne_zero h_amount1)
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_unlocked
+  have h_lock_guard :
+      (s.storage UniswapV2PairBase.unlockedSlot.slot == (1 : Uint256)) = true := by
+    simp [UniswapV2PairBase.unlockedSlot, h_unlocked_raw]
+  have h_output_guard : (amount0Out > 0 || amount1Out > 0) = true := by
+    simpa [Bool.or_eq_true] using h_output
+  have h_get_lock :
+      getStorage UniswapV2PairBase.unlockedSlot s =
+        ContractResult.success (s.storage UniswapV2PairBase.unlockedSlot.slot) s := rfl
+  have h_req_lock :
+      Verity.require (s.storage UniswapV2PairBase.unlockedSlot.slot == (1 : Uint256))
+        "UniswapV2: LOCKED" s = ContractResult.success () s := by
+    simp only [Verity.require, h_lock_guard, if_true]
+  have h_timestamp :
+      Verity.blockTimestamp s = ContractResult.success s.blockTimestamp s := rfl
+  have h_previous :
+      getStorage UniswapV2PairBase.blockTimestampLastSlot s =
+        ContractResult.success (s.storage blockTimestampLastSlot.slot) s := by
+    simp only [getStorage, blockTimestampLastSlot, UniswapV2PairBase.blockTimestampLastSlot]
+  have h_req_output :
+      Verity.require (amount0Out > 0 || amount1Out > 0)
+        "UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT" s =
+          ContractResult.success () s := by
+    simp only [Verity.require, h_output_guard, if_true]
+  have h_set_lock :
+      setStorage UniswapV2PairBase.unlockedSlot (0 : Uint256) s =
+        ContractResult.success () (mintLockedState s) := by
+    simpa only [UniswapV2PairBase.unlockedSlot] using
+      setStorage_unlockedSlot_app_mintLockedState s
+  have h_get_reserve0 :
+      getStorage UniswapV2PairBase.reserve0Slot (mintLockedState s) =
+        ContractResult.success (s.storage reserve0Slot.slot) (mintLockedState s) := by
+    simp only [getStorage]
+    rw [mintLockedState_storage_reserve0]
+  have h_get_reserve1 :
+      getStorage UniswapV2PairBase.reserve1Slot (mintLockedState s) =
+        ContractResult.success (s.storage reserve1Slot.slot) (mintLockedState s) := by
+    simp only [getStorage]
+    rw [mintLockedState_storage_reserve1]
+  have h_liq_guard :
+      (amount0Out < s.storage reserve0Slot.slot &&
+        amount1Out < s.storage reserve1Slot.slot) = true := by
+    by_cases h_guard :
+        (amount0Out < s.storage reserve0Slot.slot &&
+          amount1Out < s.storage reserve1Slot.slot) = true
+    · exact h_guard
+    · exfalso
+      have h_req_liq_false :
+          Verity.require
+              (amount0Out < s.storage reserve0Slot.slot &&
+                amount1Out < s.storage reserve1Slot.slot)
+              "UniswapV2: INSUFFICIENT_LIQUIDITY" (mintLockedState s) =
+            ContractResult.revert "UniswapV2: INSUFFICIENT_LIQUIDITY"
+              (mintLockedState s) := by
+        simp only [Verity.require]
+        rw [if_neg h_guard]
+      have h_swap_liq :
+          (swap amount0Out amount1Out toAddr data).run s =
+            ContractResult.revert "UniswapV2: INSUFFICIENT_LIQUIDITY" s := by
+        unfold swap UniswapV2PairBase.swap Contract.run
+        rw [contract_bind_success _ _ _ _ _ h_get_lock]
+        rw [contract_bind_success _ _ _ _ _ h_req_lock]
+        rw [contract_bind_success _ _ _ _ _ h_timestamp]
+        rw [contract_bind_success _ _ _ _ _ h_previous]
+        rw [contract_bind_success _ _ _ _ _ h_req_output]
+        rw [contract_bind_success _ _ _ _ _ h_set_lock]
+        rw [contract_bind_success _ _ _ _ _ h_get_reserve0]
+        rw [contract_bind_success _ _ _ _ _ h_get_reserve1]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_req_liq_false]
+      rw [h_run] at h_success
+      rw [h_swap_liq] at h_success
+      cases h_success
+  simpa [Bool.and_eq_true] using h_liq_guard
+
+theorem swap_success_run_implies_amount0Out_lt_reserve0
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) (result : ContractResult Unit) :
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      amount0Out < s.storage reserve0Slot.slot := by
+  intro h_run h_success
+  exact (swap_success_run_implies_output_lt_reserves
+    amount0Out amount1Out toAddr data s result h_run h_success).1
+
+theorem swap_success_run_implies_amount1Out_lt_reserve1
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) (result : ContractResult Unit) :
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      amount1Out < s.storage reserve1Slot.slot := by
+  intro h_run h_success
+  exact (swap_success_run_implies_output_lt_reserves
+    amount0Out amount1Out toAddr data s result h_run h_success).2
+
 
 -- tama: discharges=pair_skim_success_run_implies_balances_back_reserves
 theorem flash_callback_module_gates_nonempty_data :

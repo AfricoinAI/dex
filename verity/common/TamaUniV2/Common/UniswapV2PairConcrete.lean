@@ -780,8 +780,6 @@ inductive PairEconomicActionConcreteStep
           Core.Uint256.modulus)
       (hPostBalances :
         pairPostCallSelfBalancesMatch s result.snd balance0Now balance1Now)
-      (hAmount0OutLt : amount0Out < s.storage reserve0Slot.slot)
-      (hAmount1OutLt : amount1Out < s.storage reserve1Slot.slot)
       (hInput :
         swapAmount0In amount0Out balance0Now s > 0 ∨
           swapAmount1In amount1Out balance1Now s > 0)
