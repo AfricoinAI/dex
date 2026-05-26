@@ -4718,6 +4718,173 @@ private theorem contractPreservesState_run_snd {α : Type}
   | «revert» reason s' =>
       rfl
 
+private def contractPreservesStorageAddr {α : Type} (c : Contract α) : Prop :=
+  ∀ s, ∀ i, (c s).snd.storageAddr i = s.storageAddr i
+
+private theorem contractPreservesStorageAddr_of_preservesState {α : Type}
+    (c : Contract α) (h_c : contractPreservesState c) :
+    contractPreservesStorageAddr c := by
+  intro s i
+  rw [h_c s]
+
+private theorem contractPreservesStorageAddr_pure {α : Type} (a : α) :
+    contractPreservesStorageAddr (Verity.pure a : Contract α) := by
+  intro s i
+  rfl
+
+private theorem contractPreservesStorageAddr_require (condition : Bool) (message : String) :
+    contractPreservesStorageAddr (Verity.require condition message) := by
+  exact contractPreservesStorageAddr_of_preservesState _
+    (contractPreservesState_require condition message)
+
+private theorem contractPreservesStorageAddr_bind {α β : Type}
+    (ma : Contract α) (f : α → Contract β)
+    (h_ma : contractPreservesStorageAddr ma)
+    (h_f : ∀ a, contractPreservesStorageAddr (f a)) :
+    contractPreservesStorageAddr (ma >>= f) := by
+  intro s i
+  change ((Verity.bind ma f) s).snd.storageAddr i = s.storageAddr i
+  unfold Verity.bind
+  cases h_run : ma s with
+  | success a mid =>
+      calc
+        ((f a mid).snd).storageAddr i = mid.storageAddr i := h_f a mid i
+        _ = s.storageAddr i := by
+          have h_preserved := h_ma s i
+          rw [h_run] at h_preserved
+          simpa only [ContractResult.snd] using h_preserved
+  | «revert» reason mid =>
+      have h_preserved := h_ma s i
+      rw [h_run] at h_preserved
+      simpa only [ContractResult.snd] using h_preserved
+
+private theorem contractPreservesStorageAddr_run_snd {α : Type}
+    (c : Contract α) (h_c : contractPreservesStorageAddr c)
+    (s : ContractState) (i : Nat) :
+    (c.run s).snd.storageAddr i = s.storageAddr i := by
+  unfold Contract.run
+  cases h_run : c s with
+  | success a post =>
+      have h_preserved := h_c s i
+      rw [h_run] at h_preserved
+      simpa only [ContractResult.snd] using h_preserved
+  | «revert» reason post =>
+      rfl
+
+private theorem contractPreservesStorageAddr_getStorage (sl : StorageSlot Uint256) :
+    contractPreservesStorageAddr (getStorage sl) := by
+  exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
+
+private theorem contractPreservesStorageAddr_getStorageAddr (sl : StorageSlot Address) :
+    contractPreservesStorageAddr (getStorageAddr sl) := by
+  exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
+
+private theorem contractPreservesStorageAddr_getMapping
+    (sl : StorageSlot (Address → Uint256)) (key : Address) :
+    contractPreservesStorageAddr (getMapping sl key) := by
+  exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
+
+private theorem contractPreservesStorageAddr_setStorage (sl : StorageSlot Uint256)
+    (value : Uint256) :
+    contractPreservesStorageAddr (setStorage sl value) := by
+  intro s i
+  rfl
+
+private theorem contractPreservesStorageAddr_setMapping
+    (sl : StorageSlot (Address → Uint256)) (key : Address) (value : Uint256) :
+    contractPreservesStorageAddr (setMapping sl key value) := by
+  intro s i
+  rfl
+
+private theorem contractPreservesStorageAddr_setMapping2
+    (sl : StorageSlot (Address → Address → Uint256))
+    (key1 key2 : Address) (value : Uint256) :
+    contractPreservesStorageAddr (setMapping2 sl key1 key2 value) := by
+  intro s i
+  rfl
+
+private theorem contractPreservesStorageAddr_requireSomeUint
+    (opt : Option Uint256) (message : String) :
+    contractPreservesStorageAddr (Verity.Stdlib.Math.requireSomeUint opt message) := by
+  cases opt <;> exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
+
+private theorem contractPreservesStorageAddr_sqrt (x : Uint256) :
+    contractPreservesStorageAddr (Tamago.Utils.FixedPointMathLibBase.sqrt x) := by
+  intro s i
+  rw [sqrt_run_success_frames_state]
+  rfl
+
+private theorem contractPreservesStorageAddr_blockTimestamp :
+    contractPreservesStorageAddr Verity.blockTimestamp := by
+  exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
+
+private theorem contractPreservesStorageAddr_msgSender :
+    contractPreservesStorageAddr msgSender := by
+  exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
+
+private theorem contractPreservesStorageAddr_contractAddress :
+    contractPreservesStorageAddr Verity.contractAddress := by
+  exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
+
+private theorem contractPreservesStorageAddr_mstore (offset value : Uint256) :
+    contractPreservesStorageAddr (Contracts.mstore offset value) := by
+  exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
+
+private theorem contractPreservesStorageAddr_rawLog
+    (topics : List Uint256) (dataOffset dataSize : Uint256) :
+    contractPreservesStorageAddr (Contracts.rawLog topics dataOffset dataSize) := by
+  intro s i
+  unfold Contracts.rawLog
+  by_cases h_topics : topics.length > 4 <;> simp [h_topics]
+
+private theorem contractPreservesStorageAddr_emitEvent
+    (name : String) (args indexedArgs : List Uint256) :
+    contractPreservesStorageAddr (emitEvent name args indexedArgs) := by
+  intro s i
+  rfl
+
+private theorem contractPreservesStorageAddr_emit (name : String) (args : List Uint256) :
+    contractPreservesStorageAddr (Contracts.emit name args) := by
+  intro s i
+  rfl
+
+private theorem contractPreservesStorageAddr_balanceOf (token owner : Address) :
+    contractPreservesStorageAddr (Contracts.balanceOf token owner) := by
+  exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
+
+private theorem contractPreservesStorageAddr_erc20BalanceOf (token owner : Address) :
+    contractPreservesStorageAddr (TamaUniV2.erc20BalanceOf token owner) := by
+  exact contractPreservesStorageAddr_balanceOf token owner
+
+private theorem contractPreservesStorageAddr_ecmDo {γ : Type}
+    (module : γ) (args : List Uint256) :
+    contractPreservesStorageAddr (ecmDo module args : Contract Unit) := by
+  exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
+
+private theorem contractPreservesStorageAddr_safeTransfer
+    (token toAddr : Address) (amount : Uint256) :
+    contractPreservesStorageAddr (Contracts.safeTransfer token toAddr amount) := by
+  exact contractPreservesStorageAddr_of_preservesState _ (by intro s; rfl)
+
+private theorem contractPreservesStorageAddr_tracePairTokenSafeTransfer
+    (token toAddr : Address) (amount : Uint256) :
+    contractPreservesStorageAddr
+      (TamaUniV2.tracePairTokenSafeTransfer token toAddr amount) := by
+  intro s i
+  rfl
+
+private theorem contractPreservesStorageAddr_pairSafeTransfer
+    (token toAddr : Address) (amount : Uint256) :
+    contractPreservesStorageAddr (TamaUniV2.pairSafeTransfer token toAddr amount) := by
+  unfold TamaUniV2.pairSafeTransfer
+  apply contractPreservesStorageAddr_bind
+  · exact contractPreservesStorageAddr_safeTransfer token toAddr amount
+  · intro _
+    apply contractPreservesStorageAddr_bind
+    · exact contractPreservesStorageAddr_tracePairTokenSafeTransfer token toAddr amount
+    · intro _
+      exact contractPreservesStorageAddr_pure (1 : Uint256)
+
 private theorem finishSwapChecked_preserves_state_raw
     (sender : Address)
     (balance0Now balance1Now reserve0Value reserve1Value
@@ -6697,6 +6864,282 @@ theorem swap_success_reaches_expected_pair_state
       h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
   rw [h_before, h_after]
   exact h_step
+
+private theorem contractPreservesStorageAddr_finishSwapChecked
+    (sender : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value
+      amount0Out amount1Out : Uint256) :
+    contractPreservesStorageAddr
+      (UniswapV2PairBase.finishSwapChecked sender
+        balance0Now balance1Now reserve0Value reserve1Value
+        amount0Out amount1Out) :=
+  contractPreservesStorageAddr_of_preservesState _
+    (finishSwapChecked_preserves_state_raw sender balance0Now balance1Now
+      reserve0Value reserve1Value amount0Out amount1Out)
+
+private theorem contractPreservesStorageAddr_updateReservesAndEmitSync
+    (balance0Now balance1Now reserve0Value reserve1Value
+      timestamp32 previousTimestamp : Uint256) :
+    contractPreservesStorageAddr
+      (UniswapV2PairBase.updateReservesAndEmitSync balance0Now balance1Now
+        reserve0Value reserve1Value timestamp32 previousTimestamp) := by
+  intro s i
+  unfold UniswapV2PairBase.updateReservesAndEmitSync
+  simp [getStorage, setStorage, ContractResult.snd, Verity.bind,
+    Bind.bind, Verity.pure, Pure.pure, Contracts.rawLog, Contracts.mstore,
+    -maxUint112, -UniswapV2PairBase.maxUint112,
+    -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+    -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+    -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+    -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+    -timestamp32, -oracleElapsed]
+  repeat' (first
+    | split_ifs
+    | simp [getStorage, setStorage, ContractResult.snd, Verity.bind,
+        Bind.bind, Verity.pure, Pure.pure, Contracts.rawLog, Contracts.mstore,
+        -maxUint112, -UniswapV2PairBase.maxUint112,
+        -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
+        -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
+        -oraclePrice0CumulativeAfterElapsed, -oraclePrice1CumulativeAfterElapsed,
+        -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
+        -timestamp32, -oracleElapsed])
+
+private theorem contractPreservesStorageAddr_finishFirstMint
+    (toAddr sender : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value amount0 amount1
+      root liquidity newToBalance timestamp32 previousTimestamp : Uint256) :
+    contractPreservesStorageAddr
+      (UniswapV2PairBase.finishFirstMint toAddr sender balance0Now balance1Now
+        reserve0Value reserve1Value amount0 amount1 root liquidity newToBalance
+        timestamp32 previousTimestamp) := by
+  unfold UniswapV2PairBase.finishFirstMint
+  repeat
+    first
+    | exact contractPreservesStorageAddr_updateReservesAndEmitSync _ _ _ _ _ _
+    | exact contractPreservesStorageAddr_setStorage _ _
+    | exact contractPreservesStorageAddr_setMapping _ _ _
+    | exact contractPreservesStorageAddr_emit _ _
+    | exact contractPreservesStorageAddr_pure _
+    | apply contractPreservesStorageAddr_bind
+    | intro _
+
+private theorem contractPreservesStorageAddr_finishFirstMintChecked
+    (toAddr sender : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value amount0 amount1
+      root timestamp32 previousTimestamp : Uint256) :
+    contractPreservesStorageAddr
+      (UniswapV2PairBase.finishFirstMintChecked toAddr sender balance0Now balance1Now
+        reserve0Value reserve1Value amount0 amount1 root timestamp32 previousTimestamp) := by
+  unfold UniswapV2PairBase.finishFirstMintChecked
+  repeat
+    first
+    | exact contractPreservesStorageAddr_getMapping _ _
+    | exact contractPreservesStorageAddr_requireSomeUint _ _
+    | exact contractPreservesStorageAddr_finishFirstMint _ _ _ _ _ _ _ _ _ _ _ _ _
+    | exact contractPreservesStorageAddr_pure _
+    | apply contractPreservesStorageAddr_bind
+    | intro _
+
+private theorem contractPreservesStorageAddr_finishLaterMint
+    (toAddr sender : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value amount0 amount1
+      supply liquidity timestamp32 previousTimestamp : Uint256) :
+    contractPreservesStorageAddr
+      (UniswapV2PairBase.finishLaterMint toAddr sender balance0Now balance1Now
+        reserve0Value reserve1Value amount0 amount1 supply liquidity
+        timestamp32 previousTimestamp) := by
+  unfold UniswapV2PairBase.finishLaterMint
+  repeat
+    first
+    | exact contractPreservesStorageAddr_updateReservesAndEmitSync _ _ _ _ _ _
+    | exact contractPreservesStorageAddr_getMapping _ _
+    | exact contractPreservesStorageAddr_requireSomeUint _ _
+    | exact contractPreservesStorageAddr_setStorage _ _
+    | exact contractPreservesStorageAddr_setMapping _ _ _
+    | exact contractPreservesStorageAddr_emit _ _
+    | exact contractPreservesStorageAddr_pure _
+    | apply contractPreservesStorageAddr_bind
+    | intro _
+
+private theorem contractPreservesStorageAddr_firstMintPath
+    (toAddr sender : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value amount0 amount1 : Uint256) :
+    contractPreservesStorageAddr
+      (UniswapV2PairBase.firstMintPath toAddr sender balance0Now balance1Now
+        reserve0Value reserve1Value amount0 amount1) := by
+  unfold UniswapV2PairBase.firstMintPath
+  repeat
+    first
+    | exact contractPreservesStorageAddr_require _ _
+    | exact contractPreservesStorageAddr_sqrt _
+    | exact contractPreservesStorageAddr_blockTimestamp
+    | exact contractPreservesStorageAddr_getStorage _
+    | exact contractPreservesStorageAddr_finishFirstMintChecked _ _ _ _ _ _ _ _ _ _ _
+    | exact contractPreservesStorageAddr_pure _
+    | apply contractPreservesStorageAddr_bind
+    | intro _
+
+private theorem contractPreservesStorageAddr_laterMintPath
+    (toAddr sender : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value amount0 amount1
+      supply : Uint256) :
+    contractPreservesStorageAddr
+      (UniswapV2PairBase.laterMintPath toAddr sender balance0Now balance1Now
+        reserve0Value reserve1Value amount0 amount1 supply) := by
+  unfold UniswapV2PairBase.laterMintPath
+  repeat
+    first
+    | exact contractPreservesStorageAddr_require _ _
+    | exact contractPreservesStorageAddr_blockTimestamp
+    | exact contractPreservesStorageAddr_getStorage _
+    | exact contractPreservesStorageAddr_finishLaterMint _ _ _ _ _ _ _ _ _ _ _ _
+    | exact contractPreservesStorageAddr_pure _
+    | apply contractPreservesStorageAddr_bind
+    | intro _
+
+private theorem contractPreservesStorageAddr_finishSwapUpdate
+    (sender toAddr : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value
+      amount0In amount1In amount0Out amount1Out timestamp32 previousTimestamp : Uint256) :
+    contractPreservesStorageAddr
+      (UniswapV2PairBase.finishSwapUpdate sender
+        balance0Now balance1Now reserve0Value reserve1Value
+        amount0In amount1In amount0Out amount1Out toAddr timestamp32
+        previousTimestamp) := by
+  unfold UniswapV2PairBase.finishSwapUpdate
+  repeat
+    first
+    | exact contractPreservesStorageAddr_mstore _ _
+    | exact contractPreservesStorageAddr_updateReservesAndEmitSync _ _ _ _ _ _
+    | exact contractPreservesStorageAddr_emit _ _
+    | exact contractPreservesStorageAddr_setStorage _ _
+    | exact contractPreservesStorageAddr_pure _
+    | apply contractPreservesStorageAddr_bind
+    | intro _
+
+private theorem contractPreservesStorageAddr_finishSwap
+    (sender toAddr : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value
+      amount0Out amount1Out timestamp32 previousTimestamp : Uint256) :
+    contractPreservesStorageAddr
+      (UniswapV2PairBase.finishSwap sender
+        balance0Now balance1Now reserve0Value reserve1Value
+        amount0Out amount1Out toAddr timestamp32 previousTimestamp) := by
+  unfold UniswapV2PairBase.finishSwap
+  apply contractPreservesStorageAddr_bind
+  · exact contractPreservesStorageAddr_finishSwapChecked sender
+      balance0Now balance1Now reserve0Value reserve1Value amount0Out amount1Out
+  · intro amounts
+    rcases amounts with ⟨amount0In, amount1In⟩
+    exact contractPreservesStorageAddr_finishSwapUpdate sender toAddr
+      balance0Now balance1Now reserve0Value reserve1Value amount0In amount1In
+      amount0Out amount1Out timestamp32 previousTimestamp
+
+private theorem contractPreservesStorageAddr_mint (toAddr : Address) :
+    contractPreservesStorageAddr (mint toAddr) := by
+  unfold mint UniswapV2PairBase.mint
+  repeat
+    first
+    | exact contractPreservesStorageAddr_getStorage _
+    | exact contractPreservesStorageAddr_getStorageAddr _
+    | exact contractPreservesStorageAddr_require _ _
+    | exact contractPreservesStorageAddr_setStorage _ _
+    | exact contractPreservesStorageAddr_msgSender
+    | exact contractPreservesStorageAddr_contractAddress
+    | exact contractPreservesStorageAddr_erc20BalanceOf _ _
+    | exact contractPreservesStorageAddr_firstMintPath _ _ _ _ _ _ _ _
+    | exact contractPreservesStorageAddr_laterMintPath _ _ _ _ _ _ _ _ _
+    | exact contractPreservesStorageAddr_pure _
+    | apply contractPreservesStorageAddr_bind
+    | intro _
+    | split_ifs
+
+private theorem contractPreservesStorageAddr_burn (toAddr : Address) :
+    contractPreservesStorageAddr (burn toAddr) := by
+  unfold burn UniswapV2PairBase.burn
+  repeat
+    first
+    | exact contractPreservesStorageAddr_getStorage _
+    | exact contractPreservesStorageAddr_getStorageAddr _
+    | exact contractPreservesStorageAddr_getMapping _ _
+    | exact contractPreservesStorageAddr_require _ _
+    | exact contractPreservesStorageAddr_setStorage _ _
+    | exact contractPreservesStorageAddr_setMapping _ _ _
+    | exact contractPreservesStorageAddr_blockTimestamp
+    | exact contractPreservesStorageAddr_msgSender
+    | exact contractPreservesStorageAddr_contractAddress
+    | exact contractPreservesStorageAddr_erc20BalanceOf _ _
+    | exact contractPreservesStorageAddr_emit _ _
+    | exact contractPreservesStorageAddr_pairSafeTransfer _ _ _
+    | exact contractPreservesStorageAddr_mstore _ _
+    | exact contractPreservesStorageAddr_updateReservesAndEmitSync _ _ _ _ _ _
+    | exact contractPreservesStorageAddr_pure _
+    | apply contractPreservesStorageAddr_bind
+    | intro _
+
+private theorem contractPreservesStorageAddr_swap
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray) :
+    contractPreservesStorageAddr (swap amount0Out amount1Out toAddr data) := by
+  unfold swap UniswapV2PairBase.swap
+  repeat
+    first
+    | exact contractPreservesStorageAddr_getStorage _
+    | exact contractPreservesStorageAddr_getStorageAddr _
+    | exact contractPreservesStorageAddr_require _ _
+    | exact contractPreservesStorageAddr_setStorage _ _
+    | exact contractPreservesStorageAddr_blockTimestamp
+    | exact contractPreservesStorageAddr_pairSafeTransfer _ _ _
+    | exact contractPreservesStorageAddr_msgSender
+    | exact contractPreservesStorageAddr_ecmDo _ _
+    | exact contractPreservesStorageAddr_contractAddress
+    | exact contractPreservesStorageAddr_erc20BalanceOf _ _
+    | exact contractPreservesStorageAddr_finishSwap _ _ _ _ _ _ _ _ _ _
+    | exact contractPreservesStorageAddr_pure _
+    | apply contractPreservesStorageAddr_bind
+    | intro _
+    | split_ifs
+
+private theorem contractPreservesStorageAddr_skim (toAddr : Address) :
+    contractPreservesStorageAddr (skim toAddr) := by
+  unfold skim UniswapV2PairBase.skim
+  repeat
+    first
+    | exact contractPreservesStorageAddr_getStorage _
+    | exact contractPreservesStorageAddr_getStorageAddr _
+    | exact contractPreservesStorageAddr_require _ _
+    | exact contractPreservesStorageAddr_setStorage _ _
+    | exact contractPreservesStorageAddr_contractAddress
+    | exact contractPreservesStorageAddr_erc20BalanceOf _ _
+    | exact contractPreservesStorageAddr_pairSafeTransfer _ _ _
+    | exact contractPreservesStorageAddr_pure _
+    | apply contractPreservesStorageAddr_bind
+    | intro _
+
+theorem mint_run_storageAddr_frame
+    (toAddr : Address) (s : ContractState) (i : Nat) :
+  ((mint toAddr).run s).snd.storageAddr i = s.storageAddr i :=
+  contractPreservesStorageAddr_run_snd (mint toAddr)
+    (contractPreservesStorageAddr_mint toAddr) s i
+
+theorem burn_run_storageAddr_frame
+    (toAddr : Address) (s : ContractState) (i : Nat) :
+  ((burn toAddr).run s).snd.storageAddr i = s.storageAddr i :=
+  contractPreservesStorageAddr_run_snd (burn toAddr)
+    (contractPreservesStorageAddr_burn toAddr) s i
+
+theorem swap_run_storageAddr_frame
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (s : ContractState) (i : Nat) :
+  ((swap amount0Out amount1Out toAddr data).run s).snd.storageAddr i =
+    s.storageAddr i :=
+  contractPreservesStorageAddr_run_snd (swap amount0Out amount1Out toAddr data)
+    (contractPreservesStorageAddr_swap amount0Out amount1Out toAddr data) s i
+
+theorem skim_run_storageAddr_frame
+    (toAddr : Address) (s : ContractState) (i : Nat) :
+  ((skim toAddr).run s).snd.storageAddr i = s.storageAddr i :=
+  contractPreservesStorageAddr_run_snd (skim toAddr)
+    (contractPreservesStorageAddr_skim toAddr) s i
 
 
 end TamaUniV2.Proof.UniswapV2PairProof
