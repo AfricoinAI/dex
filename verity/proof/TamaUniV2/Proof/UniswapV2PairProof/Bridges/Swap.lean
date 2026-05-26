@@ -1959,12 +1959,12 @@ theorem swap_success_reaches_expected_pair_state
       (by simp [pairConcreteStorageMatchesWorld, pairWorldFromConcreteState])
   have h_after :
       pairWorldFromConcreteAndTokens
-        (pairTokenWorldAfterCall preTokens s
+        (pairTokenWorldAfterSwapCall preTokens s balance0Now balance1Now
           ((swap amount0Out amount1Out toAddr data).run s))
         ((swap amount0Out amount1Out toAddr data).run s).snd =
         pairWorldAfterSwapRun balance0Now balance1Now s := by
     exact pairWorldFromConcreteAndTokens_eq_of_parts
-      (pairTokenWorldAfterCall preTokens s
+      (pairTokenWorldAfterSwapCall preTokens s balance0Now balance1Now
         ((swap amount0Out amount1Out toAddr data).run s))
       ((swap amount0Out amount1Out toAddr data).run s).snd
       (pairWorldAfterSwapRun balance0Now balance1Now s) h_after_tokens

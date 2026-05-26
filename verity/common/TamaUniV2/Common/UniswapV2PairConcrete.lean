@@ -152,6 +152,18 @@ def pairTokenWorldAfterCall {α : Type}
     PairTokenBalances :=
   pairTokenWorldAfterEvents pre (emittedPairEventsAfterCall s result)
 
+def pairTokenWorldAfterSwapCall {α : Type}
+    (pre : PairTokenBalances) (s : ContractState)
+    (balance0Now balance1Now : Uint256) (result : ContractResult α) :
+    PairTokenBalances :=
+  fun tokenValue account =>
+    if tokenValue = pairToken0 s ∧ account = pairSelf s then
+      balance0Now
+    else if tokenValue = pairToken1 s ∧ account = pairSelf s then
+      balance1Now
+    else
+      pairTokenWorldAfterCall pre s result tokenValue account
+
 structure PairTransfer where
   token : Address
   fromAddr : Address
@@ -297,6 +309,43 @@ def callerTokenBalance0
 def callerTokenBalance1
     (caller : Address) (tokens : PairTokenBalances) (s : ContractState) : Uint256 :=
   tokens (pairToken1 s) caller
+
+@[simp] theorem pairTokenBalance0_pairTokenWorldAfterSwapCall {α : Type}
+    (pre : PairTokenBalances) (s : ContractState)
+    (balance0Now balance1Now : Uint256) (result : ContractResult α) :
+    pairTokenBalance0
+      (pairTokenWorldAfterSwapCall pre s balance0Now balance1Now result)
+      s = balance0Now := by
+  simp [pairTokenBalance0, pairTokenWorldAfterSwapCall]
+
+@[simp] theorem pairTokenBalance1_pairTokenWorldAfterSwapCall {α : Type}
+    (pre : PairTokenBalances) (s : ContractState)
+    (balance0Now balance1Now : Uint256) (result : ContractResult α)
+    (hTokenDistinct : pairToken0 s ≠ pairToken1 s) :
+    pairTokenBalance1
+      (pairTokenWorldAfterSwapCall pre s balance0Now balance1Now result)
+      s = balance1Now := by
+  simp [pairTokenBalance1, pairTokenWorldAfterSwapCall, hTokenDistinct.symm]
+
+@[simp] theorem callerTokenBalance0_pairTokenWorldAfterSwapCall {α : Type}
+    (caller : Address) (pre : PairTokenBalances) (s : ContractState)
+    (balance0Now balance1Now : Uint256) (result : ContractResult α)
+    (hCallerNeSelf : caller ≠ pairSelf s) :
+    callerTokenBalance0 caller
+      (pairTokenWorldAfterSwapCall pre s balance0Now balance1Now result)
+      result.snd =
+    callerTokenBalance0 caller (pairTokenWorldAfterCall pre s result) result.snd := by
+  simp [callerTokenBalance0, pairTokenWorldAfterSwapCall, hCallerNeSelf]
+
+@[simp] theorem callerTokenBalance1_pairTokenWorldAfterSwapCall {α : Type}
+    (caller : Address) (pre : PairTokenBalances) (s : ContractState)
+    (balance0Now balance1Now : Uint256) (result : ContractResult α)
+    (hCallerNeSelf : caller ≠ pairSelf s) :
+    callerTokenBalance1 caller
+      (pairTokenWorldAfterSwapCall pre s balance0Now balance1Now result)
+      result.snd =
+    callerTokenBalance1 caller (pairTokenWorldAfterCall pre s result) result.snd := by
+  simp [callerTokenBalance1, pairTokenWorldAfterSwapCall, hCallerNeSelf]
 
 def pairWorldFromConcreteAndTokens
     (tokens : PairTokenBalances) (s : ContractState) : PairWorldState :=
@@ -578,9 +627,11 @@ def pairSwapExternalTokenBalancesMatchCall
     (preTokens : PairTokenBalances) (s : ContractState)
     (balance0Now balance1Now : Uint256)
     (result : ContractResult Unit) : Prop :=
-  pairExternalTokenBalancesMatchCall preTokens s result
-    (pairWorldFromConcreteState s)
-    (pairWorldAfterSwapRun balance0Now balance1Now s)
+  pairTokenBalancesMatchWorld preTokens s (pairWorldFromConcreteState s) ∧
+    pairTokenBalancesMatchWorld
+      (pairTokenWorldAfterSwapCall preTokens s balance0Now balance1Now result)
+      result.snd
+      (pairWorldAfterSwapRun balance0Now balance1Now s)
 
 def pairSkimExternalTokenBalancesMatchCall
     (preTokens : PairTokenBalances) (s : ContractState)
@@ -743,7 +794,8 @@ inductive PairEconomicActionConcreteStep
         after =
           pairWalletWithStepFlows
             (pairWalletFromConcreteAndTokens caller
-              (pairTokenWorldAfterCall preTokens s result) result.snd)
+              (pairTokenWorldAfterSwapCall preTokens s balance0Now balance1Now result)
+              result.snd)
             before
             amount0Out.val amount1Out.val 0
             ((swapAmount0In amount0Out balance0Now s).val -

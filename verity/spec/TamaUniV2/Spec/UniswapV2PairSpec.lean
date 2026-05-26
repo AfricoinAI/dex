@@ -22,9 +22,11 @@ callbacks, and CREATE2 deployment.
 
 ### Tier 1 — Economic safety
 
-1. **No free lunch** — from any reachable state, no finite sequence of valid
-   actions can increase a single caller's initial-spot-price portfolio value
-   (wallet tokens + LP-claimed reserves + skimmable surplus).
+1. **No extraction** — from any reachable state, no finite sequence of valid
+   actions can extract value from the pair beyond paid inputs, claimed LP
+   backing, and existing surplus. The claim covers ordinary swaps,
+   flash/callback and arbitrage swaps, and burns over LP already held by the
+   pair.
 
 2. **LP-share backing** — across every finite reachable history from a
    positive-supply state, reserve product per squared LP supply is monotone
@@ -1623,7 +1625,7 @@ def pair_swap_checks_k_against_final_balances
 /-- When `swap` succeeds, the zero-output guard has passed. The remaining
 premises are the post-callback balance, input, reserve-bound, and K facts that
 describe the state observed after any optimistic transfer and callback
-repayment. -/
+repayment, including flash/callback and arbitrage swaps. -/
 def pair_swap_success_reaches_expected_pair_state
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (balance0Now balance1Now : Uint256) (preTokens : PairTokenBalances)
@@ -1633,7 +1635,8 @@ def pair_swap_success_reaches_expected_pair_state
   let amount1In := swapAmount1In amount1Out balance1Now s
   let actual :=
     pairWorldFromConcreteAndTokens
-      (pairTokenWorldAfterCall preTokens s result) result.snd
+      (pairTokenWorldAfterSwapCall preTokens s balance0Now balance1Now result)
+      result.snd
   result = (swap amount0Out amount1Out toAddr data).run s →
     result = ContractResult.success () result.snd →
       pairSwapExternalTokenBalancesMatchCall preTokens s balance0Now balance1Now result →

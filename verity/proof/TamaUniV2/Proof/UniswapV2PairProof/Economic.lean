@@ -1860,7 +1860,7 @@ theorem pairEconomicActionConcreteStep_wallet
               amount0Out.val amount1Out.val)
             (pairWorldFromConcreteAndTokens preTokens s)
             (pairWorldFromConcreteAndTokens
-              (pairTokenWorldAfterCall preTokens s
+              (pairTokenWorldAfterSwapCall preTokens s balance0Now balance1Now
                 ((swap amount0Out amount1Out caller data).run s))
               ((swap amount0Out amount1Out caller data).run s).snd) := by
         exact swap_success_reaches_expected_pair_state
@@ -2117,6 +2117,24 @@ theorem pairEconomicActionConcreteStep_wallet
             (swapAmount1In amount1Out balance1Now s).val -
             PairWorldSurplus1 (pairWorldFromConcreteAndTokens preTokens s) := by
         rw [hBeforeWorld]
+      have hCaller0After :
+          (callerTokenBalance0 caller
+            (pairTokenWorldAfterSwapCall preTokens s balance0Now balance1Now
+              ((swap amount0Out amount1Out caller data).run s))
+            ((swap amount0Out amount1Out caller data).run s).snd).val =
+            (callerTokenBalance0 caller preTokens s).val + amount0Out.val := by
+        rw [callerTokenBalance0_pairTokenWorldAfterSwapCall
+          (hCallerNeSelf := hCallerNeSelf)]
+        exact hCaller0
+      have hCaller1After :
+          (callerTokenBalance1 caller
+            (pairTokenWorldAfterSwapCall preTokens s balance0Now balance1Now
+              ((swap amount0Out amount1Out caller data).run s))
+            ((swap amount0Out amount1Out caller data).run s).snd).val =
+            (callerTokenBalance1 caller preTokens s).val + amount1Out.val := by
+        rw [callerTokenBalance1_pairTokenWorldAfterSwapCall
+          (hCallerNeSelf := hCallerNeSelf)]
+        exact hCaller1
       constructor
       · convert hPair using 1
         simp [pairWalletFromConcreteAndTokens]
@@ -2124,9 +2142,9 @@ theorem pairEconomicActionConcreteStep_wallet
           ⟨by simpa [swapAmount0In, swapAmountIn] using hAmount0InFresh,
            by simpa [swapAmount1In, swapAmountIn] using hAmount1InFresh⟩
       constructor
-      · simpa [pairWalletFromConcreteAndTokens] using hCaller0
+      · simpa [pairWalletFromConcreteAndTokens] using hCaller0After
       constructor
-      · simpa [pairWalletFromConcreteAndTokens] using hCaller1
+      · simpa [pairWalletFromConcreteAndTokens] using hCaller1After
       constructor
       · simpa [pairWalletFromConcreteAndTokens] using congrArg (fun x => x.val) hLp
       · simp [pairWalletFromConcreteAndTokens, hAmount0InGive, hAmount1InGive]
