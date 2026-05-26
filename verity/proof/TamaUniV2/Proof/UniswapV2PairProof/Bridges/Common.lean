@@ -916,17 +916,6 @@ theorem contractAppendsEvents_updateReservesAndEmitSync
         -oraclePrice0CumulativeAfterSync, -oraclePrice1CumulativeAfterSync,
         -timestamp32, -oracleElapsed])
 
-theorem updateReservesAndEmitSync_run_events_append
-    (balance0Now balance1Now reserve0Value reserve1Value
-      timestamp32 previousTimestamp : Uint256)
-    (s : ContractState) :
-    ∃ ev,
-      ((UniswapV2PairBase.updateReservesAndEmitSync balance0Now balance1Now
-        reserve0Value reserve1Value timestamp32 previousTimestamp).run s).snd.events =
-        s.events ++ ev :=
-  contractAppendsEvents_updateReservesAndEmitSync
-    balance0Now balance1Now reserve0Value reserve1Value timestamp32 previousTimestamp s
-
 theorem pairSafeTransfer_run_events_append
     (token toAddr : Address) (amount : Uint256) (s : ContractState) :
     ∃ ev, ((TamaUniV2.pairSafeTransfer token toAddr amount).run s).snd.events =
