@@ -434,7 +434,7 @@ verity_contract UniswapV2PairBase where
     return mintedLiquidity
 
   function no_external_calls finishSwapChecked
-      (_sender : Address,
+      (sender : Address,
         balance0Now : Uint256, balance1Now : Uint256,
         reserve0Value : Uint256, reserve1Value : Uint256,
         amount0Out : Uint256, amount1Out : Uint256) : Tuple [Uint256, Uint256] := do
@@ -576,7 +576,7 @@ verity_contract UniswapV2PairBase where
     setStorage unlockedSlot 1
     return (amount0, amount1)
 
-  function allow_post_interaction_writes swap (amount0Out : Uint256, amount1Out : Uint256, toAddr : Address, _data : Bytes) : Unit := do
+  function allow_post_interaction_writes swap (amount0Out : Uint256, amount1Out : Uint256, toAddr : Address, data : Bytes) : Unit := do
     let lockValue ← getStorage unlockedSlot
     require (lockValue == 1) "UniswapV2: LOCKED"
     let currentTimestamp ← Verity.blockTimestamp
