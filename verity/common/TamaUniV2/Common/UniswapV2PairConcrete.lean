@@ -667,21 +667,22 @@ inductive PairEconomicActionConcreteStep
       (hBefore : before = pairWalletFromConcreteAndTokens caller preTokens s)
       (hAfter :
         after =
-          pairWalletWithStepFlows
-            (pairWalletFromConcreteAndTokens caller
-              (pairTokenWorldAfterCall preTokens transferResult.snd burnResult)
-              burnResult.snd)
-            before
-            (burnAmount0 transferResult.snd).val
-            (burnAmount1 transferResult.snd).val
-            0
-            0
-            0
-            transferLiquidity.val)
+          { pairWalletWithStepFlows
+              (pairWalletFromConcreteAndTokens caller
+                (pairTokenWorldAfterCall preTokens transferResult.snd burnResult)
+                burnResult.snd)
+              before
+              (burnAmount0 transferResult.snd).val
+              (burnAmount1 transferResult.snd).val
+              0
+              0
+              0
+              transferLiquidity.val with
+            pairLp := (burnResult.snd.storageMap balancesSlot.slot
+              (pairSelf transferResult.snd)).val })
       (hToAddr : toAddr = caller)
       (hSender : s.sender = caller)
       (hCallerNeSelf : caller ≠ pairSelf s)
-      (hPairSelfNoLp : s.storageMap balancesSlot.slot (pairSelf s) = 0)
       (hTransferBalance :
         transferLiquidity.val ≤ (s.storageMap balancesSlot.slot caller).val)
       (hTransferNoOverflow :
@@ -744,14 +745,19 @@ inductive PairEconomicActionConcreteStep
             (pairWalletFromConcreteAndTokens caller
               (pairTokenWorldAfterCall preTokens s result) result.snd)
             before
-            amount0Out.val amount1Out.val 0 0 0 0)
+            amount0Out.val amount1Out.val 0
+            ((swapAmount0In amount0Out balance0Now s).val -
+              PairWorldSurplus0 (pairWorldFromConcreteState s))
+            ((swapAmount1In amount1Out balance1Now s).val -
+              PairWorldSurplus1 (pairWorldFromConcreteState s))
+            0)
       (hExternal :
         pairSwapExternalTokenBalancesMatchCall
           preTokens s balance0Now balance1Now result)
-      (hObserved0 :
-        (observedBalance0 s).val = balance0Now.val + amount0Out.val)
-      (hObserved1 :
-        (observedBalance1 s).val = balance1Now.val + amount1Out.val)
+      (hBalance0Le :
+        (observedBalance0 s).val ≤ balance0Now.val + amount0Out.val)
+      (hBalance1Le :
+        (observedBalance1 s).val ≤ balance1Now.val + amount1Out.val)
       (hToAddr : toAddr = caller)
       (hCallerNeSelf : caller ≠ pairSelf s)
       (hTokenDistinct : pairToken0 s ≠ pairToken1 s)

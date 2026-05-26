@@ -1411,8 +1411,7 @@ theorem wallet_single_caller_history_no_extraction
 theorem pairEconomicActionConcreteStep_wallet
     {caller : Address} {before after : PairWalletWorldState} :
   PairEconomicActionConcreteStep caller before after →
-    ∃ action, PairWalletStep action before after ∧
-      PairWalletActionOrdinary action before after := by
+    ∃ action, PairWalletStep action before after := by
   intro h_step
   cases h_step with
   | mint toAddr preTokens s result liquidity hRun hSuccess hBefore
@@ -1422,7 +1421,7 @@ theorem pairEconomicActionConcreteStep_wallet
       subst after
       subst result
       refine ⟨PairWalletAction.callerMint
-        (mintAmount0 s).val (mintAmount1 s).val liquidity.val, ?_, by trivial⟩
+        (mintAmount0 s).val (mintAmount1 s).val liquidity.val, ?_⟩
       have hPair :
           PairWorldStep
             (PairWorldAction.mint
@@ -1530,7 +1529,7 @@ theorem pairEconomicActionConcreteStep_wallet
       · simp [pairWalletFromConcreteAndTokens]
   | burn toAddr preTokens s transferLiquidity transferResult burnResult
       hTransferRun _hTransferSuccess hBurnRun hSuccess hBefore hAfter hToAddr
-      hSender hCallerNeSelf hPairSelfNoLp hTransferBalance hTransferNoOverflow
+      hSender hCallerNeSelf hTransferBalance hTransferNoOverflow
       hExternal hPostBalances hLiquidityPos hSupplyPos hLiquidityLe
       hLockedRemaining hAmount0Pos hAmount1Pos hAmount0Le hAmount1Le hBound0
       hBound1 hRatio0 hRatio1 hTokenDistinct hCallerToken0Add
@@ -1541,9 +1540,8 @@ theorem pairEconomicActionConcreteStep_wallet
       refine ⟨PairWalletAction.callerBurn
         (burnAmount0 transferResult.snd).val
         (burnAmount1 transferResult.snd).val
-        (burnLiquidity transferResult.snd).val
-        (burnLiquidity transferResult.snd).val, ?_, by
-          simp [PairWalletActionOrdinary]⟩
+        transferLiquidity.val
+        (burnLiquidity transferResult.snd).val, ?_⟩
       have hTransferStorage :
           transferResult.snd.storage = s.storage := by
         rw [hTransferRun]
@@ -1705,10 +1703,34 @@ theorem pairEconomicActionConcreteStep_wallet
         rw [hPairSelfTransfer]
         exact hTransferPairLpAdd
       have hBurnLiquidityValEq :
-          (burnLiquidity transferResult.snd).val = transferLiquidity.val := by
+          (burnLiquidity transferResult.snd).val =
+            (s.storageMap balancesSlot.slot (pairSelf s)).val +
+              transferLiquidity.val := by
         have h_val := congrArg (fun x : Uint256 => x.val) hBurnLiquidityEq
-        rw [hPairSelfNoLp] at h_val
-        simpa using h_val
+        have h_add :
+            (transferLiquidity + s.storageMap 9 s.thisAddress).val =
+              (s.storageMap 9 s.thisAddress).val + transferLiquidity.val := by
+          have h_noOverflowCore :
+              (s.storageMap 9 s.thisAddress).val + transferLiquidity.val ≤
+                Verity.Core.MAX_UINT256 := by
+            simpa [Verity.Stdlib.Math.MAX_UINT256, Verity.Core.MAX_UINT256,
+              balancesSlot, UniswapV2PairBase.balancesSlot, pairSelf]
+              using hTransferNoOverflow
+          have h_lt :
+              (s.storageMap 9 s.thisAddress).val + transferLiquidity.val <
+                Core.Uint256.modulus := by
+            rw [← Core.Uint256.max_uint256_succ_eq_modulus]
+            omega
+          simpa [Verity.Core.Uint256.add, Verity.Core.Uint256.ofNat,
+            Nat.add_comm] using Nat.mod_eq_of_lt h_lt
+        simpa [pairSelf, balancesSlot, UniswapV2PairBase.balancesSlot, h_add] using h_val
+      have hBurnPairSelfZero :
+          (burnResult.snd.storageMap balancesSlot.slot (pairSelf transferResult.snd)).val =
+            0 := by
+        rw [hBurnRun]
+        exact burn_run_pairSelf_lp_zero caller transferResult.snd hBurnSuccessRun
+          hPostBalances hLiquidityPos hSupplyPos hLiquidityLe hLockedRemaining
+          hAmount0Pos hAmount1Pos hAmount0Le hAmount1Le hBound0 hBound1
       have hTokenDistinctSymm :
           pairToken1 transferResult.snd ≠ pairToken0 transferResult.snd := by
         intro h_eq
@@ -1777,7 +1799,7 @@ theorem pairEconomicActionConcreteStep_wallet
       have hLp :
           (burnResult.snd.storageMap balancesSlot.slot caller).val =
             (s.storageMap balancesSlot.slot caller).val -
-              (burnLiquidity transferResult.snd).val := by
+              transferLiquidity.val := by
         have hBurnLpFrameVal :=
           congrArg (fun x : Uint256 => x.val) hBurnLpFrame
         have hTransferLpSubVal :=
@@ -1797,14 +1819,8 @@ theorem pairEconomicActionConcreteStep_wallet
                 simpa using hTransferLpSubVal
           _ = (s.storageMap balancesSlot.slot caller).val -
                 transferLiquidity.val := hSubVal
-          _ = (s.storageMap balancesSlot.slot caller).val -
-                (burnLiquidity transferResult.snd).val := by
-                rw [hBurnLiquidityValEq]
       constructor
-      · change (s.storageMap balancesSlot.slot caller).val ≥
-          (burnLiquidity transferResult.snd).val
-        rw [hBurnLiquidityValEq]
-        exact hTransferBalance
+      · exact hTransferBalance
       constructor
       · simpa [pairWalletFromConcreteAndTokens] using hPair
       constructor
@@ -1813,9 +1829,16 @@ theorem pairEconomicActionConcreteStep_wallet
       · simpa [pairWalletFromConcreteAndTokens, hCaller1Before] using hCaller1
       constructor
       · simpa [pairWalletFromConcreteAndTokens] using hLp
-      · simp [pairWalletFromConcreteAndTokens, hBurnLiquidityValEq]
+      constructor
+      · change
+          (burnResult.snd.storageMap balancesSlot.slot (pairSelf transferResult.snd)).val +
+              (burnLiquidity transferResult.snd).val =
+            (s.storageMap balancesSlot.slot (pairSelf s)).val + transferLiquidity.val
+        rw [hBurnPairSelfZero, hBurnLiquidityValEq]
+        omega
+      · simp [pairWalletFromConcreteAndTokens]
   | swap amount0Out amount1Out toAddr data balance0Now balance1Now preTokens
-      s result hRun hSuccess hBefore hAfter hExternal hObserved0 hObserved1
+      s result hRun hSuccess hBefore hAfter hExternal hBalance0Le hBalance1Le
       hToAddr hCallerNeSelf hTokenDistinct hCallerToken0Add hCallerToken1Add
       hPostBalances hAmount0OutLt hAmount1OutLt hInput hBalance0 hBalance1
       hBound0 hBound1 hFee0 hFee1 hAdjustedK =>
@@ -1824,8 +1847,11 @@ theorem pairEconomicActionConcreteStep_wallet
       subst result
       subst toAddr
       refine ⟨PairWalletAction.callerSwap
-        0 0 amount0Out.val amount1Out.val, ?_, by
-          simp [PairWalletActionOrdinary]⟩
+        ((swapAmount0In amount0Out balance0Now s).val -
+          PairWorldSurplus0 (pairWorldFromConcreteState s))
+        ((swapAmount1In amount1Out balance1Now s).val -
+          PairWorldSurplus1 (pairWorldFromConcreteState s))
+        amount0Out.val amount1Out.val, ?_⟩
       have hPair :
           PairWorldStep
             (PairWorldAction.swap
@@ -1921,13 +1947,13 @@ theorem pairEconomicActionConcreteStep_wallet
             (s.storage reserve1Slot.slot).val +
               (swapAmount1In amount1Out balance1Now s).val := by
         simpa [pairWorldAfterSwapRun, pairWorldFromConcreteState] using hAccounts.2
-      have hObserved0Account :
-          (observedBalance0 s).val =
+      have hSwapAccount0Le :
+          (observedBalance0 s).val ≤
             (s.storage reserve0Slot.slot).val +
               (swapAmount0In amount0Out balance0Now s).val := by
         omega
-      have hObserved1Account :
-          (observedBalance1 s).val =
+      have hSwapAccount1Le :
+          (observedBalance1 s).val ≤
             (s.storage reserve1Slot.slot).val +
               (swapAmount1In amount1Out balance1Now s).val := by
         omega
@@ -2051,33 +2077,59 @@ theorem pairEconomicActionConcreteStep_wallet
               hTokenDistinctSymm, hSelfNeCallerRaw, hCallerNeSelfRaw,
               hTokenDistinctRaw, hTokenDistinctRawSymm, callerTokenBalance1,
               pairToken1, h1Val]
-      have hAmount0InSurplus :
-          (swapAmount0In amount0Out balance0Now s).val =
+      have hSurplus0LeAmountIn :
+          PairWorldSurplus0 (pairWorldFromConcreteState s) ≤
+            (swapAmount0In amount0Out balance0Now s).val := by
+        change
+          (observedBalance0 s).val - (s.storage reserve0Slot.slot).val ≤
+            (swapAmount0In amount0Out balance0Now s).val
+        omega
+      have hSurplus1LeAmountIn :
+          PairWorldSurplus1 (pairWorldFromConcreteState s) ≤
+            (swapAmount1In amount1Out balance1Now s).val := by
+        change
+          (observedBalance1 s).val - (s.storage reserve1Slot.slot).val ≤
+            (swapAmount1In amount1Out balance1Now s).val
+        omega
+      have hAmount0InFresh :
+          ((swapAmount0In amount0Out balance0Now s).val -
+              PairWorldSurplus0 (pairWorldFromConcreteState s)) +
+            PairWorldSurplus0 (pairWorldFromConcreteAndTokens preTokens s) =
+          (swapAmount0In amount0Out balance0Now s).val := by
+        rw [hBeforeWorld]
+        exact Nat.sub_add_cancel hSurplus0LeAmountIn
+      have hAmount1InFresh :
+          ((swapAmount1In amount1Out balance1Now s).val -
+              PairWorldSurplus1 (pairWorldFromConcreteState s)) +
+            PairWorldSurplus1 (pairWorldFromConcreteAndTokens preTokens s) =
+          (swapAmount1In amount1Out balance1Now s).val := by
+        rw [hBeforeWorld]
+        exact Nat.sub_add_cancel hSurplus1LeAmountIn
+      have hAmount0InGive :
+          (swapAmount0In amount0Out balance0Now s).val -
+              PairWorldSurplus0 (pairWorldFromConcreteState s) =
+            (swapAmount0In amount0Out balance0Now s).val -
             PairWorldSurplus0 (pairWorldFromConcreteAndTokens preTokens s) := by
         rw [hBeforeWorld]
-        change
-          (swapAmount0In amount0Out balance0Now s).val =
-            (observedBalance0 s).val - (s.storage reserve0Slot.slot).val
-        omega
-      have hAmount1InSurplus :
-          (swapAmount1In amount1Out balance1Now s).val =
+      have hAmount1InGive :
+          (swapAmount1In amount1Out balance1Now s).val -
+              PairWorldSurplus1 (pairWorldFromConcreteState s) =
+            (swapAmount1In amount1Out balance1Now s).val -
             PairWorldSurplus1 (pairWorldFromConcreteAndTokens preTokens s) := by
         rw [hBeforeWorld]
-        change
-          (swapAmount1In amount1Out balance1Now s).val =
-            (observedBalance1 s).val - (s.storage reserve1Slot.slot).val
-        omega
       constructor
       · convert hPair using 1
-        rw [hAmount0InSurplus, hAmount1InSurplus]
         simp [pairWalletFromConcreteAndTokens]
+        exact
+          ⟨by simpa [swapAmount0In, swapAmountIn] using hAmount0InFresh,
+           by simpa [swapAmount1In, swapAmountIn] using hAmount1InFresh⟩
       constructor
       · simpa [pairWalletFromConcreteAndTokens] using hCaller0
       constructor
       · simpa [pairWalletFromConcreteAndTokens] using hCaller1
       constructor
       · simpa [pairWalletFromConcreteAndTokens] using congrArg (fun x => x.val) hLp
-      · simp [pairWalletFromConcreteAndTokens]
+      · simp [pairWalletFromConcreteAndTokens, hAmount0InGive, hAmount1InGive]
   | skim toAddr preTokens s result hRun hSuccess hBefore hAfter
       hExternal hToAddr hCallerNeSelf hTokenDistinct hCallerToken0Add
       hCallerToken1Add =>
@@ -2087,8 +2139,7 @@ theorem pairEconomicActionConcreteStep_wallet
       subst toAddr
       refine ⟨PairWalletAction.callerSkimReceive
         (PairWorldSurplus0 (pairWorldFromConcreteAndTokens preTokens s))
-        (PairWorldSurplus1 (pairWorldFromConcreteAndTokens preTokens s)), ?_,
-        by trivial⟩
+        (PairWorldSurplus1 (pairWorldFromConcreteAndTokens preTokens s)), ?_⟩
       have hPair :
           PairWorldStep PairWorldAction.skim
             (pairWorldFromConcreteAndTokens preTokens s)
@@ -2219,7 +2270,7 @@ theorem pairEconomicActionConcreteStep_wallet
   | sync preTokens s result hRun hSuccess hBefore hAfter hExternal =>
       subst before
       subst after
-      refine ⟨PairWalletAction.callerSync, ?_, by trivial⟩
+      refine ⟨PairWalletAction.callerSync, ?_⟩
       have hPair :
           PairWorldStep PairWorldAction.sync
             (pairWorldFromConcreteAndTokens preTokens s)
@@ -2273,22 +2324,8 @@ theorem pairEconomicActionConcretePath_walletHistory
       exact PairWalletHistory.refl before
   | step h_prefix h_step ih =>
       rcases pairEconomicActionConcreteStep_wallet h_step with
-        ⟨action, h_wallet, _h_ordinary⟩
+        ⟨action, h_wallet⟩
       exact PairWalletHistory.step action ih h_wallet
-
-theorem pairEconomicActionConcretePath_ordinaryWalletHistory
-    {caller : Address} {before after : PairWalletWorldState} :
-  PairWalletFlowEmpty before →
-    PairEconomicActionConcretePath caller before after →
-      OrdinaryPairWalletHistory before after := by
-  intro h_flow h_path
-  induction h_path with
-  | refl =>
-      exact OrdinaryPairWalletHistory.refl before h_flow
-  | step h_prefix h_step ih =>
-      rcases pairEconomicActionConcreteStep_wallet h_step with
-        ⟨action, h_wallet, h_ordinary⟩
-      exact OrdinaryPairWalletHistory.step action ih h_wallet h_ordinary
 
 -- tama: discharges=pair_actual_execution_no_free_lunch
 theorem actual_execution_no_free_lunch
