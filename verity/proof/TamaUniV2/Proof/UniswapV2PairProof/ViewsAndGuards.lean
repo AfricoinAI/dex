@@ -640,6 +640,88 @@ theorem transfer_moves_tokens_between_distinct_accounts
     ((transfer toAddr amount).run s) :=
   (transfer_properties_after_run toAddr amount s).2.2.2.1
 
+theorem transfer_run_storageAddr_frame
+    (toAddr : Address) (amount : Uint256) (s : ContractState) (i : Nat) :
+  ((transfer toAddr amount).run s).snd.storageAddr i = s.storageAddr i := by
+  by_cases h_balance : amount.val ≤ (s.storageMap 9 s.sender).val
+  · by_cases h_same : s.sender = toAddr
+    · subst h_same
+      simp [transfer, balancesSlot, msgSender, getMapping, Contract.run,
+        ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+        Verity.require, h_balance]
+    · by_cases h_overflow :
+        Verity.Stdlib.Math.MAX_UINT256 < (s.storageMap 9 toAddr).val + amount.val
+      · simp [transfer, balancesSlot, msgSender, getMapping, setMapping, Contract.run,
+          ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+          Verity.require, Verity.Stdlib.Math.requireSomeUint,
+          Verity.Stdlib.Math.safeAdd, h_balance, h_same, h_overflow]
+      · simp [transfer, balancesSlot, msgSender, getMapping, setMapping, Contract.run,
+          ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+          Verity.require, Verity.Stdlib.Math.requireSomeUint,
+          Verity.Stdlib.Math.safeAdd, h_balance, h_same, h_overflow]
+  · simp [transfer, balancesSlot, msgSender, getMapping, Contract.run,
+      ContractResult.snd, Verity.bind, Bind.bind, Verity.require, h_balance]
+
+theorem transfer_run_thisAddress_frame
+    (toAddr : Address) (amount : Uint256) (s : ContractState) :
+  ((transfer toAddr amount).run s).snd.thisAddress = s.thisAddress := by
+  by_cases h_balance : amount.val ≤ (s.storageMap 9 s.sender).val
+  · by_cases h_same : s.sender = toAddr
+    · subst h_same
+      simp [transfer, balancesSlot, msgSender, getMapping, Contract.run,
+        ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+        Verity.require, h_balance]
+    · by_cases h_overflow :
+        Verity.Stdlib.Math.MAX_UINT256 < (s.storageMap 9 toAddr).val + amount.val
+      · simp [transfer, balancesSlot, msgSender, getMapping, setMapping, Contract.run,
+          ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+          Verity.require, Verity.Stdlib.Math.requireSomeUint,
+          Verity.Stdlib.Math.safeAdd, h_balance, h_same, h_overflow]
+      · simp [transfer, balancesSlot, msgSender, getMapping, setMapping, Contract.run,
+          ContractResult.snd, Verity.bind, Bind.bind, Verity.pure, Pure.pure,
+          Verity.require, Verity.Stdlib.Math.requireSomeUint,
+          Verity.Stdlib.Math.safeAdd, h_balance, h_same, h_overflow]
+  · simp [transfer, balancesSlot, msgSender, getMapping, Contract.run,
+      ContractResult.snd, Verity.bind, Bind.bind, Verity.require, h_balance]
+
+theorem transfer_caller_lp_sub
+    (caller : Address) (amount : Uint256) (s : ContractState)
+    (hSender : s.sender = caller)
+    (hCallerNeSelf : caller ≠ pairSelf s)
+    (hBalance : amount.val ≤ (s.storageMap balancesSlot.slot caller).val)
+    (hNoOverflow :
+      (s.storageMap balancesSlot.slot (pairSelf s)).val + amount.val ≤
+        Verity.Stdlib.Math.MAX_UINT256) :
+  ((transfer (pairSelf s) amount).run s).snd.storageMap balancesSlot.slot caller =
+    s.storageMap balancesSlot.slot caller - amount := by
+  have hBalanceRaw : amount.val ≤ (s.storageMap balancesSlot.slot s.sender).val := by
+    simpa [hSender] using hBalance
+  have hSenderNeSelf : s.sender ≠ pairSelf s := by
+    simpa [hSender] using hCallerNeSelf
+  rcases transfer_moves_tokens_between_distinct_accounts (pairSelf s) amount s
+      hBalanceRaw hSenderNeSelf hNoOverflow with
+    ⟨_hSuccess, hSenderSub, _hPairAdd⟩
+  simpa [hSender] using hSenderSub
+
+theorem transfer_pairSelf_lp_add
+    (caller : Address) (amount : Uint256) (s : ContractState)
+    (hSender : s.sender = caller)
+    (hCallerNeSelf : caller ≠ pairSelf s)
+    (hBalance : amount.val ≤ (s.storageMap balancesSlot.slot caller).val)
+    (hNoOverflow :
+      (s.storageMap balancesSlot.slot (pairSelf s)).val + amount.val ≤
+        Verity.Stdlib.Math.MAX_UINT256) :
+  ((transfer (pairSelf s) amount).run s).snd.storageMap balancesSlot.slot (pairSelf s) =
+    s.storageMap balancesSlot.slot (pairSelf s) + amount := by
+  have hBalanceRaw : amount.val ≤ (s.storageMap balancesSlot.slot s.sender).val := by
+    simpa [hSender] using hBalance
+  have hSenderNeSelf : s.sender ≠ pairSelf s := by
+    simpa [hSender] using hCallerNeSelf
+  rcases transfer_moves_tokens_between_distinct_accounts (pairSelf s) amount s
+      hBalanceRaw hSenderNeSelf hNoOverflow with
+    ⟨_hSuccess, _hSenderSub, hPairAdd⟩
+  exact hPairAdd
+
 -- tama: discharges=pair_transfer_keeps_total_supply
 theorem transfer_keeps_total_supply
     (toAddr : Address) (amount : Uint256) (s : ContractState) :

@@ -958,11 +958,288 @@ theorem pairEconomicActionConcreteStep_wallet
           hTokens]
         rw [hToken1Addr]
       · simpa [pairWalletFromConcreteAndTokens] using hLp
-  | burn toAddr preTokens s result hRun hSuccess hBefore
-      hAfter hWalletStep =>
-      exact ⟨PairWalletAction.callerBurn
-        (burnAmount0 s).val (burnAmount1 s).val (burnLiquidity s).val,
-        hWalletStep⟩
+  | burn toAddr preTokens s transferLiquidity transferResult burnResult
+      hTransferRun _hTransferSuccess hBurnRun hSuccess hBefore hAfter hToAddr
+      hSender hCallerNeSelf hPairSelfNoLp hTransferBalance hTransferNoOverflow
+      hExternal hPostBalances hLiquidityPos hSupplyPos hLiquidityLe
+      hLockedRemaining hAmount0Pos hAmount1Pos hAmount0Le hAmount1Le hBound0
+      hBound1 hRatio0 hRatio1 hTokenDistinct hCallerToken0Add
+      hCallerToken1Add =>
+      subst before
+      subst after
+      subst toAddr
+      refine ⟨PairWalletAction.callerBurn
+        (burnAmount0 transferResult.snd).val
+        (burnAmount1 transferResult.snd).val
+        (burnLiquidity transferResult.snd).val, ?_⟩
+      have hTransferStorage :
+          transferResult.snd.storage = s.storage := by
+        rw [hTransferRun]
+        exact transfer_keeps_pool_storage (pairSelf s) transferLiquidity s
+      have hTransferToken0Addr :
+          transferResult.snd.storageAddr token0Slot.slot =
+            s.storageAddr token0Slot.slot := by
+        rw [hTransferRun]
+        exact transfer_run_storageAddr_frame (pairSelf s) transferLiquidity s
+          token0Slot.slot
+      have hTransferToken1Addr :
+          transferResult.snd.storageAddr token1Slot.slot =
+            s.storageAddr token1Slot.slot := by
+        rw [hTransferRun]
+        exact transfer_run_storageAddr_frame (pairSelf s) transferLiquidity s
+          token1Slot.slot
+      have hTransferThis :
+          transferResult.snd.thisAddress = s.thisAddress := by
+        rw [hTransferRun]
+        exact transfer_run_thisAddress_frame (pairSelf s) transferLiquidity s
+      have hTransferToken0AddrRaw :
+          transferResult.snd.storageAddr 1 = s.storageAddr 1 := by
+        simpa [token0Slot, UniswapV2PairBase.token0Slot] using hTransferToken0Addr
+      have hTransferToken1AddrRaw :
+          transferResult.snd.storageAddr 2 = s.storageAddr 2 := by
+        simpa [token1Slot, UniswapV2PairBase.token1Slot] using hTransferToken1Addr
+      have hPairSelfTransfer :
+          pairSelf transferResult.snd = pairSelf s := by
+        simp [pairSelf, hTransferThis]
+      have hCallerNeSelfTransfer :
+          caller ≠ pairSelf transferResult.snd := by
+        rwa [hPairSelfTransfer]
+      have hSelfNeCallerTransfer :
+          pairSelf transferResult.snd ≠ caller := by
+        intro h_eq
+        exact hCallerNeSelfTransfer h_eq.symm
+      have hTransferPairWorld :
+          pairWorldFromConcreteAndTokens preTokens s =
+            pairWorldFromConcreteAndTokens preTokens transferResult.snd := by
+        simp [pairWorldFromConcreteAndTokens, pairTokenBalance0,
+          pairTokenBalance1, pairToken0, pairToken1, pairSelf,
+          pairWorldLockedLiquidity, hTransferStorage, hTransferToken0Addr,
+          hTransferToken1Addr, hTransferThis]
+        constructor
+        · rw [hTransferToken0AddrRaw]
+        · rw [hTransferToken1AddrRaw]
+      have hPair :
+          PairWorldStep
+            (PairWorldAction.burn
+              (burnAmount0 transferResult.snd).val
+              (burnAmount1 transferResult.snd).val
+              (burnLiquidity transferResult.snd).val)
+            (pairWorldFromConcreteAndTokens preTokens s)
+            (pairWorldFromConcreteAndTokens
+              (pairTokenWorldAfterCall preTokens transferResult.snd burnResult)
+              burnResult.snd) := by
+        have hExternalRun :
+            pairBurnExternalTokenBalancesMatchCall preTokens transferResult.snd
+              ((burn caller).run transferResult.snd) := by
+          rw [← hBurnRun]
+          exact hExternal
+        have hPostBalancesRun :
+            pairPostCallSelfBalancesMatch transferResult.snd
+              ((burn caller).run transferResult.snd).snd
+              (burnBalance0After transferResult.snd)
+              (burnBalance1After transferResult.snd) := by
+          rw [← hBurnRun]
+          exact hPostBalances
+        have hBurnSuccessRun :
+            (burn caller).run transferResult.snd =
+              ContractResult.success
+                (burnAmount0 transferResult.snd, burnAmount1 transferResult.snd)
+                ((burn caller).run transferResult.snd).snd := by
+          rw [← hBurnRun]
+          exact hSuccess
+        have hBurnPair :=
+          burn_success_reaches_expected_pair_state caller preTokens
+            transferResult.snd rfl hBurnSuccessRun hExternalRun
+            hPostBalancesRun hLiquidityPos hSupplyPos hLiquidityLe hLockedRemaining
+            hAmount0Pos hAmount1Pos hAmount0Le hAmount1Le hBound0 hBound1
+            hRatio0 hRatio1
+        have hBurnPairResult :
+            PairWorldStep
+              (PairWorldAction.burn
+                (burnAmount0 transferResult.snd).val
+                (burnAmount1 transferResult.snd).val
+                (burnLiquidity transferResult.snd).val)
+              (pairWorldFromConcreteAndTokens preTokens transferResult.snd)
+              (pairWorldFromConcreteAndTokens
+                (pairTokenWorldAfterCall preTokens transferResult.snd burnResult)
+                burnResult.snd) := by
+          rw [hBurnRun]
+          exact hBurnPair
+        rwa [hTransferPairWorld]
+      have hBurnSuccessRun :
+          (burn caller).run transferResult.snd =
+            ContractResult.success
+              (burnAmount0 transferResult.snd, burnAmount1 transferResult.snd)
+              ((burn caller).run transferResult.snd).snd := by
+        rw [← hBurnRun]
+        exact hSuccess
+      have hTransfers :
+          pairTransfersAfterCall transferResult.snd burnResult =
+            [{ token := pairToken0 transferResult.snd,
+               fromAddr := pairSelf transferResult.snd, toAddr := caller,
+               amount := burnAmount0 transferResult.snd },
+             { token := pairToken1 transferResult.snd,
+               fromAddr := pairSelf transferResult.snd, toAddr := caller,
+               amount := burnAmount1 transferResult.snd }] := by
+        rw [hBurnRun]
+        exact burn_success_pairTransfers caller transferResult.snd
+          hBurnSuccessRun hPostBalances hLiquidityPos hSupplyPos hLiquidityLe
+          hLockedRemaining hAmount0Pos hAmount1Pos hAmount0Le hAmount1Le hBound0
+          hBound1
+      have hTokens :
+          pairTokenWorldAfterCall preTokens transferResult.snd burnResult =
+            pairTokenWorldAfterPairTransfers preTokens
+              [{ token := pairToken0 transferResult.snd,
+                 fromAddr := pairSelf transferResult.snd, toAddr := caller,
+                 amount := burnAmount0 transferResult.snd },
+               { token := pairToken1 transferResult.snd,
+                 fromAddr := pairSelf transferResult.snd, toAddr := caller,
+                 amount := burnAmount1 transferResult.snd }] := by
+        rw [pairTokenWorldAfterCall_eq_pairTransfers, hTransfers]
+      have hBurnToken0Addr :
+          burnResult.snd.storageAddr token0Slot.slot =
+            transferResult.snd.storageAddr token0Slot.slot := by
+        rw [hBurnRun]
+        exact burn_run_storageAddr_frame caller transferResult.snd token0Slot.slot
+      have hBurnToken1Addr :
+          burnResult.snd.storageAddr token1Slot.slot =
+            transferResult.snd.storageAddr token1Slot.slot := by
+        rw [hBurnRun]
+        exact burn_run_storageAddr_frame caller transferResult.snd token1Slot.slot
+      have hBurnLpFrame :
+          burnResult.snd.storageMap balancesSlot.slot caller =
+            transferResult.snd.storageMap balancesSlot.slot caller := by
+        rw [hBurnRun]
+        exact burn_success_caller_lp_frame caller caller transferResult.snd
+          hBurnSuccessRun hPostBalances hLiquidityPos hSupplyPos hLiquidityLe
+          hLockedRemaining hAmount0Pos hAmount1Pos hAmount0Le hAmount1Le hBound0
+          hBound1 hCallerNeSelfTransfer
+      have hTransferLpSub :
+          transferResult.snd.storageMap balancesSlot.slot caller =
+            s.storageMap balancesSlot.slot caller - transferLiquidity := by
+        rw [hTransferRun]
+        exact transfer_caller_lp_sub caller transferLiquidity s hSender
+          hCallerNeSelf hTransferBalance hTransferNoOverflow
+      have hTransferPairLpAdd :
+          transferResult.snd.storageMap balancesSlot.slot (pairSelf s) =
+            s.storageMap balancesSlot.slot (pairSelf s) + transferLiquidity := by
+        rw [hTransferRun]
+        exact transfer_pairSelf_lp_add caller transferLiquidity s hSender
+          hCallerNeSelf hTransferBalance hTransferNoOverflow
+      have hBurnLiquidityEq :
+          burnLiquidity transferResult.snd =
+            s.storageMap balancesSlot.slot (pairSelf s) + transferLiquidity := by
+        unfold burnLiquidity
+        rw [hPairSelfTransfer]
+        exact hTransferPairLpAdd
+      have hBurnLiquidityValEq :
+          (burnLiquidity transferResult.snd).val = transferLiquidity.val := by
+        have h_val := congrArg (fun x : Uint256 => x.val) hBurnLiquidityEq
+        rw [hPairSelfNoLp] at h_val
+        simpa using h_val
+      have hTokenDistinctSymm :
+          pairToken1 transferResult.snd ≠ pairToken0 transferResult.snd := by
+        intro h_eq
+        exact hTokenDistinct h_eq.symm
+      have hCallerNeSelfRaw :
+          caller ≠ transferResult.snd.thisAddress := by
+        simpa [pairSelf] using hCallerNeSelfTransfer
+      have hSelfNeCallerRaw :
+          transferResult.snd.thisAddress ≠ caller := by
+        simpa [pairSelf] using hSelfNeCallerTransfer
+      have hTokenDistinctRaw :
+          transferResult.snd.storageAddr 1 ≠ transferResult.snd.storageAddr 2 := by
+        simpa [pairToken0, pairToken1, token0Slot, token1Slot,
+          UniswapV2PairBase.token0Slot, UniswapV2PairBase.token1Slot]
+          using hTokenDistinct
+      have hTokenDistinctRawSymm :
+          transferResult.snd.storageAddr 2 ≠ transferResult.snd.storageAddr 1 := by
+        intro h_eq
+        exact hTokenDistinctRaw h_eq.symm
+      have hCaller0Before :
+          (callerTokenBalance0 caller preTokens transferResult.snd).val =
+            (callerTokenBalance0 caller preTokens s).val := by
+        simp only [callerTokenBalance0, pairToken0]
+        rw [hTransferToken0Addr]
+      have hCaller1Before :
+          (callerTokenBalance1 caller preTokens transferResult.snd).val =
+            (callerTokenBalance1 caller preTokens s).val := by
+        simp only [callerTokenBalance1, pairToken1]
+        rw [hTransferToken1Addr]
+      have hCaller0 :
+          (callerTokenBalance0 caller
+            (pairTokenWorldAfterCall preTokens transferResult.snd burnResult)
+            burnResult.snd).val =
+            (callerTokenBalance0 caller preTokens transferResult.snd).val +
+              (burnAmount0 transferResult.snd).val := by
+        have h_add :=
+          Core.Uint256.add_eq_of_lt
+            (a := callerTokenBalance0 caller preTokens transferResult.snd)
+            (b := burnAmount0 transferResult.snd) hCallerToken0Add
+        simp only [callerTokenBalance0, pairToken0, hTokens]
+        rw [hBurnToken0Addr]
+        simpa [pairTokenWorldAfterPairTransfers, pairTokenWorldAfterPairTransfer,
+          pairTokenWorldAfterTransfer, hSelfNeCallerTransfer,
+          hCallerNeSelfTransfer, hTokenDistinct, hTokenDistinctSymm,
+          hSelfNeCallerRaw, hCallerNeSelfRaw, hTokenDistinctRaw,
+          hTokenDistinctRawSymm, callerTokenBalance0, pairToken0]
+          using h_add
+      have hCaller1 :
+          (callerTokenBalance1 caller
+            (pairTokenWorldAfterCall preTokens transferResult.snd burnResult)
+            burnResult.snd).val =
+            (callerTokenBalance1 caller preTokens transferResult.snd).val +
+              (burnAmount1 transferResult.snd).val := by
+        have h_add :=
+          Core.Uint256.add_eq_of_lt
+            (a := callerTokenBalance1 caller preTokens transferResult.snd)
+            (b := burnAmount1 transferResult.snd) hCallerToken1Add
+        simp only [callerTokenBalance1, pairToken1, hTokens]
+        rw [hBurnToken1Addr]
+        simpa [pairTokenWorldAfterPairTransfers, pairTokenWorldAfterPairTransfer,
+          pairTokenWorldAfterTransfer, hSelfNeCallerTransfer,
+          hCallerNeSelfTransfer, hTokenDistinct, hTokenDistinctSymm,
+          hSelfNeCallerRaw, hCallerNeSelfRaw, hTokenDistinctRaw,
+          hTokenDistinctRawSymm, callerTokenBalance1, pairToken1]
+          using h_add
+      have hLp :
+          (burnResult.snd.storageMap balancesSlot.slot caller).val =
+            (s.storageMap balancesSlot.slot caller).val -
+              (burnLiquidity transferResult.snd).val := by
+        have hBurnLpFrameVal :=
+          congrArg (fun x : Uint256 => x.val) hBurnLpFrame
+        have hTransferLpSubVal :=
+          congrArg (fun x : Uint256 => x.val) hTransferLpSub
+        have hSubVal :
+            (s.storageMap balancesSlot.slot caller - transferLiquidity).val =
+              (s.storageMap balancesSlot.slot caller).val -
+                transferLiquidity.val := by
+          exact Core.Uint256.sub_eq_of_le
+            (a := s.storageMap balancesSlot.slot caller)
+            (b := transferLiquidity) hTransferBalance
+        calc
+          (burnResult.snd.storageMap balancesSlot.slot caller).val =
+              (transferResult.snd.storageMap balancesSlot.slot caller).val := by
+                simpa using hBurnLpFrameVal
+          _ = (s.storageMap balancesSlot.slot caller - transferLiquidity).val := by
+                simpa using hTransferLpSubVal
+          _ = (s.storageMap balancesSlot.slot caller).val -
+                transferLiquidity.val := hSubVal
+          _ = (s.storageMap balancesSlot.slot caller).val -
+                (burnLiquidity transferResult.snd).val := by
+                rw [hBurnLiquidityValEq]
+      constructor
+      · change (s.storageMap balancesSlot.slot caller).val ≥
+          (burnLiquidity transferResult.snd).val
+        rw [hBurnLiquidityValEq]
+        exact hTransferBalance
+      constructor
+      · simpa [pairWalletFromConcreteAndTokens] using hPair
+      constructor
+      · simpa [pairWalletFromConcreteAndTokens, hCaller0Before] using hCaller0
+      constructor
+      · simpa [pairWalletFromConcreteAndTokens, hCaller1Before] using hCaller1
+      · simpa [pairWalletFromConcreteAndTokens] using hLp
   | swap amount0Out amount1Out toAddr data balance0Now balance1Now preTokens
       s result hRun hSuccess hBefore hAfter hExternal hObserved0 hObserved1
       hToAddr hCallerNeSelf hTokenDistinct hCallerToken0Add hCallerToken1Add

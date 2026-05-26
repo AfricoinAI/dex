@@ -627,19 +627,76 @@ inductive PairEconomicActionConcreteStep
   | burn
       {before after : PairWalletWorldState}
       (toAddr : Address) (preTokens : PairTokenBalances)
-      (s : ContractState) (result : ContractResult (Uint256 × Uint256))
-      (hRun : result = (TamaUniV2.UniswapV2Pair.burn toAddr).run s)
+      (s : ContractState)
+      (transferLiquidity : Uint256)
+      (transferResult : ContractResult Bool)
+      (burnResult : ContractResult (Uint256 × Uint256))
+      (hTransferRun :
+        transferResult =
+          (TamaUniV2.UniswapV2Pair.transfer (pairSelf s) transferLiquidity).run s)
+      (hTransferSuccess :
+        transferResult = ContractResult.success true transferResult.snd)
+      (hBurnRun : burnResult = (TamaUniV2.UniswapV2Pair.burn toAddr).run transferResult.snd)
       (hSuccess :
-        result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd)
+        burnResult =
+          ContractResult.success
+            (burnAmount0 transferResult.snd, burnAmount1 transferResult.snd)
+            burnResult.snd)
       (hBefore : before = pairWalletFromConcreteAndTokens caller preTokens s)
       (hAfter :
         after =
           pairWalletFromConcreteAndTokens caller
-            (pairTokenWorldAfterCall preTokens s result) result.snd)
-      (hWalletStep : PairWalletStep
-        (PairWalletAction.callerBurn
-          (burnAmount0 s).val (burnAmount1 s).val (burnLiquidity s).val)
-        before after) :
+            (pairTokenWorldAfterCall preTokens transferResult.snd burnResult)
+            burnResult.snd)
+      (hToAddr : toAddr = caller)
+      (hSender : s.sender = caller)
+      (hCallerNeSelf : caller ≠ pairSelf s)
+      (hPairSelfNoLp : s.storageMap balancesSlot.slot (pairSelf s) = 0)
+      (hTransferBalance :
+        transferLiquidity.val ≤ (s.storageMap balancesSlot.slot caller).val)
+      (hTransferNoOverflow :
+        (s.storageMap balancesSlot.slot (pairSelf s)).val + transferLiquidity.val ≤
+          Verity.Stdlib.Math.MAX_UINT256)
+      (hExternal :
+        pairBurnExternalTokenBalancesMatchCall
+          preTokens transferResult.snd burnResult)
+      (hPostBalances :
+        pairPostCallSelfBalancesMatch transferResult.snd burnResult.snd
+          (burnBalance0After transferResult.snd)
+          (burnBalance1After transferResult.snd))
+      (hLiquidityPos : 0 < (burnLiquidity transferResult.snd).val)
+      (hSupplyPos : 0 < (burnSupply transferResult.snd).val)
+      (hLiquidityLe :
+        (burnLiquidity transferResult.snd).val ≤ (burnSupply transferResult.snd).val)
+      (hLockedRemaining :
+        minimumLiquidityNat ≤
+          (burnSupply transferResult.snd).val -
+            (burnLiquidity transferResult.snd).val)
+      (hAmount0Pos : burnAmount0 transferResult.snd > 0)
+      (hAmount1Pos : burnAmount1 transferResult.snd > 0)
+      (hAmount0Le :
+        burnAmount0 transferResult.snd ≤ observedBalance0 transferResult.snd)
+      (hAmount1Le :
+        burnAmount1 transferResult.snd ≤ observedBalance1 transferResult.snd)
+      (hBound0 : burnBalance0After transferResult.snd ≤ maxUint112)
+      (hBound1 : burnBalance1After transferResult.snd ≤ maxUint112)
+      (hRatio0 :
+        (burnAmount0 transferResult.snd).val * (burnSupply transferResult.snd).val ≤
+          (burnLiquidity transferResult.snd).val *
+            (observedBalance0 transferResult.snd).val)
+      (hRatio1 :
+        (burnAmount1 transferResult.snd).val * (burnSupply transferResult.snd).val ≤
+          (burnLiquidity transferResult.snd).val *
+            (observedBalance1 transferResult.snd).val)
+      (hTokenDistinct : pairToken0 transferResult.snd ≠ pairToken1 transferResult.snd)
+      (hCallerToken0Add :
+        (callerTokenBalance0 caller preTokens transferResult.snd).val +
+            (burnAmount0 transferResult.snd).val <
+          Core.Uint256.modulus)
+      (hCallerToken1Add :
+        (callerTokenBalance1 caller preTokens transferResult.snd).val +
+            (burnAmount1 transferResult.snd).val <
+          Core.Uint256.modulus) :
       PairEconomicActionConcreteStep caller before after
   | swap
       {before after : PairWalletWorldState}
