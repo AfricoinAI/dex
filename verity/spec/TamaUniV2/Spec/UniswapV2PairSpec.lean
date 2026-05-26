@@ -90,6 +90,23 @@ at the initial spot price, and assuming token0 and token1 behave like ordinary
 ERC20s for each call in the path. Value crossing the pair boundary is what is
 counted; trades the caller makes elsewhere are not the pair's doing and do not
 enter the measure.
+
+After Phase D, the mint and burn economic-step premises are success-derived:
+each contract `require` guard is implied by a successful `.run` (proven by
+`mint_success_implies_guards` / `burn_success_implies_guards`), so they are not
+separate caller obligations. Swap retains `hInput`, `hBound0/1`, `hFee0/1`, and
+`hAdjustedK` as premises: these are the contract's own `require`s inside
+`finishSwapChecked` and hence are implied by a successful swap, but mechanically
+deriving them from success forces the K-product arithmetic and hits Lean's
+kernel recursion-depth limit, so they remain honest success-implied premises;
+the cheap `amountOut < reserve` guards are derived. Burn still retains
+`hLockedRemaining`, since no contract `require` enforces that supply/locked-
+liquidity invariant, and `hLiquidityLe`, the structural fact that pair-held LP
+is at most total supply. Mint still retains `hReserve0/1`; these reserve-balance
+facts are contract `require`s and are derivable from success, so they are
+success-implied structural facts. Swap also retains `hBalance0/1`, the semantic
+equations defining `swapAmountIn`, and `hBalance0Le/1Le`, the callback-only-
+adds-to-the-pair boundary.
 -/
 
 def pair_actual_execution_no_free_lunch
@@ -415,7 +432,7 @@ side effects when the callback reaches the pair while the lock is closed.
 -/
 def pair_flash_callback_reentry_attempts_revert_locked
     (mintTo burnTo skimTo swapTo : Address)
-    (amount0Out amount1Out nested0Out nested1Out : Uint256)
+    (_amount0Out _amount1Out nested0Out nested1Out : Uint256)
     (data nestedData : ByteArray)
     (s : ContractState) : Prop :=
   data.size > 0 →
@@ -865,21 +882,21 @@ def pair_skim_run_revert_balance1_below_reserve
         ContractResult.revert "UniswapV2: INSUFFICIENT_BALANCE" s
 
 def pair_mint_revert_keeps_token_balances
-    (toAddr : Address) (pre post : PairTokenBalances) (s : ContractState)
+    (_toAddr : Address) (pre post : PairTokenBalances) (s : ContractState)
     (result : ContractResult Uint256) : Prop :=
   post = pairTokenWorldAfterCall pre s result →
     pairRevertedWithOriginalState s result →
       pairTokenBalancesUnchanged pre post
 
 def pair_burn_revert_keeps_token_balances
-    (toAddr : Address) (pre post : PairTokenBalances) (s : ContractState)
+    (_toAddr : Address) (pre post : PairTokenBalances) (s : ContractState)
     (result : ContractResult (Uint256 × Uint256)) : Prop :=
   post = pairTokenWorldAfterCall pre s result →
     pairRevertedWithOriginalState s result →
       pairTokenBalancesUnchanged pre post
 
 def pair_swap_revert_keeps_token_balances
-    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (_amount0Out _amount1Out : Uint256) (_toAddr : Address) (_data : ByteArray)
     (pre post : PairTokenBalances) (s : ContractState)
     (result : ContractResult Unit) : Prop :=
   post = pairTokenWorldAfterCall pre s result →
@@ -887,7 +904,7 @@ def pair_swap_revert_keeps_token_balances
       pairTokenBalancesUnchanged pre post
 
 def pair_skim_revert_keeps_token_balances
-    (toAddr : Address) (pre post : PairTokenBalances) (s : ContractState)
+    (_toAddr : Address) (pre post : PairTokenBalances) (s : ContractState)
     (result : ContractResult Unit) : Prop :=
   post = pairTokenWorldAfterCall pre s result →
     pairRevertedWithOriginalState s result →
@@ -952,13 +969,13 @@ def pair_sync_revert_keeps_pair_state
 /-- Initialization either rejects non-factory callers, rejects a second
 initialization, or records the two token addresses exactly once. -/
 def pair_initialize_reverts_for_non_factory
-    (token0Value token1Value : Address) (s : ContractState)
+    (_token0Value _token1Value : Address) (s : ContractState)
     (result : ContractResult Unit) : Prop :=
   s.sender != s.storageAddr factorySlot.slot →
     result = ContractResult.revert "UniswapV2: FORBIDDEN" s
 
 def pair_initialize_reverts_when_already_initialized
-    (token0Value token1Value : Address) (s : ContractState)
+    (_token0Value _token1Value : Address) (s : ContractState)
     (result : ContractResult Unit) : Prop :=
   s.sender = s.storageAddr factorySlot.slot →
     (s.storageAddr token0Slot.slot != zeroAddress ∨
@@ -1054,7 +1071,7 @@ def pair_transferFrom_run_keeps_token_balances
 /-- Approval is intentionally narrow: it returns true, writes exactly one
 allowance cell, preserves all LP balances and total supply, and emits Approval. -/
 def pair_approve_succeeds
-    (spender : Address) (amount : Uint256) (s : ContractState)
+    (_spender : Address) (_amount : Uint256) (_s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result = ContractResult.success true result.snd
 
@@ -1064,12 +1081,12 @@ def pair_approve_sets_allowance
   result.snd.storageMap2 allowancesSlot.slot s.sender spender = amount
 
 def pair_approve_keeps_balances
-    (spender : Address) (amount : Uint256) (s : ContractState)
+    (_spender : Address) (_amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result.snd.storageMap = s.storageMap
 
 def pair_approve_keeps_total_supply
-    (spender : Address) (amount : Uint256) (s : ContractState)
+    (_spender : Address) (_amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result.snd.storage totalSupplySlot.slot = s.storage totalSupplySlot.slot
 
@@ -1077,7 +1094,7 @@ def pair_approve_keeps_total_supply
 but it cannot change scalar AMM storage: reserves, TWAP accumulators, LP supply,
 token identities, or the reentrancy lock. -/
 def pair_approve_keeps_pool_storage
-    (spender : Address) (amount : Uint256) (s : ContractState)
+    (_spender : Address) (_amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result.snd.storage = s.storage
 
@@ -1107,7 +1124,7 @@ def pair_transfer_moves_tokens_between_distinct_accounts
           (s.storageMap balancesSlot.slot toAddr) + amount
 
 def pair_transfer_keeps_total_supply
-    (toAddr : Address) (amount : Uint256) (s : ContractState)
+    (_toAddr : Address) (_amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result.snd.storage totalSupplySlot.slot = s.storage totalSupplySlot.slot
 
@@ -1116,7 +1133,7 @@ storage. This is the public-call counterpart of the model-level fact that share
 bookkeeping does not touch reserves, prices, supply, token identities, or the
 lock. -/
 def pair_transfer_keeps_pool_storage
-    (toAddr : Address) (amount : Uint256) (s : ContractState)
+    (_toAddr : Address) (_amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result.snd.storage = s.storage
 
@@ -1153,7 +1170,7 @@ def pair_transferFrom_moves_tokens_between_distinct_accounts
             (s.storageMap balancesSlot.slot toAddr) + amount
 
 def pair_transferFrom_keeps_total_supply
-    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState)
+    (_fromAddr _toAddr : Address) (_amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result.snd.storage totalSupplySlot.slot = s.storage totalSupplySlot.slot
 
@@ -1161,7 +1178,7 @@ def pair_transferFrom_keeps_total_supply
 They may update balances and finite allowance, but no scalar pool accounting
 slot can move. -/
 def pair_transferFrom_keeps_pool_storage
-    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState)
+    (_fromAddr _toAddr : Address) (_amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result.snd.storage = s.storage
 

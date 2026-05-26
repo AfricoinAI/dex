@@ -446,7 +446,7 @@ inductive PairWalletHistory : PairWalletWorldState → PairWalletWorldState → 
       PairWalletHistory start after
 
 def PairWalletActionOrdinary
-    (action : PairWalletAction) (before after : PairWalletWorldState) : Prop :=
+    (action : PairWalletAction) (_before _after : PairWalletWorldState) : Prop :=
   match action with
   | PairWalletAction.callerSwap give0 give1 _ _ =>
       give0 = 0 ∧ give1 = 0
