@@ -595,10 +595,34 @@ inductive PairEconomicActionConcreteStep
         after =
           pairWalletFromConcreteAndTokens caller
             (pairTokenWorldAfterCall preTokens s result) result.snd)
-      (hWalletStep : PairWalletStep
-        (PairWalletAction.callerMint
-          (mintAmount0 s).val (mintAmount1 s).val liquidity.val)
-        before after) :
+      (hToAddr : toAddr = caller)
+      (hReserve0 : s.storage reserve0Slot.slot ≤ observedBalance0 s)
+      (hReserve1 : s.storage reserve1Slot.slot ≤ observedBalance1 s)
+      (hAmount0 : mintAmount0 s > 0)
+      (hAmount1 : mintAmount1 s > 0)
+      (hFirstExternal :
+        s.storage totalSupplySlot.slot = 0 →
+          pairFirstMintExternalTokenBalancesMatchCall preTokens s result)
+      (hLaterExternal :
+        s.storage totalSupplySlot.slot ≠ 0 →
+          pairLaterMintExternalTokenBalancesMatchCall preTokens s liquidity result)
+      (hFirstGuards :
+        s.storage totalSupplySlot.slot = 0 →
+          liquidity = mintFirstLiquidity s ∧
+            (mintAmount0 s == 0 ||
+              Verity.EVM.Uint256.div (mintFirstProduct s) (mintAmount0 s) ==
+                mintAmount1 s) = true ∧
+            mintFirstRoot s > minimumLiquidity)
+      (hLaterGuards :
+        s.storage totalSupplySlot.slot ≠ 0 →
+          0 < (s.storage totalSupplySlot.slot).val ∧
+            s.storage reserve0Slot.slot > 0 ∧
+            s.storage reserve1Slot.slot > 0 ∧
+            liquidity > 0 ∧
+            liquidity.val * (s.storage reserve0Slot.slot).val ≤
+              (mintAmount0 s).val * (s.storage totalSupplySlot.slot).val ∧
+            liquidity.val * (s.storage reserve1Slot.slot).val ≤
+              (mintAmount1 s).val * (s.storage totalSupplySlot.slot).val) :
       PairEconomicActionConcreteStep caller before after
   | burn
       {before after : PairWalletWorldState}

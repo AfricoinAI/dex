@@ -848,10 +848,116 @@ theorem pairEconomicActionConcreteStep_wallet
   intro h_step
   cases h_step with
   | mint toAddr preTokens s result liquidity hRun hSuccess hBefore
-      hAfter hWalletStep =>
-      exact ⟨PairWalletAction.callerMint
-        (mintAmount0 s).val (mintAmount1 s).val liquidity.val,
-        hWalletStep⟩
+      hAfter hToAddr hReserve0 hReserve1 hAmount0 hAmount1
+      hFirstExternal hLaterExternal hFirstGuards hLaterGuards =>
+      subst before
+      subst after
+      subst result
+      refine ⟨PairWalletAction.callerMint
+        (mintAmount0 s).val (mintAmount1 s).val liquidity.val, ?_⟩
+      have hPair :
+          PairWorldStep
+            (PairWorldAction.mint
+              (mintAmount0 s).val (mintAmount1 s).val liquidity.val)
+            (pairWorldFromConcreteAndTokens preTokens s)
+            (pairWorldFromConcreteAndTokens
+              (pairTokenWorldAfterCall preTokens s ((mint toAddr).run s))
+              ((mint toAddr).run s).snd) := by
+        by_cases hSupplyZero : s.storage totalSupplySlot.slot = 0
+        · rcases hFirstGuards hSupplyZero with
+            ⟨hLiquidity, hProduct, hRoot⟩
+          have hSuccessFirst :
+              (mint toAddr).run s =
+                ContractResult.success (mintFirstLiquidity s)
+                  ((mint toAddr).run s).snd := by
+            simpa [hLiquidity] using hSuccess
+          simpa [hLiquidity] using
+            (first_mint_success_reaches_expected_pair_state
+              toAddr preTokens s rfl hSuccessFirst (hFirstExternal hSupplyZero)
+              hSupplyZero hReserve0 hReserve1 hAmount0 hAmount1 hProduct hRoot)
+        · rcases hLaterGuards hSupplyZero with
+            ⟨hSupplyPos, hReserve0Pos, hReserve1Pos, hLiquidity,
+              hRatio0, hRatio1⟩
+          exact later_mint_success_reaches_expected_pair_state
+            toAddr preTokens s liquidity rfl hSuccess
+            (hLaterExternal hSupplyZero) hSupplyPos hReserve0Pos hReserve1Pos
+            hReserve0 hReserve1 hAmount0 hAmount1 hLiquidity hRatio0 hRatio1
+      have hBeforeTokens :
+          pairTokenBalancesMatchWorld preTokens s (pairWorldBeforeMintRun s) := by
+        by_cases hSupplyZero : s.storage totalSupplySlot.slot = 0
+        · exact (hFirstExternal hSupplyZero).1
+        · exact (hLaterExternal hSupplyZero).1
+      have hBeforeWorld :
+          pairWorldFromConcreteAndTokens preTokens s =
+            pairWorldBeforeMintRun s := by
+        exact pairWorldFromConcreteAndTokens_eq_of_parts preTokens s
+          (pairWorldBeforeMintRun s) hBeforeTokens
+          (by simp [pairConcreteStorageMatchesWorld, pairWorldBeforeMintRun])
+      have hTransfers :
+          pairTransfersAfterCall s ((mint toAddr).run s) = [] := by
+        exact mint_success_pairTransfers toAddr s liquidity hSuccess
+          hReserve0 hReserve1 hAmount0 hAmount1 hFirstGuards
+          (by
+            intro hSupplyNonzero
+            rcases hLaterGuards hSupplyNonzero with
+              ⟨_hSupplyPos, hReserve0Pos, hReserve1Pos, hLiquidity,
+                _hRatio0, _hRatio1⟩
+            exact ⟨hReserve0Pos, hReserve1Pos, hLiquidity⟩)
+      have hTokens :
+          pairTokenWorldAfterCall preTokens s ((mint toAddr).run s) =
+            preTokens := by
+        rw [pairTokenWorldAfterCall_eq_pairTransfers, hTransfers]
+        simp [pairTokenWorldAfterPairTransfers]
+      have hToken0Addr :
+          ((mint toAddr).run s).snd.storageAddr token0Slot.slot =
+            s.storageAddr token0Slot.slot := by
+        exact mint_run_storageAddr_frame toAddr s token0Slot.slot
+      have hToken1Addr :
+          ((mint toAddr).run s).snd.storageAddr token1Slot.slot =
+            s.storageAddr token1Slot.slot := by
+        exact mint_run_storageAddr_frame toAddr s token1Slot.slot
+      have hLp :
+          (((mint toAddr).run s).snd.storageMap balancesSlot.slot caller).val =
+            (s.storageMap balancesSlot.slot caller).val + liquidity.val := by
+        exact mint_success_caller_lp_add toAddr caller s liquidity hToAddr
+          hSuccess hReserve0 hReserve1 hAmount0 hAmount1 hFirstGuards
+          (by
+            intro hSupplyNonzero
+            rcases hLaterGuards hSupplyNonzero with
+              ⟨_hSupplyPos, hReserve0Pos, hReserve1Pos, hLiquidity,
+                _hRatio0, _hRatio1⟩
+            exact ⟨hReserve0Pos, hReserve1Pos, hLiquidity⟩)
+      constructor
+      · simpa [pairWalletFromConcreteAndTokens] using hPair
+      constructor
+      · change
+          (mintAmount0 s).val =
+            PairWorldSurplus0 (pairWorldFromConcreteAndTokens preTokens s)
+        rw [hBeforeWorld]
+        simpa [pairWalletFromConcreteAndTokens, pairWorldBeforeMintRun,
+          PairWorldSurplus0, mintAmount0] using
+          (Verity.Core.Uint256.sub_eq_of_le
+            (a := observedBalance0 s) (b := s.storage reserve0Slot.slot)
+            hReserve0)
+      constructor
+      · change
+          (mintAmount1 s).val =
+            PairWorldSurplus1 (pairWorldFromConcreteAndTokens preTokens s)
+        rw [hBeforeWorld]
+        simpa [pairWalletFromConcreteAndTokens, pairWorldBeforeMintRun,
+          PairWorldSurplus1, mintAmount1] using
+          (Verity.Core.Uint256.sub_eq_of_le
+            (a := observedBalance1 s) (b := s.storage reserve1Slot.slot)
+            hReserve1)
+      constructor
+      · simp only [pairWalletFromConcreteAndTokens, callerTokenBalance0, pairToken0,
+          hTokens]
+        rw [hToken0Addr]
+      constructor
+      · simp only [pairWalletFromConcreteAndTokens, callerTokenBalance1, pairToken1,
+          hTokens]
+        rw [hToken1Addr]
+      · simpa [pairWalletFromConcreteAndTokens] using hLp
   | burn toAddr preTokens s result hRun hSuccess hBefore
       hAfter hWalletStep =>
       exact ⟨PairWalletAction.callerBurn
