@@ -62,17 +62,11 @@ jobs:
             echo "$HOME/.tama/bin"
           } >> "$GITHUB_PATH"
 
-      # Install Foundry first, under bash, so Tama's installer detects `forge`
-      # and skips its `sh foundryup-init.sh` step. That step fails on ubuntu's
-      # /bin/sh (dash) because foundry's installer uses `set -o pipefail`, a
-      # bash-only option (tama install.sh runs it with `sh`, not bash).
+      # Install Foundry first so Tama's installer detects `forge` and skips its
+      # own `sh foundryup-init.sh` step, which fails on ubuntu's /bin/sh (dash)
+      # because foundry's installer uses the bash-only `set -o pipefail`.
       - name: Install Foundry
-        run: |
-          set -euo pipefail
-          if ! command -v forge >/dev/null 2>&1 && [ ! -x "$HOME/.foundry/bin/forge" ]; then
-            curl -fsSL https://foundry.paradigm.xyz | bash
-            "$HOME/.foundry/bin/foundryup"
-          fi
+        uses: foundry-rs/foundry-toolchain@v1
 
       # Set TAMA_VERSION (e.g. "0.1.0") to pin a specific Tama release.
       - name: Install Tama
