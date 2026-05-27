@@ -16,8 +16,8 @@ const TMP = path.join(__dirname, ".tmp");
 const DEPLOYMENT = path.join(TMP, "deployment.json");
 const ARACHNID_CREATE2 = "0x4e59b44847b379578588920ca78fbf26c0b4956c";
 const GLOBAL_FACTORY = "0x00000021543ed46b665a74484c82b71e4eb61e34";
-const GLOBAL_ROUTER = "0x000000fe796923ae6aca7b8dfe7fedb4140096d6";
-const GLOBAL_FRONTEND = "0x000000e082c09de4e74497ba9d0958736d37f4a4";
+const GLOBAL_ROUTER = "0x000000bb6b44dcd2c5d05911e830c176aa680579";
+const GLOBAL_FRONTEND = "0x0000001b6ffb9304ac2c7cb2ee1ac03d55613e02";
 
 function playwright() {
   const candidates = [

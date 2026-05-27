@@ -7,7 +7,7 @@ import {TamaSwapFrontend} from "../../src/TamaSwapFrontend.sol";
 contract TamaSwapFrontendTest is Test {
     TamaSwapFrontend internal frontend;
     bytes20 internal constant GLOBAL_FACTORY = hex"00000021543ed46b665a74484c82b71e4eb61e34";
-    bytes20 internal constant GLOBAL_ROUTER = hex"000000fe796923ae6aca7b8dfe7fedb4140096d6";
+    bytes20 internal constant GLOBAL_ROUTER = hex"000000bb6b44dcd2c5d05911e830c176aa680579";
     bytes32 internal constant ERC_5219_MODE = 0x3532313900000000000000000000000000000000000000000000000000000000;
     uint256 internal constant EIP_170_CAP = 24576;
     uint256 internal constant EIP_3860_INITCODE_CAP = 49152;
@@ -22,7 +22,7 @@ contract TamaSwapFrontendTest is Test {
         bytes memory app = bytes(vm.readFile("artifacts/tamaswap.min.html"));
 
         assertTrue(_contains(app, bytes("0x00000021543ed46b665a74484c82b71e4eb61e34")), "factory missing");
-        assertTrue(_contains(app, bytes("0x000000fe796923ae6aca7b8dfe7fedb4140096d6")), "router missing");
+        assertTrue(_contains(app, bytes("0x000000bb6b44dcd2c5d05911e830c176aa680579")), "router missing");
         assertEq(GLOBAL_FACTORY[0], bytes1(0), "factory vanity byte 0");
         assertEq(GLOBAL_FACTORY[1], bytes1(0), "factory vanity byte 1");
         assertEq(GLOBAL_FACTORY[2], bytes1(0), "factory vanity byte 2");

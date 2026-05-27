@@ -4,6 +4,12 @@ test = "test"
 out = "out"
 libs = ["lib"]
 solc_version = "0.8.33"
+# Strip the CBOR metadata hash so forge-compiled creation bytecode (router,
+# frontend, local WETH) is reproducible across platforms, matching the Yul
+# factory's metadata_bytecode_hash = "none". Without it the metadata hash
+# differs between macOS and Linux solc builds, so CREATE2 vanity addresses
+# mined locally would not reproduce in CI.
+bytecode_hash = "none"
 fs_permissions = [
     { access = "read", path = "./artifacts" },
     { access = "write", path = "./e2e/.tmp" },

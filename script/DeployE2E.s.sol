@@ -9,11 +9,11 @@ import {E2EToken, E2EWETH} from "./E2ETokens.sol";
 contract DeployE2E is Script {
     address internal constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address internal constant GLOBAL_FACTORY = 0x00000021543ed46B665A74484c82B71E4eB61e34;
-    address internal constant GLOBAL_ROUTER = 0x000000fE796923AE6Aca7B8dfE7fEdB4140096D6;
-    address internal constant GLOBAL_FRONTEND = 0x000000E082c09DE4e74497Ba9d0958736d37f4a4;
+    address internal constant GLOBAL_ROUTER = 0x000000bb6b44DCD2C5d05911e830C176aA680579;
+    address internal constant GLOBAL_FRONTEND = 0x0000001B6ffb9304aC2C7CB2ee1ac03D55613e02;
     bytes32 internal constant FACTORY_SALT = 0xe7de01c00746d6ee6cacea2e58353be0f49b1826adaa8a7adaafaf5a235dbfcd;
-    bytes32 internal constant ROUTER_SALT = 0x4ca710562383d44b736af6f0a23e40db738664e7214c35b8484438216e964fc4;
-    bytes32 internal constant FRONTEND_SALT = 0x02c2596ea86728136687d8c39b10369ea94b3318399a33661075fe8d0383467b;
+    bytes32 internal constant ROUTER_SALT = 0x91a6fe37677fd168cdb604b5f0b46515ae2e3f403fa634a5c8b32dd5b6ba6b41;
+    bytes32 internal constant FRONTEND_SALT = 0x73171ca15116421a8c9f854b2bec2f0410cdd25d79c9ed0709526f55f6208499;
     bytes32 internal constant WETH_SALT = keccak256("tama-uni-v2.local-weth");
 
     function run() external {
