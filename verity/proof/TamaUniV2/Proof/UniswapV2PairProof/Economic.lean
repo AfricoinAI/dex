@@ -1410,9 +1410,10 @@ theorem wallet_single_caller_history_no_extraction
 
 theorem pairEconomicActionConcreteStep_wallet
     {caller : Address} {before after : PairWalletWorldState} :
-  PairEconomicActionConcreteStep caller before after →
+  PairWalletGood before →
+    PairEconomicActionConcreteStep caller before after →
     ∃ action, PairWalletStep action before after := by
-  intro h_step
+  intro h_good h_step
   cases h_step with
   | mint toAddr preTokens s result liquidity hRun hSuccess hBefore
       hAfter hToAddr hFirstExternal hLaterExternal =>
@@ -1530,8 +1531,8 @@ theorem pairEconomicActionConcreteStep_wallet
       · simp [pairWalletFromConcreteAndTokens]
   | burn toAddr preTokens s transferLiquidity transferResult burnResult
       hTransferRun hTransferSuccess hBurnRun hSuccess hBefore hAfter hToAddr
-      hSender hCallerNeSelf hExternal hPostBalances hLiquidityLe
-      hLockedRemaining hTokenDistinct hCallerToken0Add hCallerToken1Add =>
+      hSender hCallerNeSelf hExternal hPostBalances hTokenDistinct
+      hCallerToken0Add hCallerToken1Add =>
       subst before
       subst after
       subst toAddr
@@ -1608,6 +1609,83 @@ theorem pairEconomicActionConcreteStep_wallet
               ((burn caller).run transferResult.snd).snd := by
         rw [← hBurnRun]
         exact hSuccess
+      have hTransferPairLpAdd :
+          transferResult.snd.storageMap balancesSlot.slot (pairSelf s) =
+            s.storageMap balancesSlot.slot (pairSelf s) + transferLiquidity := by
+        rw [hTransferRun]
+        exact transfer_pairSelf_lp_add caller transferLiquidity s hSender
+          hCallerNeSelf hTransferBalance hTransferNoOverflow
+      have hBurnLiquidityEq :
+          burnLiquidity transferResult.snd =
+            s.storageMap balancesSlot.slot (pairSelf s) + transferLiquidity := by
+        unfold burnLiquidity
+        rw [hPairSelfTransfer]
+        exact hTransferPairLpAdd
+      have hBurnLiquidityValEq :
+          (burnLiquidity transferResult.snd).val =
+            (s.storageMap balancesSlot.slot (pairSelf s)).val +
+              transferLiquidity.val := by
+        have h_val := congrArg (fun x : Uint256 => x.val) hBurnLiquidityEq
+        have h_add :
+            (transferLiquidity + s.storageMap 9 s.thisAddress).val =
+              (s.storageMap 9 s.thisAddress).val + transferLiquidity.val := by
+          have h_noOverflowCore :
+              (s.storageMap 9 s.thisAddress).val + transferLiquidity.val ≤
+                Verity.Core.MAX_UINT256 := by
+            simpa [Verity.Stdlib.Math.MAX_UINT256, Verity.Core.MAX_UINT256,
+              balancesSlot, UniswapV2PairBase.balancesSlot, pairSelf]
+              using hTransferNoOverflow
+          have h_lt :
+              (s.storageMap 9 s.thisAddress).val + transferLiquidity.val <
+                Core.Uint256.modulus := by
+            rw [← Core.Uint256.max_uint256_succ_eq_modulus]
+            omega
+          simpa [Verity.Core.Uint256.add, Verity.Core.Uint256.ofNat,
+            Nat.add_comm] using Nat.mod_eq_of_lt h_lt
+        simpa [pairSelf, balancesSlot, UniswapV2PairBase.balancesSlot, h_add] using h_val
+      rcases burn_success_run_implies_liquidity_supply_pos caller
+          transferResult.snd ((burn caller).run transferResult.snd) rfl
+          hBurnSuccessRun with
+        ⟨_hBurnLiquidityPosRun, hBurnSupplyPosRun⟩
+      have hBurnSupplyPos : 0 < (burnSupply transferResult.snd).val := by
+        simpa [Verity.Core.Uint256.lt_def] using hBurnSupplyPosRun
+      have hBurnSupplyValEq :
+          (burnSupply transferResult.snd).val =
+            (s.storage totalSupplySlot.slot).val := by
+        simp [burnSupply, hTransferStorage]
+      have hSupplyPositiveConcrete :
+          0 < (s.storage totalSupplySlot.slot).val := by
+        rwa [← hBurnSupplyValEq]
+      have hWalletBoundConcrete :
+          (s.storageMap balancesSlot.slot caller).val +
+              (s.storageMap balancesSlot.slot (pairSelf s)).val +
+              pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) ≤
+            (s.storage totalSupplySlot.slot).val := by
+        simpa [pairWalletFromConcreteAndTokens, pairWorldFromConcreteAndTokens]
+          using h_good.2
+      have hLockedEqMinimum :
+          pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) =
+            minimumLiquidityNat := by
+        unfold pairWorldLockedLiquidity
+        exact if_neg (Nat.ne_of_gt hSupplyPositiveConcrete)
+      have hLiquidityLe :
+          (burnLiquidity transferResult.snd).val ≤
+            (burnSupply transferResult.snd).val := by
+        rw [hBurnLiquidityValEq, hBurnSupplyValEq]
+        omega
+      have hLockedRemaining :
+          minimumLiquidityNat ≤
+            (burnSupply transferResult.snd).val -
+              (burnLiquidity transferResult.snd).val := by
+        have hWalletBoundMinimum :
+            (s.storageMap balancesSlot.slot caller).val +
+                (s.storageMap balancesSlot.slot (pairSelf s)).val +
+                minimumLiquidityNat ≤
+              (s.storage totalSupplySlot.slot).val := by
+          rw [hLockedEqMinimum] at hWalletBoundConcrete
+          exact hWalletBoundConcrete
+        rw [hBurnLiquidityValEq, hBurnSupplyValEq]
+        omega
       rcases burn_success_implies_guards caller transferResult.snd
           ((burn caller).run transferResult.snd) rfl hBurnSuccessRun
           hLiquidityLe with
@@ -1701,40 +1779,6 @@ theorem pairEconomicActionConcreteStep_wallet
         rw [hTransferRun]
         exact transfer_caller_lp_sub caller transferLiquidity s hSender
           hCallerNeSelf hTransferBalance hTransferNoOverflow
-      have hTransferPairLpAdd :
-          transferResult.snd.storageMap balancesSlot.slot (pairSelf s) =
-            s.storageMap balancesSlot.slot (pairSelf s) + transferLiquidity := by
-        rw [hTransferRun]
-        exact transfer_pairSelf_lp_add caller transferLiquidity s hSender
-          hCallerNeSelf hTransferBalance hTransferNoOverflow
-      have hBurnLiquidityEq :
-          burnLiquidity transferResult.snd =
-            s.storageMap balancesSlot.slot (pairSelf s) + transferLiquidity := by
-        unfold burnLiquidity
-        rw [hPairSelfTransfer]
-        exact hTransferPairLpAdd
-      have hBurnLiquidityValEq :
-          (burnLiquidity transferResult.snd).val =
-            (s.storageMap balancesSlot.slot (pairSelf s)).val +
-              transferLiquidity.val := by
-        have h_val := congrArg (fun x : Uint256 => x.val) hBurnLiquidityEq
-        have h_add :
-            (transferLiquidity + s.storageMap 9 s.thisAddress).val =
-              (s.storageMap 9 s.thisAddress).val + transferLiquidity.val := by
-          have h_noOverflowCore :
-              (s.storageMap 9 s.thisAddress).val + transferLiquidity.val ≤
-                Verity.Core.MAX_UINT256 := by
-            simpa [Verity.Stdlib.Math.MAX_UINT256, Verity.Core.MAX_UINT256,
-              balancesSlot, UniswapV2PairBase.balancesSlot, pairSelf]
-              using hTransferNoOverflow
-          have h_lt :
-              (s.storageMap 9 s.thisAddress).val + transferLiquidity.val <
-                Core.Uint256.modulus := by
-            rw [← Core.Uint256.max_uint256_succ_eq_modulus]
-            omega
-          simpa [Verity.Core.Uint256.add, Verity.Core.Uint256.ofNat,
-            Nat.add_comm] using Nat.mod_eq_of_lt h_lt
-        simpa [pairSelf, balancesSlot, UniswapV2PairBase.balancesSlot, h_add] using h_val
       have hBurnPairSelfZero :
           (burnResult.snd.storageMap balancesSlot.slot (pairSelf transferResult.snd)).val =
             0 := by
@@ -2355,16 +2399,25 @@ theorem pairEconomicActionConcreteStep_wallet
 
 theorem pairEconomicActionConcretePath_walletHistory
     {caller : Address} {before after : PairWalletWorldState} :
-  PairEconomicActionConcretePath caller before after →
+  PairWalletGood before →
+    0 < before.pair.totalSupply →
+      PairEconomicActionConcretePath caller before after →
     PairWalletHistory before after := by
-  intro h_path
+  intro h_good h_supply h_path
+  revert h_good h_supply
   induction h_path with
   | refl =>
+      intro _h_good _h_supply
       exact PairWalletHistory.refl before
   | step h_prefix h_step ih =>
-      rcases pairEconomicActionConcreteStep_wallet h_step with
+      intro h_good h_supply
+      have h_prefix_history := ih h_good h_supply
+      rcases pairWalletHistory_preserves_good_and_positive
+          h_good h_supply h_prefix_history with
+        ⟨h_before_good, _h_before_supply, _h_before_locked⟩
+      rcases pairEconomicActionConcreteStep_wallet h_before_good h_step with
         ⟨action, h_wallet⟩
-      exact PairWalletHistory.step action ih h_wallet
+      exact PairWalletHistory.step action h_prefix_history h_wallet
 
 -- tama: discharges=pair_actual_execution_no_free_lunch
 theorem actual_execution_no_free_lunch
@@ -2377,7 +2430,7 @@ theorem actual_execution_no_free_lunch
     after h_good
     (by simp [PairWalletFlowEmpty, pairWalletFromConcreteAndTokens])
     h_supply h_reserve0 h_reserve1
-    (pairEconomicActionConcretePath_walletHistory h_path)
+    (pairEconomicActionConcretePath_walletHistory h_good h_supply h_path)
 
 -- tama: discharges=pair_wallet_history_preserves_good
 theorem wallet_history_preserves_good

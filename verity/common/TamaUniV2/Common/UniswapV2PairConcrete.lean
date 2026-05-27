@@ -721,12 +721,6 @@ inductive PairEconomicActionConcreteStep
         pairPostCallSelfBalancesMatch transferResult.snd burnResult.snd
           (burnBalance0After transferResult.snd)
           (burnBalance1After transferResult.snd))
-      (hLiquidityLe :
-        (burnLiquidity transferResult.snd).val ≤ (burnSupply transferResult.snd).val)
-      (hLockedRemaining :
-        minimumLiquidityNat ≤
-          (burnSupply transferResult.snd).val -
-            (burnLiquidity transferResult.snd).val)
       (hTokenDistinct : pairToken0 transferResult.snd ≠ pairToken1 transferResult.snd)
       (hCallerToken0Add :
         (callerTokenBalance0 caller preTokens transferResult.snd).val +
