@@ -1622,8 +1622,10 @@ def pair_swap_checks_k_against_final_balances
             feeAdjustedBalance after.balance1 amount1In.val ≥
           requiredK before.reserve0 before.reserve1
 
-/-- When `swap` succeeds, the post-callback balances determine the input,
-reserve-bound, and K facts used to reach the expected pair state. -/
+/-- When `swap` succeeds, the input, reserve-bound, and K facts are derived from
+the successful run. The post-callback balance equations `hBalance0`/`hBalance1`
+remain exact-token-balance assumptions describing the state observed after the
+optimistic transfer and callback, used to fit the closed-world swap step. -/
 def pair_swap_success_reaches_expected_pair_state
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (balance0Now balance1Now : Uint256) (preTokens : PairTokenBalances)
