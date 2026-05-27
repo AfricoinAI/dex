@@ -35,6 +35,9 @@ def observedBalance1 (s : ContractState) : Uint256 :=
 def pairLockedState (s : ContractState) : ContractState :=
   { s with «storage» := fun slotIdx => if slotIdx = unlockedSlot.slot then 0 else s.storage slotIdx }
 
+def pairSwapCallbackState (s : ContractState) : ContractState :=
+  ((setStorage unlockedSlot (0 : Uint256)).run s).snd
+
 structure PairCallbackObservation where
   target : Address
   sender : Address
@@ -50,7 +53,7 @@ def pairCallbackObservationForSwap
     sender := s.sender
     amount0Out := amount0Out
     amount1Out := amount1Out
-    lockValue := 0 }
+    lockValue := (pairSwapCallbackState s).storage unlockedSlot.slot }
 
 def pairObservedTokenBalance (token owner : Address) (s : ContractState) : Uint256 :=
   ((TamaUniV2.erc20BalanceOf token owner).run s).fst

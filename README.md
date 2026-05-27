@@ -25,9 +25,14 @@ boundary mechanics. Every spec listed below has a matching Lean proof.
 
 **Economic safety.**
 
-1. **No free lunch** — no finite sequence of valid actions can increase any
-   caller's initial-spot-price portfolio value. The pool cannot be drained,
-   sandwiched for free, or otherwise gamed by a sequence of valid calls.
+1. **No free lunch** — no finite sequence of valid actions can increase a
+   single caller's initial-spot-price portfolio value. The pool cannot be
+   drained, sandwiched for free, or otherwise gamed by a sequence of valid
+   calls. Scope: proved for one caller's action history; value entering the
+   pool is measured from the pair's observed token-balance change per call
+   (so it relies on normal ERC20 behavior — property 11 — and credits any
+   mid-sequence balance increase to that caller, which only tightens the
+   bound against them).
 2. **LP-share backing** — reserve product per squared LP supply is monotone
    non-decreasing across every finite reachable history.
 

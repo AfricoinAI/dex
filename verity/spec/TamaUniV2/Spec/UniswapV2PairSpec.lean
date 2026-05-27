@@ -90,6 +90,13 @@ at the initial spot price, and assuming token0 and token1 behave like ordinary
 ERC20s for each call in the path. Value crossing the pair boundary is what is
 counted; trades the caller makes elsewhere are not the pair's doing and do not
 enter the measure.
+
+Scope: the guarantee is proved for a single caller's action history. The value
+entering the pair on each call is read from the pair's own observed
+token-balance change, not from the caller's wallet directly, so under this
+single-caller model any balance increase during the path is credited to that
+caller's "given" side (a third party funding the pair mid-path would only make
+the bound more conservative, never violate it).
 -/
 
 def pair_actual_execution_no_free_lunch
@@ -406,7 +413,23 @@ def pair_flash_callback_runs_while_pair_is_locked
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (s : ContractState) : Prop :=
   data.size > 0 →
-    (pairCallbackObservationForSwap amount0Out amount1Out toAddr s).lockValue = 0
+    (swap amount0Out amount1Out toAddr data).run s =
+      ContractResult.success () ((swap amount0Out amount1Out toAddr data).run s).snd →
+      let callbackState := pairSwapCallbackState s
+      (pairCallbackObservationForSwap amount0Out amount1Out toAddr s).lockValue =
+          callbackState.storage unlockedSlot.slot ∧
+        callbackState.storage unlockedSlot.slot = 0 ∧
+        s.storage unlockedSlot.slot = 1 ∧
+        (mint toAddr).run callbackState =
+          ContractResult.revert "UniswapV2: LOCKED" callbackState ∧
+        (burn toAddr).run callbackState =
+          ContractResult.revert "UniswapV2: LOCKED" callbackState ∧
+        (swap amount0Out amount1Out toAddr data).run callbackState =
+          ContractResult.revert "UniswapV2: LOCKED" callbackState ∧
+        (skim toAddr).run callbackState =
+          ContractResult.revert "UniswapV2: LOCKED" callbackState ∧
+        (sync).run callbackState =
+          ContractResult.revert "UniswapV2: LOCKED" callbackState
 
 /--
 Any attempt to mutate the pair during a flash callback is blocked by the
@@ -1382,13 +1405,23 @@ def pair_first_mint_uses_balance_increase_as_deposit
     (result : ContractResult Uint256) : Prop :=
   let amount0 := mintAmount0 s
   let amount1 := mintAmount1 s
+  let liquidityFromDeposits :=
+    Verity.EVM.Uint256.sub
+      (sqrtValue (Verity.EVM.Uint256.mul amount0 amount1) (mintLockedState s))
+      minimumLiquidity
   result = (mint toAddr).run s →
     result = ContractResult.success (mintFirstLiquidity s) result.snd →
       s.storage totalSupplySlot.slot = 0 →
-        s.storage reserve0Slot.slot ≤ observedBalance0 s →
-          s.storage reserve1Slot.slot ≤ observedBalance1 s →
-            amount0 = observedBalance0 s - s.storage reserve0Slot.slot ∧
-              amount1 = observedBalance1 s - s.storage reserve1Slot.slot
+        (mint toAddr).run s =
+            ContractResult.success liquidityFromDeposits result.snd ∧
+          s.storage reserve0Slot.slot ≤ observedBalance0 s ∧
+          s.storage reserve1Slot.slot ≤ observedBalance1 s ∧
+          amount0 > 0 ∧
+          amount1 > 0 ∧
+          (amount0 == 0 || div (Verity.EVM.Uint256.mul amount0 amount1) amount0 == amount1) = true ∧
+          mintFirstRoot s > minimumLiquidity ∧
+          amount0 = observedBalance0 s - s.storage reserve0Slot.slot ∧
+          amount1 = observedBalance1 s - s.storage reserve1Slot.slot
 
 /--
 When the first `mint` succeeds, total LP supply equals the square-root

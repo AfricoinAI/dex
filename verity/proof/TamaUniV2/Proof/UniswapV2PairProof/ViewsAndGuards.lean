@@ -1522,8 +1522,38 @@ theorem flash_callback_runs_while_pair_is_locked
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (s : ContractState) :
   pair_flash_callback_runs_while_pair_is_locked amount0Out amount1Out toAddr data s := by
-  intro _h_data
-  rfl
+  intro _h_data h_success
+  have h_unlocked : s.storage unlockedSlot.slot = (1 : Uint256) := by
+    by_contra h_not
+    have h_locked : s.storage unlockedSlot.slot != (1 : Uint256) := by
+      simpa using h_not
+    have h_revert := swap_run_revert_locked amount0Out amount1Out toAddr data s h_locked
+    rw [h_revert] at h_success
+    simp at h_success
+  have h_callback_locked :
+      (pairSwapCallbackState s).storage unlockedSlot.slot != (1 : Uint256) := by
+    simpa [pairSwapCallbackState, setStorage, unlockedSlot] using
+      (uint256_bne_true_of_ne (a := (0 : Uint256)) (b := (1 : Uint256)) (by decide))
+  rcases reentrancy_guard_blocks_all_mutating_entrypoints
+      toAddr toAddr toAddr toAddr amount0Out amount1Out data
+      (pairSwapCallbackState s) h_callback_locked with
+    ⟨h_mint, h_burn, h_swap, h_skim, h_sync⟩
+  dsimp [pair_flash_callback_runs_while_pair_is_locked]
+  constructor
+  · rfl
+  constructor
+  · simp [pairSwapCallbackState, setStorage, unlockedSlot]
+  constructor
+  · exact h_unlocked
+  constructor
+  · exact h_mint
+  constructor
+  · exact h_burn
+  constructor
+  · exact h_swap
+  constructor
+  · exact h_skim
+  · exact h_sync
 
 -- tama: discharges=pair_flash_callback_reentry_attempts_revert_locked
 theorem flash_callback_reentry_attempts_revert_locked

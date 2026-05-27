@@ -2066,10 +2066,29 @@ theorem first_mint_success_reaches_expected_pair_state
 
 -- tama: discharges=pair_first_mint_uses_balance_increase_as_deposit
 theorem first_mint_uses_balance_increase_as_deposit
-    (toAddr : Address) (s : ContractState) :
+    (toAddr : Address) (s : ContractState) (result : ContractResult Uint256) :
   pair_first_mint_uses_balance_increase_as_deposit
-    toAddr s ((mint toAddr).run s) := by
-  intro _h_run _h_success _h_supply_zero _h_reserve0 _h_reserve1
+    toAddr s result := by
+  intro h_run h_success h_supply_zero
+  rcases mint_success_implies_guards toAddr s result (mintFirstLiquidity s)
+      h_run h_success with
+    ⟨h_reserve0, h_reserve1, h_amount0, h_amount1, h_first, _h_later⟩
+  rcases h_first h_supply_zero with ⟨_h_liquidity, h_product, h_root⟩
+  constructor
+  · rw [← h_run]
+    simpa [mintFirstLiquidity, mintFirstRoot, mintFirstProduct] using h_success
+  constructor
+  · exact h_reserve0
+  constructor
+  · exact h_reserve1
+  constructor
+  · exact h_amount0
+  constructor
+  · exact h_amount1
+  constructor
+  · simpa [mintFirstProduct] using h_product
+  constructor
+  · exact h_root
   constructor <;> rfl
 
 def pair_mint_subsequent_expected_matches_closed_world_step
