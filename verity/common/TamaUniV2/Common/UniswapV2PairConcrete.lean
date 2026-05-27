@@ -152,6 +152,51 @@ def pairTokenWorldAfterCall {α : Type}
     PairTokenBalances :=
   pairTokenWorldAfterEvents pre (emittedPairEventsAfterCall s result)
 
+def pairTokenWorldAfterSwapCall {α : Type}
+    (pre : PairTokenBalances) (s : ContractState)
+    (balance0Now balance1Now : Uint256) (result : ContractResult α) :
+    PairTokenBalances :=
+  fun tokenValue account =>
+    if tokenValue = pairToken0 s ∧ account = pairSelf s then
+      balance0Now
+    else if tokenValue = pairToken1 s ∧ account = pairSelf s then
+      balance1Now
+    else
+      pairTokenWorldAfterCall pre s result tokenValue account
+
+structure PairTransfer where
+  token : Address
+  fromAddr : Address
+  toAddr : Address
+  amount : Uint256
+
+def pairTransferOfEvent : Event → Option PairTransfer
+  | { name := "UniswapV2PairTokenSafeTransfer",
+      args := [tokenWord, fromWord, toWord, amount],
+      indexedArgs := [] } =>
+      some {
+        token := wordToAddress tokenWord
+        fromAddr := wordToAddress fromWord
+        toAddr := wordToAddress toWord
+        amount := amount
+      }
+  | _ => none
+
+def pairTransfersAfterEvents (events : List Event) : List PairTransfer :=
+  events.filterMap pairTransferOfEvent
+
+def pairTransfersAfterCall {α : Type}
+    (s : ContractState) (result : ContractResult α) : List PairTransfer :=
+  pairTransfersAfterEvents (emittedPairEventsAfterCall s result)
+
+def pairTokenWorldAfterPairTransfer
+    (pre : PairTokenBalances) (tr : PairTransfer) : PairTokenBalances :=
+  pairTokenWorldAfterTransfer pre tr.token tr.fromAddr tr.toAddr tr.amount
+
+def pairTokenWorldAfterPairTransfers :
+    PairTokenBalances → List PairTransfer → PairTokenBalances :=
+  List.foldl pairTokenWorldAfterPairTransfer
+
 def pairRevertedWithOriginalState {α : Type}
     (s : ContractState) (result : ContractResult α) : Prop :=
   ∃ reason, result = ContractResult.revert reason s
@@ -251,6 +296,110 @@ def pairWorldFromConcreteState (s : ContractState) : PairWorldState :=
     totalSupply := (s.storage totalSupplySlot.slot).val
     lockedLiquidity := pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) }
 
+def pairTokenBalance0 (tokens : PairTokenBalances) (s : ContractState) : Uint256 :=
+  tokens (pairToken0 s) (pairSelf s)
+
+def pairTokenBalance1 (tokens : PairTokenBalances) (s : ContractState) : Uint256 :=
+  tokens (pairToken1 s) (pairSelf s)
+
+def callerTokenBalance0
+    (caller : Address) (tokens : PairTokenBalances) (s : ContractState) : Uint256 :=
+  tokens (pairToken0 s) caller
+
+def callerTokenBalance1
+    (caller : Address) (tokens : PairTokenBalances) (s : ContractState) : Uint256 :=
+  tokens (pairToken1 s) caller
+
+@[simp] theorem pairTokenBalance0_pairTokenWorldAfterSwapCall {α : Type}
+    (pre : PairTokenBalances) (s : ContractState)
+    (balance0Now balance1Now : Uint256) (result : ContractResult α) :
+    pairTokenBalance0
+      (pairTokenWorldAfterSwapCall pre s balance0Now balance1Now result)
+      s = balance0Now := by
+  simp [pairTokenBalance0, pairTokenWorldAfterSwapCall]
+
+@[simp] theorem pairTokenBalance1_pairTokenWorldAfterSwapCall {α : Type}
+    (pre : PairTokenBalances) (s : ContractState)
+    (balance0Now balance1Now : Uint256) (result : ContractResult α)
+    (hTokenDistinct : pairToken0 s ≠ pairToken1 s) :
+    pairTokenBalance1
+      (pairTokenWorldAfterSwapCall pre s balance0Now balance1Now result)
+      s = balance1Now := by
+  simp [pairTokenBalance1, pairTokenWorldAfterSwapCall, hTokenDistinct.symm]
+
+@[simp] theorem callerTokenBalance0_pairTokenWorldAfterSwapCall {α : Type}
+    (caller : Address) (pre : PairTokenBalances) (s : ContractState)
+    (balance0Now balance1Now : Uint256) (result : ContractResult α)
+    (hCallerNeSelf : caller ≠ pairSelf s) :
+    callerTokenBalance0 caller
+      (pairTokenWorldAfterSwapCall pre s balance0Now balance1Now result)
+      result.snd =
+    callerTokenBalance0 caller (pairTokenWorldAfterCall pre s result) result.snd := by
+  simp [callerTokenBalance0, pairTokenWorldAfterSwapCall, hCallerNeSelf]
+
+@[simp] theorem callerTokenBalance1_pairTokenWorldAfterSwapCall {α : Type}
+    (caller : Address) (pre : PairTokenBalances) (s : ContractState)
+    (balance0Now balance1Now : Uint256) (result : ContractResult α)
+    (hCallerNeSelf : caller ≠ pairSelf s) :
+    callerTokenBalance1 caller
+      (pairTokenWorldAfterSwapCall pre s balance0Now balance1Now result)
+      result.snd =
+    callerTokenBalance1 caller (pairTokenWorldAfterCall pre s result) result.snd := by
+  simp [callerTokenBalance1, pairTokenWorldAfterSwapCall, hCallerNeSelf]
+
+def pairWorldFromConcreteAndTokens
+    (tokens : PairTokenBalances) (s : ContractState) : PairWorldState :=
+  { balance0 := (pairTokenBalance0 tokens s).val
+    balance1 := (pairTokenBalance1 tokens s).val
+    reserve0 := (s.storage reserve0Slot.slot).val
+    reserve1 := (s.storage reserve1Slot.slot).val
+    totalSupply := (s.storage totalSupplySlot.slot).val
+    lockedLiquidity := pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) }
+
+def pairConcreteStorageMatchesWorld
+    (s : ContractState) (w : PairWorldState) : Prop :=
+  (s.storage reserve0Slot.slot).val = w.reserve0 ∧
+  (s.storage reserve1Slot.slot).val = w.reserve1 ∧
+  (s.storage totalSupplySlot.slot).val = w.totalSupply ∧
+  pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) = w.lockedLiquidity
+
+def pairTokenBalancesMatchWorld
+    (tokens : PairTokenBalances) (s : ContractState)
+    (w : PairWorldState) : Prop :=
+  (pairTokenBalance0 tokens s).val = w.balance0 ∧
+  (pairTokenBalance1 tokens s).val = w.balance1
+
+def pairWalletFromConcreteAndTokens
+    (caller : Address) (tokens : PairTokenBalances)
+    (s : ContractState) : PairWalletWorldState :=
+  { pair := pairWorldFromConcreteAndTokens tokens s
+    callerToken0 := (callerTokenBalance0 caller tokens s).val
+    callerToken1 := (callerTokenBalance1 caller tokens s).val
+    callerLp := (s.storageMap balancesSlot.slot caller).val
+    pairLp := (s.storageMap balancesSlot.slot (pairSelf s)).val
+    recv0 := 0
+    recv1 := 0
+    recvLp := 0
+    give0 := 0
+    give1 := 0
+    giveLp := 0 }
+
+def pairWalletWithStepFlows
+    (snapshot before : PairWalletWorldState)
+    (recv0 recv1 recvLp give0 give1 giveLp : Nat) : PairWalletWorldState :=
+  { snapshot with
+    pairLp := before.pairLp
+    recv0 := before.recv0 + recv0
+    recv1 := before.recv1 + recv1
+    recvLp := before.recvLp + recvLp
+    give0 := before.give0 + give0
+    give1 := before.give1 + give1
+    giveLp := before.giveLp + giveLp }
+
+def pairWorldBeforeMintRunAndTokens
+    (tokens : PairTokenBalances) (s : ContractState) : PairWorldState :=
+  pairWorldFromConcreteAndTokens tokens s
+
 def pairWorldBeforeMintRun (s : ContractState) : PairWorldState :=
   { balance0 := (observedBalance0 s).val
     balance1 := (observedBalance1 s).val
@@ -266,6 +415,26 @@ def pairWorldAfterFirstMintRun (s : ContractState) : PairWorldState :=
     reserve1 := (observedBalance1 s).val
     totalSupply := (mintFirstRoot s).val
     lockedLiquidity := minimumLiquidityNat }
+
+def pairWorldAfterFirstMintRunAndTokens
+    (tokens : PairTokenBalances) (s : ContractState) : PairWorldState :=
+  { balance0 := (pairTokenBalance0 tokens s).val
+    balance1 := (pairTokenBalance1 tokens s).val
+    reserve0 := (pairTokenBalance0 tokens s).val
+    reserve1 := (pairTokenBalance1 tokens s).val
+    totalSupply := (mintFirstRoot s).val
+    lockedLiquidity := minimumLiquidityNat }
+
+def pairWorldAfterSubsequentMintRunAndTokens
+    (tokens : PairTokenBalances) (liquidity : Uint256)
+    (s : ContractState) : PairWorldState :=
+  { balance0 := (pairTokenBalance0 tokens s).val
+    balance1 := (pairTokenBalance1 tokens s).val
+    reserve0 := (pairTokenBalance0 tokens s).val
+    reserve1 := (pairTokenBalance1 tokens s).val
+    totalSupply := (s.storage totalSupplySlot.slot).val + liquidity.val
+    lockedLiquidity :=
+      if (s.storage totalSupplySlot.slot).val = 0 then 0 else minimumLiquidityNat }
 
 def pairWorldAfterSkimRun (s : ContractState) : PairWorldState :=
   { balance0 := (s.storage reserve0Slot.slot).val
@@ -283,11 +452,38 @@ def pairWorldAfterSyncRun (s : ContractState) : PairWorldState :=
     totalSupply := (s.storage totalSupplySlot.slot).val
     lockedLiquidity := pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) }
 
+def pairWorldAfterSkimRunAndTokens
+    (tokens : PairTokenBalances) (s : ContractState) : PairWorldState :=
+  { balance0 := (pairTokenBalance0 tokens s).val
+    balance1 := (pairTokenBalance1 tokens s).val
+    reserve0 := (s.storage reserve0Slot.slot).val
+    reserve1 := (s.storage reserve1Slot.slot).val
+    totalSupply := (s.storage totalSupplySlot.slot).val
+    lockedLiquidity := pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) }
+
+def pairWorldAfterSyncRunAndTokens
+    (tokens : PairTokenBalances) (s : ContractState) : PairWorldState :=
+  { balance0 := (pairTokenBalance0 tokens s).val
+    balance1 := (pairTokenBalance1 tokens s).val
+    reserve0 := (pairTokenBalance0 tokens s).val
+    reserve1 := (pairTokenBalance1 tokens s).val
+    totalSupply := (s.storage totalSupplySlot.slot).val
+    lockedLiquidity := pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) }
+
 def pairWorldAfterBurnRun (s : ContractState) : PairWorldState :=
   { balance0 := (burnBalance0After s).val
     balance1 := (burnBalance1After s).val
     reserve0 := (burnBalance0After s).val
     reserve1 := (burnBalance1After s).val
+    totalSupply := (Verity.EVM.Uint256.sub (burnSupply s) (burnLiquidity s)).val
+    lockedLiquidity := pairWorldLockedLiquidity (burnSupply s) }
+
+def pairWorldAfterBurnRunAndTokens
+    (tokens : PairTokenBalances) (s : ContractState) : PairWorldState :=
+  { balance0 := (pairTokenBalance0 tokens s).val
+    balance1 := (pairTokenBalance1 tokens s).val
+    reserve0 := (pairTokenBalance0 tokens s).val
+    reserve1 := (pairTokenBalance1 tokens s).val
     totalSupply := (Verity.EVM.Uint256.sub (burnSupply s) (burnLiquidity s)).val
     lockedLiquidity := pairWorldLockedLiquidity (burnSupply s) }
 
@@ -383,6 +579,258 @@ def pairWorldAfterSwapRun
     reserve1 := balance1Now.val
     totalSupply := (s.storage totalSupplySlot.slot).val
     lockedLiquidity := pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) }
+
+def pairWorldAfterSwapRunAndTokens
+    (tokens : PairTokenBalances) (s : ContractState) : PairWorldState :=
+  { balance0 := (pairTokenBalance0 tokens s).val
+    balance1 := (pairTokenBalance1 tokens s).val
+    reserve0 := (pairTokenBalance0 tokens s).val
+    reserve1 := (pairTokenBalance1 tokens s).val
+    totalSupply := (s.storage totalSupplySlot.slot).val
+    lockedLiquidity := pairWorldLockedLiquidity (s.storage totalSupplySlot.slot) }
+
+def pairExternalTokenBalancesMatchCall {α : Type}
+    (preTokens : PairTokenBalances) (s : ContractState)
+    (result : ContractResult α)
+    (before after : PairWorldState) : Prop :=
+  let postTokens := pairTokenWorldAfterCall preTokens s result
+  pairTokenBalancesMatchWorld preTokens s before ∧
+    pairTokenBalancesMatchWorld postTokens result.snd after
+
+def pairPostCallSelfBalancesMatch
+    (s : ContractState) (post : ContractState) (b0 b1 : Uint256) : Prop :=
+  ((TamaUniV2.erc20BalanceOf (pairToken0 s) (pairSelf s)).run post).fst = b0 ∧
+    ((TamaUniV2.erc20BalanceOf (pairToken1 s) (pairSelf s)).run post).fst = b1
+
+def pairFirstMintExternalTokenBalancesMatchCall
+    (preTokens : PairTokenBalances) (s : ContractState)
+    (result : ContractResult Uint256) : Prop :=
+  pairExternalTokenBalancesMatchCall preTokens s result
+    (pairWorldBeforeMintRun s)
+    (pairWorldAfterFirstMintRun s)
+
+def pairLaterMintExternalTokenBalancesMatchCall
+    (preTokens : PairTokenBalances) (s : ContractState)
+    (liquidity : Uint256) (result : ContractResult Uint256) : Prop :=
+  pairExternalTokenBalancesMatchCall preTokens s result
+    (pairWorldBeforeMintRun s)
+    (pairWorldAfterSubsequentMintRun liquidity s)
+
+def pairBurnExternalTokenBalancesMatchCall
+    (preTokens : PairTokenBalances) (s : ContractState)
+    (result : ContractResult (Uint256 × Uint256)) : Prop :=
+  pairExternalTokenBalancesMatchCall preTokens s result
+    (pairWorldFromConcreteState s)
+    (pairWorldAfterBurnRun s)
+
+def pairSwapExternalTokenBalancesMatchCall
+    (preTokens : PairTokenBalances) (s : ContractState)
+    (balance0Now balance1Now : Uint256)
+    (result : ContractResult Unit) : Prop :=
+  pairTokenBalancesMatchWorld preTokens s (pairWorldFromConcreteState s) ∧
+    pairTokenBalancesMatchWorld
+      (pairTokenWorldAfterSwapCall preTokens s balance0Now balance1Now result)
+      result.snd
+      (pairWorldAfterSwapRun balance0Now balance1Now s)
+
+def pairSkimExternalTokenBalancesMatchCall
+    (preTokens : PairTokenBalances) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  pairExternalTokenBalancesMatchCall preTokens s result
+    (pairWorldFromConcreteState s)
+    (pairWorldAfterSkimRun s)
+
+def pairSyncExternalTokenBalancesMatchCall
+    (preTokens : PairTokenBalances) (s : ContractState)
+    (result : ContractResult Unit) : Prop :=
+  pairExternalTokenBalancesMatchCall preTokens s result
+    (pairWorldFromConcreteState s)
+    (pairWorldAfterSyncRun s)
+
+inductive PairEconomicActionConcreteStep
+    (caller : Address) : PairWalletWorldState → PairWalletWorldState → Prop where
+  /-- A concrete economic step records a successful pair call and the
+  corresponding caller-wallet transition used by the economic history. LP
+  balances are pair storage; the normal-behavior assumption only concerns the
+  external token0/token1 balances used by the action bridges. -/
+  | mint
+      {before after : PairWalletWorldState}
+      (toAddr : Address) (preTokens : PairTokenBalances)
+      (s : ContractState) (result : ContractResult Uint256)
+      (liquidity : Uint256)
+      (hRun : result = (TamaUniV2.UniswapV2Pair.mint toAddr).run s)
+      (hSuccess : result = ContractResult.success liquidity result.snd)
+      (hBefore : before = pairWalletFromConcreteAndTokens caller preTokens s)
+      (hAfter :
+        after =
+          pairWalletWithStepFlows
+            (pairWalletFromConcreteAndTokens caller
+              (pairTokenWorldAfterCall preTokens s result) result.snd)
+            before
+            0 0 liquidity.val 0 0 0)
+      (hToAddr : toAddr = caller)
+      (hFirstExternal :
+        s.storage totalSupplySlot.slot = 0 →
+          pairFirstMintExternalTokenBalancesMatchCall preTokens s result)
+      (hLaterExternal :
+        s.storage totalSupplySlot.slot ≠ 0 →
+          pairLaterMintExternalTokenBalancesMatchCall preTokens s liquidity result)
+      :
+      PairEconomicActionConcreteStep caller before after
+  | burn
+      {before after : PairWalletWorldState}
+      (toAddr : Address) (preTokens : PairTokenBalances)
+      (s : ContractState)
+      (transferLiquidity : Uint256)
+      (transferResult : ContractResult Bool)
+      (burnResult : ContractResult (Uint256 × Uint256))
+      (hTransferRun :
+        transferResult =
+          (TamaUniV2.UniswapV2Pair.transfer (pairSelf s) transferLiquidity).run s)
+      (hTransferSuccess :
+        transferResult = ContractResult.success true transferResult.snd)
+      (hBurnRun : burnResult = (TamaUniV2.UniswapV2Pair.burn toAddr).run transferResult.snd)
+      (hSuccess :
+        burnResult =
+          ContractResult.success
+            (burnAmount0 transferResult.snd, burnAmount1 transferResult.snd)
+            burnResult.snd)
+      (hBefore : before = pairWalletFromConcreteAndTokens caller preTokens s)
+      (hAfter :
+        after =
+          { pairWalletWithStepFlows
+              (pairWalletFromConcreteAndTokens caller
+                (pairTokenWorldAfterCall preTokens transferResult.snd burnResult)
+                burnResult.snd)
+              before
+              (burnAmount0 transferResult.snd).val
+              (burnAmount1 transferResult.snd).val
+              0
+              0
+              0
+              transferLiquidity.val with
+            pairLp := (burnResult.snd.storageMap balancesSlot.slot
+              (pairSelf transferResult.snd)).val })
+      (hToAddr : toAddr = caller)
+      (hSender : s.sender = caller)
+      (hCallerNeSelf : caller ≠ pairSelf s)
+      (hExternal :
+        pairBurnExternalTokenBalancesMatchCall
+          preTokens transferResult.snd burnResult)
+      (hPostBalances :
+        pairPostCallSelfBalancesMatch transferResult.snd burnResult.snd
+          (burnBalance0After transferResult.snd)
+          (burnBalance1After transferResult.snd))
+      (hTokenDistinct : pairToken0 transferResult.snd ≠ pairToken1 transferResult.snd)
+      (hCallerToken0Add :
+        (callerTokenBalance0 caller preTokens transferResult.snd).val +
+            (burnAmount0 transferResult.snd).val <
+          Core.Uint256.modulus)
+      (hCallerToken1Add :
+        (callerTokenBalance1 caller preTokens transferResult.snd).val +
+            (burnAmount1 transferResult.snd).val <
+          Core.Uint256.modulus) :
+      PairEconomicActionConcreteStep caller before after
+  | swap
+      {before after : PairWalletWorldState}
+      (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+      (balance0Now balance1Now : Uint256) (preTokens : PairTokenBalances)
+      (s : ContractState) (result : ContractResult Unit)
+      (hRun :
+        result =
+          (TamaUniV2.UniswapV2Pair.swap amount0Out amount1Out toAddr data).run s)
+      (hSuccess : result = ContractResult.success () result.snd)
+      (hBefore : before = pairWalletFromConcreteAndTokens caller preTokens s)
+      (hAfter :
+        after =
+          pairWalletWithStepFlows
+            (pairWalletFromConcreteAndTokens caller
+              (pairTokenWorldAfterSwapCall preTokens s balance0Now balance1Now result)
+              result.snd)
+            before
+            amount0Out.val amount1Out.val 0
+            ((swapAmount0In amount0Out balance0Now s).val -
+              PairWorldSurplus0 (pairWorldFromConcreteState s))
+            ((swapAmount1In amount1Out balance1Now s).val -
+              PairWorldSurplus1 (pairWorldFromConcreteState s))
+            0)
+      (hExternal :
+        pairSwapExternalTokenBalancesMatchCall
+          preTokens s balance0Now balance1Now result)
+      (hBalance0Le :
+        (observedBalance0 s).val ≤ balance0Now.val + amount0Out.val)
+      (hBalance1Le :
+        (observedBalance1 s).val ≤ balance1Now.val + amount1Out.val)
+      (hToAddr : toAddr = caller)
+      (hCallerNeSelf : caller ≠ pairSelf s)
+      (hTokenDistinct : pairToken0 s ≠ pairToken1 s)
+      (hCallerToken0Add :
+        (callerTokenBalance0 caller preTokens s).val + amount0Out.val <
+          Core.Uint256.modulus)
+      (hCallerToken1Add :
+        (callerTokenBalance1 caller preTokens s).val + amount1Out.val <
+          Core.Uint256.modulus)
+      (hPostBalances :
+        pairPostCallSelfBalancesMatch s result.snd balance0Now balance1Now)
+      (hBalance0 :
+        balance0Now.val =
+          (s.storage reserve0Slot.slot).val +
+            (swapAmount0In amount0Out balance0Now s).val - amount0Out.val)
+      (hBalance1 :
+        balance1Now.val =
+          (s.storage reserve1Slot.slot).val +
+            (swapAmount1In amount1Out balance1Now s).val - amount1Out.val) :
+      PairEconomicActionConcreteStep caller before after
+  | skim
+      {before after : PairWalletWorldState}
+      (toAddr : Address) (preTokens : PairTokenBalances)
+      (s : ContractState) (result : ContractResult Unit)
+      (hRun : result = (TamaUniV2.UniswapV2Pair.skim toAddr).run s)
+      (hSuccess : result = ContractResult.success () result.snd)
+      (hBefore : before = pairWalletFromConcreteAndTokens caller preTokens s)
+      (hAfter :
+        after =
+          pairWalletWithStepFlows
+            (pairWalletFromConcreteAndTokens caller
+              (pairTokenWorldAfterCall preTokens s result) result.snd)
+            before
+            (skimExcess0 s).val (skimExcess1 s).val 0 0 0 0)
+      (hExternal : pairSkimExternalTokenBalancesMatchCall preTokens s result)
+      (hToAddr : toAddr = caller)
+      (hCallerNeSelf : caller ≠ pairSelf s)
+      (hTokenDistinct : pairToken0 s ≠ pairToken1 s)
+      (hCallerToken0Add :
+        (callerTokenBalance0 caller preTokens s).val + (skimExcess0 s).val <
+          Core.Uint256.modulus)
+      (hCallerToken1Add :
+        (callerTokenBalance1 caller preTokens s).val + (skimExcess1 s).val <
+          Core.Uint256.modulus) :
+      PairEconomicActionConcreteStep caller before after
+  | sync
+      {before after : PairWalletWorldState}
+      (preTokens : PairTokenBalances)
+      (s : ContractState) (result : ContractResult Unit)
+      (hRun : result = (TamaUniV2.UniswapV2Pair.sync).run s)
+      (hSuccess : result = ContractResult.success () result.snd)
+      (hBefore : before = pairWalletFromConcreteAndTokens caller preTokens s)
+      (hAfter :
+        after =
+          pairWalletWithStepFlows
+            (pairWalletFromConcreteAndTokens caller
+              (pairTokenWorldAfterCall preTokens s result) result.snd)
+            before
+            0 0 0 0 0 0)
+      (hExternal : pairSyncExternalTokenBalancesMatchCall preTokens s result) :
+      PairEconomicActionConcreteStep caller before after
+
+inductive PairEconomicActionConcretePath
+    (caller : Address) : PairWalletWorldState → PairWalletWorldState → Prop where
+  | refl (w : PairWalletWorldState) :
+      PairEconomicActionConcretePath caller w w
+  | step {start before after : PairWalletWorldState} :
+      PairEconomicActionConcretePath caller start before →
+      PairEconomicActionConcreteStep caller before after →
+      PairEconomicActionConcretePath caller start after
 
 def swapBalance0Scaled (balance0Now : Uint256) : Uint256 :=
   Verity.EVM.Uint256.mul balance0Now feeDenominator

@@ -22,9 +22,11 @@ callbacks, and CREATE2 deployment.
 
 ### Tier 1 — Economic safety
 
-1. **No free lunch** — from any reachable state, no finite sequence of valid
-   actions can increase a single caller's initial-spot-price portfolio value
-   (wallet tokens + LP-claimed reserves + skimmable surplus).
+1. **No extraction** — from any reachable state, no finite sequence of valid
+   actions can extract value from the pair beyond paid inputs, claimed LP
+   backing, and existing surplus. The claim covers ordinary swaps,
+   flash/callback and arbitrage swaps, and burns over LP already held by the
+   pair.
 
 2. **LP-share backing** — across every finite reachable history from a
    positive-supply state, reserve product per squared LP supply is monotone
@@ -59,10 +61,9 @@ callbacks, and CREATE2 deployment.
 10. **Exact-revert guards** — every guarded failure has a canonical revert
     payload and leaves the pre-call state unchanged.
 
-11. **ERC20 trace boundary** — token movement is modeled by pair-local ERC20
-    trace events; runtime mirrors document the external token behavior
-    envelope without treating the generic ERC20 ECM implementation as a
-    Uniswap protocol property.
+11. **Normal token behavior** — token movement is modeled by pair-local ERC20
+    trace events; runtime mirrors document the assumption that the external
+    tokens obey ordinary ERC20 balance/transfer semantics for the call.
 
 12. **LP ERC20 share ledger** — LP approve/transfer/transferFrom move share
     claims only; AMM state, reserves, and token balances are unchanged.
@@ -73,28 +74,36 @@ callbacks, and CREATE2 deployment.
 14. **Views** — views return exactly one storage cell (or a constant) without
     mutating state.
 
-15. **Public-call matching** — each successful public mutating call matches
-    its closed-world transition and the corresponding caller-wallet step,
-    bridging the contract boundary into the models used by properties 1–14.
+15. **Actual execution bridges** — each successful public mutating call reaches
+    the expected pair state when the tokens involved behave like ordinary ERC20s
+    for that call, bridging concrete calls into the models used by properties
+    1–14.
 -/
 
 /-!
 ## 1. No free lunch
 
-The headline economic property. From any reachable state, no finite
-sequence of valid caller actions can increase the caller's portfolio
-value at the initial spot price.
+The headline economic property. From any reachable state, no finite sequence of
+successful pair calls lets the caller take more value out of the pair than they
+put into it, plus the value they could already claim at the start — all measured
+at the initial spot price, and assuming token0 and token1 behave like ordinary
+ERC20s for each call in the path. Value crossing the pair boundary is what is
+counted; trades the caller makes elsewhere are not the pair's doing and do not
+enter the measure.
 -/
 
-def pair_wallet_single_caller_history_no_portfolio_profit
-    (before after : PairWalletWorldState) : Prop :=
+def pair_actual_execution_no_free_lunch
+    (caller : Address) (initialTokens : PairTokenBalances)
+    (initialState : ContractState) (after : PairWalletWorldState) : Prop :=
+  let before := pairWalletFromConcreteAndTokens caller initialTokens initialState
   PairWalletGood before →
     0 < before.pair.totalSupply →
       0 < before.pair.reserve0 →
         0 < before.pair.reserve1 →
-          PairWalletHistory before after →
-            PairWalletPortfolioValueInToken1 before.pair after ≤
-              PairWalletPortfolioValueInToken1 before.pair before
+          PairEconomicActionConcretePath caller before after →
+            PairWalletFlowReceivedValueAtSpot before.pair after ≤
+              PairWalletFlowGivenValueAtSpot before.pair after +
+                PairWalletInitialClaimValueAtSpot before.pair before
 
 /-!
 ## 2. LP-share backing
@@ -406,7 +415,7 @@ side effects when the callback reaches the pair while the lock is closed.
 -/
 def pair_flash_callback_reentry_attempts_revert_locked
     (mintTo burnTo skimTo swapTo : Address)
-    (amount0Out amount1Out nested0Out nested1Out : Uint256)
+    (_amount0Out _amount1Out nested0Out nested1Out : Uint256)
     (data nestedData : ByteArray)
     (s : ContractState) : Prop :=
   data.size > 0 →
@@ -856,21 +865,21 @@ def pair_skim_run_revert_balance1_below_reserve
         ContractResult.revert "UniswapV2: INSUFFICIENT_BALANCE" s
 
 def pair_mint_revert_keeps_token_balances
-    (toAddr : Address) (pre post : PairTokenBalances) (s : ContractState)
+    (_toAddr : Address) (pre post : PairTokenBalances) (s : ContractState)
     (result : ContractResult Uint256) : Prop :=
   post = pairTokenWorldAfterCall pre s result →
     pairRevertedWithOriginalState s result →
       pairTokenBalancesUnchanged pre post
 
 def pair_burn_revert_keeps_token_balances
-    (toAddr : Address) (pre post : PairTokenBalances) (s : ContractState)
+    (_toAddr : Address) (pre post : PairTokenBalances) (s : ContractState)
     (result : ContractResult (Uint256 × Uint256)) : Prop :=
   post = pairTokenWorldAfterCall pre s result →
     pairRevertedWithOriginalState s result →
       pairTokenBalancesUnchanged pre post
 
 def pair_swap_revert_keeps_token_balances
-    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (_amount0Out _amount1Out : Uint256) (_toAddr : Address) (_data : ByteArray)
     (pre post : PairTokenBalances) (s : ContractState)
     (result : ContractResult Unit) : Prop :=
   post = pairTokenWorldAfterCall pre s result →
@@ -878,7 +887,7 @@ def pair_swap_revert_keeps_token_balances
       pairTokenBalancesUnchanged pre post
 
 def pair_skim_revert_keeps_token_balances
-    (toAddr : Address) (pre post : PairTokenBalances) (s : ContractState)
+    (_toAddr : Address) (pre post : PairTokenBalances) (s : ContractState)
     (result : ContractResult Unit) : Prop :=
   post = pairTokenWorldAfterCall pre s result →
     pairRevertedWithOriginalState s result →
@@ -943,13 +952,13 @@ def pair_sync_revert_keeps_pair_state
 /-- Initialization either rejects non-factory callers, rejects a second
 initialization, or records the two token addresses exactly once. -/
 def pair_initialize_reverts_for_non_factory
-    (token0Value token1Value : Address) (s : ContractState)
+    (_token0Value _token1Value : Address) (s : ContractState)
     (result : ContractResult Unit) : Prop :=
   s.sender != s.storageAddr factorySlot.slot →
     result = ContractResult.revert "UniswapV2: FORBIDDEN" s
 
 def pair_initialize_reverts_when_already_initialized
-    (token0Value token1Value : Address) (s : ContractState)
+    (_token0Value _token1Value : Address) (s : ContractState)
     (result : ContractResult Unit) : Prop :=
   s.sender = s.storageAddr factorySlot.slot →
     (s.storageAddr token0Slot.slot != zeroAddress ∨
@@ -957,13 +966,12 @@ def pair_initialize_reverts_when_already_initialized
       result = ContractResult.revert "UniswapV2: ALREADY_INITIALIZED" s
 
 /-!
-## 11. ERC20 trace boundary
+## 11. Normal token behavior
 
-The pair affects token balances through the ERC20 helper boundary assumed by
-the compiled model. Each successful `safeTransfer` records a pair-local ghost
-event whose replay moves exactly that token amount. These trace facts define the
-pair's accounting view of ERC20 interactions without pretending to prove
-arbitrary token correctness or the generic ERC20 ECM implementation itself.
+The pair affects token balances through ERC20 calls. Each successful
+`safeTransfer` records a pair-local ghost event whose replay moves exactly that
+token amount. These trace facts define the pair's accounting view when the
+external tokens obey ordinary ERC20 balance/transfer semantics for the call.
 -/
 
 def pair_safeTransfer_traces_token_transfer
@@ -1046,7 +1054,7 @@ def pair_transferFrom_run_keeps_token_balances
 /-- Approval is intentionally narrow: it returns true, writes exactly one
 allowance cell, preserves all LP balances and total supply, and emits Approval. -/
 def pair_approve_succeeds
-    (spender : Address) (amount : Uint256) (s : ContractState)
+    (_spender : Address) (_amount : Uint256) (_s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result = ContractResult.success true result.snd
 
@@ -1056,12 +1064,12 @@ def pair_approve_sets_allowance
   result.snd.storageMap2 allowancesSlot.slot s.sender spender = amount
 
 def pair_approve_keeps_balances
-    (spender : Address) (amount : Uint256) (s : ContractState)
+    (_spender : Address) (_amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result.snd.storageMap = s.storageMap
 
 def pair_approve_keeps_total_supply
-    (spender : Address) (amount : Uint256) (s : ContractState)
+    (_spender : Address) (_amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result.snd.storage totalSupplySlot.slot = s.storage totalSupplySlot.slot
 
@@ -1069,7 +1077,7 @@ def pair_approve_keeps_total_supply
 but it cannot change scalar AMM storage: reserves, TWAP accumulators, LP supply,
 token identities, or the reentrancy lock. -/
 def pair_approve_keeps_pool_storage
-    (spender : Address) (amount : Uint256) (s : ContractState)
+    (_spender : Address) (_amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result.snd.storage = s.storage
 
@@ -1099,7 +1107,7 @@ def pair_transfer_moves_tokens_between_distinct_accounts
           (s.storageMap balancesSlot.slot toAddr) + amount
 
 def pair_transfer_keeps_total_supply
-    (toAddr : Address) (amount : Uint256) (s : ContractState)
+    (_toAddr : Address) (_amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result.snd.storage totalSupplySlot.slot = s.storage totalSupplySlot.slot
 
@@ -1108,7 +1116,7 @@ storage. This is the public-call counterpart of the model-level fact that share
 bookkeeping does not touch reserves, prices, supply, token identities, or the
 lock. -/
 def pair_transfer_keeps_pool_storage
-    (toAddr : Address) (amount : Uint256) (s : ContractState)
+    (_toAddr : Address) (_amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result.snd.storage = s.storage
 
@@ -1145,7 +1153,7 @@ def pair_transferFrom_moves_tokens_between_distinct_accounts
             (s.storageMap balancesSlot.slot toAddr) + amount
 
 def pair_transferFrom_keeps_total_supply
-    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState)
+    (_fromAddr _toAddr : Address) (_amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result.snd.storage totalSupplySlot.slot = s.storage totalSupplySlot.slot
 
@@ -1153,7 +1161,7 @@ def pair_transferFrom_keeps_total_supply
 They may update balances and finite allowance, but no scalar pool accounting
 slot can move. -/
 def pair_transferFrom_keeps_pool_storage
-    (fromAddr toAddr : Address) (amount : Uint256) (s : ContractState)
+    (_fromAddr _toAddr : Address) (_amount : Uint256) (s : ContractState)
     (result : ContractResult Bool) : Prop :=
   result.snd.storage = s.storage
 
@@ -1328,36 +1336,39 @@ def pair_kLast_run_success_frames_state
   (kLast).run s = ContractResult.success 0 s
 
 /-!
-## 15. Public-call matching
+## 15. Actual execution bridges
 
-Each successful public mutating call matches its closed-world transition
-and the corresponding caller-wallet step. These specs connect the
-contract boundary into the closed-world model used by properties 2–13
-and the caller-wallet model used by property 1.
+Each successful public mutating call reaches the expected pair state by combining
+pair-internal storage postconditions proved from the actual run with field-level
+token-balance facts tied to the existing ERC20 balanceOf/transfer trust boundary.
 -/
 
 /-- When the first `mint` succeeds, the lock gate was open and both observed
-token balances fit the `uint112` reserve domain; the remaining premises identify
-the call as the initial-liquidity path. -/
-def pair_mint_first_success_run_matches_closed_world_step_from_run
-    (toAddr : Address) (s : ContractState)
+token balances fit the `uint112` reserve domain; the token-behavior premise
+ties those reads and the replayed token events to the token-backed post-state. -/
+def pair_first_mint_success_reaches_expected_pair_state
+    (toAddr : Address) (preTokens : PairTokenBalances) (s : ContractState)
     (result : ContractResult Uint256) : Prop :=
   let amount0 := mintAmount0 s
   let amount1 := mintAmount1 s
   let liquidity := mintFirstLiquidity s
+  let actual :=
+    pairWorldFromConcreteAndTokens
+      (pairTokenWorldAfterCall preTokens s result) result.snd
   result = (mint toAddr).run s →
     result = ContractResult.success liquidity result.snd →
-      s.storage totalSupplySlot.slot = 0 →
-        s.storage reserve0Slot.slot ≤ observedBalance0 s →
-          s.storage reserve1Slot.slot ≤ observedBalance1 s →
-            amount0 > 0 →
-              amount1 > 0 →
-                (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
-                  mintFirstRoot s > minimumLiquidity →
-                    PairWorldStep
-                      (PairWorldAction.mint amount0.val amount1.val liquidity.val)
-                      (pairWorldBeforeMintRun s)
-                      (pairWorldAfterFirstMintRun s)
+      pairFirstMintExternalTokenBalancesMatchCall preTokens s result →
+        s.storage totalSupplySlot.slot = 0 →
+          s.storage reserve0Slot.slot ≤ observedBalance0 s →
+            s.storage reserve1Slot.slot ≤ observedBalance1 s →
+              amount0 > 0 →
+                amount1 > 0 →
+                  (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
+                    mintFirstRoot s > minimumLiquidity →
+                      PairWorldStep
+                        (PairWorldAction.mint amount0.val amount1.val liquidity.val)
+                        (pairWorldFromConcreteAndTokens preTokens s)
+                        actual
 
 /--
 A successful first mint treats each token's balance increase as the deposit.
@@ -1411,29 +1422,33 @@ def pair_first_mint_success_uses_canonical_liquidity_formula
 shared mint gates; the remaining premises say that supply/reserves are live and
 that the returned LP amount is the canonical minimum of the two pro-rata sides.
 -/
-def pair_mint_subsequent_success_run_matches_closed_world_step_from_run
-    (toAddr : Address) (s : ContractState)
+def pair_later_mint_success_reaches_expected_pair_state
+    (toAddr : Address) (preTokens : PairTokenBalances) (s : ContractState)
     (result : ContractResult Uint256) (liquidity : Uint256) : Prop :=
   let amount0 := mintAmount0 s
   let amount1 := mintAmount1 s
+  let actual :=
+    pairWorldFromConcreteAndTokens
+      (pairTokenWorldAfterCall preTokens s result) result.snd
   result = (mint toAddr).run s →
     result = ContractResult.success liquidity result.snd →
-      0 < (s.storage totalSupplySlot.slot).val →
-        s.storage reserve0Slot.slot > 0 →
-          s.storage reserve1Slot.slot > 0 →
-            s.storage reserve0Slot.slot ≤ observedBalance0 s →
-              s.storage reserve1Slot.slot ≤ observedBalance1 s →
-                amount0 > 0 →
-                  amount1 > 0 →
-                    liquidity > 0 →
-                      liquidity.val * (s.storage reserve0Slot.slot).val ≤
-                          amount0.val * (s.storage totalSupplySlot.slot).val →
-                        liquidity.val * (s.storage reserve1Slot.slot).val ≤
-                            amount1.val * (s.storage totalSupplySlot.slot).val →
-                          PairWorldStep
-                            (PairWorldAction.mint amount0.val amount1.val liquidity.val)
-                            (pairWorldBeforeMintRun s)
-                            (pairWorldAfterSubsequentMintRun liquidity s)
+      pairLaterMintExternalTokenBalancesMatchCall preTokens s liquidity result →
+        0 < (s.storage totalSupplySlot.slot).val →
+          s.storage reserve0Slot.slot > 0 →
+            s.storage reserve1Slot.slot > 0 →
+              s.storage reserve0Slot.slot ≤ observedBalance0 s →
+                s.storage reserve1Slot.slot ≤ observedBalance1 s →
+                  amount0 > 0 →
+                    amount1 > 0 →
+                      liquidity > 0 →
+                        liquidity.val * (s.storage reserve0Slot.slot).val ≤
+                            amount0.val * (s.storage totalSupplySlot.slot).val →
+                          liquidity.val * (s.storage reserve1Slot.slot).val ≤
+                              amount1.val * (s.storage totalSupplySlot.slot).val →
+                            PairWorldStep
+                              (PairWorldAction.mint amount0.val amount1.val liquidity.val)
+                              (pairWorldFromConcreteAndTokens preTokens s)
+                              actual
 
 /--
 A successful later mint also treats each token's balance increase as the
@@ -1452,32 +1467,38 @@ def pair_later_mint_uses_balance_increase_as_deposit
             amount0 = observedBalance0 s - s.storage reserve0Slot.slot ∧
               amount1 = observedBalance1 s - s.storage reserve1Slot.slot
 
-def pair_burn_success_run_matches_closed_world_step
-    (toAddr : Address) (s : ContractState)
+def pair_burn_success_reaches_expected_pair_state
+    (toAddr : Address) (preTokens : PairTokenBalances) (s : ContractState)
     (result : ContractResult (Uint256 × Uint256)) : Prop :=
   let liquidity := burnLiquidity s
   let amount0 := burnAmount0 s
   let amount1 := burnAmount1 s
+  let actual :=
+    pairWorldFromConcreteAndTokens
+      (pairTokenWorldAfterCall preTokens s result) result.snd
   result = (burn toAddr).run s →
     result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
-      0 < liquidity.val →
-        0 < (burnSupply s).val →
-          liquidity.val ≤ (burnSupply s).val →
-            minimumLiquidityNat ≤ (burnSupply s).val - liquidity.val →
-              amount0 > 0 →
-                amount1 > 0 →
-                  amount0 ≤ observedBalance0 s →
-                    amount1 ≤ observedBalance1 s →
-                      burnBalance0After s ≤ maxUint112 →
-                        burnBalance1After s ≤ maxUint112 →
-                          amount0.val * (burnSupply s).val ≤
-                              liquidity.val * (observedBalance0 s).val →
-                            amount1.val * (burnSupply s).val ≤
-                                liquidity.val * (observedBalance1 s).val →
-                              PairWorldStep
-                                (PairWorldAction.burn amount0.val amount1.val liquidity.val)
-                                (pairWorldFromConcreteState s)
-                                (pairWorldAfterBurnRun s)
+      pairBurnExternalTokenBalancesMatchCall preTokens s result →
+        pairPostCallSelfBalancesMatch s result.snd
+          (burnBalance0After s) (burnBalance1After s) →
+          0 < liquidity.val →
+            0 < (burnSupply s).val →
+              liquidity.val ≤ (burnSupply s).val →
+                minimumLiquidityNat ≤ (burnSupply s).val - liquidity.val →
+                  amount0 > 0 →
+                    amount1 > 0 →
+                      amount0 ≤ observedBalance0 s →
+                        amount1 ≤ observedBalance1 s →
+                          burnBalance0After s ≤ maxUint112 →
+                            burnBalance1After s ≤ maxUint112 →
+                              amount0.val * (burnSupply s).val ≤
+                                  liquidity.val * (observedBalance0 s).val →
+                                amount1.val * (burnSupply s).val ≤
+                                    liquidity.val * (observedBalance1 s).val →
+                                  PairWorldStep
+                                    (PairWorldAction.burn amount0.val amount1.val liquidity.val)
+                                    (pairWorldFromConcreteAndTokens preTokens s)
+                                    actual
 
 /--
 A successful burn destroys the LP tokens sitting on the pair itself and uses
@@ -1601,42 +1622,37 @@ def pair_swap_checks_k_against_final_balances
             feeAdjustedBalance after.balance1 amount1In.val ≥
           requiredK before.reserve0 before.reserve1
 
-/-- When `swap` succeeds, the zero-output guard has passed. The remaining
-premises are the post-callback balance, input, reserve-bound, and K facts that
-describe the state observed after any optimistic transfer and callback
-repayment. -/
-def pair_swap_success_run_matches_closed_world_step_from_run
+/-- When `swap` succeeds, the input, reserve-bound, and K facts are derived from
+the successful run. The post-callback balance equations `hBalance0`/`hBalance1`
+remain exact-token-balance assumptions describing the state observed after the
+optimistic transfer and callback, used to fit the closed-world swap step. -/
+def pair_swap_success_reaches_expected_pair_state
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
-    (balance0Now balance1Now : Uint256) (s : ContractState)
+    (balance0Now balance1Now : Uint256) (preTokens : PairTokenBalances)
+    (s : ContractState)
     (result : ContractResult Unit) : Prop :=
   let amount0In := swapAmount0In amount0Out balance0Now s
   let amount1In := swapAmount1In amount1Out balance1Now s
+  let actual :=
+    pairWorldFromConcreteAndTokens
+      (pairTokenWorldAfterSwapCall preTokens s balance0Now balance1Now result)
+      result.snd
   result = (swap amount0Out amount1Out toAddr data).run s →
     result = ContractResult.success () result.snd →
-      amount0Out < s.storage reserve0Slot.slot →
-        amount1Out < s.storage reserve1Slot.slot →
-          (amount0In > 0 ∨ amount1In > 0) →
-            balance0Now.val =
-                (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
-              balance1Now.val =
-                  (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
-                balance0Now ≤ maxUint112 →
-                  balance1Now ≤ maxUint112 →
-                    amount0In.val * feeAdjustmentNat ≤
-                        balance0Now.val * feeDenominatorNat →
-                      amount1In.val * feeAdjustmentNat ≤
-                          balance1Now.val * feeDenominatorNat →
-                        feeAdjustedBalance balance0Now.val amount0In.val *
-                            feeAdjustedBalance balance1Now.val amount1In.val ≥
-                          requiredK
-                            (s.storage reserve0Slot.slot).val
-                            (s.storage reserve1Slot.slot).val →
-                            PairWorldStep
-                            (PairWorldAction.swap
-                              amount0In.val amount1In.val
-                              amount0Out.val amount1Out.val)
-                            (pairWorldFromConcreteState s)
-                            (pairWorldAfterSwapRun balance0Now balance1Now s)
+      pairSwapExternalTokenBalancesMatchCall preTokens s balance0Now balance1Now result →
+        pairPostCallSelfBalancesMatch s result.snd balance0Now balance1Now →
+          amount0Out < s.storage reserve0Slot.slot →
+            amount1Out < s.storage reserve1Slot.slot →
+              balance0Now.val =
+                  (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
+                balance1Now.val =
+                    (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
+                  PairWorldStep
+                    (PairWorldAction.swap
+                      amount0In.val amount1In.val
+                      amount0Out.val amount1Out.val)
+                    (pairWorldFromConcreteAndTokens preTokens s)
+                    actual
 
 /--
 When `swap` succeeds, the final token balances account for the optimistic
@@ -1776,13 +1792,18 @@ def pair_skim_success_run_restores_unlocked_from_run
 /-- When `skim` succeeds, the lock gate passed and the pair held at least its
 cached reserves, so the call follows the skim rule used by the invariant
 proofs. -/
-def pair_skim_success_run_matches_closed_world_step_from_run
-    (toAddr : Address) (s : ContractState) (result : ContractResult Unit) : Prop :=
+def pair_skim_success_reaches_expected_pair_state
+    (toAddr : Address) (preTokens : PairTokenBalances)
+    (s : ContractState) (result : ContractResult Unit) : Prop :=
+  let actual :=
+    pairWorldFromConcreteAndTokens
+      (pairTokenWorldAfterCall preTokens s result) result.snd
   result = (skim toAddr).run s →
     result = ContractResult.success () result.snd →
-      PairWorldStep PairWorldAction.skim
-        (pairWorldFromConcreteState s)
-        (pairWorldAfterSkimRun s)
+      pairSkimExternalTokenBalancesMatchCall preTokens s result →
+        PairWorldStep PairWorldAction.skim
+          (pairWorldFromConcreteAndTokens preTokens s)
+          actual
 
 /-- A successful `swap` must have passed the first economic guard: at least one
 output amount is nonzero. A zero-output request fails before token transfers,
@@ -1796,192 +1817,18 @@ def pair_swap_success_run_implies_nonzero_output
 
 /-- When `sync` succeeds, the lock gate and reserve-domain checks passed, so
 the call follows the sync rule used by the invariant proofs. -/
-def pair_sync_success_run_matches_closed_world_step_from_run
+def pair_sync_success_reaches_expected_pair_state
+    (preTokens : PairTokenBalances)
     (s : ContractState) (result : ContractResult Unit) : Prop :=
+  let actual :=
+    pairWorldFromConcreteAndTokens
+      (pairTokenWorldAfterCall preTokens s result) result.snd
   result = (sync).run s →
     result = ContractResult.success () result.snd →
-      PairWorldStep PairWorldAction.sync
-        (pairWorldFromConcreteState s)
-        (pairWorldAfterSyncRun s)
-
-/-- A successful first `mint`, after its public-call accounting facts are known,
-is one caller-wallet mint step. -/
-def pair_successful_first_mint_matches_caller_wallet_mint
-    (toAddr : Address) (s : ContractState) (result : ContractResult Uint256)
-    (before after : PairWalletWorldState) : Prop :=
-  let amount0 := mintAmount0 s
-  let amount1 := mintAmount1 s
-  let liquidity := mintFirstLiquidity s
-  result = (mint toAddr).run s →
-    result = ContractResult.success liquidity result.snd →
-      s.storage totalSupplySlot.slot = 0 →
-        s.storage reserve0Slot.slot ≤ observedBalance0 s →
-          s.storage reserve1Slot.slot ≤ observedBalance1 s →
-            amount0 > 0 →
-              amount1 > 0 →
-                (amount0 == 0 || div (mintFirstProduct s) amount0 == amount1) = true →
-                  mintFirstRoot s > minimumLiquidity →
-                    before.pair = pairWorldBeforeMintRun s →
-                      after.pair = pairWorldAfterFirstMintRun s →
-                        amount0.val = PairWorldSurplus0 before.pair →
-                          amount1.val = PairWorldSurplus1 before.pair →
-                            after.callerToken0 = before.callerToken0 →
-                              after.callerToken1 = before.callerToken1 →
-                                after.callerLp = before.callerLp + liquidity.val →
-                                  PairWalletStep
-                                    (PairWalletAction.callerMint
-                                      amount0.val amount1.val liquidity.val)
-                                    before after
-
-/-- A successful later `mint`, after its public-call accounting facts are known,
-is one caller-wallet mint step. -/
-def pair_successful_subsequent_mint_matches_caller_wallet_mint
-    (toAddr : Address) (s : ContractState) (result : ContractResult Uint256)
-    (liquidity : Uint256) (before after : PairWalletWorldState) : Prop :=
-  let amount0 := mintAmount0 s
-  let amount1 := mintAmount1 s
-  result = (mint toAddr).run s →
-    result = ContractResult.success liquidity result.snd →
-      0 < (s.storage totalSupplySlot.slot).val →
-        s.storage reserve0Slot.slot > 0 →
-          s.storage reserve1Slot.slot > 0 →
-            s.storage reserve0Slot.slot ≤ observedBalance0 s →
-              s.storage reserve1Slot.slot ≤ observedBalance1 s →
-                amount0 > 0 →
-                  amount1 > 0 →
-                    liquidity > 0 →
-                      liquidity.val * (s.storage reserve0Slot.slot).val ≤
-                          amount0.val * (s.storage totalSupplySlot.slot).val →
-                        liquidity.val * (s.storage reserve1Slot.slot).val ≤
-                            amount1.val * (s.storage totalSupplySlot.slot).val →
-                          before.pair = pairWorldBeforeMintRun s →
-                            after.pair = pairWorldAfterSubsequentMintRun liquidity s →
-                              amount0.val = PairWorldSurplus0 before.pair →
-                                amount1.val = PairWorldSurplus1 before.pair →
-                                  after.callerToken0 = before.callerToken0 →
-                                    after.callerToken1 = before.callerToken1 →
-                                      after.callerLp = before.callerLp + liquidity.val →
-                                        PairWalletStep
-                                          (PairWalletAction.callerMint
-                                            amount0.val amount1.val liquidity.val)
-                                          before after
-
-/-- A successful `burn`, after its public-call accounting facts are known, is
-one caller-wallet burn step. -/
-def pair_successful_burn_matches_caller_wallet_burn
-    (toAddr : Address) (s : ContractState)
-    (result : ContractResult (Uint256 × Uint256))
-    (before after : PairWalletWorldState) : Prop :=
-  let liquidity := burnLiquidity s
-  let amount0 := burnAmount0 s
-  let amount1 := burnAmount1 s
-  result = (burn toAddr).run s →
-    result = ContractResult.success (amount0, amount1) result.snd →
-      0 < liquidity.val →
-        0 < (burnSupply s).val →
-          liquidity.val ≤ (burnSupply s).val →
-            minimumLiquidityNat ≤ (burnSupply s).val - liquidity.val →
-              amount0 > 0 →
-                amount1 > 0 →
-                  amount0 ≤ observedBalance0 s →
-                    amount1 ≤ observedBalance1 s →
-                      burnBalance0After s ≤ maxUint112 →
-                        burnBalance1After s ≤ maxUint112 →
-                          amount0.val * (burnSupply s).val ≤
-                              liquidity.val * (observedBalance0 s).val →
-                            amount1.val * (burnSupply s).val ≤
-                                liquidity.val * (observedBalance1 s).val →
-                              before.pair = pairWorldFromConcreteState s →
-                                after.pair = pairWorldAfterBurnRun s →
-                                  before.callerLp ≥ liquidity.val →
-                                    after.callerToken0 =
-                                        before.callerToken0 + amount0.val →
-                                      after.callerToken1 =
-                                          before.callerToken1 + amount1.val →
-                                        after.callerLp =
-                                            before.callerLp - liquidity.val →
-                                          PairWalletStep
-                                            (PairWalletAction.callerBurn
-                                              amount0.val amount1.val liquidity.val)
-                                            before after
-
-/-- A successful prepaid-input `swap`, after its public-call accounting facts
-are known, is one caller-wallet swap step. -/
-def pair_successful_swap_matches_caller_wallet_swap
-    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
-    (balance0Now balance1Now : Uint256) (s : ContractState)
-    (result : ContractResult Unit)
-    (before after : PairWalletWorldState) : Prop :=
-  let amount0In := swapAmount0In amount0Out balance0Now s
-  let amount1In := swapAmount1In amount1Out balance1Now s
-  result = (swap amount0Out amount1Out toAddr data).run s →
-    result = ContractResult.success () result.snd →
-      amount0Out < s.storage reserve0Slot.slot →
-        amount1Out < s.storage reserve1Slot.slot →
-          (amount0In > 0 ∨ amount1In > 0) →
-            balance0Now.val =
-                (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
-              balance1Now.val =
-                  (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
-                balance0Now ≤ maxUint112 →
-                  balance1Now ≤ maxUint112 →
-                    amount0In.val * feeAdjustmentNat ≤
-                        balance0Now.val * feeDenominatorNat →
-                      amount1In.val * feeAdjustmentNat ≤
-                          balance1Now.val * feeDenominatorNat →
-                        feeAdjustedBalance balance0Now.val amount0In.val *
-                            feeAdjustedBalance balance1Now.val amount1In.val ≥
-                          requiredK
-                            (s.storage reserve0Slot.slot).val
-                            (s.storage reserve1Slot.slot).val →
-                          before.pair = pairWorldFromConcreteState s →
-                            after.pair = pairWorldAfterSwapRun balance0Now balance1Now s →
-                              amount0In.val = PairWorldSurplus0 before.pair →
-                                amount1In.val = PairWorldSurplus1 before.pair →
-                                  after.callerToken0 =
-                                      before.callerToken0 + amount0Out.val →
-                                    after.callerToken1 =
-                                        before.callerToken1 + amount1Out.val →
-                                      after.callerLp = before.callerLp →
-                                        PairWalletStep
-                                          (PairWalletAction.callerSwap
-                                            amount0In.val amount1In.val
-                                            amount0Out.val amount1Out.val)
-                                          before after
-
-/-- A successful `skim` is one caller-wallet skim step: it moves already-counted
-surplus to the caller wallet. -/
-def pair_successful_skim_matches_caller_wallet_skim
-    (toAddr : Address) (s : ContractState) (result : ContractResult Unit)
-    (before after : PairWalletWorldState) : Prop :=
-  result = (skim toAddr).run s →
-    result = ContractResult.success () result.snd →
-      before.pair = pairWorldFromConcreteState s →
-        after.pair = pairWorldAfterSkimRun s →
-          after.callerToken0 =
-              before.callerToken0 + PairWorldSurplus0 before.pair →
-            after.callerToken1 =
-                before.callerToken1 + PairWorldSurplus1 before.pair →
-              after.callerLp = before.callerLp →
-                PairWalletStep
-                  (PairWalletAction.callerSkimReceive
-                    (PairWorldSurplus0 before.pair)
-                    (PairWorldSurplus1 before.pair))
-                  before after
-
-/-- A successful `sync` is one caller-wallet sync step: token balances stay in
-the pair and the caller wallet is unchanged. -/
-def pair_successful_sync_matches_caller_wallet_sync
-    (s : ContractState) (result : ContractResult Unit)
-    (before after : PairWalletWorldState) : Prop :=
-  result = (sync).run s →
-    result = ContractResult.success () result.snd →
-      before.pair = pairWorldFromConcreteState s →
-        after.pair = pairWorldAfterSyncRun s →
-          after.callerToken0 = before.callerToken0 →
-            after.callerToken1 = before.callerToken1 →
-              after.callerLp = before.callerLp →
-                PairWalletStep PairWalletAction.callerSync before after
+      pairSyncExternalTokenBalancesMatchCall preTokens s result →
+        PairWorldStep PairWorldAction.sync
+          (pairWorldFromConcreteAndTokens preTokens s)
+          actual
 
 /-!
 ## Closed-World Foundations
@@ -2078,7 +1925,7 @@ def pair_wallet_history_total_value_conserved
     (spot : PairWorldState) (before after : PairWalletWorldState) : Prop :=
   PairWalletGood before →
     0 < before.pair.totalSupply →
-      PairWalletHistory before after →
+      OrdinaryPairWalletHistory before after →
         PairWalletTotalTokenValueAtSpot spot before =
           PairWalletTotalTokenValueAtSpot spot after
 
@@ -2091,7 +1938,7 @@ def pair_wallet_history_preserves_unowned
     (before after : PairWalletWorldState) : Prop :=
   PairWalletGood before →
     0 < before.pair.totalSupply →
-      PairWalletHistory before after →
+      OrdinaryPairWalletHistory before after →
         after.pair.totalSupply - after.callerLp =
           before.pair.totalSupply - before.callerLp
 

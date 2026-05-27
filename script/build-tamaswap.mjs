@@ -21,8 +21,8 @@ const EIP_170_CAP = 24576;
 const EIP_3860_INITCODE_CAP = 49152;
 const STRING_CHUNK_BYTES = 1024;
 const ARACHNID_CREATE2 = "0x4e59b44847b379578588920cA78FbF26c0B4956C";
-const FACTORY_SALT = "b83cf539f3ed17bae7f441ca93a51ad31edc3582d58ca26c5cf748f4d2bcfdbb";
-const ROUTER_SALT = "dafd62d8d7e07985d07a129696f714f0f2ea8d046564dbece8fd5598b21714a8";
+const FACTORY_SALT = "e7de01c00746d6ee6cacea2e58353be0f49b1826adaa8a7adaafaf5a235dbfcd";
+const ROUTER_SALT = "91a6fe37677fd168cdb604b5f0b46515ae2e3f403fa634a5c8b32dd5b6ba6b41";
 const LOCAL_WETH_SALT = keccakUtf8("tama-uni-v2.local-weth");
 const SOCIAL_DESCRIPTION = "The first provably unhackable DEX, forever online.";
 const FAVICON_SVG =
@@ -166,20 +166,36 @@ pragma solidity ^0.8.20;
 /// @notice ERC-5219 HTML frontend for the Tama Uniswap V2 router and factory.
 /// @dev Generated from html/tamaswap.html by script/build-tamaswap.mjs.
 contract TamaSwapFrontend {
+    /// @notice Human-readable frontend name.
     string public constant NAME = "TamaSwap";
+
+    /// @notice Human-readable frontend version.
     string public constant VERSION = "0.1";
 
+    /// @notice Address containing the gzipped/base64-encoded HTML payload as contract code.
     address public immutable HTML_DATA;
+
+    /// @notice Address containing the gzipped/base64-encoded deployment bundle as contract code.
     address public immutable DEPLOYMENT_DATA;
+
+    /// @notice SVG favicon served by ERC-5219 resource requests.
     bytes private constant FAVICON_SVG = hex"${faviconHex}";
+
+    /// @notice SVG social preview image served by ERC-5219 resource requests.
     bytes private constant SOCIAL_SVG = hex"${socialHex}";
+
+    /// @notice HTTP-style response header key/value pair.
     struct KeyValue { string key; string value; }
 
+    /// @notice Deploys the HTML and deployment payloads into data contracts.
     constructor() payable {
         HTML_DATA = _deployData(hex"${encodedHex}");
         DEPLOYMENT_DATA = _deployData(hex"${deploymentEncodedHex}");
     }
 
+    /// @notice Deploys a byte payload as contract code and returns its data address.
+    /// @param payload Data bytes to store as contract runtime code.
+    /// @return d Address of the deployed data contract.
     function _deployData(bytes memory payload) private returns (address d) {
         require(payload.length <= 0xFFFF, "payload too big");
         bytes memory initcode = bytes.concat(hex"61", bytes2(uint16(payload.length)), hex"80600a5f395ff3", payload);
@@ -189,10 +205,18 @@ contract TamaSwapFrontend {
         require(d != address(0), "deploy failed");
     }
 
+    /// @notice Returns the complete bootstrapping HTML document.
+    /// @return The HTML document as a string.
     function html() external view returns (string memory) {
         return _html();
     }
 
+    /// @notice Serves ERC-5219 resources for the frontend, deployment bundle, favicon, and social image.
+    /// @param resource Requested path segments.
+    /// @dev The unnamed ERC-5219 request metadata argument is ignored.
+    /// @return statusCode HTTP-style response status code.
+    /// @return body Response body.
+    /// @return headers HTTP-style response headers.
     function request(string[] memory resource, KeyValue[] memory)
         external
         view
@@ -234,10 +258,15 @@ contract TamaSwapFrontend {
         headers[2] = KeyValue("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' https:; base-uri 'none'; form-action 'none'");
     }
 
+    /// @notice Returns the ERC-5219 resolver mode identifier.
+    /// @return ERC-5219 mode value.
     function resolveMode() external pure returns (bytes32) {
         return "5219";
     }
 
+    /// @notice Checks whether a resource path should return the main HTML document.
+    /// @param resource Requested path segments.
+    /// @return True when the resource is the root, slash, empty string, or index.html path.
     function _isIndexResource(string[] memory resource) private pure returns (bool) {
         if (resource.length == 0) return true;
         if (resource.length == 1) {
@@ -247,6 +276,8 @@ contract TamaSwapFrontend {
         return false;
     }
 
+    /// @notice Builds the complete HTML document from the shell and stored payload.
+    /// @return The HTML document as a string.
     function _html() private view returns (string memory) {
         return string.concat(
             ${solString(head, "            ")},
@@ -255,10 +286,15 @@ contract TamaSwapFrontend {
         );
     }
 
+    /// @notice Returns the encoded deployment bundle consumed by the frontend.
+    /// @return The deployment bundle as a string.
     function _deploymentCode() private view returns (string memory) {
         return _readData(DEPLOYMENT_DATA);
     }
 
+    /// @notice Reads all runtime code bytes from a data contract as a string.
+    /// @param d Address of the data contract to read.
+    /// @return s Runtime code copied from the data contract.
     function _readData(address d) private view returns (string memory s) {
         assembly ("memory-safe") {
             let sz := extcodesize(d)
@@ -272,12 +308,16 @@ contract TamaSwapFrontend {
         }
     }
 
+    /// @notice Returns immutable text/plain cache headers.
+    /// @return headers Headers for plain text responses.
     function _textHeaders() private pure returns (KeyValue[] memory headers) {
         headers = new KeyValue[](2);
         headers[0] = KeyValue("Content-Type", "text/plain; charset=utf-8");
         headers[1] = KeyValue("Cache-Control", "public, max-age=31536000, immutable");
     }
 
+    /// @notice Returns immutable SVG image cache headers.
+    /// @return headers Headers for SVG responses.
     function _svgHeaders() private pure returns (KeyValue[] memory headers) {
         headers = new KeyValue[](2);
         headers[0] = KeyValue("Content-Type", "image/svg+xml");

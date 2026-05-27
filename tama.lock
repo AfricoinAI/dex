@@ -13,11 +13,11 @@ verity_git = "https://github.com/lfglabs-dev/verity.git"
 verity_rev = "9b0114efcc0af589af63dd3f2eafcdf1a24dbf1e"
 
 [inputs]
-"foundry.toml" = "145050374116f802785900626e658d5e96635d7a1fef07b0bf20de198e9f1e71"
+"foundry.toml" = "2cb3112262a02315ae78d49a3f1239fa419aeb65f32844b322c9070e7a5eaf7e"
 "lake-manifest.json" = "a83b7849704d410c1aa7b246a5fc6cb5b2fcbb78f6fcdc36fdb4f7eaf8e4a365"
 "lakefile.toml" = "bba2af87b88297d5ac942d77165e0319b94dcce50a3cd31432ab51474ff82a6a"
 lean-toolchain = "8f6680f8389e8adee06cb2bd44372c6d60dce0e8301630b61a99a5642d1bd71b"
-"tama.toml" = "d3ebc4139ba0bfd6cd6d47f10494807aeea93b712ae4ef2fb3984dd9532cd722"
+"tama.toml" = "f6ceba77a8a448eed4bd5b4d5df67ac5d42cbf21e99e9c887eab9734be72f9f8"
 "verity/proof/TamaUniV2/Proof.lean" = "f03d0ab1bff194951a0c22a99cf5aa230e8fa6a7a95d0249fc3357fe0a881715"
 "verity/spec/TamaUniV2/Spec.lean" = "f2ac1f4d087d387baa78d62dd6e84b72696ed1063e409129ecbf86ed077084c2"
 "verity/src/TamaUniV2.lean" = "0b4e2ade80bdcb2c97231e54bc952377155ef64ac85bcbfb8c7a3bf38a58274d"

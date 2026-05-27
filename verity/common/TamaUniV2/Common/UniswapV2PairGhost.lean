@@ -238,11 +238,26 @@ structure PairWalletWorldState where
   callerToken0 : Nat
   callerToken1 : Nat
   callerLp : Nat
+  pairLp : Nat
+  recv0 : Nat
+  recv1 : Nat
+  recvLp : Nat
+  give0 : Nat
+  give1 : Nat
+  giveLp : Nat
   deriving Repr, BEq
 
 def PairWalletGood (w : PairWalletWorldState) : Prop :=
   PairWorldGood w.pair ∧
-    w.callerLp + w.pair.lockedLiquidity ≤ w.pair.totalSupply
+    w.callerLp + w.pairLp + w.pair.lockedLiquidity ≤ w.pair.totalSupply
+
+def PairWalletFlowEmpty (w : PairWalletWorldState) : Prop :=
+  w.recv0 = 0 ∧
+  w.recv1 = 0 ∧
+  w.recvLp = 0 ∧
+  w.give0 = 0 ∧
+  w.give1 = 0 ∧
+  w.giveLp = 0
 
 def PairWalletCallerTokenValueAtSpot
     (spot : PairWorldState) (w : PairWalletWorldState) : Nat :=
@@ -274,6 +289,29 @@ def PairWorldTokenValueRat
     (spot : PairWorldState) (token0 token1 : Nat) : ℚ :=
   (token0 : ℚ) * PairWorldSpotPriceRat spot + token1
 
+def PairWorldLpValueRat
+    (spot pool : PairWorldState) (liquidity : Nat) : ℚ :=
+  (liquidity : ℚ) * ((PairWorldSpotValueNum spot pool : ℚ) /
+    ((pool.totalSupply : ℚ) * (spot.reserve0 : ℚ)))
+
+def PairWorldSurplusValueRat (spot pool : PairWorldState) : ℚ :=
+  PairWorldTokenValueRat spot (PairWorldSurplus0 pool) (PairWorldSurplus1 pool)
+
+def PairWalletFlowReceivedValueAtSpot
+    (spot : PairWorldState) (w : PairWalletWorldState) : ℚ :=
+  PairWorldTokenValueRat spot w.recv0 w.recv1 +
+    PairWorldLpValueRat spot w.pair w.recvLp + PairWorldSurplusValueRat spot w.pair
+
+def PairWalletFlowGivenValueAtSpot
+    (spot : PairWorldState) (w : PairWalletWorldState) : ℚ :=
+  PairWorldTokenValueRat spot w.give0 w.give1 +
+    PairWorldLpValueRat spot w.pair w.giveLp
+
+def PairWalletInitialClaimValueAtSpot
+    (spot : PairWorldState) (w : PairWalletWorldState) : ℚ :=
+  PairWorldLpValueRat spot w.pair (w.callerLp + w.pairLp) +
+    PairWorldSurplusValueRat spot w.pair
+
 /-- The caller's portfolio value in token1, at the spot's prices.
 
 Sums four sources of value: the caller's directly-held tokens, their fractional
@@ -293,9 +331,9 @@ inductive PairWalletAction where
   | callerApprove
   | callerDonate (amount0 amount1 : Nat)
   | callerSkimReceive (amount0 amount1 : Nat)
-  | callerSwap (amount0In amount1In amount0Out amount1Out : Nat)
+  | callerSwap (give0 give1 amount0Out amount1Out : Nat)
   | callerMint (amount0 amount1 liquidity : Nat)
-  | callerBurn (amount0 amount1 liquidity : Nat)
+  | callerBurn (amount0 amount1 transferredLiquidity burnedLiquidity : Nat)
   | callerSync
   deriving Repr, BEq
 
@@ -304,48 +342,101 @@ def PairWalletStep
     (before after : PairWalletWorldState) : Prop :=
   match action with
   | PairWalletAction.callerApprove =>
-      after = before
+      after.pair = before.pair ∧
+      after.callerToken0 = before.callerToken0 ∧
+      after.callerToken1 = before.callerToken1 ∧
+      after.callerLp = before.callerLp ∧
+      after.pairLp = before.pairLp ∧
+      after.recv0 = before.recv0 ∧
+      after.recv1 = before.recv1 ∧
+      after.recvLp = before.recvLp ∧
+      after.give0 = before.give0 ∧
+      after.give1 = before.give1 ∧
+      after.giveLp = before.giveLp
   | PairWalletAction.callerDonate amount0 amount1 =>
       before.callerToken0 ≥ amount0 ∧
       before.callerToken1 ≥ amount1 ∧
       PairWorldStep (PairWorldAction.donate amount0 amount1) before.pair after.pair ∧
       after.callerToken0 = before.callerToken0 - amount0 ∧
       after.callerToken1 = before.callerToken1 - amount1 ∧
-      after.callerLp = before.callerLp
+      after.callerLp = before.callerLp ∧
+      after.pairLp = before.pairLp ∧
+      after.recv0 = before.recv0 ∧
+      after.recv1 = before.recv1 ∧
+      after.recvLp = before.recvLp ∧
+      after.give0 = before.give0 + amount0 ∧
+      after.give1 = before.give1 + amount1 ∧
+      after.giveLp = before.giveLp
   | PairWalletAction.callerSkimReceive amount0 amount1 =>
       PairWorldStep PairWorldAction.skim before.pair after.pair ∧
       amount0 = PairWorldSurplus0 before.pair ∧
       amount1 = PairWorldSurplus1 before.pair ∧
       after.callerToken0 = before.callerToken0 + amount0 ∧
       after.callerToken1 = before.callerToken1 + amount1 ∧
-      after.callerLp = before.callerLp
-  | PairWalletAction.callerSwap amount0In amount1In amount0Out amount1Out =>
+      after.callerLp = before.callerLp ∧
+      after.pairLp = before.pairLp ∧
+      after.recv0 = before.recv0 + amount0 ∧
+      after.recv1 = before.recv1 + amount1 ∧
+      after.recvLp = before.recvLp ∧
+      after.give0 = before.give0 ∧
+      after.give1 = before.give1 ∧
+      after.giveLp = before.giveLp
+  | PairWalletAction.callerSwap give0 give1 amount0Out amount1Out =>
       PairWorldStep
-        (PairWorldAction.swap amount0In amount1In amount0Out amount1Out)
+        (PairWorldAction.swap
+          (give0 + PairWorldSurplus0 before.pair)
+          (give1 + PairWorldSurplus1 before.pair)
+          amount0Out amount1Out)
         before.pair after.pair ∧
-      amount0In = PairWorldSurplus0 before.pair ∧
-      amount1In = PairWorldSurplus1 before.pair ∧
       after.callerToken0 = before.callerToken0 + amount0Out ∧
       after.callerToken1 = before.callerToken1 + amount1Out ∧
-      after.callerLp = before.callerLp
+      after.callerLp = before.callerLp ∧
+      after.pairLp = before.pairLp ∧
+      after.recv0 = before.recv0 + amount0Out ∧
+      after.recv1 = before.recv1 + amount1Out ∧
+      after.recvLp = before.recvLp ∧
+      after.give0 = before.give0 + give0 ∧
+      after.give1 = before.give1 + give1 ∧
+      after.giveLp = before.giveLp
   | PairWalletAction.callerMint amount0 amount1 liquidity =>
       PairWorldStep (PairWorldAction.mint amount0 amount1 liquidity) before.pair after.pair ∧
       amount0 = PairWorldSurplus0 before.pair ∧
       amount1 = PairWorldSurplus1 before.pair ∧
       after.callerToken0 = before.callerToken0 ∧
       after.callerToken1 = before.callerToken1 ∧
-      after.callerLp = before.callerLp + liquidity
-  | PairWalletAction.callerBurn amount0 amount1 liquidity =>
-      before.callerLp ≥ liquidity ∧
-      PairWorldStep (PairWorldAction.burn amount0 amount1 liquidity) before.pair after.pair ∧
+      after.callerLp = before.callerLp + liquidity ∧
+      after.pairLp = before.pairLp ∧
+      after.recv0 = before.recv0 ∧
+      after.recv1 = before.recv1 ∧
+      after.recvLp = before.recvLp + liquidity ∧
+      after.give0 = before.give0 ∧
+      after.give1 = before.give1 ∧
+      after.giveLp = before.giveLp
+  | PairWalletAction.callerBurn amount0 amount1 transferredLiquidity burnedLiquidity =>
+      before.callerLp ≥ transferredLiquidity ∧
+      PairWorldStep (PairWorldAction.burn amount0 amount1 burnedLiquidity) before.pair after.pair ∧
       after.callerToken0 = before.callerToken0 + amount0 ∧
       after.callerToken1 = before.callerToken1 + amount1 ∧
-      after.callerLp = before.callerLp - liquidity
+      after.callerLp = before.callerLp - transferredLiquidity ∧
+      after.pairLp + burnedLiquidity = before.pairLp + transferredLiquidity ∧
+      after.recv0 = before.recv0 + amount0 ∧
+      after.recv1 = before.recv1 + amount1 ∧
+      after.recvLp = before.recvLp ∧
+      after.give0 = before.give0 ∧
+      after.give1 = before.give1 ∧
+      after.giveLp = before.giveLp + transferredLiquidity
   | PairWalletAction.callerSync =>
       PairWorldStep PairWorldAction.sync before.pair after.pair ∧
       after.callerToken0 = before.callerToken0 ∧
       after.callerToken1 = before.callerToken1 ∧
-      after.callerLp = before.callerLp
+      after.callerLp = before.callerLp ∧
+      after.pairLp = before.pairLp ∧
+      after.recv0 = before.recv0 ∧
+      after.recv1 = before.recv1 ∧
+      after.recvLp = before.recvLp ∧
+      after.give0 = before.give0 ∧
+      after.give1 = before.give1 ∧
+      after.giveLp = before.giveLp
 
 inductive PairWalletHistory : PairWalletWorldState → PairWalletWorldState → Prop where
   | refl (w : PairWalletWorldState) : PairWalletHistory w w
@@ -353,6 +444,35 @@ inductive PairWalletHistory : PairWalletWorldState → PairWalletWorldState → 
       PairWalletHistory start before →
       PairWalletStep action before after →
       PairWalletHistory start after
+
+def PairWalletActionOrdinary
+    (action : PairWalletAction) (_before _after : PairWalletWorldState) : Prop :=
+  match action with
+  | PairWalletAction.callerSwap give0 give1 _ _ =>
+      give0 = 0 ∧ give1 = 0
+  | PairWalletAction.callerBurn _ _ transferredLiquidity burnedLiquidity =>
+      transferredLiquidity = burnedLiquidity
+  | _ => True
+
+inductive OrdinaryPairWalletHistory :
+    PairWalletWorldState → PairWalletWorldState → Prop where
+  | refl (w : PairWalletWorldState) :
+      PairWalletFlowEmpty w →
+      OrdinaryPairWalletHistory w w
+  | step {start before after : PairWalletWorldState} (action : PairWalletAction) :
+      OrdinaryPairWalletHistory start before →
+      PairWalletStep action before after →
+      PairWalletActionOrdinary action before after →
+      OrdinaryPairWalletHistory start after
+
+def pair_wallet_single_caller_history_no_extraction
+    (before after : PairWalletWorldState) : Prop :=
+  PairWalletGood before → PairWalletFlowEmpty before →
+    0 < before.pair.totalSupply → 0 < before.pair.reserve0 →
+      0 < before.pair.reserve1 → PairWalletHistory before after →
+        PairWalletFlowReceivedValueAtSpot before.pair after ≤
+          PairWalletFlowGivenValueAtSpot before.pair after +
+            PairWalletInitialClaimValueAtSpot before.pair before
 
 inductive PairWorldPathNoBurn : PairWorldState → PairWorldState → Prop where
   | refl (w : PairWorldState) : PairWorldPathNoBurn w w

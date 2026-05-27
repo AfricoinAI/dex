@@ -52,8 +52,9 @@ boundary mechanics. Every spec listed below has a matching Lean proof.
 
 10. **Exact-revert guards** — every guarded failure has a canonical revert
     payload and leaves the pre-call state unchanged.
-11. **ERC20 trace boundary** — token movement is modeled by pair-local ERC20
-    trace events bridged to the real ERC20 boundary.
+11. **Normal token behavior** — token movement is modeled by pair-local ERC20
+    trace events, assuming the external tokens obey ordinary ERC20
+    balance/transfer semantics for the call.
 12. **LP ERC20 share ledger** — LP `approve` / `transfer` / `transferFrom`
     move share claims only; AMM state, reserves, and token balances are
     unchanged.
@@ -61,9 +62,10 @@ boundary mechanics. Every spec listed below has a matching Lean proof.
     fixed after the first `initialize`.
 14. **Views** — view functions return exactly one storage cell (or a
     constant) without mutating state.
-15. **Public-call matching** — each successful public mutating call matches
-    its closed-world transition, bridging the contract boundary into the
-    models used by properties 1–14.
+15. **Actual execution bridges** — each successful public mutating call reaches
+    the expected pair state when the tokens involved behave like ordinary ERC20s
+    for that call, bridging concrete calls into the models used by properties
+    1–14.
 
 ### `UniswapV2Factory` — 9 properties
 

@@ -32,6 +32,7 @@ metadata_bytecode_hash = "none"
 "uniswap_v2_callback_interface" = "Custom ECM forwards the Uniswap V2 flash-swap callback when data is non-empty."
 "erc20_balanceOf_interface" = "Standard ERC20 balanceOf staticcall ECM assumption for token balances."
 "erc20_transfer_interface" = "Standard ERC20 transfer ECM assumption for token transfers."
+"TamaUniV2.Proof.UniswapV2PairProof.sqrt_run_success_frames_state" = "Tamago FixedPointMathLib sqrt returns normally and does not mutate ContractState; value correctness is covered by Tamago's sqrt specs."
 
 [trust.allow_surfaces]
 "contractAddress" = "Used by pair operations to read token balances held by the pair contract."

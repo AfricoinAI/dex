@@ -62,6 +62,12 @@ jobs:
             echo "$HOME/.tama/bin"
           } >> "$GITHUB_PATH"
 
+      # Install Foundry first so Tama's installer detects `forge` and skips its
+      # own `sh foundryup-init.sh` step, which fails on ubuntu's /bin/sh (dash)
+      # because foundry's installer uses the bash-only `set -o pipefail`.
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
       # Set TAMA_VERSION (e.g. "0.1.0") to pin a specific Tama release.
       - name: Install Tama
         env:
@@ -93,6 +99,19 @@ jobs:
       - name: Fetch Mathlib binary cache
         run: env -u CI lake exe cache get
       - run: env -u CI tama build --locked
+
+      # The frontend bootstrap tests read artifacts/tamaswap.min.html[.gz],
+      # which are gitignored and produced by script/build-tamaswap.mjs (needs
+      # bun-installed terser + forge `out/` artifacts for the router/WETH).
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+      - name: Generate frontend bootstrap artifacts
+        run: |
+          set -euo pipefail
+          bun install --frozen-lockfile
+          forge build
+          bun script/build-tamaswap.mjs
+
       - run: env -u CI tama test
       - run: env -u CI tama audit structure
       - run: env -u CI tama audit storage-layout
