@@ -24,14 +24,26 @@ const ARACHNID_CREATE2 = "0x4e59b44847b379578588920cA78FbF26c0B4956C";
 const FACTORY_SALT = "e7de01c00746d6ee6cacea2e58353be0f49b1826adaa8a7adaafaf5a235dbfcd";
 const ROUTER_SALT = "91a6fe37677fd168cdb604b5f0b46515ae2e3f403fa634a5c8b32dd5b6ba6b41";
 const LOCAL_WETH_SALT = keccakUtf8("tama-uni-v2.local-weth");
+// Short tagline rendered into the social card image (SOCIAL_SVG).
 const SOCIAL_DESCRIPTION = "The first provably unhackable DEX, forever online.";
+// Longer title/description for the Open Graph + Twitter meta tags. The image
+// URL must be absolute: crawlers resolve og:image/twitter:image against their
+// own origin, not the page, so a relative "social.svg" never loads.
+// &#8212; is the em-dash: kept as an HTML entity so the embedded wrapper stays
+// ASCII (Solidity string literals reject raw non-ASCII); HTML parsers and OG
+// crawlers decode it to "—" in both <title> and meta content.
+const SOCIAL_TITLE = "TamaSwap &#8212; The First Provably Unhackable DEX";
+const SOCIAL_META_DESCRIPTION =
+  "TamaSwap is a Uniswap V2 exchange with every smart contract mathematically proven safe in Lean and a frontend that lives entirely onchain, so it can never go down.";
+const SOCIAL_URL = "https://swap.tama.tools/";
+const SOCIAL_IMAGE_URL = "https://swap.tama.tools/social.svg";
 const FAVICON_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><g transform="rotate(-6 32 32)"><rect x="8" y="8" width="48" height="48" rx="8" fill="#b9442e"/><text x="32" y="44" text-anchor="middle" font-family="serif" font-size="36" font-weight="600" fill="#fffdf6">玉</text></g></svg>';
 const FAVICON_DATA_URI = `data:image/svg+xml,${encodeURIComponent(FAVICON_SVG)}`;
 const SOCIAL_SVG =
   `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><rect width="1200" height="630" fill="#fff8fb"/><g transform="translate(600 170) rotate(-6)"><rect x="-100" y="-100" width="200" height="200" rx="28" fill="#b9442e"/><rect x="-90" y="-90" width="180" height="180" rx="20" fill="none" stroke="#fff0e6" stroke-opacity=".58" stroke-width="7"/><text y="58" text-anchor="middle" font-family="serif" font-size="118" font-weight="600" fill="#fffdf6">玉</text></g><text x="600" y="390" text-anchor="middle" font-family="Georgia,serif" font-size="112" font-weight="700" fill="#111827">TamaSwap</text><text x="600" y="462" text-anchor="middle" font-family="system-ui,sans-serif" font-size="34" font-weight="600" fill="#6b7280">${SOCIAL_DESCRIPTION}</text></svg>`;
 const BOOT_META =
-  `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TamaSwap</title><meta name="description" content="${SOCIAL_DESCRIPTION}"><meta property="og:title" content="TamaSwap"><meta property="og:description" content="${SOCIAL_DESCRIPTION}"><meta property="og:image" content="social.svg"><meta property="og:image:type" content="image/svg+xml"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="TamaSwap"><meta name="twitter:description" content="${SOCIAL_DESCRIPTION}"><meta name="twitter:image" content="social.svg"><link rel="icon" type="image/svg+xml" href="${FAVICON_DATA_URI}">`;
+  `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${SOCIAL_TITLE}</title><meta name="description" content="${SOCIAL_META_DESCRIPTION}"><meta property="og:type" content="website"><meta property="og:url" content="${SOCIAL_URL}"><meta property="og:title" content="${SOCIAL_TITLE}"><meta property="og:description" content="${SOCIAL_META_DESCRIPTION}"><meta property="og:image" content="${SOCIAL_IMAGE_URL}"><meta property="og:image:type" content="image/svg+xml"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${SOCIAL_TITLE}"><meta name="twitter:description" content="${SOCIAL_META_DESCRIPTION}"><meta name="twitter:image" content="${SOCIAL_IMAGE_URL}"><link rel="icon" type="image/svg+xml" href="${FAVICON_DATA_URI}">`;
 const BOOT_SCRIPT_HEAD =
   '<script>(async()=>{const B="';
 const BOOT_SCRIPT_TAIL =
