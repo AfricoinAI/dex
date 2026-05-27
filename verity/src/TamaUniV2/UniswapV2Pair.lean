@@ -311,7 +311,7 @@ verity_contract UniswapV2PairBase where
   function no_external_calls updateReservesAndEmitSync
       (balance0Now : Uint256, balance1Now : Uint256,
         reserve0Value : Uint256, reserve1Value : Uint256,
-        timestamp32 : Uint256, previousTimestamp : Uint256) : Unit := do
+        timestamp32 : Uint256, previousTimestamp : Uint256) : Bool := do
     if timestamp32 != previousTimestamp then
       let elapsed := mod (sub (add timestamp32 uint32Modulus) previousTimestamp) uint32Modulus
       if elapsed > 0 && reserve0Value > 0 && reserve1Value > 0 then
@@ -332,6 +332,10 @@ verity_contract UniswapV2PairBase where
       mstore 0 balance0Now
       mstore 32 balance1Now
       rawLog [0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1] 0 64
+    -- Return a value so this internal helper declares a return type: the macro
+    -- then skips its implicit Unit `stop()` terminal and `return` lowers to
+    -- `leave` (return to caller), correct when invoked mid-body. Callers ignore it.
+    return true
 
   /-
   @dev First-mint storage suffix after the square-root and LP-balance gates.
@@ -348,7 +352,7 @@ verity_contract UniswapV2PairBase where
     emit "Transfer" [addressToWord zeroAddress, addressToWord zeroAddress, minimumLiquidity]
     setMapping balancesSlot toAddr newToBalance
     emit "Transfer" [addressToWord zeroAddress, addressToWord toAddr, liquidity]
-    updateReservesAndEmitSync balance0Now balance1Now
+    let _sync ← updateReservesAndEmitSync balance0Now balance1Now
       reserve0Value reserve1Value timestamp32 previousTimestamp
     emit "Mint" [addressToWord sender, amount0, amount1]
     setStorage unlockedSlot 1
@@ -388,7 +392,7 @@ verity_contract UniswapV2PairBase where
     setStorage totalSupplySlot newSupply
     setMapping balancesSlot toAddr newToBalance
     emit "Transfer" [addressToWord zeroAddress, addressToWord toAddr, liquidity]
-    updateReservesAndEmitSync balance0Now balance1Now
+    let _sync ← updateReservesAndEmitSync balance0Now balance1Now
       reserve0Value reserve1Value timestamp32 previousTimestamp
     emit "Mint" [addressToWord sender, amount0, amount1]
     setStorage unlockedSlot 1
@@ -484,7 +488,7 @@ verity_contract UniswapV2PairBase where
         timestamp32 : Uint256, previousTimestamp : Uint256) : Unit := do
     unsafe "restore free memory pointer before native events after callback/transfer ECMs" do
       mstore 64 128
-    updateReservesAndEmitSync balance0Now balance1Now
+    let _sync ← updateReservesAndEmitSync balance0Now balance1Now
       reserve0Value reserve1Value timestamp32 previousTimestamp
     emit "Swap" [
       addressToWord sender,
@@ -570,7 +574,7 @@ verity_contract UniswapV2PairBase where
     require (balance0After <= maxUint112 && balance1After <= maxUint112) "UniswapV2: OVERFLOW"
     unsafe "restore free memory pointer before native events after ERC20 transfer ECMs" do
       mstore 64 128
-    updateReservesAndEmitSync balance0After balance1After
+    let _sync ← updateReservesAndEmitSync balance0After balance1After
       reserve0Value reserve1Value timestamp32 previousTimestamp
     emit "Burn" [addressToWord sender, amount0, amount1, addressToWord toAddr]
     setStorage unlockedSlot 1
@@ -637,7 +641,7 @@ verity_contract UniswapV2PairBase where
     require (balance0Now <= maxUint112 && balance1Now <= maxUint112) "UniswapV2: OVERFLOW"
     let reserve0Value ← getStorage reserve0Slot
     let reserve1Value ← getStorage reserve1Slot
-    updateReservesAndEmitSync balance0Now balance1Now
+    let _sync ← updateReservesAndEmitSync balance0Now balance1Now
       reserve0Value reserve1Value timestamp32 previousTimestamp
     setStorage unlockedSlot 1
 

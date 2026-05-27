@@ -1529,7 +1529,7 @@ theorem burn_success_run_storage_matches_world
         Contract.run
           (fun _ =>
             ((do
-              UniswapV2PairBase.updateReservesAndEmitSync
+              let _sync ← UniswapV2PairBase.updateReservesAndEmitSync
                 (burnBalance0After s) (burnBalance1After s)
                 (s.storage UniswapV2PairBase.reserve0Slot.slot)
                 (s.storage UniswapV2PairBase.reserve1Slot.slot)
@@ -1908,7 +1908,7 @@ theorem burn_success_pairTransfers
         Contract.run
           (fun _ =>
             ((do
-              UniswapV2PairBase.updateReservesAndEmitSync
+              let _sync ← UniswapV2PairBase.updateReservesAndEmitSync
                 (burnBalance0After s) (burnBalance1After s)
                 (s.storage UniswapV2PairBase.reserve0Slot.slot)
                 (s.storage UniswapV2PairBase.reserve1Slot.slot)
@@ -2361,7 +2361,7 @@ theorem burn_run_pairSelf_lp_zero
         Contract.run
           (fun _ =>
             ((do
-              UniswapV2PairBase.updateReservesAndEmitSync
+              let _sync ← UniswapV2PairBase.updateReservesAndEmitSync
                 (burnBalance0After s) (burnBalance1After s)
                 (s.storage UniswapV2PairBase.reserve0Slot.slot)
                 (s.storage UniswapV2PairBase.reserve1Slot.slot)
@@ -2747,7 +2747,7 @@ theorem burn_success_caller_lp_frame
         Contract.run
           (fun _ =>
             ((do
-              UniswapV2PairBase.updateReservesAndEmitSync
+              let _sync ← UniswapV2PairBase.updateReservesAndEmitSync
                 (burnBalance0After s) (burnBalance1After s)
                 (s.storage UniswapV2PairBase.reserve0Slot.slot)
                 (s.storage UniswapV2PairBase.reserve1Slot.slot)

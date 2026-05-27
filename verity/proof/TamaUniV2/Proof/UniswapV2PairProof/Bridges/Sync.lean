@@ -507,7 +507,7 @@ theorem sync_run_token_world_unchanged
   simp [pairTokenWorldAfterCall, emittedPairEventsAfterCall,
     getStorage, getStorageAddr, setStorage,
     Verity.contractAddress, Verity.blockTimestamp, Contracts.balanceOf, Verity.require,
-    Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Pure.pure,
+    Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Pure.pure, Verity.pure,
     TamaUniV2.erc20BalanceOf, UniswapV2PairBase.updateReservesAndEmitSync,
     pairTokenWorldAfterEvents, pairTokenWorldAfterEvent, Contracts.rawLog, Contracts.mstore,
     -maxUint112, -UniswapV2PairBase.maxUint112,
@@ -519,7 +519,7 @@ theorem sync_run_token_world_unchanged
   repeat' (first
     | split_ifs
     | simp [pairTokenWorldAfterEvents, pairTokenWorldAfterEvent, getStorage, setStorage,
-        Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Pure.pure,
+        Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Pure.pure, Verity.pure,
         Contracts.rawLog, Contracts.mstore,
         -maxUint112, -UniswapV2PairBase.maxUint112,
         -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
@@ -534,7 +534,7 @@ theorem sync_run_storageAddr_frame
   unfold sync UniswapV2PairBase.sync
   simp [getStorage, getStorageAddr, setStorage,
     Verity.contractAddress, Verity.blockTimestamp, Contracts.balanceOf, Verity.require,
-    Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Pure.pure,
+    Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Pure.pure, Verity.pure,
     TamaUniV2.erc20BalanceOf, UniswapV2PairBase.updateReservesAndEmitSync,
     Contracts.rawLog, Contracts.mstore,
     -maxUint112, -UniswapV2PairBase.maxUint112,
@@ -546,7 +546,7 @@ theorem sync_run_storageAddr_frame
   repeat' (first
     | split_ifs
     | simp [getStorage, setStorage, Contract.run, ContractResult.snd,
-        Verity.bind, Bind.bind, Pure.pure, Contracts.rawLog, Contracts.mstore,
+        Verity.bind, Bind.bind, Pure.pure, Verity.pure, Contracts.rawLog, Contracts.mstore,
         -maxUint112, -UniswapV2PairBase.maxUint112,
         -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
         -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
@@ -561,7 +561,7 @@ theorem sync_run_balances_frame
   unfold sync UniswapV2PairBase.sync
   simp [getStorage, getStorageAddr, setStorage,
     Verity.contractAddress, Verity.blockTimestamp, Contracts.balanceOf, Verity.require,
-    Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Pure.pure,
+    Contract.run, ContractResult.snd, Verity.bind, Bind.bind, Pure.pure, Verity.pure,
     TamaUniV2.erc20BalanceOf, UniswapV2PairBase.updateReservesAndEmitSync,
     Contracts.rawLog, Contracts.mstore,
     -maxUint112, -UniswapV2PairBase.maxUint112,
@@ -573,7 +573,7 @@ theorem sync_run_balances_frame
   repeat' (first
     | split_ifs
     | simp [getStorage, setStorage, Contract.run, ContractResult.snd,
-        Verity.bind, Bind.bind, Pure.pure, Contracts.rawLog, Contracts.mstore,
+        Verity.bind, Bind.bind, Pure.pure, Verity.pure, Contracts.rawLog, Contracts.mstore,
         -maxUint112, -UniswapV2PairBase.maxUint112,
         -q112, -UniswapV2PairBase.q112, -uint32Modulus, -UniswapV2PairBase.uint32Modulus,
         -oraclePrice0, -oraclePrice1, -oraclePrice0Increment, -oraclePrice1Increment,
