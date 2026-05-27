@@ -518,9 +518,9 @@ private theorem finishSwapCheckedGuards_success_implies_nat_guards
         simpa [feeAdjustment, UniswapV2PairBase.feeAdjustment] using
           hAmount1FeeGuard)
   have hFeeDenominatorVal : feeDenominator.val = feeDenominatorNat := by
-    native_decide
+    decide
   have hFeeAdjustmentVal : feeAdjustment.val = feeAdjustmentNat := by
-    native_decide
+    decide
   have hFee0 :
       amount0In.val * feeAdjustmentNat ≤
         balance0Now.val * feeDenominatorNat := by
