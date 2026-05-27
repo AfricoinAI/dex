@@ -10,10 +10,10 @@ contract DeployE2E is Script {
     address internal constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address internal constant GLOBAL_FACTORY = 0x00000021543ed46B665A74484c82B71E4eB61e34;
     address internal constant GLOBAL_ROUTER = 0x000000bb6b44DCD2C5d05911e830C176aA680579;
-    address internal constant GLOBAL_FRONTEND = 0x0000001B6ffb9304aC2C7CB2ee1ac03D55613e02;
+    address internal constant GLOBAL_FRONTEND = 0x000000034dF8D42FC47C37581A4eB9E62Cc9B27E;
     bytes32 internal constant FACTORY_SALT = 0xe7de01c00746d6ee6cacea2e58353be0f49b1826adaa8a7adaafaf5a235dbfcd;
     bytes32 internal constant ROUTER_SALT = 0x91a6fe37677fd168cdb604b5f0b46515ae2e3f403fa634a5c8b32dd5b6ba6b41;
-    bytes32 internal constant FRONTEND_SALT = 0x73171ca15116421a8c9f854b2bec2f0410cdd25d79c9ed0709526f55f6208499;
+    bytes32 internal constant FRONTEND_SALT = 0xe09a74fed96d548f6e63c03677f468fd423b760033dd2bee0f1ab0da520ea63f;
     bytes32 internal constant WETH_SALT = keccak256("tama-uni-v2.local-weth");
 
     function run() external {

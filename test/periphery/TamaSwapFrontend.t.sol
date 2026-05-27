@@ -113,8 +113,17 @@ contract TamaSwapFrontendTest is Test {
             _contains(html, bytes("<link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg+xml,")),
             "favicon data URI missing"
         );
-        assertTrue(_contains(html, bytes("<meta property=\"og:title\" content=\"TamaSwap\">")), "og title missing");
-        assertTrue(_contains(html, bytes("<meta property=\"og:image\" content=\"social.svg\">")), "og image missing");
+        assertTrue(
+            _contains(html, bytes("<meta property=\"og:title\" content=\"TamaSwap &#8212; The First Provably Unhackable DEX\">")),
+            "og title missing"
+        );
+        assertTrue(
+            _contains(html, bytes("<meta property=\"og:url\" content=\"https://swap.tama.tools/\">")), "og url missing"
+        );
+        assertTrue(
+            _contains(html, bytes("<meta property=\"og:image\" content=\"https://swap.tama.tools/social.svg\">")),
+            "og image missing"
+        );
         assertTrue(
             _contains(html, bytes("<meta property=\"og:image:type\" content=\"image/svg+xml\">")),
             "og image type missing"
@@ -124,7 +133,8 @@ contract TamaSwapFrontendTest is Test {
             "twitter card missing"
         );
         assertTrue(
-            _contains(html, bytes("<meta name=\"twitter:image\" content=\"social.svg\">")), "twitter image missing"
+            _contains(html, bytes("<meta name=\"twitter:image\" content=\"https://swap.tama.tools/social.svg\">")),
+            "twitter image missing"
         );
     }
 
@@ -234,13 +244,15 @@ contract TamaSwapFrontendTest is Test {
 
     function _bootstrapMeta() internal pure returns (string memory) {
         return string.concat(
-            "<meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>TamaSwap</title>",
-            "<meta name=\"description\" content=\"The first provably unhackable DEX, forever online.\"><meta property=\"og:title\" content=\"TamaSwap\">",
-            "<meta property=\"og:description\" content=\"The first provably unhackable DEX, forever online.\"><meta property=\"og:image\" content=\"social.svg\">",
-            "<meta property=\"og:image:type\" content=\"image/svg+xml\"><meta property=\"og:image:width\" content=\"1200\">",
+            "<meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>TamaSwap &#8212; The First Provably Unhackable DEX</title>",
+            "<meta name=\"description\" content=\"TamaSwap is a Uniswap V2 exchange with every smart contract mathematically proven safe in Lean and a frontend that lives entirely onchain, so it can never go down.\">",
+            "<meta property=\"og:type\" content=\"website\"><meta property=\"og:url\" content=\"https://swap.tama.tools/\">",
+            "<meta property=\"og:title\" content=\"TamaSwap &#8212; The First Provably Unhackable DEX\">",
+            "<meta property=\"og:description\" content=\"TamaSwap is a Uniswap V2 exchange with every smart contract mathematically proven safe in Lean and a frontend that lives entirely onchain, so it can never go down.\">",
+            "<meta property=\"og:image\" content=\"https://swap.tama.tools/social.svg\"><meta property=\"og:image:type\" content=\"image/svg+xml\"><meta property=\"og:image:width\" content=\"1200\">",
             "<meta property=\"og:image:height\" content=\"630\"><meta name=\"twitter:card\" content=\"summary_large_image\">",
-            "<meta name=\"twitter:title\" content=\"TamaSwap\"><meta name=\"twitter:description\" content=\"The first provably unhackable DEX, forever online.\">",
-            "<meta name=\"twitter:image\" content=\"social.svg\"><link rel=\"icon\" type=\"image/svg+xml\" href=\"",
+            "<meta name=\"twitter:title\" content=\"TamaSwap &#8212; The First Provably Unhackable DEX\"><meta name=\"twitter:description\" content=\"TamaSwap is a Uniswap V2 exchange with every smart contract mathematically proven safe in Lean and a frontend that lives entirely onchain, so it can never go down.\">",
+            "<meta name=\"twitter:image\" content=\"https://swap.tama.tools/social.svg\"><link rel=\"icon\" type=\"image/svg+xml\" href=\"",
             _faviconDataUri(),
             "\">"
         );

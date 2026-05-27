@@ -17,7 +17,7 @@ const DEPLOYMENT = path.join(TMP, "deployment.json");
 const ARACHNID_CREATE2 = "0x4e59b44847b379578588920ca78fbf26c0b4956c";
 const GLOBAL_FACTORY = "0x00000021543ed46b665a74484c82b71e4eb61e34";
 const GLOBAL_ROUTER = "0x000000bb6b44dcd2c5d05911e830c176aa680579";
-const GLOBAL_FRONTEND = "0x0000001b6ffb9304ac2c7cb2ee1ac03d55613e02";
+const GLOBAL_FRONTEND = "0x000000034df8d42fc47c37581a4eb9e62cc9b27e";
 
 function playwright() {
   const candidates = [
