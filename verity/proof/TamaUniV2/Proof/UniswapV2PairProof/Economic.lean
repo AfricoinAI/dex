@@ -1895,8 +1895,7 @@ theorem pairEconomicActionConcreteStep_wallet
   | swap amount0Out amount1Out toAddr data balance0Now balance1Now preTokens
       s result hRun hSuccess hBefore hAfter hExternal hBalance0Le hBalance1Le
       hToAddr hCallerNeSelf hTokenDistinct hCallerToken0Add hCallerToken1Add
-      hPostBalances hInput hBalance0 hBalance1 hBound0 hBound1 hFee0 hFee1
-      hAdjustedK =>
+      hPostBalances hBalance0 hBalance1 =>
       subst before
       subst after
       subst result
@@ -1911,6 +1910,13 @@ theorem pairEconomicActionConcreteStep_wallet
         exact swap_success_run_implies_amount1Out_lt_reserve1
           amount0Out amount1Out caller data s
           ((swap amount0Out amount1Out caller data).run s) rfl hSuccess
+      have hGuards :=
+        finishSwapChecked_success_implies_guards
+          amount0Out amount1Out caller data balance0Now balance1Now s
+          ((swap amount0Out amount1Out caller data).run s) rfl hSuccess
+          hPostBalances
+      rcases hGuards with
+        ⟨hInput, hBound0, hBound1, hFee0, hFee1, hAdjustedK⟩
       refine ⟨PairWalletAction.callerSwap
         ((swapAmount0In amount0Out balance0Now s).val -
           PairWorldSurplus0 (pairWorldFromConcreteState s))
@@ -1931,7 +1937,7 @@ theorem pairEconomicActionConcreteStep_wallet
         exact swap_success_reaches_expected_pair_state
           amount0Out amount1Out caller data balance0Now balance1Now preTokens s
           rfl hSuccess hExternal hPostBalances hAmount0OutLt hAmount1OutLt
-          hInput hBalance0 hBalance1 hBound0 hBound1 hFee0 hFee1 hAdjustedK
+          hBalance0 hBalance1
       have hBeforeWorld :
           pairWorldFromConcreteAndTokens preTokens s =
             pairWorldFromConcreteState s := by

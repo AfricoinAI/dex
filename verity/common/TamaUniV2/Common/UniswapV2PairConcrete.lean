@@ -772,9 +772,6 @@ inductive PairEconomicActionConcreteStep
           Core.Uint256.modulus)
       (hPostBalances :
         pairPostCallSelfBalancesMatch s result.snd balance0Now balance1Now)
-      (hInput :
-        swapAmount0In amount0Out balance0Now s > 0 ∨
-          swapAmount1In amount1Out balance1Now s > 0)
       (hBalance0 :
         balance0Now.val =
           (s.storage reserve0Slot.slot).val +
@@ -782,23 +779,7 @@ inductive PairEconomicActionConcreteStep
       (hBalance1 :
         balance1Now.val =
           (s.storage reserve1Slot.slot).val +
-            (swapAmount1In amount1Out balance1Now s).val - amount1Out.val)
-      (hBound0 : balance0Now ≤ maxUint112)
-      (hBound1 : balance1Now ≤ maxUint112)
-      (hFee0 :
-        (swapAmount0In amount0Out balance0Now s).val * feeAdjustmentNat ≤
-          balance0Now.val * feeDenominatorNat)
-      (hFee1 :
-        (swapAmount1In amount1Out balance1Now s).val * feeAdjustmentNat ≤
-          balance1Now.val * feeDenominatorNat)
-      (hAdjustedK :
-        feeAdjustedBalance balance0Now.val
-            (swapAmount0In amount0Out balance0Now s).val *
-          feeAdjustedBalance balance1Now.val
-            (swapAmount1In amount1Out balance1Now s).val ≥
-            requiredK
-              (s.storage reserve0Slot.slot).val
-              (s.storage reserve1Slot.slot).val) :
+            (swapAmount1In amount1Out balance1Now s).val - amount1Out.val) :
       PairEconomicActionConcreteStep caller before after
   | skim
       {before after : PairWalletWorldState}

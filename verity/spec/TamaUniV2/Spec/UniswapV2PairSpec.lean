@@ -1622,10 +1622,8 @@ def pair_swap_checks_k_against_final_balances
             feeAdjustedBalance after.balance1 amount1In.val ≥
           requiredK before.reserve0 before.reserve1
 
-/-- When `swap` succeeds, the zero-output guard has passed. The remaining
-premises are the post-callback balance, input, reserve-bound, and K facts that
-describe the state observed after any optimistic transfer and callback
-repayment, including flash/callback and arbitrage swaps. -/
+/-- When `swap` succeeds, the post-callback balances determine the input,
+reserve-bound, and K facts used to reach the expected pair state. -/
 def pair_swap_success_reaches_expected_pair_state
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
     (balance0Now balance1Now : Uint256) (preTokens : PairTokenBalances)
@@ -1643,28 +1641,16 @@ def pair_swap_success_reaches_expected_pair_state
         pairPostCallSelfBalancesMatch s result.snd balance0Now balance1Now →
           amount0Out < s.storage reserve0Slot.slot →
             amount1Out < s.storage reserve1Slot.slot →
-              (amount0In > 0 ∨ amount1In > 0) →
-                balance0Now.val =
-                    (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
-                  balance1Now.val =
-                      (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
-                    balance0Now ≤ maxUint112 →
-                      balance1Now ≤ maxUint112 →
-                        amount0In.val * feeAdjustmentNat ≤
-                            balance0Now.val * feeDenominatorNat →
-                          amount1In.val * feeAdjustmentNat ≤
-                              balance1Now.val * feeDenominatorNat →
-                            feeAdjustedBalance balance0Now.val amount0In.val *
-                                feeAdjustedBalance balance1Now.val amount1In.val ≥
-                              requiredK
-                                (s.storage reserve0Slot.slot).val
-                                (s.storage reserve1Slot.slot).val →
-                                PairWorldStep
-                                (PairWorldAction.swap
-                                  amount0In.val amount1In.val
-                                  amount0Out.val amount1Out.val)
-                                (pairWorldFromConcreteAndTokens preTokens s)
-                                actual
+              balance0Now.val =
+                  (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
+                balance1Now.val =
+                    (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
+                  PairWorldStep
+                    (PairWorldAction.swap
+                      amount0In.val amount1In.val
+                      amount0Out.val amount1Out.val)
+                    (pairWorldFromConcreteAndTokens preTokens s)
+                    actual
 
 /--
 When `swap` succeeds, the final token balances account for the optimistic

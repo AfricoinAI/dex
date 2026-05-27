@@ -437,7 +437,30 @@ verity_contract UniswapV2PairBase where
       timestamp32 previousTimestamp
     return mintedLiquidity
 
-  function no_external_calls finishSwapChecked
+  function no_external_calls finishSwapCheckedGuards
+      (amount0In : Uint256, amount1In : Uint256,
+        balance0Now : Uint256, balance1Now : Uint256,
+        reserve0Value : Uint256, reserve1Value : Uint256,
+        balance0Scaled : Uint256, balance1Scaled : Uint256,
+        amount0Fee : Uint256, amount1Fee : Uint256,
+        balance0Adjusted : Uint256, balance1Adjusted : Uint256,
+        adjustedProduct : Uint256, reserveProduct : Uint256,
+        scaleProduct : Uint256, requiredProduct : Uint256) : Tuple [Uint256, Uint256] := do
+    require (amount0In > 0 || amount1In > 0) "UniswapV2: INSUFFICIENT_INPUT_AMOUNT"
+    require (balance0Now == 0 || div balance0Scaled balance0Now == feeDenominator) "UniswapV2: K_OVERFLOW"
+    require (balance1Now == 0 || div balance1Scaled balance1Now == feeDenominator) "UniswapV2: K_OVERFLOW"
+    require (amount0In == 0 || div amount0Fee amount0In == feeAdjustment) "UniswapV2: K_OVERFLOW"
+    require (amount1In == 0 || div amount1Fee amount1In == feeAdjustment) "UniswapV2: K_OVERFLOW"
+    require (balance0Scaled >= amount0Fee && balance1Scaled >= amount1Fee) "UniswapV2: K"
+    require (balance0Adjusted == 0 || div adjustedProduct balance0Adjusted == balance1Adjusted) "UniswapV2: K_OVERFLOW"
+    require (reserve0Value == 0 || div reserveProduct reserve0Value == reserve1Value) "UniswapV2: K_OVERFLOW"
+    require (div scaleProduct feeDenominator == feeDenominator) "UniswapV2: K_OVERFLOW"
+    require (reserveProduct == 0 || div requiredProduct reserveProduct == scaleProduct) "UniswapV2: K_OVERFLOW"
+    require (adjustedProduct >= requiredProduct) "UniswapV2: K"
+    require (balance0Now <= maxUint112 && balance1Now <= maxUint112) "UniswapV2: OVERFLOW"
+    return (amount0In, amount1In)
+
+  function allow_post_interaction_writes finishSwapChecked
       (sender : Address,
         balance0Now : Uint256, balance1Now : Uint256,
         reserve0Value : Uint256, reserve1Value : Uint256,
@@ -454,29 +477,21 @@ verity_contract UniswapV2PairBase where
       amount1In := sub balance1Now expected1
     else
       pure ()
-    require (amount0In > 0 || amount1In > 0) "UniswapV2: INSUFFICIENT_INPUT_AMOUNT"
     let balance0Scaled := mul balance0Now feeDenominator
-    require (balance0Now == 0 || div balance0Scaled balance0Now == feeDenominator) "UniswapV2: K_OVERFLOW"
     let balance1Scaled := mul balance1Now feeDenominator
-    require (balance1Now == 0 || div balance1Scaled balance1Now == feeDenominator) "UniswapV2: K_OVERFLOW"
     let amount0Fee := mul amount0In feeAdjustment
-    require (amount0In == 0 || div amount0Fee amount0In == feeAdjustment) "UniswapV2: K_OVERFLOW"
     let amount1Fee := mul amount1In feeAdjustment
-    require (amount1In == 0 || div amount1Fee amount1In == feeAdjustment) "UniswapV2: K_OVERFLOW"
-    require (balance0Scaled >= amount0Fee && balance1Scaled >= amount1Fee) "UniswapV2: K"
     let balance0Adjusted := sub balance0Scaled amount0Fee
     let balance1Adjusted := sub balance1Scaled amount1Fee
     let adjustedProduct := mul balance0Adjusted balance1Adjusted
-    require (balance0Adjusted == 0 || div adjustedProduct balance0Adjusted == balance1Adjusted) "UniswapV2: K_OVERFLOW"
     let reserveProduct := mul reserve0Value reserve1Value
-    require (reserve0Value == 0 || div reserveProduct reserve0Value == reserve1Value) "UniswapV2: K_OVERFLOW"
     let scaleProduct := mul feeDenominator feeDenominator
-    require (div scaleProduct feeDenominator == feeDenominator) "UniswapV2: K_OVERFLOW"
     let requiredProduct := mul reserveProduct scaleProduct
-    require (reserveProduct == 0 || div requiredProduct reserveProduct == scaleProduct) "UniswapV2: K_OVERFLOW"
-    require (adjustedProduct >= requiredProduct) "UniswapV2: K"
-    require (balance0Now <= maxUint112 && balance1Now <= maxUint112) "UniswapV2: OVERFLOW"
-    return (amount0In, amount1In)
+    let (checkedAmount0In, checkedAmount1In) ← finishSwapCheckedGuards amount0In amount1In balance0Now balance1Now
+      reserve0Value reserve1Value balance0Scaled balance1Scaled amount0Fee
+      amount1Fee balance0Adjusted balance1Adjusted adjustedProduct reserveProduct
+      scaleProduct requiredProduct
+    return (checkedAmount0In, checkedAmount1In)
 
   function allow_post_interaction_writes finishSwapUpdate
       (sender : Address,
@@ -692,7 +707,8 @@ abbrev sync := UniswapV2PairBase.sync
 
   def privateHelperFunctionNames : List String :=
   ["updateReservesAndEmitSync", "finishFirstMint", "finishFirstMintChecked", "finishLaterMint",
-    "firstMintPath", "laterMintPath", "finishSwapChecked", "finishSwapUpdate", "finishSwap"]
+    "firstMintPath", "laterMintPath", "finishSwapChecked", "finishSwapCheckedGuards",
+    "finishSwapUpdate", "finishSwap"]
 
 def exposedFunctions : List FunctionSpec :=
   UniswapV2PairBase.spec.functions.filter fun fn =>

@@ -288,6 +288,491 @@ theorem flash_callback_module_bubbles_callback_failure :
   refine ⟨_, h_stmts.symm, ?_⟩
   simp
 
+private theorem finishSwapCheckedGuards_success_implies_bools
+    (amount0In amount1In balance0Now balance1Now reserve0Value reserve1Value
+      balance0Scaled balance1Scaled amount0Fee amount1Fee
+      balance0Adjusted balance1Adjusted adjustedProduct reserveProduct
+      scaleProduct requiredProduct : Uint256)
+    (s post : ContractState) (value : Uint256 × Uint256)
+    (hSuccess :
+      (UniswapV2PairBase.finishSwapCheckedGuards amount0In amount1In
+        balance0Now balance1Now reserve0Value reserve1Value balance0Scaled
+        balance1Scaled amount0Fee amount1Fee balance0Adjusted balance1Adjusted
+        adjustedProduct reserveProduct scaleProduct requiredProduct).run s =
+          ContractResult.success value post) :
+    (0 < amount0In.val ∨ 0 < amount1In.val) ∧
+    (amount0Fee.val ≤ balance0Scaled.val ∧
+      amount1Fee.val ≤ balance1Scaled.val) ∧
+    requiredProduct.val ≤ adjustedProduct.val ∧
+    (balance0Now.val ≤
+        Core.Uint256.val 5192296858534827628530496329220095 ∧
+      balance1Now.val ≤
+        Core.Uint256.val 5192296858534827628530496329220095) ∧
+    (balance0Now = 0 ∨ div balance0Scaled balance0Now = (1000 : Uint256)) ∧
+    (balance1Now = 0 ∨ div balance1Scaled balance1Now = (1000 : Uint256)) ∧
+    (amount0In = 0 ∨ div amount0Fee amount0In = (3 : Uint256)) ∧
+    (amount1In = 0 ∨ div amount1Fee amount1In = (3 : Uint256)) ∧
+    (balance0Adjusted = 0 ∨
+      div adjustedProduct balance0Adjusted = balance1Adjusted) ∧
+    (reserve0Value = 0 ∨
+      div reserveProduct reserve0Value = reserve1Value) ∧
+    div scaleProduct (1000 : Uint256) = (1000 : Uint256) ∧
+    (reserveProduct = 0 ∨ div requiredProduct reserveProduct = scaleProduct) := by
+  unfold UniswapV2PairBase.finishSwapCheckedGuards Contract.run at hSuccess
+  by_cases hInput : 0 < amount0In.val ∨ 0 < amount1In.val
+  · by_cases h0 :
+        balance0Now = 0 ∨ div balance0Scaled balance0Now = (1000 : Uint256)
+    · by_cases h1 :
+          balance1Now = 0 ∨ div balance1Scaled balance1Now = (1000 : Uint256)
+      · by_cases hFee0 :
+            amount0In = 0 ∨ div amount0Fee amount0In = (3 : Uint256)
+        · by_cases hFee1 :
+              amount1In = 0 ∨ div amount1Fee amount1In = (3 : Uint256)
+          · by_cases hFeeBound :
+                amount0Fee.val ≤ balance0Scaled.val ∧
+                  amount1Fee.val ≤ balance1Scaled.val
+            · by_cases hAdjOverflow :
+                  balance0Adjusted = 0 ∨
+                    div adjustedProduct balance0Adjusted = balance1Adjusted
+              · by_cases hReserveOverflow :
+                    reserve0Value = 0 ∨
+                      div reserveProduct reserve0Value = reserve1Value
+                · by_cases hScale : div scaleProduct (1000 : Uint256) = (1000 : Uint256)
+                  · by_cases hRequired :
+                        reserveProduct = 0 ∨
+                          div requiredProduct reserveProduct = scaleProduct
+                    · by_cases hK : requiredProduct.val ≤ adjustedProduct.val
+                      · by_cases hBounds :
+                            balance0Now.val ≤
+                                Core.Uint256.val 5192296858534827628530496329220095 ∧
+                              balance1Now.val ≤
+                                Core.Uint256.val 5192296858534827628530496329220095
+                        · exact ⟨hInput, hFeeBound, hK, hBounds, h0, h1, hFee0, hFee1,
+                            hAdjOverflow, hReserveOverflow, hScale, hRequired⟩
+                        · exfalso
+                          simp [Bind.bind, Verity.bind, Verity.require, hInput, h0, h1,
+                            hFee0, hFee1, hFeeBound, hAdjOverflow, hReserveOverflow,
+                            hScale, hRequired, hK, hBounds] at hSuccess
+                      · exfalso
+                        simp [Bind.bind, Verity.bind, Verity.require, hInput, h0, h1,
+                          hFee0, hFee1, hFeeBound, hAdjOverflow, hReserveOverflow,
+                          hScale, hRequired, hK] at hSuccess
+                    · exfalso
+                      simp [Bind.bind, Verity.bind, Verity.require, hInput, h0, h1,
+                        hFee0, hFee1, hFeeBound, hAdjOverflow, hReserveOverflow,
+                        hScale, hRequired] at hSuccess
+                  · exfalso
+                    simp [Bind.bind, Verity.bind, Verity.require, hInput, h0, h1,
+                      hFee0, hFee1, hFeeBound, hAdjOverflow, hReserveOverflow,
+                      hScale] at hSuccess
+                · exfalso
+                  simp [Bind.bind, Verity.bind, Verity.require, hInput, h0, h1,
+                    hFee0, hFee1, hFeeBound, hAdjOverflow, hReserveOverflow] at hSuccess
+              · exfalso
+                simp [Bind.bind, Verity.bind, Verity.require, hInput, h0, h1,
+                  hFee0, hFee1, hFeeBound, hAdjOverflow] at hSuccess
+            · exfalso
+              simp [Bind.bind, Verity.bind, Verity.require, hInput, h0, h1,
+                hFee0, hFee1, hFeeBound] at hSuccess
+          · exfalso
+            simp [Bind.bind, Verity.bind, Verity.require, hInput, h0, h1,
+              hFee0, hFee1] at hSuccess
+        · exfalso
+          simp [Bind.bind, Verity.bind, Verity.require, hInput, h0, h1,
+            hFee0] at hSuccess
+      · exfalso
+        simp [Bind.bind, Verity.bind, Verity.require, hInput, h0, h1] at hSuccess
+    · exfalso
+      simp [Bind.bind, Verity.bind, Verity.require, hInput, h0] at hSuccess
+  · exfalso
+    simp [Bind.bind, Verity.bind, Verity.require, hInput] at hSuccess
+
+private theorem finishSwapCheckedGuards_preserves_state_raw
+    (amount0In amount1In balance0Now balance1Now reserve0Value reserve1Value
+      balance0Scaled balance1Scaled amount0Fee amount1Fee
+      balance0Adjusted balance1Adjusted adjustedProduct reserveProduct
+      scaleProduct requiredProduct : Uint256) :
+    contractPreservesState
+      (UniswapV2PairBase.finishSwapCheckedGuards amount0In amount1In
+        balance0Now balance1Now reserve0Value reserve1Value balance0Scaled
+        balance1Scaled amount0Fee amount1Fee balance0Adjusted balance1Adjusted
+        adjustedProduct reserveProduct scaleProduct requiredProduct) := by
+  unfold UniswapV2PairBase.finishSwapCheckedGuards
+  repeat
+    first
+    | apply contractPreservesState_bind
+    | intro _
+    | exact contractPreservesState_require _ _ _
+    | exact contractPreservesState_pure _ _
+    | exact contractPreservesState_require _ _
+    | exact contractPreservesState_pure _
+
+private theorem uint256_mul_val_le_nat_mul (a b : Uint256) :
+    (mul a b).val ≤ a.val * b.val := by
+  simp [Verity.EVM.Uint256.mul, Verity.Core.Uint256.mul,
+    Verity.Core.Uint256.ofNat]
+  exact Nat.mod_le _ _
+
+private theorem uint256_div_val_eq_of_nonzero
+    (a b : Uint256) (hb : b.val ≠ 0) :
+    (div a b).val = a.val / b.val := by
+  have hlt : a.val / b.val < Verity.Core.Uint256.modulus := by
+    exact Nat.lt_of_le_of_lt (Nat.div_le_self a.val b.val) a.isLt
+  simp [Verity.EVM.Uint256.div, Verity.Core.Uint256.div, hb,
+    Verity.Core.Uint256.ofNat, Nat.mod_eq_of_lt hlt]
+
+private theorem uint256_mul_eq_of_div_guard
+    (a b product : Uint256)
+    (hProduct : product = mul a b)
+    (hGuard : a = 0 ∨ div product a = b) :
+    product.val = a.val * b.val := by
+  have hUpper : product.val ≤ a.val * b.val := by
+    rw [hProduct]
+    exact uint256_mul_val_le_nat_mul a b
+  rcases hGuard with hZero | hDiv
+  · subst a
+    rw [hProduct]
+    simp [Verity.EVM.Uint256.mul, Verity.Core.Uint256.mul,
+      Verity.Core.Uint256.ofNat]
+  · by_cases ha0 : a = 0
+    · subst a
+      rw [hProduct]
+      simp [Verity.EVM.Uint256.mul, Verity.Core.Uint256.mul,
+        Verity.Core.Uint256.ofNat]
+    · have ha : a.val ≠ 0 := by
+        intro hval
+        apply ha0
+        ext
+        simpa using hval
+      have hDivVal := congrArg (fun x : Uint256 => x.val) hDiv
+      have hQuot : product.val / a.val = b.val := by
+        simpa [uint256_div_val_eq_of_nonzero product a ha] using hDivVal
+      have hLower : a.val * b.val ≤ product.val := by
+        rw [← hQuot]
+        have h := Nat.div_mul_le_self product.val a.val
+        nlinarith
+      exact Nat.le_antisymm hUpper hLower
+
+private theorem finishSwapCheckedGuards_success_implies_nat_guards
+    (amount0In amount1In balance0Now balance1Now reserve0Value reserve1Value
+      balance0Scaled balance1Scaled amount0Fee amount1Fee
+      balance0Adjusted balance1Adjusted adjustedProduct reserveProduct
+      scaleProduct requiredProduct : Uint256)
+    (s post : ContractState) (value : Uint256 × Uint256)
+    (hBalance0Scaled : balance0Scaled = mul balance0Now feeDenominator)
+    (hBalance1Scaled : balance1Scaled = mul balance1Now feeDenominator)
+    (hAmount0Fee : amount0Fee = mul amount0In feeAdjustment)
+    (hAmount1Fee : amount1Fee = mul amount1In feeAdjustment)
+    (hBalance0Adjusted : balance0Adjusted = sub balance0Scaled amount0Fee)
+    (hBalance1Adjusted : balance1Adjusted = sub balance1Scaled amount1Fee)
+    (hAdjustedProduct : adjustedProduct = mul balance0Adjusted balance1Adjusted)
+    (hReserveProduct : reserveProduct = mul reserve0Value reserve1Value)
+    (hScaleProduct : scaleProduct = mul feeDenominator feeDenominator)
+    (hRequiredProduct : requiredProduct = mul reserveProduct scaleProduct)
+    (hSuccess :
+      (UniswapV2PairBase.finishSwapCheckedGuards amount0In amount1In
+        balance0Now balance1Now reserve0Value reserve1Value balance0Scaled
+        balance1Scaled amount0Fee amount1Fee balance0Adjusted balance1Adjusted
+        adjustedProduct reserveProduct scaleProduct requiredProduct).run s =
+          ContractResult.success value post) :
+    (0 < amount0In.val ∨ 0 < amount1In.val) ∧
+    balance0Now.val ≤ maxUint112.val ∧
+    balance1Now.val ≤ maxUint112.val ∧
+    amount0In.val * feeAdjustmentNat ≤
+      balance0Now.val * feeDenominatorNat ∧
+    amount1In.val * feeAdjustmentNat ≤
+      balance1Now.val * feeDenominatorNat ∧
+    feeAdjustedBalance balance0Now.val amount0In.val *
+        feeAdjustedBalance balance1Now.val amount1In.val ≥
+      requiredK reserve0Value.val reserve1Value.val := by
+  rcases finishSwapCheckedGuards_success_implies_bools
+      amount0In amount1In balance0Now balance1Now reserve0Value reserve1Value
+      balance0Scaled balance1Scaled amount0Fee amount1Fee
+      balance0Adjusted balance1Adjusted adjustedProduct reserveProduct
+      scaleProduct requiredProduct s post value hSuccess with
+    ⟨hInput, hFeeBound, hK, hBounds, hBalance0ScaledGuard,
+      hBalance1ScaledGuard, hAmount0FeeGuard, hAmount1FeeGuard,
+      hAdjustedGuard, hReserveGuard, hScaleGuard, hRequiredGuard⟩
+  have hBalance0ScaledVal :
+      balance0Scaled.val = balance0Now.val * feeDenominator.val := by
+    exact uint256_mul_eq_of_div_guard balance0Now feeDenominator balance0Scaled
+      hBalance0Scaled (by
+        simpa [feeDenominator, UniswapV2PairBase.feeDenominator] using
+          hBalance0ScaledGuard)
+  have hBalance1ScaledVal :
+      balance1Scaled.val = balance1Now.val * feeDenominator.val := by
+    exact uint256_mul_eq_of_div_guard balance1Now feeDenominator balance1Scaled
+      hBalance1Scaled (by
+        simpa [feeDenominator, UniswapV2PairBase.feeDenominator] using
+          hBalance1ScaledGuard)
+  have hAmount0FeeVal :
+      amount0Fee.val = amount0In.val * feeAdjustment.val := by
+    exact uint256_mul_eq_of_div_guard amount0In feeAdjustment amount0Fee
+      hAmount0Fee (by
+        simpa [feeAdjustment, UniswapV2PairBase.feeAdjustment] using
+          hAmount0FeeGuard)
+  have hAmount1FeeVal :
+      amount1Fee.val = amount1In.val * feeAdjustment.val := by
+    exact uint256_mul_eq_of_div_guard amount1In feeAdjustment amount1Fee
+      hAmount1Fee (by
+        simpa [feeAdjustment, UniswapV2PairBase.feeAdjustment] using
+          hAmount1FeeGuard)
+  have hFeeDenominatorVal : feeDenominator.val = feeDenominatorNat := by
+    native_decide
+  have hFeeAdjustmentVal : feeAdjustment.val = feeAdjustmentNat := by
+    native_decide
+  have hFee0 :
+      amount0In.val * feeAdjustmentNat ≤
+        balance0Now.val * feeDenominatorNat := by
+    calc
+      amount0In.val * feeAdjustmentNat = amount0Fee.val := by
+        simpa [feeAdjustmentNat, feeAdjustment, UniswapV2PairBase.feeAdjustment]
+          using hAmount0FeeVal.symm
+      _ ≤ balance0Scaled.val := hFeeBound.1
+      _ = balance0Now.val * feeDenominatorNat := by
+        simpa [feeDenominatorNat, feeDenominator,
+          UniswapV2PairBase.feeDenominator] using hBalance0ScaledVal
+  have hFee1 :
+      amount1In.val * feeAdjustmentNat ≤
+        balance1Now.val * feeDenominatorNat := by
+    calc
+      amount1In.val * feeAdjustmentNat = amount1Fee.val := by
+        simpa [feeAdjustmentNat, feeAdjustment, UniswapV2PairBase.feeAdjustment]
+          using hAmount1FeeVal.symm
+      _ ≤ balance1Scaled.val := hFeeBound.2
+      _ = balance1Now.val * feeDenominatorNat := by
+        simpa [feeDenominatorNat, feeDenominator,
+          UniswapV2PairBase.feeDenominator] using hBalance1ScaledVal
+  have hBalance0AdjustedVal :
+      balance0Adjusted.val =
+        feeAdjustedBalance balance0Now.val amount0In.val := by
+    rw [hBalance0Adjusted]
+    rw [Verity.EVM.Uint256.sub_eq_of_le hFeeBound.1]
+    rw [hBalance0ScaledVal, hAmount0FeeVal]
+    rw [hFeeDenominatorVal, hFeeAdjustmentVal]
+    simp [feeAdjustedBalance]
+  have hBalance1AdjustedVal :
+      balance1Adjusted.val =
+        feeAdjustedBalance balance1Now.val amount1In.val := by
+    rw [hBalance1Adjusted]
+    rw [Verity.EVM.Uint256.sub_eq_of_le hFeeBound.2]
+    rw [hBalance1ScaledVal, hAmount1FeeVal]
+    rw [hFeeDenominatorVal, hFeeAdjustmentVal]
+    simp [feeAdjustedBalance]
+  have hAdjustedProductVal :
+      adjustedProduct.val = balance0Adjusted.val * balance1Adjusted.val :=
+    uint256_mul_eq_of_div_guard balance0Adjusted balance1Adjusted
+      adjustedProduct hAdjustedProduct hAdjustedGuard
+  have hReserveProductVal :
+      reserveProduct.val = reserve0Value.val * reserve1Value.val :=
+    uint256_mul_eq_of_div_guard reserve0Value reserve1Value
+      reserveProduct hReserveProduct hReserveGuard
+  have hScaleProductVal :
+      scaleProduct.val = feeDenominator.val * feeDenominator.val :=
+    uint256_mul_eq_of_div_guard feeDenominator feeDenominator scaleProduct
+      hScaleProduct (Or.inr (by
+        simpa [feeDenominator, UniswapV2PairBase.feeDenominator] using
+          hScaleGuard))
+  have hRequiredProductVal :
+      requiredProduct.val = reserveProduct.val * scaleProduct.val :=
+    uint256_mul_eq_of_div_guard reserveProduct scaleProduct requiredProduct
+      hRequiredProduct hRequiredGuard
+  have hAdjustedK :
+      feeAdjustedBalance balance0Now.val amount0In.val *
+          feeAdjustedBalance balance1Now.val amount1In.val ≥
+        requiredK reserve0Value.val reserve1Value.val := by
+    calc
+      requiredK reserve0Value.val reserve1Value.val =
+          reserveProduct.val * scaleProduct.val := by
+            rw [hReserveProductVal, hScaleProductVal]
+            rw [hFeeDenominatorVal]
+            simp [requiredK, pow_two]
+            ring
+      _ = requiredProduct.val := hRequiredProductVal.symm
+      _ ≤ adjustedProduct.val := hK
+      _ = balance0Adjusted.val * balance1Adjusted.val := hAdjustedProductVal
+      _ =
+          feeAdjustedBalance balance0Now.val amount0In.val *
+            feeAdjustedBalance balance1Now.val amount1In.val := by
+            rw [hBalance0AdjustedVal, hBalance1AdjustedVal]
+  exact ⟨hInput,
+    by simpa [maxUint112, UniswapV2PairBase.maxUint112] using hBounds.1,
+    by simpa [maxUint112, UniswapV2PairBase.maxUint112] using hBounds.2,
+    hFee0, hFee1, hAdjustedK⟩
+
+private theorem tuple_eta_success_peel
+    (c : Contract (Uint256 × Uint256)) (s post : ContractState)
+    (value : Uint256 × Uint256) :
+    (match c s with
+      | ContractResult.success a s' => ContractResult.success (a.1, a.2) s'
+      | ContractResult.revert msg s' => ContractResult.revert msg s') =
+        ContractResult.success value post →
+      c.run s = ContractResult.success value post := by
+  intro h
+  unfold Contract.run
+  cases hRun : c s with
+  | success a st =>
+      cases a
+      simp [hRun] at h
+      simpa [hRun] using h
+  | «revert» msg st =>
+      simp [hRun] at h
+
+private theorem tuple_eta_success_peel_wrapped
+    (c : Contract (Uint256 × Uint256)) (s post outer : ContractState)
+    (value : Uint256 × Uint256) :
+    (match
+      (match c s with
+        | ContractResult.success a s' => ContractResult.success (a.1, a.2) s'
+        | ContractResult.revert msg s' => ContractResult.revert msg s') with
+      | ContractResult.success a s' => ContractResult.success a s'
+      | ContractResult.revert msg _ => ContractResult.revert msg outer) =
+        ContractResult.success value post →
+      c.run s = ContractResult.success value post := by
+  intro h
+  unfold Contract.run
+  cases hRun : c s with
+  | success a st =>
+      cases a
+      simp [hRun] at h
+      simpa [hRun] using h
+  | «revert» msg st =>
+      simp [hRun] at h
+
+private theorem success_peel_wrapped
+    {α : Type} (c : Contract α) (s post outer : ContractState)
+    (value : α) :
+    (match
+      (match c s with
+        | ContractResult.success a s' => ContractResult.success a s'
+        | ContractResult.revert msg s' => ContractResult.revert msg s') with
+      | ContractResult.success a s' => ContractResult.success a s'
+      | ContractResult.revert msg _ => ContractResult.revert msg outer) =
+        ContractResult.success value post →
+      c.run s = ContractResult.success value post := by
+  intro h
+  unfold Contract.run
+  cases hRun : c s with
+  | success a st =>
+      simp [hRun] at h
+      simpa [hRun] using h
+  | «revert» msg st =>
+      simp [hRun] at h
+
+theorem finishSwapChecked_call_success_implies_guards
+    (sender : Address)
+    (balance0Now balance1Now reserve0Value reserve1Value
+      amount0Out amount1Out : Uint256)
+    (s post : ContractState) (value : Uint256 × Uint256)
+    (hSuccess :
+      (UniswapV2PairBase.finishSwapChecked sender balance0Now balance1Now
+        reserve0Value reserve1Value amount0Out amount1Out).run s =
+          ContractResult.success value post) :
+    let amount0In := swapAmountIn balance0Now (sub reserve0Value amount0Out)
+    let amount1In := swapAmountIn balance1Now (sub reserve1Value amount1Out)
+    (0 < amount0In.val ∨ 0 < amount1In.val) ∧
+    balance0Now.val ≤ maxUint112.val ∧
+    balance1Now.val ≤ maxUint112.val ∧
+    amount0In.val * feeAdjustmentNat ≤
+      balance0Now.val * feeDenominatorNat ∧
+    amount1In.val * feeAdjustmentNat ≤
+      balance1Now.val * feeDenominatorNat ∧
+    feeAdjustedBalance balance0Now.val amount0In.val *
+        feeAdjustedBalance balance1Now.val amount1In.val ≥
+      requiredK reserve0Value.val reserve1Value.val := by
+  dsimp only
+  unfold UniswapV2PairBase.finishSwapChecked Contract.run at hSuccess
+  by_cases h0 : balance0Now > sub reserve0Value amount0Out
+  · rw [if_pos h0] at hSuccess
+    dsimp only [Bind.bind, Verity.bind, Pure.pure, Verity.pure] at hSuccess
+    by_cases h1 : balance1Now > sub reserve1Value amount1Out
+    · rw [if_pos h1] at hSuccess
+      dsimp only [Bind.bind, Verity.bind, Pure.pure, Verity.pure] at hSuccess
+      simpa [swapAmountIn, h0, h1] using
+        finishSwapCheckedGuards_success_implies_nat_guards
+          (sub balance0Now (sub reserve0Value amount0Out))
+          (sub balance1Now (sub reserve1Value amount1Out))
+          balance0Now balance1Now reserve0Value reserve1Value
+          (mul balance0Now feeDenominator) (mul balance1Now feeDenominator)
+          (mul (sub balance0Now (sub reserve0Value amount0Out)) feeAdjustment)
+          (mul (sub balance1Now (sub reserve1Value amount1Out)) feeAdjustment)
+          (sub (mul balance0Now feeDenominator)
+            (mul (sub balance0Now (sub reserve0Value amount0Out)) feeAdjustment))
+          (sub (mul balance1Now feeDenominator)
+            (mul (sub balance1Now (sub reserve1Value amount1Out)) feeAdjustment))
+          (mul
+            (sub (mul balance0Now feeDenominator)
+              (mul (sub balance0Now (sub reserve0Value amount0Out)) feeAdjustment))
+            (sub (mul balance1Now feeDenominator)
+              (mul (sub balance1Now (sub reserve1Value amount1Out)) feeAdjustment)))
+          (mul reserve0Value reserve1Value)
+          (mul feeDenominator feeDenominator)
+          (mul (mul reserve0Value reserve1Value) (mul feeDenominator feeDenominator))
+          s post value rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl
+          (success_peel_wrapped _ s post s value (by simpa [feeDenominator, feeAdjustment, UniswapV2PairBase.feeDenominator, UniswapV2PairBase.feeAdjustment] using hSuccess))
+    · rw [if_neg h1] at hSuccess
+      dsimp only [Bind.bind, Verity.bind, Pure.pure, Verity.pure] at hSuccess
+      simpa [swapAmountIn, h0, h1] using
+        finishSwapCheckedGuards_success_implies_nat_guards
+          (sub balance0Now (sub reserve0Value amount0Out)) 0
+          balance0Now balance1Now reserve0Value reserve1Value
+          (mul balance0Now feeDenominator) (mul balance1Now feeDenominator)
+          (mul (sub balance0Now (sub reserve0Value amount0Out)) feeAdjustment)
+          (mul 0 feeAdjustment)
+          (sub (mul balance0Now feeDenominator)
+            (mul (sub balance0Now (sub reserve0Value amount0Out)) feeAdjustment))
+          (sub (mul balance1Now feeDenominator) (mul 0 feeAdjustment))
+          (mul
+            (sub (mul balance0Now feeDenominator)
+              (mul (sub balance0Now (sub reserve0Value amount0Out)) feeAdjustment))
+            (sub (mul balance1Now feeDenominator) (mul 0 feeAdjustment)))
+          (mul reserve0Value reserve1Value)
+          (mul feeDenominator feeDenominator)
+          (mul (mul reserve0Value reserve1Value) (mul feeDenominator feeDenominator))
+          s post value rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl
+          (success_peel_wrapped _ s post s value (by simpa [feeDenominator, feeAdjustment, UniswapV2PairBase.feeDenominator, UniswapV2PairBase.feeAdjustment] using hSuccess))
+  · rw [if_neg h0] at hSuccess
+    dsimp only [Bind.bind, Verity.bind, Pure.pure, Verity.pure] at hSuccess
+    by_cases h1 : balance1Now > sub reserve1Value amount1Out
+    · rw [if_pos h1] at hSuccess
+      dsimp only [Bind.bind, Verity.bind, Pure.pure, Verity.pure] at hSuccess
+      simpa [swapAmountIn, h0, h1] using
+        finishSwapCheckedGuards_success_implies_nat_guards
+          0 (sub balance1Now (sub reserve1Value amount1Out))
+          balance0Now balance1Now reserve0Value reserve1Value
+          (mul balance0Now feeDenominator) (mul balance1Now feeDenominator)
+          (mul 0 feeAdjustment)
+          (mul (sub balance1Now (sub reserve1Value amount1Out)) feeAdjustment)
+          (sub (mul balance0Now feeDenominator) (mul 0 feeAdjustment))
+          (sub (mul balance1Now feeDenominator)
+            (mul (sub balance1Now (sub reserve1Value amount1Out)) feeAdjustment))
+          (mul
+            (sub (mul balance0Now feeDenominator) (mul 0 feeAdjustment))
+            (sub (mul balance1Now feeDenominator)
+              (mul (sub balance1Now (sub reserve1Value amount1Out)) feeAdjustment)))
+          (mul reserve0Value reserve1Value)
+          (mul feeDenominator feeDenominator)
+          (mul (mul reserve0Value reserve1Value) (mul feeDenominator feeDenominator))
+          s post value rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl
+          (success_peel_wrapped _ s post s value (by simpa [feeDenominator, feeAdjustment, UniswapV2PairBase.feeDenominator, UniswapV2PairBase.feeAdjustment] using hSuccess))
+    · rw [if_neg h1] at hSuccess
+      dsimp only [Bind.bind, Verity.bind, Pure.pure, Verity.pure] at hSuccess
+      simpa [swapAmountIn, h0, h1] using
+        finishSwapCheckedGuards_success_implies_nat_guards
+          0 0 balance0Now balance1Now reserve0Value reserve1Value
+          (mul balance0Now feeDenominator) (mul balance1Now feeDenominator)
+          (mul 0 feeAdjustment) (mul 0 feeAdjustment)
+          (sub (mul balance0Now feeDenominator) (mul 0 feeAdjustment))
+          (sub (mul balance1Now feeDenominator) (mul 0 feeAdjustment))
+          (mul
+            (sub (mul balance0Now feeDenominator) (mul 0 feeAdjustment))
+            (sub (mul balance1Now feeDenominator) (mul 0 feeAdjustment)))
+          (mul reserve0Value reserve1Value)
+          (mul feeDenominator feeDenominator)
+          (mul (mul reserve0Value reserve1Value) (mul feeDenominator feeDenominator))
+          s post value rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl
+          (success_peel_wrapped _ s post s value (by simpa [feeDenominator, feeAdjustment, UniswapV2PairBase.feeDenominator, UniswapV2PairBase.feeAdjustment] using hSuccess))
+
 private theorem finishSwapChecked_preserves_state_raw
     (sender : Address)
     (balance0Now balance1Now reserve0Value reserve1Value
@@ -1833,6 +2318,430 @@ theorem swap_success_run_storage_matches_world
   rw [h_finish_success_raw] at h_finish_storage'
   simpa only [ContractResult.snd] using h_finish_storage'
 
+theorem finishSwapChecked_success_implies_guards
+    (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
+    (balance0Now balance1Now : Uint256) (s : ContractState)
+    (result : ContractResult Unit) :
+  result = (swap amount0Out amount1Out toAddr data).run s →
+    result = ContractResult.success () result.snd →
+      pairPostCallSelfBalancesMatch s result.snd balance0Now balance1Now →
+    let amount0In := swapAmount0In amount0Out balance0Now s
+    let amount1In := swapAmount1In amount1Out balance1Now s
+    (amount0In > 0 ∨ amount1In > 0) ∧
+    balance0Now ≤ maxUint112 ∧
+    balance1Now ≤ maxUint112 ∧
+    amount0In.val * feeAdjustmentNat ≤
+      balance0Now.val * feeDenominatorNat ∧
+    amount1In.val * feeAdjustmentNat ≤
+      balance1Now.val * feeDenominatorNat ∧
+    feeAdjustedBalance balance0Now.val amount0In.val *
+        feeAdjustedBalance balance1Now.val amount1In.val ≥
+      requiredK
+        (s.storage reserve0Slot.slot).val
+        (s.storage reserve1Slot.slot).val := by
+  intro h_run h_success h_post
+  subst result
+  dsimp only
+  have h_liqs :=
+    swap_success_run_implies_output_lt_reserves amount0Out amount1Out
+      toAddr data s ((swap amount0Out amount1Out toAddr data).run s)
+      rfl h_success
+  have h_liq0 := h_liqs.1
+  have h_liq1 := h_liqs.2
+  have h_unlocked :=
+    swap_success_run_implies_lock_open amount0Out amount1Out toAddr data s
+      ((swap amount0Out amount1Out toAddr data).run s) rfl h_success
+  have h_nonzero :=
+    swap_success_run_implies_nonzero_output amount0Out amount1Out toAddr data s
+      ((swap amount0Out amount1Out toAddr data).run s) rfl h_success
+  have h_output : amount0Out > 0 ∨ amount1Out > 0 := by
+    rcases h_nonzero with h_amount0 | h_amount1
+    · exact Or.inl (uint256_pos_of_ne_zero h_amount0)
+    · exact Or.inr (uint256_pos_of_ne_zero h_amount1)
+  have h_unlocked_raw : s.storage 11 = (1 : Uint256) := by
+    simpa [unlockedSlot] using h_unlocked
+  have h_lock_guard :
+      (s.storage UniswapV2PairBase.unlockedSlot.slot == (1 : Uint256)) = true := by
+    simp [UniswapV2PairBase.unlockedSlot, h_unlocked_raw]
+  have h_output_guard : (amount0Out > 0 || amount1Out > 0) = true := by
+    simpa [Bool.or_eq_true] using h_output
+  have h_liq_guard :
+      (amount0Out < s.storage reserve0Slot.slot &&
+        amount1Out < s.storage reserve1Slot.slot) = true := by
+    simpa [Bool.and_eq_true] using And.intro h_liq0 h_liq1
+  have h_get_lock :
+      getStorage UniswapV2PairBase.unlockedSlot s =
+        ContractResult.success (s.storage UniswapV2PairBase.unlockedSlot.slot) s := rfl
+  have h_req_lock :
+      Verity.require (s.storage UniswapV2PairBase.unlockedSlot.slot == (1 : Uint256))
+        "UniswapV2: LOCKED" s = ContractResult.success () s := by
+    simp only [Verity.require, h_lock_guard, if_true]
+  have h_timestamp :
+      Verity.blockTimestamp s = ContractResult.success s.blockTimestamp s := rfl
+  have h_previous :
+      getStorage UniswapV2PairBase.blockTimestampLastSlot s =
+        ContractResult.success (s.storage blockTimestampLastSlot.slot) s := by
+    simp only [getStorage, blockTimestampLastSlot, UniswapV2PairBase.blockTimestampLastSlot]
+  have h_req_output :
+      Verity.require (amount0Out > 0 || amount1Out > 0)
+        "UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT" s =
+          ContractResult.success () s := by
+    simp only [Verity.require, h_output_guard, if_true]
+  have h_set_lock :
+      setStorage UniswapV2PairBase.unlockedSlot (0 : Uint256) s =
+        ContractResult.success () (mintLockedState s) := by
+    simpa only [UniswapV2PairBase.unlockedSlot] using
+      setStorage_unlockedSlot_app_mintLockedState s
+  have h_get_reserve0 :
+      getStorage UniswapV2PairBase.reserve0Slot (mintLockedState s) =
+        ContractResult.success (s.storage reserve0Slot.slot) (mintLockedState s) := by
+    simp only [getStorage]
+    rw [mintLockedState_storage_reserve0]
+  have h_get_reserve1 :
+      getStorage UniswapV2PairBase.reserve1Slot (mintLockedState s) =
+        ContractResult.success (s.storage reserve1Slot.slot) (mintLockedState s) := by
+    simp only [getStorage]
+    rw [mintLockedState_storage_reserve1]
+  have h_req_liq :
+      Verity.require
+          (amount0Out < s.storage reserve0Slot.slot &&
+            amount1Out < s.storage reserve1Slot.slot)
+          "UniswapV2: INSUFFICIENT_LIQUIDITY" (mintLockedState s) =
+        ContractResult.success () (mintLockedState s) := by
+    simp only [Verity.require, h_liq_guard, if_true]
+  have h_token0 :
+      getStorageAddr UniswapV2PairBase.token0Slot (mintLockedState s) =
+        ContractResult.success ((mintLockedState s).storageAddr UniswapV2PairBase.token0Slot.slot)
+          (mintLockedState s) := rfl
+  have h_token1 :
+      getStorageAddr UniswapV2PairBase.token1Slot (mintLockedState s) =
+        ContractResult.success ((mintLockedState s).storageAddr UniswapV2PairBase.token1Slot.slot)
+          (mintLockedState s) := rfl
+  have h_to_guard :
+      (toAddr != (mintLockedState s).storageAddr UniswapV2PairBase.token0Slot.slot &&
+        toAddr != (mintLockedState s).storageAddr UniswapV2PairBase.token1Slot.slot) = true := by
+    by_cases h_guard :
+        (toAddr != (mintLockedState s).storageAddr UniswapV2PairBase.token0Slot.slot &&
+          toAddr != (mintLockedState s).storageAddr UniswapV2PairBase.token1Slot.slot) = true
+    · exact h_guard
+    · exfalso
+      have h_req_to_false :
+          Verity.require
+              (toAddr != (mintLockedState s).storageAddr UniswapV2PairBase.token0Slot.slot &&
+                toAddr != (mintLockedState s).storageAddr UniswapV2PairBase.token1Slot.slot)
+              "UniswapV2: INVALID_TO" (mintLockedState s) =
+            ContractResult.revert "UniswapV2: INVALID_TO" (mintLockedState s) := by
+        simp only [Verity.require]
+        rw [if_neg h_guard]
+      have h_swap_invalid :
+          (swap amount0Out amount1Out toAddr data).run s =
+            ContractResult.revert "UniswapV2: INVALID_TO" s := by
+        unfold swap UniswapV2PairBase.swap Contract.run
+        rw [contract_bind_success _ _ _ _ _ h_get_lock]
+        rw [contract_bind_success _ _ _ _ _ h_req_lock]
+        rw [contract_bind_success _ _ _ _ _ h_timestamp]
+        rw [contract_bind_success _ _ _ _ _ h_previous]
+        rw [contract_bind_success _ _ _ _ _ h_req_output]
+        rw [contract_bind_success _ _ _ _ _ h_set_lock]
+        rw [contract_bind_success _ _ _ _ _ h_get_reserve0]
+        rw [contract_bind_success _ _ _ _ _ h_get_reserve1]
+        rw [contract_bind_success _ _ _ _ _ h_req_liq]
+        rw [contract_bind_success _ _ _ _ _ h_token0]
+        rw [contract_bind_success _ _ _ _ _ h_token1]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_req_to_false]
+      rw [h_swap_invalid] at h_success
+      cases h_success
+  have h_req_to :
+      Verity.require
+          (toAddr != (mintLockedState s).storageAddr UniswapV2PairBase.token0Slot.slot &&
+            toAddr != (mintLockedState s).storageAddr UniswapV2PairBase.token1Slot.slot)
+          "UniswapV2: INVALID_TO" (mintLockedState s) =
+        ContractResult.success () (mintLockedState s) := by
+    simp only [Verity.require, h_to_guard, if_true]
+  let token0Value := (mintLockedState s).storageAddr token0Slot.slot
+  let token1Value := (mintLockedState s).storageAddr token1Slot.slot
+  let swapTransfer0State :=
+    if amount0Out > 0 then
+      (TamaUniV2.pairSafeTransfer token0Value toAddr amount0Out (mintLockedState s)).snd
+    else
+      mintLockedState s
+  let swapTransfer1State :=
+    if amount1Out > 0 then
+      (TamaUniV2.pairSafeTransfer token1Value toAddr amount1Out swapTransfer0State).snd
+    else
+      swapTransfer0State
+  let swapSender := swapTransfer1State.sender
+  let swapCallbackState :=
+    ((ecmDo uniswapV2CallbackModule
+      [addressToWord toAddr, addressToWord swapSender, amount0Out, amount1Out] :
+        Contract Unit) swapTransfer1State).snd
+  have h_sender :
+      msgSender swapTransfer1State =
+        ContractResult.success swapSender swapTransfer1State := by
+    rfl
+  have h_callback :
+      ((ecmDo uniswapV2CallbackModule
+          [addressToWord toAddr, addressToWord swapSender, amount0Out, amount1Out] :
+            Contract Unit) swapTransfer1State) =
+        ContractResult.success () swapCallbackState := by
+    dsimp [swapCallbackState, swapSender]
+    rfl
+  have h_self :
+      contractAddress swapCallbackState =
+        ContractResult.success swapCallbackState.thisAddress swapCallbackState := by
+    rfl
+  have h_transfer0_thisAddress :
+      swapTransfer0State.thisAddress = s.thisAddress := by
+    dsimp only [swapTransfer0State]
+    by_cases h_amount0 : amount0Out > 0
+    · rw [if_pos h_amount0]
+      rw [pairSafeTransfer_snd_thisAddress]
+      exact mintLockedState_thisAddress s
+    · rw [if_neg h_amount0]
+      exact mintLockedState_thisAddress s
+  have h_transfer1_thisAddress :
+      swapTransfer1State.thisAddress = s.thisAddress := by
+    dsimp only [swapTransfer1State]
+    by_cases h_amount1 : amount1Out > 0
+    · rw [if_pos h_amount1]
+      rw [pairSafeTransfer_snd_thisAddress]
+      exact h_transfer0_thisAddress
+    · rw [if_neg h_amount1]
+      exact h_transfer0_thisAddress
+  have h_callback_thisAddress :
+      swapCallbackState.thisAddress = s.thisAddress := by
+    calc
+      swapCallbackState.thisAddress = swapTransfer1State.thisAddress := by
+        simpa [swapCallbackState] using
+          (uniswapV2Callback_snd_thisAddress
+            toAddr swapSender amount0Out amount1Out swapTransfer1State)
+      _ = s.thisAddress := h_transfer1_thisAddress
+  have h_balance0_after :
+      TamaUniV2.erc20BalanceOf token0Value swapCallbackState.thisAddress
+          swapCallbackState =
+        ContractResult.success balance0Now swapCallbackState := by
+    dsimp only [token0Value]
+    simpa [pairToken0, pairSelf, mintLockedState_storageAddr,
+      mintLockedState_thisAddress, h_callback_thisAddress] using
+      (pairPostCallSelfBalancesMatch_balance0_app_nf
+        (s := s) (post := ((swap amount0Out amount1Out toAddr data).run s).snd)
+        (readState := swapCallbackState) (b0 := balance0Now)
+        (b1 := balance1Now) h_post)
+  have h_balance1_after :
+      TamaUniV2.erc20BalanceOf token1Value swapCallbackState.thisAddress
+          swapCallbackState =
+        ContractResult.success balance1Now swapCallbackState := by
+    dsimp only [token1Value]
+    simpa [pairToken1, pairSelf, mintLockedState_storageAddr,
+      mintLockedState_thisAddress, h_callback_thisAddress] using
+      (pairPostCallSelfBalancesMatch_balance1_app_nf
+        (s := s) (post := ((swap amount0Out amount1Out toAddr data).run s).snd)
+        (readState := swapCallbackState) (b0 := balance0Now)
+        (b1 := balance1Now) h_post)
+  have h_swap_prefix :
+      (swap amount0Out amount1Out toAddr data).run s =
+        Contract.run
+          (fun _ =>
+            ((UniswapV2PairBase.finishSwap swapSender balance0Now balance1Now
+              (s.storage reserve0Slot.slot) (s.storage reserve1Slot.slot)
+              amount0Out amount1Out toAddr (mod s.blockTimestamp uint32Modulus)
+              (s.storage blockTimestampLastSlot.slot)) : Contract Unit)
+              swapCallbackState) s := by
+    unfold swap UniswapV2PairBase.swap Contract.run
+    rw [contract_bind_success _ _ _ _ _ h_get_lock]
+    rw [contract_bind_success _ _ _ _ _ h_req_lock]
+    rw [contract_bind_success _ _ _ _ _ h_timestamp]
+    rw [contract_bind_success _ _ _ _ _ h_previous]
+    rw [contract_bind_success _ _ _ _ _ h_req_output]
+    rw [contract_bind_success _ _ _ _ _ h_set_lock]
+    rw [contract_bind_success _ _ _ _ _ h_get_reserve0]
+    rw [contract_bind_success _ _ _ _ _ h_get_reserve1]
+    rw [contract_bind_success _ _ _ _ _ h_req_liq]
+    rw [contract_bind_success _ _ _ _ _ h_token0]
+    rw [contract_bind_success _ _ _ _ _ h_token1]
+    rw [contract_bind_success _ _ _ _ _ h_req_to]
+    by_cases h_amount0 : amount0Out > 0
+    · rw [if_pos h_amount0]
+      have h_transfer0_success :
+          TamaUniV2.pairSafeTransfer
+              ((mintLockedState s).storageAddr UniswapV2PairBase.token0Slot.slot)
+              toAddr amount0Out (mintLockedState s) =
+            ContractResult.success 1 swapTransfer0State := by
+        dsimp only [swapTransfer0State, token0Value]
+        rw [if_pos h_amount0]
+        rfl
+      dsimp only [Bind.bind, Verity.bind]
+      rw [h_transfer0_success]
+      dsimp only [Bind.bind, Verity.bind, Pure.pure, Verity.pure]
+      by_cases h_amount1 : amount1Out > 0
+      · rw [if_pos h_amount1]
+        have h_transfer1_success :
+            TamaUniV2.pairSafeTransfer
+                ((mintLockedState s).storageAddr UniswapV2PairBase.token1Slot.slot)
+                toAddr amount1Out swapTransfer0State =
+              ContractResult.success 1 swapTransfer1State := by
+          dsimp only [swapTransfer1State, token1Value]
+          rw [if_pos h_amount1]
+          rfl
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_transfer1_success]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [show (Verity.pure () : Contract Unit) swapTransfer1State =
+          ContractResult.success () swapTransfer1State by rfl]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_sender]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [show (Verity.pure () : Contract Unit) swapTransfer1State =
+          ContractResult.success () swapCallbackState by simpa using h_callback]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_self]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_balance0_after]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_balance1_after]
+      · rw [if_neg h_amount1]
+        have h_transfer1_state : swapTransfer1State = swapTransfer0State := by
+          dsimp only [swapTransfer1State]
+          rw [if_neg h_amount1]
+        have h_sender' :
+            msgSender swapTransfer0State =
+              ContractResult.success swapSender swapTransfer0State := by
+          simpa [h_transfer1_state] using h_sender
+        have h_callback' :
+            ((ecmDo uniswapV2CallbackModule
+                [addressToWord toAddr, addressToWord swapSender, amount0Out, amount1Out] :
+                  Contract Unit) swapTransfer0State) =
+              ContractResult.success () swapCallbackState := by
+          simpa [h_transfer1_state] using h_callback
+        dsimp only [Bind.bind, Verity.bind]
+        rw [show (Verity.pure () : Contract Unit) swapTransfer0State =
+          ContractResult.success () swapTransfer0State by rfl]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_sender']
+        dsimp only [Bind.bind, Verity.bind]
+        rw [show (Verity.pure () : Contract Unit) swapTransfer0State =
+          ContractResult.success () swapCallbackState by simpa using h_callback']
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_self]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_balance0_after]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_balance1_after]
+    · rw [if_neg h_amount0]
+      have h_transfer0_state : swapTransfer0State = mintLockedState s := by
+        dsimp only [swapTransfer0State]
+        rw [if_neg h_amount0]
+      dsimp only [Bind.bind, Verity.bind, Pure.pure, Verity.pure]
+      by_cases h_amount1 : amount1Out > 0
+      · rw [if_pos h_amount1]
+        have h_transfer1_success :
+            TamaUniV2.pairSafeTransfer
+                ((mintLockedState s).storageAddr UniswapV2PairBase.token1Slot.slot)
+                toAddr amount1Out (mintLockedState s) =
+              ContractResult.success 1 swapTransfer1State := by
+          dsimp only [swapTransfer1State, token1Value]
+          rw [h_transfer0_state]
+          rw [if_pos h_amount1]
+          rfl
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_transfer1_success]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [show (Verity.pure () : Contract Unit) swapTransfer1State =
+          ContractResult.success () swapTransfer1State by rfl]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_sender]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [show (Verity.pure () : Contract Unit) swapTransfer1State =
+          ContractResult.success () swapCallbackState by simpa using h_callback]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_self]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_balance0_after]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_balance1_after]
+      · rw [if_neg h_amount1]
+        have h_transfer1_state : swapTransfer1State = mintLockedState s := by
+          dsimp only [swapTransfer1State]
+          rw [h_transfer0_state]
+          rw [if_neg h_amount1]
+        have h_sender' :
+            msgSender (mintLockedState s) =
+              ContractResult.success swapSender (mintLockedState s) := by
+          simpa [h_transfer1_state] using h_sender
+        have h_callback' :
+            ((ecmDo uniswapV2CallbackModule
+                [addressToWord toAddr, addressToWord swapSender, amount0Out, amount1Out] :
+                  Contract Unit) (mintLockedState s)) =
+              ContractResult.success () swapCallbackState := by
+          simpa [h_transfer1_state] using h_callback
+        dsimp only [Bind.bind, Verity.bind]
+        rw [show (Verity.pure () : Contract Unit) (mintLockedState s) =
+          ContractResult.success () (mintLockedState s) by rfl]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_sender']
+        dsimp only [Bind.bind, Verity.bind]
+        rw [show (Verity.pure () : Contract Unit) (mintLockedState s) =
+          ContractResult.success () swapCallbackState by simpa using h_callback']
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_self]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_balance0_after]
+        dsimp only [Bind.bind, Verity.bind]
+        rw [h_balance1_after]
+  have h_finish_success_raw :
+      UniswapV2PairBase.finishSwap swapSender balance0Now balance1Now
+        (s.storage reserve0Slot.slot) (s.storage reserve1Slot.slot)
+        amount0Out amount1Out toAddr (mod s.blockTimestamp uint32Modulus)
+        (s.storage blockTimestampLastSlot.slot) swapCallbackState =
+          ContractResult.success ()
+            (UniswapV2PairBase.finishSwap swapSender balance0Now balance1Now
+              (s.storage reserve0Slot.slot) (s.storage reserve1Slot.slot)
+              amount0Out amount1Out toAddr (mod s.blockTimestamp uint32Modulus)
+              (s.storage blockTimestampLastSlot.slot) swapCallbackState).snd := by
+    cases h_finish :
+        UniswapV2PairBase.finishSwap swapSender balance0Now balance1Now
+          (s.storage reserve0Slot.slot) (s.storage reserve1Slot.slot)
+          amount0Out amount1Out toAddr (mod s.blockTimestamp uint32Modulus)
+          (s.storage blockTimestampLastSlot.slot) swapCallbackState with
+    | success value postFinish =>
+        cases value
+        rfl
+    | «revert» reason postFinish =>
+        rw [h_swap_prefix] at h_success
+        unfold Contract.run at h_success
+        dsimp only at h_success
+        rw [h_finish] at h_success
+        simp only [ContractResult.snd] at h_success
+        cases h_success
+  cases h_checked :
+      UniswapV2PairBase.finishSwapChecked swapSender balance0Now balance1Now
+        (s.storage reserve0Slot.slot) (s.storage reserve1Slot.slot)
+        amount0Out amount1Out swapCallbackState with
+  | success amounts checkedState =>
+      have h_checked_success :
+          (UniswapV2PairBase.finishSwapChecked swapSender balance0Now balance1Now
+            (s.storage reserve0Slot.slot) (s.storage reserve1Slot.slot)
+            amount0Out amount1Out).run swapCallbackState =
+            ContractResult.success amounts checkedState := by
+        unfold Contract.run
+        rw [h_checked]
+      have h_guards :=
+        finishSwapChecked_call_success_implies_guards
+          swapSender balance0Now balance1Now
+          (s.storage reserve0Slot.slot) (s.storage reserve1Slot.slot)
+          amount0Out amount1Out swapCallbackState checkedState amounts
+          h_checked_success
+      simpa [swapAmount0In, swapAmount1In, swapExpected0, swapExpected1,
+        Verity.Core.Uint256.lt_def, Verity.Core.Uint256.le_def] using h_guards
+  | «revert» reason checkedState =>
+      have h_impossible : False := by
+        unfold UniswapV2PairBase.finishSwap at h_finish_success_raw
+        dsimp only [Bind.bind, Verity.bind, Pure.pure, Verity.pure] at h_finish_success_raw
+        rw [h_checked] at h_finish_success_raw
+        cases h_finish_success_raw
+      cases h_impossible
+
 theorem feeAdjustedSwap_implies_raw_k
     (amount0In amount1In : Nat)
     (before after : PairWorldState) :
@@ -2008,30 +2917,19 @@ def pair_swap_success_run_matches_closed_world_step_from_run
   let amount1In := swapAmount1In amount1Out balance1Now s
   result = (swap amount0Out amount1Out toAddr data).run s →
     result = ContractResult.success () result.snd →
-      amount0Out < s.storage reserve0Slot.slot →
-        amount1Out < s.storage reserve1Slot.slot →
-          (amount0In > 0 ∨ amount1In > 0) →
+      pairPostCallSelfBalancesMatch s result.snd balance0Now balance1Now →
+        amount0Out < s.storage reserve0Slot.slot →
+          amount1Out < s.storage reserve1Slot.slot →
             balance0Now.val =
                 (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
               balance1Now.val =
                   (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
-                balance0Now ≤ maxUint112 →
-                  balance1Now ≤ maxUint112 →
-                    amount0In.val * feeAdjustmentNat ≤
-                        balance0Now.val * feeDenominatorNat →
-                      amount1In.val * feeAdjustmentNat ≤
-                          balance1Now.val * feeDenominatorNat →
-                        feeAdjustedBalance balance0Now.val amount0In.val *
-                            feeAdjustedBalance balance1Now.val amount1In.val ≥
-                          requiredK
-                            (s.storage reserve0Slot.slot).val
-                            (s.storage reserve1Slot.slot).val →
-                            PairWorldStep
-                            (PairWorldAction.swap
-                              amount0In.val amount1In.val
-                              amount0Out.val amount1Out.val)
-                            (pairWorldFromConcreteState s)
-                            (pairWorldAfterSwapRun balance0Now balance1Now s)
+                PairWorldStep
+                  (PairWorldAction.swap
+                    amount0In.val amount1In.val
+                    amount0Out.val amount1Out.val)
+                  (pairWorldFromConcreteState s)
+                  (pairWorldAfterSwapRun balance0Now balance1Now s)
 
 theorem swap_success_run_matches_closed_world_step_from_run
     (amount0Out amount1Out : Uint256) (toAddr : Address) (data : ByteArray)
@@ -2039,8 +2937,7 @@ theorem swap_success_run_matches_closed_world_step_from_run
   pair_swap_success_run_matches_closed_world_step_from_run
     amount0Out amount1Out toAddr data balance0Now balance1Now s
     ((swap amount0Out amount1Out toAddr data).run s) := by
-  intro _h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
-    h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
+  intro _h_run h_success h_post h_liq0 h_liq1 h_balance0 h_balance1
   have h_nonzero :=
     swap_success_run_implies_nonzero_output
       amount0Out amount1Out toAddr data s
@@ -2049,6 +2946,12 @@ theorem swap_success_run_matches_closed_world_step_from_run
     rcases h_nonzero with h_amount0 | h_amount1
     · exact Or.inl (uint256_pos_of_ne_zero h_amount0)
     · exact Or.inr (uint256_pos_of_ne_zero h_amount1)
+  have h_guards :=
+    finishSwapChecked_success_implies_guards
+      amount0Out amount1Out toAddr data balance0Now balance1Now s
+      ((swap amount0Out amount1Out toAddr data).run s) rfl h_success h_post
+  rcases h_guards with
+    ⟨h_input, h_bound0, h_bound1, h_fee0, h_fee1, h_adjusted_k⟩
   exact swap_expected_matches_closed_world_step
     amount0Out amount1Out balance0Now balance1Now s h_output
     h_liq0 h_liq1 h_input h_balance0 h_balance1 h_bound0 h_bound1
@@ -2062,8 +2965,8 @@ theorem swap_success_reaches_expected_pair_state
   pair_swap_success_reaches_expected_pair_state
     amount0Out amount1Out toAddr data balance0Now balance1Now preTokens s
     ((swap amount0Out amount1Out toAddr data).run s) := by
-  intro h_run h_success h_boundary h_post_balances h_liq0 h_liq1 h_input
-    h_balance0 h_balance1 h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
+  intro h_run h_success h_boundary h_post_balances h_liq0 h_liq1
+    h_balance0 h_balance1
   rcases h_boundary with ⟨h_before_tokens, h_after_tokens⟩
   have h_before :
       pairWorldFromConcreteAndTokens preTokens s =
@@ -2088,8 +2991,7 @@ theorem swap_success_reaches_expected_pair_state
   have h_step :=
     swap_success_run_matches_closed_world_step_from_run
       amount0Out amount1Out toAddr data balance0Now balance1Now s
-      h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
-      h_bound0 h_bound1 h_fee0 h_fee1 h_adjusted_k
+      h_run h_success h_post_balances h_liq0 h_liq1 h_balance0 h_balance1
   rw [h_before, h_after]
   exact h_step
 
