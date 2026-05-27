@@ -90,23 +90,6 @@ at the initial spot price, and assuming token0 and token1 behave like ordinary
 ERC20s for each call in the path. Value crossing the pair boundary is what is
 counted; trades the caller makes elsewhere are not the pair's doing and do not
 enter the measure.
-
-After Phase D, the mint and burn economic-step premises are success-derived:
-each contract `require` guard is implied by a successful `.run` (proven by
-`mint_success_implies_guards` / `burn_success_implies_guards`), so they are not
-separate caller obligations. Swap retains `hInput`, `hBound0/1`, `hFee0/1`, and
-`hAdjustedK` as premises: these are the contract's own `require`s inside
-`finishSwapChecked` and hence are implied by a successful swap, but mechanically
-deriving them from success forces the K-product arithmetic and hits Lean's
-kernel recursion-depth limit, so they remain honest success-implied premises;
-the cheap `amountOut < reserve` guards are derived. Burn still retains
-`hLockedRemaining`, since no contract `require` enforces that supply/locked-
-liquidity invariant, and `hLiquidityLe`, the structural fact that pair-held LP
-is at most total supply. Mint still retains `hReserve0/1`; these reserve-balance
-facts are contract `require`s and are derivable from success, so they are
-success-implied structural facts. Swap also retains `hBalance0/1`, the semantic
-equations defining `swapAmountIn`, and `hBalance0Le/1Le`, the callback-only-
-adds-to-the-pair boundary.
 -/
 
 def pair_actual_execution_no_free_lunch

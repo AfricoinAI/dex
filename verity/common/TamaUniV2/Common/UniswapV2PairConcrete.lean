@@ -669,8 +669,6 @@ inductive PairEconomicActionConcreteStep
             before
             0 0 liquidity.val 0 0 0)
       (hToAddr : toAddr = caller)
-      (hReserve0 : s.storage reserve0Slot.slot ≤ observedBalance0 s)
-      (hReserve1 : s.storage reserve1Slot.slot ≤ observedBalance1 s)
       (hFirstExternal :
         s.storage totalSupplySlot.slot = 0 →
           pairFirstMintExternalTokenBalancesMatchCall preTokens s result)

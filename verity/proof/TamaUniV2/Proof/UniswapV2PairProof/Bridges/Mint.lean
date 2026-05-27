@@ -99,6 +99,8 @@ theorem mint_success_run_implies_prefix_guards
     (liquidity : Uint256) :
   result = (mint toAddr).run s →
     result = ContractResult.success liquidity result.snd →
+      s.storage reserve0Slot.slot ≤ observedBalance0 s ∧
+      s.storage reserve1Slot.slot ≤ observedBalance1 s ∧
       mintAmount0 s > 0 ∧
       mintAmount1 s > 0 ∧
       (s.storage totalSupplySlot.slot = 0 →
@@ -242,6 +244,18 @@ theorem mint_success_run_implies_prefix_guards
           "UniswapV2: INSUFFICIENT_AMOUNT" (mintLockedState s) =
         ContractResult.success () (mintLockedState s) := by
     simp only [Verity.require, h_reserve_guard, if_true]
+  have hReserve0 : s.storage reserve0Slot.slot ≤ observedBalance0 s := by
+    have h_parts :
+        observedBalance0 s ≥ s.storage reserve0Slot.slot ∧
+          observedBalance1 s ≥ s.storage reserve1Slot.slot := by
+      simpa [Bool.and_eq_true] using h_reserve_guard
+    exact h_parts.1
+  have hReserve1 : s.storage reserve1Slot.slot ≤ observedBalance1 s := by
+    have h_parts :
+        observedBalance0 s ≥ s.storage reserve0Slot.slot ∧
+          observedBalance1 s ≥ s.storage reserve1Slot.slot := by
+      simpa [Bool.and_eq_true] using h_reserve_guard
+    exact h_parts.2
   have h_amount_guard :
       (decide (mintAmount0 s > 0) && decide (mintAmount1 s > 0)) = true := by
     by_cases h_guard :
@@ -291,6 +305,10 @@ theorem mint_success_run_implies_prefix_guards
         ContractResult.success (s.storage totalSupplySlot.slot) (mintLockedState s) := by
     simp only [getStorage]
     rw [mintLockedState_storage_totalSupply]
+  constructor
+  · exact hReserve0
+  constructor
+  · exact hReserve1
   constructor
   · exact h_amount0
   constructor
@@ -957,6 +975,8 @@ theorem mint_success_implies_guards
     (liquidity : Uint256) :
   result = (mint toAddr).run s →
     result = ContractResult.success liquidity result.snd →
+      s.storage reserve0Slot.slot ≤ observedBalance0 s ∧
+      s.storage reserve1Slot.slot ≤ observedBalance1 s ∧
       mintAmount0 s > 0 ∧
       mintAmount1 s > 0 ∧
       (s.storage totalSupplySlot.slot = 0 →
@@ -976,7 +996,11 @@ theorem mint_success_implies_guards
   intro h_run h_success
   rcases mint_success_run_implies_prefix_guards
       toAddr s result liquidity h_run h_success with
-    ⟨h_amount0, h_amount1, h_first_path, h_later_path⟩
+    ⟨hReserve0, hReserve1, h_amount0, h_amount1, h_first_path, h_later_path⟩
+  constructor
+  · exact hReserve0
+  constructor
+  · exact hReserve1
   constructor
   · exact h_amount0
   constructor
