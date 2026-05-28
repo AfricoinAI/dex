@@ -18,9 +18,9 @@ verity_rev = "9b0114efcc0af589af63dd3f2eafcdf1a24dbf1e"
 "lakefile.toml" = "bba2af87b88297d5ac942d77165e0319b94dcce50a3cd31432ab51474ff82a6a"
 lean-toolchain = "8f6680f8389e8adee06cb2bd44372c6d60dce0e8301630b61a99a5642d1bd71b"
 "tama.toml" = "f6ceba77a8a448eed4bd5b4d5df67ac5d42cbf21e99e9c887eab9734be72f9f8"
-"verity/proof/TamaUniV2/Proof.lean" = "f03d0ab1bff194951a0c22a99cf5aa230e8fa6a7a95d0249fc3357fe0a881715"
-"verity/spec/TamaUniV2/Spec.lean" = "f2ac1f4d087d387baa78d62dd6e84b72696ed1063e409129ecbf86ed077084c2"
-"verity/src/TamaUniV2.lean" = "0b4e2ade80bdcb2c97231e54bc952377155ef64ac85bcbfb8c7a3bf38a58274d"
+"verity/proof/TamaUniV2/Proof.lean" = "24b4edfcfb3b928764e4f1108509b18fb43e7475058c4c6b0c793690932af753"
+"verity/spec/TamaUniV2/Spec.lean" = "05a60340ddd3a97b456383934712fddc69f8f52366d80b991f37ce6ac936c593"
+"verity/src/TamaUniV2.lean" = "9b6246046616f1e2948f3303af2299f2bd6a6537f9e4541123eab3b7cda76544"
 
 [yul]
 evm_version = "cancun"

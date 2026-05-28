@@ -1,3 +1,4 @@
+-- SPDX-License-Identifier: AGPL-3.0-only
 import Contracts.Common
 import Compiler.ECM
 import Compiler.CompilationModel

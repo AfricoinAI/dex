@@ -204,4 +204,8 @@ intentionally omitted until Tama supports `uint112` event fields.
 
 ## License
 
-Released under the MIT License. See [LICENSE](LICENSE).
+Copyright (C) 2026 Bacon Labs. The contracts, specs, and proofs are released
+under the GNU Affero General Public License v3.0 (AGPL-3.0-only); see
+[LICENSE](LICENSE). The `tama`-generated Solidity interfaces and deployers in
+`src/generated/verity/`, the deploy scripts, and the test suite are licensed
+under MIT.
