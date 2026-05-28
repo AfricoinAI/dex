@@ -770,6 +770,12 @@ theorem laterMintPath_success_implies_guards
         0 < totalSupply.val ∧
           s.storage reserve0Slot.slot > 0 ∧
           s.storage reserve1Slot.slot > 0 ∧
+          liquidity =
+            Contracts.min
+              (div (mul (mintAmount0 s) totalSupply)
+                (s.storage reserve0Slot.slot))
+              (div (mul (mintAmount1 s) totalSupply)
+                (s.storage reserve1Slot.slot)) ∧
           liquidity > 0 ∧
           liquidity.val * (s.storage reserve0Slot.slot).val ≤
             (mintAmount0 s).val * totalSupply.val ∧
@@ -967,8 +973,8 @@ theorem laterMintPath_success_implies_guards
       _ ≤ (mintAmount1 s).val * (s.storage totalSupplySlot.slot).val := by
         exact uint256_mul_val_le_nat_mul (mintAmount1 s)
           (s.storage totalSupplySlot.slot)
-  exact ⟨h_supply_pos, h_reserve_pos.1, h_reserve_pos.2, h_liquidity_pos,
-    h_ratio0, h_ratio1⟩
+  exact ⟨h_supply_pos, h_reserve_pos.1, h_reserve_pos.2, h_liquidity_eq,
+    h_liquidity_pos, h_ratio0, h_ratio1⟩
 
 theorem mint_success_implies_guards
     (toAddr : Address) (s : ContractState) (result : ContractResult Uint256)
@@ -988,6 +994,12 @@ theorem mint_success_implies_guards
         0 < (s.storage totalSupplySlot.slot).val ∧
           s.storage reserve0Slot.slot > 0 ∧
           s.storage reserve1Slot.slot > 0 ∧
+          liquidity =
+            Contracts.min
+              (div (mul (mintAmount0 s) (s.storage totalSupplySlot.slot))
+                (s.storage reserve0Slot.slot))
+              (div (mul (mintAmount1 s) (s.storage totalSupplySlot.slot))
+                (s.storage reserve1Slot.slot)) ∧
           liquidity > 0 ∧
           liquidity.val * (s.storage reserve0Slot.slot).val ≤
             (mintAmount0 s).val * (s.storage totalSupplySlot.slot).val ∧
@@ -3798,7 +3810,40 @@ theorem later_mint_uses_balance_increase_as_deposit
     (toAddr : Address) (s : ContractState) (liquidity : Uint256) :
   pair_later_mint_uses_balance_increase_as_deposit
     toAddr s liquidity ((mint toAddr).run s) := by
-  intro _h_run _h_success _h_supply_pos _h_reserve0 _h_reserve1
+  intro h_run h_success h_supply_pos
+  rcases mint_success_implies_guards toAddr s ((mint toAddr).run s)
+      liquidity h_run h_success with
+    ⟨h_reserve0, h_reserve1, h_amount0, h_amount1, _h_first, h_later⟩
+  have h_supply_ne : s.storage totalSupplySlot.slot ≠ 0 := by
+    intro h_zero
+    have h_zero_val : (s.storage totalSupplySlot.slot).val = 0 := by
+      rw [h_zero]
+      rfl
+    omega
+  rcases h_later h_supply_ne with
+    ⟨_h_supply_pos, h_reserve0_pos, h_reserve1_pos, h_liquidity_eq,
+      h_liquidity_pos, h_ratio0, h_ratio1⟩
+  constructor
+  · rw [← h_run]
+    simpa [h_liquidity_eq] using h_success
+  constructor
+  · exact h_reserve0
+  constructor
+  · exact h_reserve1
+  constructor
+  · exact h_amount0
+  constructor
+  · exact h_amount1
+  constructor
+  · exact h_reserve0_pos
+  constructor
+  · exact h_reserve1_pos
+  constructor
+  · exact h_liquidity_pos
+  constructor
+  · exact h_ratio0
+  constructor
+  · exact h_ratio1
   constructor <;> rfl
 
 private theorem contractPreservesStorageAddr_finishFirstMint

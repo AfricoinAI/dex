@@ -1445,7 +1445,7 @@ theorem pairEconomicActionConcreteStep_wallet
               toAddr preTokens s rfl hSuccessFirst (hFirstExternal hSupplyZero)
               hSupplyZero hReserve0 hReserve1 hAmount0 hAmount1 hProduct hRoot)
         · rcases hLaterGuards hSupplyZero with
-            ⟨hSupplyPos, hReserve0Pos, hReserve1Pos, hLiquidity,
+            ⟨hSupplyPos, hReserve0Pos, hReserve1Pos, _hLiquidityEq, hLiquidity,
               hRatio0, hRatio1⟩
           exact later_mint_success_reaches_expected_pair_state
             toAddr preTokens s liquidity rfl hSuccess
@@ -1469,7 +1469,7 @@ theorem pairEconomicActionConcreteStep_wallet
           (by
             intro hSupplyNonzero
             rcases hLaterGuards hSupplyNonzero with
-              ⟨_hSupplyPos, hReserve0Pos, hReserve1Pos, hLiquidity,
+              ⟨_hSupplyPos, hReserve0Pos, hReserve1Pos, _hLiquidityEq, hLiquidity,
                 _hRatio0, _hRatio1⟩
             exact ⟨hReserve0Pos, hReserve1Pos, hLiquidity⟩)
       have hTokens :
@@ -1493,7 +1493,7 @@ theorem pairEconomicActionConcreteStep_wallet
           (by
             intro hSupplyNonzero
             rcases hLaterGuards hSupplyNonzero with
-              ⟨_hSupplyPos, hReserve0Pos, hReserve1Pos, hLiquidity,
+              ⟨_hSupplyPos, hReserve0Pos, hReserve1Pos, _hLiquidityEq, hLiquidity,
                 _hRatio0, _hRatio1⟩
             exact ⟨hReserve0Pos, hReserve1Pos, hLiquidity⟩)
       constructor

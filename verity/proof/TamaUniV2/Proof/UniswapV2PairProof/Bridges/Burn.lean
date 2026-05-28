@@ -2030,8 +2030,19 @@ theorem burn_uses_pair_lp_balance_and_total_supply
     (toAddr : Address) (s : ContractState) :
   pair_burn_uses_pair_lp_balance_and_total_supply
     toAddr s ((burn toAddr).run s) := by
-  intro _h_run _h_success
-  constructor <;> rfl
+  intro h_run h_success
+  rcases burn_success_run_implies_liquidity_supply_pos toAddr s
+      ((burn toAddr).run s) h_run h_success with
+    ⟨h_liquidity_pos, h_supply_pos⟩
+  constructor
+  · exact h_liquidity_pos
+  constructor
+  · exact h_supply_pos
+  constructor
+  · rfl
+  constructor
+  · rfl
+  · simpa [burnAmount0, burnAmount1, burnLiquidity, burnSupply] using h_success
 
 -- tama: discharges=pair_burn_leaves_remaining_token_balances
 theorem burn_leaves_remaining_token_balances

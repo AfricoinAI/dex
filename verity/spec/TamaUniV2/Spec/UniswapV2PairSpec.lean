@@ -1492,13 +1492,31 @@ def pair_later_mint_uses_balance_increase_as_deposit
     (liquidity : Uint256) (result : ContractResult Uint256) : Prop :=
   let amount0 := mintAmount0 s
   let amount1 := mintAmount1 s
+  let liquidity0 :=
+    div (mul amount0 (s.storage totalSupplySlot.slot))
+      (s.storage reserve0Slot.slot)
+  let liquidity1 :=
+    div (mul amount1 (s.storage totalSupplySlot.slot))
+      (s.storage reserve1Slot.slot)
+  let liquidityFromDeposits := Contracts.min liquidity0 liquidity1
   result = (mint toAddr).run s →
     result = ContractResult.success liquidity result.snd →
       0 < (s.storage totalSupplySlot.slot).val →
-        s.storage reserve0Slot.slot ≤ observedBalance0 s →
-          s.storage reserve1Slot.slot ≤ observedBalance1 s →
-            amount0 = observedBalance0 s - s.storage reserve0Slot.slot ∧
-              amount1 = observedBalance1 s - s.storage reserve1Slot.slot
+        (mint toAddr).run s =
+            ContractResult.success liquidityFromDeposits result.snd ∧
+          s.storage reserve0Slot.slot ≤ observedBalance0 s ∧
+          s.storage reserve1Slot.slot ≤ observedBalance1 s ∧
+          amount0 > 0 ∧
+          amount1 > 0 ∧
+          s.storage reserve0Slot.slot > 0 ∧
+          s.storage reserve1Slot.slot > 0 ∧
+          liquidity > 0 ∧
+          liquidity.val * (s.storage reserve0Slot.slot).val ≤
+            amount0.val * (s.storage totalSupplySlot.slot).val ∧
+          liquidity.val * (s.storage reserve1Slot.slot).val ≤
+            amount1.val * (s.storage totalSupplySlot.slot).val ∧
+          amount0 = observedBalance0 s - s.storage reserve0Slot.slot ∧
+          amount1 = observedBalance1 s - s.storage reserve1Slot.slot
 
 def pair_burn_success_reaches_expected_pair_state
     (toAddr : Address) (preTokens : PairTokenBalances) (s : ContractState)
@@ -1542,8 +1560,21 @@ def pair_burn_uses_pair_lp_balance_and_total_supply
     (result : ContractResult (Uint256 × Uint256)) : Prop :=
   result = (burn toAddr).run s →
     result = ContractResult.success (burnAmount0 s, burnAmount1 s) result.snd →
-      burnLiquidity s = s.storageMap balancesSlot.slot (pairSelf s) ∧
-        burnSupply s = s.storage totalSupplySlot.slot
+      burnLiquidity s > 0 ∧
+        burnSupply s > 0 ∧
+        burnLiquidity s = s.storageMap balancesSlot.slot (pairSelf s) ∧
+        burnSupply s = s.storage totalSupplySlot.slot ∧
+        result =
+          ContractResult.success
+            (div
+                (mul (s.storageMap balancesSlot.slot (pairSelf s))
+                  (observedBalance0 s))
+                (s.storage totalSupplySlot.slot),
+              div
+                (mul (s.storageMap balancesSlot.slot (pairSelf s))
+                  (observedBalance1 s))
+                (s.storage totalSupplySlot.slot))
+            result.snd
 
 /--
 A successful burn leaves the pair with its previous token balances minus the
@@ -1646,11 +1677,7 @@ def pair_swap_checks_k_against_final_balances
   let amount1In := swapAmount1In amount1Out balance1Now s
   result = (swap amount0Out amount1Out toAddr data).run s →
     result = ContractResult.success () result.snd →
-      feeAdjustedBalance balance0Now.val amount0In.val *
-          feeAdjustedBalance balance1Now.val amount1In.val ≥
-        requiredK
-          (s.storage reserve0Slot.slot).val
-          (s.storage reserve1Slot.slot).val →
+      pairPostCallSelfBalancesMatch s result.snd balance0Now balance1Now →
         feeAdjustedBalance after.balance0 amount0In.val *
             feeAdjustedBalance after.balance1 amount1In.val ≥
           requiredK before.reserve0 before.reserve1
@@ -1738,27 +1765,23 @@ def pair_swap_success_charges_k_against_final_balances
   let amount1In := swapAmount1In amount1Out balance1Now s
   result = (swap amount0Out amount1Out toAddr data).run s →
     result = ContractResult.success () result.snd →
-      amount0Out < s.storage reserve0Slot.slot →
-        amount1Out < s.storage reserve1Slot.slot →
-          (amount0In > 0 ∨ amount1In > 0) →
+      pairPostCallSelfBalancesMatch s result.snd balance0Now balance1Now →
+        amount0Out < s.storage reserve0Slot.slot →
+          amount1Out < s.storage reserve1Slot.slot →
             balance0Now.val =
                 (s.storage reserve0Slot.slot).val + amount0In.val - amount0Out.val →
               balance1Now.val =
                   (s.storage reserve1Slot.slot).val + amount1In.val - amount1Out.val →
-                balance0Now ≤ maxUint112 →
-                  balance1Now ≤ maxUint112 →
-                    amount0In.val * feeAdjustmentNat ≤
-                        balance0Now.val * feeDenominatorNat →
-                      amount1In.val * feeAdjustmentNat ≤
-                          balance1Now.val * feeDenominatorNat →
-                        feeAdjustedBalance balance0Now.val amount0In.val *
-                            feeAdjustedBalance balance1Now.val amount1In.val ≥
-                          requiredK
-                            (s.storage reserve0Slot.slot).val
-                            (s.storage reserve1Slot.slot).val →
-                          feeAdjustedBalance after.balance0 amount0In.val *
-                              feeAdjustedBalance after.balance1 amount1In.val ≥
-                            requiredK before.reserve0 before.reserve1
+                (amount0In > 0 ∨ amount1In > 0) ∧
+                  balance0Now ≤ maxUint112 ∧
+                  balance1Now ≤ maxUint112 ∧
+                  amount0In.val * feeAdjustmentNat ≤
+                    balance0Now.val * feeDenominatorNat ∧
+                  amount1In.val * feeAdjustmentNat ≤
+                    balance1Now.val * feeDenominatorNat ∧
+                  feeAdjustedBalance after.balance0 amount0In.val *
+                      feeAdjustedBalance after.balance1 amount1In.val ≥
+                    requiredK before.reserve0 before.reserve1
 
 def pair_skim_run_success_transfers_excess_and_restores_unlocked
     (toAddr : Address) (s : ContractState) : Prop :=

@@ -2905,7 +2905,13 @@ theorem swap_checks_k_against_final_balances
   pair_swap_checks_k_against_final_balances
     amount0Out amount1Out toAddr data balance0Now balance1Now s
     ((swap amount0Out amount1Out toAddr data).run s) := by
-  intro _h_run _h_success h_k
+  intro h_run h_success h_post
+  have h_guards :=
+    finishSwapChecked_success_implies_guards
+      amount0Out amount1Out toAddr data balance0Now balance1Now s
+      ((swap amount0Out amount1Out toAddr data).run s) h_run h_success h_post
+  rcases h_guards with
+    ⟨_h_input, _h_bound0, _h_bound1, _h_fee0, _h_fee1, h_k⟩
   simpa [pair_swap_checks_k_against_final_balances,
     pairWorldAfterSwapRun, pairWorldFromConcreteState] using h_k
 

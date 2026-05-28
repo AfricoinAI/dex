@@ -2016,10 +2016,25 @@ theorem swap_success_charges_k_against_final_balances
   pair_swap_success_charges_k_against_final_balances
     amount0Out amount1Out toAddr data balance0Now balance1Now s
     ((swap amount0Out amount1Out toAddr data).run s) := by
-  intro h_run h_success h_liq0 h_liq1 h_input h_balance0 h_balance1
-    h_bound0 h_bound1 h_fee0 h_fee1 h_k
-  simpa [pair_swap_success_charges_k_against_final_balances,
-    pairWorldFromConcreteState, pairWorldAfterSwapRun] using h_k
+  intro h_run h_success h_post _h_liq0 _h_liq1 _h_balance0 _h_balance1
+  have h_guards :=
+    finishSwapChecked_success_implies_guards
+      amount0Out amount1Out toAddr data balance0Now balance1Now s
+      ((swap amount0Out amount1Out toAddr data).run s) h_run h_success h_post
+  rcases h_guards with
+    ⟨h_input, h_bound0, h_bound1, h_fee0, h_fee1, h_k⟩
+  constructor
+  · exact h_input
+  constructor
+  · exact h_bound0
+  constructor
+  · exact h_bound1
+  constructor
+  · exact h_fee0
+  constructor
+  · exact h_fee1
+  · simpa [pair_swap_success_charges_k_against_final_balances,
+      pairWorldFromConcreteState, pairWorldAfterSwapRun] using h_k
 
 /- One valid action cannot dilute existing LP shares: measured
 as reserve product per squared LP supply, the pool is at least as strong after
