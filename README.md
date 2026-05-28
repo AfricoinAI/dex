@@ -123,6 +123,18 @@ the flash-swap callback — are declared as ECM axioms in `tama.toml` and
 documented at the call site. The pair's 0.3% swap fee is on; the optional
 protocol-fee `kLast` mint is left off.
 
+## Deployments
+
+Deployed at deterministic CREATE2 addresses and verified on
+[Sourcify](https://sourcify.dev) (the frontend is also verified on Etherscan).
+
+| Contract | Chain | Address |
+| --- | --- | --- |
+| `UniswapV2Factory` | Ethereum, Base | `0x00000021543ed46B665A74484c82B71E4eB61e34` |
+| `TamaSwapFrontend` | Ethereum | `0x000000B6C9f43311303Ae28D995DE7fE9B266Cd4` |
+| `UniswapV2Pair` — USDC/WETH | Ethereum | `0x7c9E4F89fc05d2466E050BE401cCc07c7e2dC2c7` |
+| `UniswapV2Pair` — WETH/USDC | Base | `0x97E0d0926Eaf2df2892C22b33554B1cC98641aCc` |
+
 ## Run
 
 ```sh
