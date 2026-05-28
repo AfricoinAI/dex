@@ -23,6 +23,7 @@ def address (name : String) : EventParam :=
 def uint256 (name : String) : EventParam :=
   { name := name, ty := ParamType.uint256, kind := EventParamKind.unindexed }
 
+-- Emitted when a pair is created, carrying sorted tokens, pair address, and total pair count.
 def pairCreated : EventDef :=
   { name := "PairCreated"
     params := [
@@ -277,26 +278,33 @@ def pairCreate2Word_model : FunctionSpec := {
   ]
 }
 
+-- Deploys and indexes Uniswap V2 pair contracts for token pairs.
+-- Sorts token addresses, creates pairs deterministically, initializes them, and tracks all pairs.
 verity_contract UniswapV2FactoryBase where
+  -- Pair lookup table and append-only pair address registry.
   storage
     pairForSlot : Address → Address → Uint256 := slot 0
     allPairsSlot : Uint256 → Uint256 := slot 1
     allPairsLengthSlot : Uint256 := slot 2
 
+  -- Returns the pair address for `tokenA` and `tokenB`, or zero when none exists.
   function view getPair (tokenA : Address, tokenB : Address) : Address := do
     let pairWord ← getMapping2 pairForSlot tokenA tokenB
     return (wordToAddress pairWord)
 
+  -- Returns the pair address at `index`, requiring `index` to be within the pair registry.
   function view allPairs (index : Uint256) : Address := do
     let length ← getStorage allPairsLengthSlot
     require (index < length) "UniswapV2: INDEX_OUT_OF_BOUNDS"
     let pairWord ← getMappingUint allPairsSlot index
     return (wordToAddress pairWord)
 
+  -- Returns the number of pairs created by the factory.
   function view allPairsLength () : Uint256 := do
     let length ← getStorage allPairsLengthSlot
     return length
 
+  -- Creates and initializes the pair for `tokenA` and `tokenB`, requiring valid distinct tokens and no existing pair.
   function allow_post_interaction_writes createPair (tokenA : Address, tokenB : Address) : Address := do
     require (tokenA != tokenB) "UniswapV2: IDENTICAL_ADDRESSES"
     require (tokenA != zeroAddress && tokenB != zeroAddress) "UniswapV2: ZERO_ADDRESS"

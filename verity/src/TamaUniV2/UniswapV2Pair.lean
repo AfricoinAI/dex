@@ -33,6 +33,7 @@ def uint112 (name : String) : EventParam :=
 def syncTopic0 : Uint256 :=
   0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1
 
+-- Emitted when liquidity is minted, carrying the sender and token amounts deposited.
 def mint : EventDef :=
   { name := "Mint"
     params := [
@@ -41,6 +42,7 @@ def mint : EventDef :=
       uint256 "amount1"
     ] }
 
+-- Emitted when liquidity is burned, carrying the sender, token amounts withdrawn, and recipient.
 def burn : EventDef :=
   { name := "Burn"
     params := [
@@ -50,6 +52,7 @@ def burn : EventDef :=
       indexedAddress "to"
     ] }
 
+-- Emitted when a swap completes, carrying input amounts, output amounts, sender, and recipient.
 def swap : EventDef :=
   { name := "Swap"
     params := [
@@ -61,6 +64,7 @@ def swap : EventDef :=
       indexedAddress "to"
     ] }
 
+-- Emitted when reserves are updated, carrying the cached token0 and token1 reserves.
 def sync : EventDef :=
   { name := "Sync"
     params := [
@@ -175,7 +179,11 @@ def pairSafeTransfer_model : FunctionSpec := {
   ]
 }
 
+-- Implements a Uniswap V2 constant-product AMM pair for two tokens.
+-- Mints and burns ERC20 LP tokens, enforces fee-adjusted swap invariants,
+-- maintains price accumulators, and locks mutating entrypoints against reentrancy.
 verity_contract UniswapV2PairBase where
+  -- Persistent pair state, ERC20 LP accounting, reserve cache, oracle data, and lock.
   storage
     factorySlot : Address := slot 0
     token0Slot : Address := slot 1
@@ -190,6 +198,7 @@ verity_contract UniswapV2PairBase where
     allowancesSlot : Address → Address → Uint256 := slot 10
     unlockedSlot : Uint256 := slot 11
 
+  -- Pair constants for minimum locked liquidity, swap fee math, reserve bounds, and arithmetic.
   constants
     minimumLiquidity : Uint256 := 1000
     feeDenominator : Uint256 := 1000
@@ -199,58 +208,72 @@ verity_contract UniswapV2PairBase where
     uint32Modulus : Uint256 := 4294967296
     maxUint256 : Uint256 := (sub 0 1)
 
+  -- Stores the deploying factory address and initializes the reentrancy lock.
   constructor () := do
     let sender ← msgSender
     setStorageAddr factorySlot sender
     setStorage unlockedSlot 1
 
+  -- Returns the LP token decimals.
   function view decimals () : Uint256 := do
     return 18
 
+  -- Returns the total LP token supply.
   function view totalSupply () : Uint256 := do
     let supply ← getStorage totalSupplySlot
     return supply
 
+  -- Returns the LP token balance of `owner`.
   function view balanceOf (owner : Address) : Uint256 := do
     let balanceValue ← getMapping balancesSlot owner
     return balanceValue
 
+  -- Returns the LP token allowance from `owner` to `spender`.
   function view allowance (owner : Address, spender : Address) : Uint256 := do
     let allowed ← getMapping2 allowancesSlot owner spender
     return allowed
 
+  -- Returns the factory that deployed and may initialize the pair.
   function view factory () : Address := do
     let addr ← getStorageAddr factorySlot
     return addr
 
+  -- Returns the first token address in sorted pair order.
   function view token0 () : Address := do
     let addr ← getStorageAddr token0Slot
     return addr
 
+  -- Returns the second token address in sorted pair order.
   function view token1 () : Address := do
     let addr ← getStorageAddr token1Slot
     return addr
 
+  -- Returns the permanently locked minimum LP token amount.
   function view MINIMUM_LIQUIDITY () : Uint256 := do
     return minimumLiquidity
 
+  -- Returns the cached reserves and the last oracle-update timestamp.
   function view getReserves () : Tuple [Uint256, Uint256, Uint256] := do
     let reserve0Value ← getStorage reserve0Slot
     let reserve1Value ← getStorage reserve1Slot
     let blockTimestampLastValue ← getStorage blockTimestampLastSlot
     return (reserve0Value, reserve1Value, blockTimestampLastValue)
 
+  -- Returns the cumulative token0 price accumulator.
   function view price0CumulativeLast () : Uint256 := do
     let price ← getStorage price0CumulativeLastSlot
     return price
 
+  -- Returns the cumulative token1 price accumulator.
   function view price1CumulativeLast () : Uint256 := do
     let price ← getStorage price1CumulativeLastSlot
     return price
 
+  -- Returns the stored fee-on K value, fixed at zero for this pair.
   function view kLast () : Uint256 := do
     return 0
 
+  -- Initializes token0 and token1 once; only the factory may call it.
   function «initialize» (token0Value : Address, token1Value : Address) : Unit := do
     let sender ← msgSender
     let factoryValue ← getStorageAddr factorySlot
@@ -261,12 +284,14 @@ verity_contract UniswapV2PairBase where
     setStorageAddr token0Slot token0Value
     setStorageAddr token1Slot token1Value
 
+  -- Approves `spender` to spend `amount` LP tokens from the caller.
   function approve (spender : Address, amount : Uint256) : Bool := do
     let sender ← msgSender
     setMapping2 allowancesSlot sender spender amount
     emit "Approval" [addressToWord sender, addressToWord spender, amount]
     return true
 
+  -- Transfers `amount` LP tokens from the caller to `toAddr`, requiring sufficient balance.
   function transfer (toAddr : Address, amount : Uint256) : Bool := do
     let sender ← msgSender
     let senderBalance ← getMapping balancesSlot sender
@@ -281,6 +306,7 @@ verity_contract UniswapV2PairBase where
     emit "Transfer" [addressToWord sender, addressToWord toAddr, amount]
     return true
 
+  -- Transfers `amount` LP tokens from `fromAddr` to `toAddr`, requiring allowance and balance.
   function transferFrom (fromAddr : Address, toAddr : Address, amount : Uint256) : Bool := do
     let spender ← msgSender
     let currentAllowance ← getMapping2 allowancesSlot fromAddr spender
@@ -301,13 +327,7 @@ verity_contract UniswapV2PairBase where
     emit "Transfer" [addressToWord fromAddr, addressToWord toAddr, amount]
     return true
 
-  /-
-  @dev Shared reserve/oracle suffix for mint, burn, swap, and sync.
-
-  The public entrypoints call this through Verity's generated internal helper.
-  The final compilation model filters the helper selector out of the external
-  ABI while retaining the internal function used by these calls and by proofs.
-  -/
+  -- Updates reserves, advances price accumulators when time elapsed, and emits Sync.
   function no_external_calls updateReservesAndEmitSync
       (balance0Now : Uint256, balance1Now : Uint256,
         reserve0Value : Uint256, reserve1Value : Uint256,
@@ -337,9 +357,7 @@ verity_contract UniswapV2PairBase where
     -- `leave` (return to caller), correct when invoked mid-body. Callers ignore it.
     return true
 
-  /-
-  @dev First-mint storage suffix after the square-root and LP-balance gates.
-  -/
+  -- Completes the first mint, locks MINIMUM_LIQUIDITY, updates reserves, and returns minted LP tokens.
   function allow_post_interaction_writes finishFirstMint
       (toAddr : Address, sender : Address,
         balance0Now : Uint256, balance1Now : Uint256,
@@ -358,9 +376,7 @@ verity_contract UniswapV2PairBase where
     setStorage unlockedSlot 1
     return liquidity
 
-  /-
-  @dev First-mint wrapper that checks the recipient LP balance before writes.
-  -/
+  -- Computes first-mint liquidity after the locked minimum and requires the recipient balance update to fit.
   function allow_post_interaction_writes finishFirstMintChecked
       (toAddr : Address, sender : Address,
         balance0Now : Uint256, balance1Now : Uint256,
@@ -376,9 +392,7 @@ verity_contract UniswapV2PairBase where
       timestamp32 previousTimestamp
     return mintedLiquidity
 
-  /-
-  @dev Later-mint storage suffix after pro-rata liquidity has been checked.
-  -/
+  -- Completes a later mint by increasing supply and `toAddr` balance, updating reserves, and returning liquidity.
   function allow_post_interaction_writes finishLaterMint
       (toAddr : Address, sender : Address,
         balance0Now : Uint256, balance1Now : Uint256,
@@ -398,6 +412,7 @@ verity_contract UniswapV2PairBase where
     setStorage unlockedSlot 1
     return liquidity
 
+  -- Calculates first-mint liquidity from deposited token amounts and requires it to exceed MINIMUM_LIQUIDITY.
   function allow_post_interaction_writes firstMintPath
       (toAddr : Address, sender : Address,
         balance0Now : Uint256, balance1Now : Uint256,
@@ -414,6 +429,7 @@ verity_contract UniswapV2PairBase where
       reserve0Value reserve1Value amount0 amount1 root timestamp32 previousTimestamp
     return liquidity
 
+  -- Calculates pro-rata later-mint liquidity from deposited token amounts and existing reserves.
   function allow_post_interaction_writes laterMintPath
       (toAddr : Address, sender : Address,
         balance0Now : Uint256, balance1Now : Uint256,
@@ -437,6 +453,7 @@ verity_contract UniswapV2PairBase where
       timestamp32 previousTimestamp
     return mintedLiquidity
 
+  -- Requires positive input and the fee-adjusted final balances to preserve the K invariant.
   function no_external_calls finishSwapCheckedGuards
       (amount0In : Uint256, amount1In : Uint256,
         balance0Now : Uint256, balance1Now : Uint256,
@@ -460,6 +477,7 @@ verity_contract UniswapV2PairBase where
     require (balance0Now <= maxUint112 && balance1Now <= maxUint112) "UniswapV2: OVERFLOW"
     return (amount0In, amount1In)
 
+  -- Computes swap input amounts and fee-adjusted balances, then returns the checked inputs.
   function allow_post_interaction_writes finishSwapChecked
       (sender : Address,
         balance0Now : Uint256, balance1Now : Uint256,
@@ -493,6 +511,7 @@ verity_contract UniswapV2PairBase where
       scaleProduct requiredProduct
     return (checkedAmount0In, checkedAmount1In)
 
+  -- Updates reserves, emits Swap with checked amounts, and releases the reentrancy lock.
   function allow_post_interaction_writes finishSwapUpdate
       (sender : Address,
         balance0Now : Uint256, balance1Now : Uint256,
@@ -515,6 +534,7 @@ verity_contract UniswapV2PairBase where
     ]
     setStorage unlockedSlot 1
 
+  -- Finalizes a swap by deriving checked inputs, updating reserves, and emitting Swap.
   function allow_post_interaction_writes finishSwap
       (sender : Address,
         balance0Now : Uint256, balance1Now : Uint256,
@@ -527,6 +547,7 @@ verity_contract UniswapV2PairBase where
     finishSwapUpdate sender balance0Now balance1Now reserve0Value reserve1Value
       amount0In amount1In amount0Out amount1Out toAddr timestamp32 previousTimestamp
 
+  -- Mints LP tokens to `toAddr` for tokens newly deposited since the last reserve sync.
   function allow_post_interaction_writes mint (toAddr : Address) : Uint256 := do
     let lockValue ← getStorage unlockedSlot
     require (lockValue == 1) "UniswapV2: LOCKED"
@@ -554,6 +575,7 @@ verity_contract UniswapV2PairBase where
         reserve0Value reserve1Value amount0 amount1 supply
       return mintedLiquidity
 
+  -- Burns LP tokens held by the pair and transfers the underlying token amounts to `toAddr`.
   function allow_post_interaction_writes burn (toAddr : Address) : Tuple [Uint256, Uint256] := do
     let lockValue ← getStorage unlockedSlot
     require (lockValue == 1) "UniswapV2: LOCKED"
@@ -595,6 +617,7 @@ verity_contract UniswapV2PairBase where
     setStorage unlockedSlot 1
     return (amount0, amount1)
 
+  -- Swaps out `amount0Out`/`amount1Out` to `toAddr`, runs the optional callback, and enforces K.
   function allow_post_interaction_writes swap (amount0Out : Uint256, amount1Out : Uint256, toAddr : Address, data : Bytes) : Unit := do
     let lockValue ← getStorage unlockedSlot
     require (lockValue == 1) "UniswapV2: LOCKED"
@@ -625,6 +648,7 @@ verity_contract UniswapV2PairBase where
     finishSwap sender balance0Now balance1Now reserve0Value reserve1Value
       amount0Out amount1Out toAddr timestamp32 previousTimestamp
 
+  -- Transfers token balances above cached reserves to `toAddr`.
   function allow_post_interaction_writes skim (toAddr : Address) : Unit := do
     let lockValue ← getStorage unlockedSlot
     require (lockValue == 1) "UniswapV2: LOCKED"
@@ -641,6 +665,7 @@ verity_contract UniswapV2PairBase where
     let _transfer1Done ← TamaUniV2.pairSafeTransfer token1Value toAddr (sub balance1Now reserve1Value)
     setStorage unlockedSlot 1
 
+  -- Syncs cached reserves to current token balances and updates price accumulators.
   function allow_post_interaction_writes sync () : Unit := do
     let lockValue ← getStorage unlockedSlot
     require (lockValue == 1) "UniswapV2: LOCKED"
