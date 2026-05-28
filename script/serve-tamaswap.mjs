@@ -11,11 +11,16 @@ const PORT = Number(process.env.PORT || 4173);
 const GZIP_HTML_PATH = path.join(ROOT, "artifacts", "tamaswap.min.html.gz");
 const DEPLOYMENT_CODE_PATH = path.join(ROOT, "artifacts", "tamaswap.deployment-code.txt");
 const SOCIAL_DESCRIPTION = "The first provably unhackable DEX, forever online.";
+const SOCIAL_TITLE = "TamaSwap &#8212; The First Provably Unhackable DEX";
+const SOCIAL_META_DESCRIPTION =
+  "TamaSwap is a Uniswap V2 exchange with every smart contract mathematically proven safe in Lean and a frontend that lives entirely onchain, so it can never go down.";
+const SOCIAL_URL = "https://swap.tama.tools/";
+const SOCIAL_IMAGE_URL = "https://swap.tama.tools/social.svg";
 const FAVICON_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><g transform="rotate(-6 32 32)"><rect x="8" y="8" width="48" height="48" rx="8" fill="#b9442e"/><text x="32" y="44" text-anchor="middle" font-family="serif" font-size="36" font-weight="600" fill="#fffdf6">玉</text></g></svg>';
 const FAVICON_DATA_URI = `data:image/svg+xml,${encodeURIComponent(FAVICON_SVG)}`;
 const BOOT_META =
-  `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TamaSwap</title><meta name="description" content="${SOCIAL_DESCRIPTION}"><meta property="og:title" content="TamaSwap"><meta property="og:description" content="${SOCIAL_DESCRIPTION}"><meta property="og:image" content="social.svg"><meta property="og:image:type" content="image/svg+xml"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="TamaSwap"><meta name="twitter:description" content="${SOCIAL_DESCRIPTION}"><meta name="twitter:image" content="social.svg"><link rel="icon" type="image/svg+xml" href="${FAVICON_DATA_URI}">`;
+  `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${SOCIAL_TITLE}</title><meta name="description" content="${SOCIAL_META_DESCRIPTION}"><meta property="og:type" content="website"><meta property="og:url" content="${SOCIAL_URL}"><meta property="og:title" content="${SOCIAL_TITLE}"><meta property="og:description" content="${SOCIAL_META_DESCRIPTION}"><meta property="og:image" content="${SOCIAL_IMAGE_URL}"><meta property="og:image:type" content="image/svg+xml"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${SOCIAL_TITLE}"><meta name="twitter:description" content="${SOCIAL_META_DESCRIPTION}"><meta name="twitter:image" content="${SOCIAL_IMAGE_URL}"><link rel="icon" type="image/svg+xml" href="${FAVICON_DATA_URI}">`;
 
 function bootstrapHtml() {
   const encoded = readArtifact(GZIP_HTML_PATH).toString("base64");
