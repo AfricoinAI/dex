@@ -2,11 +2,16 @@
 /artifacts/
 /broadcast/
 /cache/
-/e2e/.tmp/
 /node_modules/
 /out/
+/web/node_modules/
+/web/dist/
+/web/.wrangler/
+*.tsbuildinfo
 foundry.lock
 .env
+.env.*
+!.env.example
 .DS_Store
 .playwright-mcp/
 docs/

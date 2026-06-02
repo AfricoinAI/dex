@@ -12,7 +12,11 @@ toolchain) and [Tamago](https://github.com/Bacon-labs/tamago) (Verity's
 standard contract suite). The proved specs are double-checked by Foundry
 mirror tests that connect each property to the generated EVM bytecode.
 
-Use Tamaswap at [swap.tama.tools](https://swap.tama.tools).
+Use Tamaswap at [swap.tama.tools](https://swap.tama.tools). The web frontend
+lives in [`web/`](web/) — a Vite + React + TypeScript app deployed on
+Cloudflare Pages, using [Dynamic](https://www.dynamic.xyz) for wallet
+connection and [zkp2p](https://docs.peer.xyz/protocol/zkp2p-protocol) as a
+fiat on-ramp.
 
 ## What is proved
 
@@ -131,9 +135,13 @@ Deployed at deterministic CREATE2 addresses and verified on
 | Contract | Chain | Address |
 | --- | --- | --- |
 | `UniswapV2Factory` | Ethereum, Base | `0x00000021543ed46B665A74484c82B71E4eB61e34` |
-| `TamaSwapFrontend` | Ethereum | `0x000000B6C9f43311303Ae28D995DE7fE9B266Cd4` |
 | `UniswapV2Pair` — USDC/WETH | Ethereum | `0x7c9E4F89fc05d2466E050BE401cCc07c7e2dC2c7` |
 | `UniswapV2Pair` — WETH/USDC | Base | `0x97E0d0926Eaf2df2892C22b33554B1cC98641aCc` |
+
+The web frontend at [`web/`](web/) ships as a static build to Cloudflare Pages.
+`TamaRouter` is deterministic via the Arachnid CREATE2 proxy on every chain
+listed above; populate its address in [`web/src/config/contracts.ts`](web/src/config/contracts.ts)
+when promoting the app from local to production.
 
 ## Run
 
@@ -146,7 +154,7 @@ tama audit structure
 tama audit storage-layout
 tama audit coverage
 tama audit trust-boundary
-forge test    # run mirror, router, and frontend tests
+forge test    # run mirror and router tests
 ```
 
 The full `tama audit` suite currently fails only on the `selectors` check
@@ -156,37 +164,20 @@ because the pinned Tama selector audit does not accept the canonical Uniswap V2
 bytecode and checked-in interface use the canonical topic, and `tama test`
 covers the emitted event signature.
 
-## Periphery and Onchain Frontend
+## Periphery and web frontend
 
-The repo includes a minimal V2 router in `src/TamaRouter.sol` and an
-onchain HTML dapp in `src/TamaSwapFrontend.sol`.
+The repo includes a minimal V2 router in `src/TamaRouter.sol` and the
+TamaSwap web app in [`web/`](web/).
 
 - `TamaRouter` supports pool creation through `addLiquidity`, LP mint/burn,
   exact-input and exact-output swaps, native ETH through WETH, wrapping and
   unwrapping, and V2 quote helpers. It intentionally omits permits and
   fee-on-transfer variants.
-- `html/tamaswap.html` is the canonical frontend source.
-- `script/build-tamaswap.mjs` embeds that HTML into `TamaSwapFrontend`, split
-  into data contracts and served through ERC-5219 for `web3://` gateways.
-
-Regenerate the frontend contract after editing the HTML:
-
-```sh
-node script/build-tamaswap.mjs
-forge test --match-path 'test/periphery/*'
-```
-
-Run the browser-backed local frontend test:
-
-```sh
-npm run test:e2e
-```
-
-The E2E runner starts Anvil, deploys the factory, router, frontend, and two
-test ERC20s, serves the generated frontend against those addresses, injects a
-minimal EIP-1193 wallet, and drives connection, token-list selection,
-liquidity, swap, and DeFiLlama fallback behavior with Playwright. Install
-`playwright` or set `PLAYWRIGHT_PATH` if it is not already available locally.
+- The frontend is a Vite + React + TypeScript app using Dynamic for wallet
+  connection (`@dynamic-labs/sdk-react-core` + `@dynamic-labs/wagmi-connector`),
+  wagmi + viem for chain reads/writes, and `@zkp2p/sdk` for fiat on-ramp via
+  the Peer browser extension. See [`web/README.md`](web/README.md) for setup
+  and Cloudflare Pages deployment instructions.
 
 ## Repository layout
 
@@ -199,10 +190,9 @@ liquidity, swap, and DeFiLlama fallback behavior with Playwright. Install
 |   `-- common/TamaUniV2/      # Shared concrete + ghost models
 |-- src/generated/verity/      # Generated Solidity deployers + interfaces
 |-- src/TamaRouter.sol         # Minimal V2 router
-|-- src/TamaSwapFrontend.sol   # Generated onchain HTML frontend wrapper
-|-- html/tamaswap.html         # Canonical frontend source
+|-- web/                       # Vite + React + Dynamic + zkp2p frontend
 |-- test/verity/               # Foundry mirror tests (`tama: mirrors=…`)
-|-- test/periphery/            # Router and frontend tests
+|-- test/periphery/            # Router tests
 `-- tama.toml                  # Trust surface + coverage configuration
 ```
 
