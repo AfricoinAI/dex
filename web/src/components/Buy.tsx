@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAccount, useChainId } from "wagmi";
-import { peerExtensionSdk } from "@zkp2p/sdk";
-import { CONTRACTS } from "../config/contracts";
-import { useTokens } from "../lib/state";
-import type { Token } from "../lib/tokenList";
+import {
+  peerExtensionSdk,
+  type PeerExtensionOnrampParams,
+  type PeerOnrampPreparedTransactionCallback,
+} from "@zkp2p/sdk";
+import { CONTRACTS, ONRAMP_STABLECOINS, type StablecoinSymbol } from "../config/contracts";
+import { chainName } from "../config/chains";
 import { short } from "../lib/format";
-import { TokenPicker } from "./TokenPicker";
+
+const RECEIVE_OPTIONS: readonly StablecoinSymbol[] = ["USDC", "USDT"];
 
 // peer.xyz redirect-onramp surface, per
 // https://docs.peer.xyz/developer/integrate-zkp2p/integrate-redirect-onramp
@@ -24,15 +28,17 @@ export function Buy() {
   const chainId = useChainId();
   const cfg = CONTRACTS[chainId];
   const { address } = useAccount();
-  const { tokens } = useTokens();
 
+  const stables = ONRAMP_STABLECOINS[chainId] ?? {};
   const [state, setState] = useState<ExtensionState>("unknown");
-  const [picker, setPicker] = useState(false);
-  const [toToken, setToToken] = useState<Token | null>(null);
+  const [receive, setReceive] = useState<StablecoinSymbol>("USDC");
+  const selectedAddress = stables[receive];
   const [platform, setPlatform] = useState<(typeof PAYMENT_PLATFORMS)[number]["value"]>("venmo");
   const [currency, setCurrency] = useState<(typeof CURRENCIES)[number]>("USD");
   const [amount, setAmount] = useState("25");
   const [recipient, setRecipient] = useState("");
+  // Set once the quote → signalIntent flow is wired; required by the on-ramp.
+  const [intentHash] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
@@ -56,30 +62,20 @@ export function Buy() {
     };
   }, []);
 
-  useEffect(() => {
-    const off = peerExtensionSdk.onIntentFulfilled?.((result: { intentHash?: string; fulfillTxHash?: string }) => {
-      setStatus(
-        `Intent fulfilled: ${result.intentHash ? short(result.intentHash) : ""}${
-          result.fulfillTxHash ? ` · tx ${short(result.fulfillTxHash)}` : ""
-        }`,
-      );
-    });
-    return () => {
-      if (typeof off === "function") off();
-    };
-  }, []);
-
-  // Default the destination token to a sensible one for the chain: native ETH first.
-  useEffect(() => {
-    if (!toToken && tokens.length > 0) setToToken(tokens[0]);
-  }, [tokens, toToken]);
+  // The Peer extension prepares the on-ramp transaction and delivers it here as
+  // `calldata_ready`. A full integration then submits `result.transaction` with
+  // the connected wallet; for now we surface the prepared intent to the user.
+  const onPreparedTransaction: PeerOnrampPreparedTransactionCallback = (result) => {
+    setStatus(
+      `On-ramp intent ${short(result.intentHash)} is ${result.status} — submit the ` +
+        `returned transaction on chain ${result.transaction.chainId}.`,
+    );
+  };
 
   const toTokenParam = useMemo(() => {
-    if (!toToken || !cfg) return "";
-    // Per peer.xyz: native asset is encoded with the zero address.
-    const tokenAddress = toToken.native ? "0x0000000000000000000000000000000000000000" : toToken.address;
-    return `${chainId}:${tokenAddress}`;
-  }, [toToken, cfg, chainId]);
+    if (!cfg || !selectedAddress) return "";
+    return `${chainId}:${selectedAddress}`;
+  }, [cfg, chainId, selectedAddress]);
 
   async function buy() {
     setBusy(true);
@@ -104,9 +100,19 @@ export function Buy() {
         await peerExtensionSdk.requestConnection();
       }
       if (!recipient) throw new Error("Recipient address is required");
-      if (!toTokenParam) throw new Error("Select a destination token");
+      if (!toTokenParam) throw new Error(`${receive} is not available on this chain`);
+      // zkp2p binds an on-ramp to an on-chain intent: `intentHash` is required
+      // and comes from a prior quote → signalIntent step (Zkp2pClient) that this
+      // screen does not perform yet. Surface that clearly instead of failing
+      // inside the SDK.
+      if (!intentHash) {
+        throw new Error(
+          "On-ramp intent not signed yet — the quote/signalIntent step that produces an intentHash is not wired in this build.",
+        );
+      }
 
-      await peerExtensionSdk.onramp({
+      const params: PeerExtensionOnrampParams = {
+        intentHash,
         referrer: "TamaSwap",
         referrerLogo: "https://swap.tama.tools/favicon.svg",
         inputCurrency: currency,
@@ -114,7 +120,8 @@ export function Buy() {
         paymentPlatform: platform,
         toToken: toTokenParam,
         recipientAddress: recipient,
-      });
+      };
+      peerExtensionSdk.onramp(params, onPreparedTransaction);
       setStatus("Onramp opened in the Peer side-panel. Complete the payment to release funds.");
     } catch (e) {
       setErrMsg(e instanceof Error ? e.message : "Onramp failed");
@@ -127,7 +134,7 @@ export function Buy() {
     <section className="card">
       <div className="head">
         <div className="title">Buy</div>
-        <span className="pill tiny">{cfg ? `Chain ${chainId}` : "Unsupported chain"}</span>
+        <span className="pill tiny">{cfg ? chainName(chainId) : "Unsupported chain"}</span>
       </div>
 
       <div className="box">
@@ -165,13 +172,22 @@ export function Buy() {
       <div className="box">
         <div className="field">
           <label>You receive</label>
-          <button
-            className={toToken ? "tok" : "tok empty"}
-            onClick={() => setPicker(true)}
-            style={{ alignSelf: "start" }}
-          >
-            {toToken ? toToken.symbol : "Select token"}
-          </button>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {RECEIVE_OPTIONS.map((sym) => {
+              const available = Boolean(stables[sym]);
+              return (
+                <button
+                  key={sym}
+                  className={receive === sym ? "tok" : "tok empty"}
+                  disabled={!available}
+                  onClick={() => setReceive(sym)}
+                  style={{ justifyContent: "center", opacity: available ? 1 : 0.5 }}
+                >
+                  {sym}
+                </button>
+              );
+            })}
+          </div>
         </div>
         <div className="field">
           <label>Recipient address</label>
@@ -186,7 +202,7 @@ export function Buy() {
 
       <button
         className="cta"
-        disabled={busy || !cfg || !toToken || !recipient}
+        disabled={busy || !cfg || !selectedAddress || !recipient}
         onClick={buy}
       >
         {busy
@@ -199,13 +215,6 @@ export function Buy() {
       <div className={errMsg ? "status err" : "status"}>
         {errMsg ?? status ?? "Powered by the Peer browser extension. Each on-ramp uses a zkTLS proof of a real fiat transfer to release crypto."}
       </div>
-
-      <TokenPicker
-        open={picker}
-        tokens={tokens}
-        onPick={setToToken}
-        onClose={() => setPicker(false)}
-      />
     </section>
   );
 }

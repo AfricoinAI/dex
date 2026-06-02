@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
 import { type Address, formatUnits, maxUint256 } from "viem";
 import { CONTRACTS } from "../config/contracts";
+import { chainName } from "../config/chains";
 import { erc20Abi, routerAbi, wethAbi } from "../lib/abi";
 import { deadline, fmtAmt, fmtFull, maxWithSlip, minWithSlip, money, parseAmt, short } from "../lib/format";
 import { fetchUsdPrice } from "../lib/prices";
@@ -317,7 +318,7 @@ export function Swap() {
       <div className="head">
         <div className="title">Swap</div>
         <div>
-          <span className="pill tiny">{cfg ? `Chain ${chainId}` : "Unsupported chain"}</span>{" "}
+          <span className="pill tiny">{cfg ? chainName(chainId) : "Unsupported chain"}</span>{" "}
           <button className="gear" onClick={() => setSettingsOpen(true)}>
             Settings
           </button>

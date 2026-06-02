@@ -1,15 +1,11 @@
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useAccount, useChainId } from "wagmi";
 import { CONTRACTS } from "../config/contracts";
+import { chainName } from "../config/chains";
 import { short } from "../lib/format";
 import { ErrorBoundary } from "./ErrorBoundary";
 
 type Tab = "swap" | "pool" | "buy";
-
-const CHAIN_LABEL: Record<number, string> = {
-  1: "Ethereum",
-  8453: "Base",
-};
 
 // Split out so a Dynamic provider crash only takes down the wallet button,
 // not the whole header. The boundary below falls back to a disabled pill.
@@ -17,7 +13,7 @@ function ConnectButton() {
   const { setShowAuthFlow, handleLogOut, user } = useDynamicContext();
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
-  const chainLabel = chainId in CONTRACTS ? CHAIN_LABEL[chainId] ?? `Chain ${chainId}` : "Unsupported chain";
+  const chainLabel = chainId in CONTRACTS ? chainName(chainId) : "Unsupported chain";
   const loggedIn = isConnected || !!user;
   return (
     <button

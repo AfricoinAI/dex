@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
 import { type Address, zeroAddress } from "viem";
 import { CONTRACTS } from "../config/contracts";
+import { chainName } from "../config/chains";
 import { erc20Abi, factoryAbi, pairAbi, routerAbi } from "../lib/abi";
 import { deadline, fmtAmt, fmtFull, minWithSlip, parseAmt, short } from "../lib/format";
 import { useSlippageBps, useTokens } from "../lib/state";
@@ -255,7 +256,7 @@ export function Pool() {
     <section className="card">
       <div className="head">
         <div className="title">Pool</div>
-        <span className="pill tiny">{cfg ? `Chain ${chainId}` : "Unsupported chain"}</span>
+        <span className="pill tiny">{cfg ? chainName(chainId) : "Unsupported chain"}</span>
       </div>
 
       <div className="poolMode">
