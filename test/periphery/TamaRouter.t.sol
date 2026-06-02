@@ -47,6 +47,37 @@ contract FakeWETH is MockERC20 {
     function withdraw(uint256) external pure {}
 }
 
+/// @dev Reenters the router from its ETH-refund callback to exercise the reentrancy guard.
+contract ReentryAttacker {
+    TamaRouter internal immutable router;
+    bool public attempted;
+    string public reentryRevertReason;
+
+    constructor(TamaRouter router_) {
+        router = router_;
+    }
+
+    function attack(uint256 amountOut, address[] calldata path) external payable {
+        // Excess ETH is refunded to msg.sender (this contract), triggering receive().
+        router.swapETHForExactTokens{value: msg.value}(amountOut, path, address(this), block.timestamp);
+    }
+
+    receive() external payable {
+        if (attempted) return;
+        attempted = true;
+        address[] memory p = new address[](2);
+        p[0] = address(1);
+        p[1] = address(2);
+        // The guard reverts before the body runs, so this captures REENTRANT
+        // rather than any downstream PAIR_NOT_FOUND error.
+        try router.swapExactTokensForTokens(1, 0, p, address(this), block.timestamp) {
+            reentryRevertReason = "NO_REVERT";
+        } catch Error(string memory reason) {
+            reentryRevertReason = reason;
+        }
+    }
+}
+
 contract TamaRouterTest is Test {
     UniswapV2FactoryIface internal factory;
     TamaRouter internal router;
@@ -58,7 +89,7 @@ contract TamaRouterTest is Test {
     function setUp() public {
         factory = UniswapV2FactoryDeployer.deploy();
         weth = new MockWETH();
-        router = new TamaRouter(address(factory));
+        router = new TamaRouter(address(factory), address(weth));
         tokenA = new MockERC20();
         tokenB = new MockERC20();
         tokenC = new MockERC20();
@@ -190,7 +221,7 @@ contract TamaRouterTest is Test {
 
     function testAddLiquidityETHWrapsNativeValueAndMintsLp() public {
         (uint256 amountToken, uint256 amountETH, uint256 liquidity) = router.addLiquidityETH{value: 100 ether}(
-            address(weth), address(tokenA), 200 ether, 200 ether, 100 ether, address(this), block.timestamp
+            address(tokenA),200 ether, 200 ether, 100 ether, address(this), block.timestamp
         );
 
         address pairAddr = factory.getPair(address(tokenA), address(weth));
@@ -207,7 +238,7 @@ contract TamaRouterTest is Test {
 
     function testSwapExactETHForTokensWrapsAndTransfersOutput() public {
         router.addLiquidityETH{value: 100_000 ether}(
-            address(weth), address(tokenA), 100_000 ether, 0, 0, address(this), block.timestamp
+            address(tokenA),100_000 ether, 0, 0, address(this), block.timestamp
         );
         address[] memory path = new address[](2);
         path[0] = address(weth);
@@ -216,7 +247,7 @@ contract TamaRouterTest is Test {
         address recipient = address(0xBEEF);
 
         uint256[] memory amounts =
-            router.swapExactETHForTokens{value: 1 ether}(address(weth), expected[1], path, recipient, block.timestamp);
+            router.swapExactETHForTokens{value: 1 ether}(expected[1], path, recipient, block.timestamp);
 
         assertEq(amounts[0], 1 ether);
         assertEq(amounts[1], expected[1]);
@@ -225,7 +256,7 @@ contract TamaRouterTest is Test {
 
     function testSwapExactTokensForETHUnwrapsAndTransfersNativeOutput() public {
         router.addLiquidityETH{value: 100_000 ether}(
-            address(weth), address(tokenA), 100_000 ether, 0, 0, address(this), block.timestamp
+            address(tokenA),100_000 ether, 0, 0, address(this), block.timestamp
         );
         address[] memory path = _path(address(tokenA), address(weth));
         uint256[] memory expected = router.getAmountsOut(1_000 ether, path);
@@ -233,7 +264,7 @@ contract TamaRouterTest is Test {
         uint256 ethBefore = recipient.balance;
 
         uint256[] memory amounts =
-            router.swapExactTokensForETH(address(weth), 1_000 ether, expected[1], path, recipient, block.timestamp);
+            router.swapExactTokensForETH(1_000 ether, expected[1], path, recipient, block.timestamp);
 
         assertEq(amounts[0], 1_000 ether);
         assertEq(amounts[1], expected[1]);
@@ -242,7 +273,7 @@ contract TamaRouterTest is Test {
 
     function testSwapETHForExactTokensTransfersOutputAndRefundsUnusedETH() public {
         router.addLiquidityETH{value: 100_000 ether}(
-            address(weth), address(tokenA), 100_000 ether, 0, 0, address(this), block.timestamp
+            address(tokenA),100_000 ether, 0, 0, address(this), block.timestamp
         );
         address[] memory path = _path(address(weth), address(tokenA));
         uint256 amountOut = 1 ether;
@@ -251,7 +282,7 @@ contract TamaRouterTest is Test {
         address recipient = address(0xBEEF);
 
         uint256[] memory amounts = router.swapETHForExactTokens{value: expected[0] + 1 ether}(
-            address(weth), amountOut, path, recipient, block.timestamp
+            amountOut, path, recipient, block.timestamp
         );
 
         assertEq(amounts[0], expected[0]);
@@ -262,7 +293,7 @@ contract TamaRouterTest is Test {
 
     function testSwapTokensForExactETHUnwrapsAndTransfersNativeOutput() public {
         router.addLiquidityETH{value: 100_000 ether}(
-            address(weth), address(tokenA), 100_000 ether, 0, 0, address(this), block.timestamp
+            address(tokenA),100_000 ether, 0, 0, address(this), block.timestamp
         );
         address[] memory path = new address[](2);
         path[0] = address(tokenA);
@@ -273,7 +304,7 @@ contract TamaRouterTest is Test {
         uint256 ethBefore = recipient.balance;
 
         uint256[] memory amounts =
-            router.swapTokensForExactETH(address(weth), amountOut, expected[0], path, recipient, block.timestamp);
+            router.swapTokensForExactETH(amountOut, expected[0], path, recipient, block.timestamp);
 
         assertEq(amounts[0], expected[0]);
         assertEq(amounts[1], amountOut);
@@ -282,12 +313,12 @@ contract TamaRouterTest is Test {
 
     function testAddLiquidityETHRefundsUnusedETH() public {
         router.addLiquidityETH{value: 100_000 ether}(
-            address(weth), address(tokenA), 200_000 ether, 0, 0, address(this), block.timestamp
+            address(tokenA),200_000 ether, 0, 0, address(this), block.timestamp
         );
         uint256 ethBefore = address(this).balance;
 
         (uint256 amountToken, uint256 amountETH,) = router.addLiquidityETH{value: 2 ether}(
-            address(weth), address(tokenA), 2 ether, 0, 0, address(this), block.timestamp
+            address(tokenA),2 ether, 0, 0, address(this), block.timestamp
         );
 
         assertEq(amountToken, 2 ether);
@@ -308,27 +339,27 @@ contract TamaRouterTest is Test {
 
     function testExactInputETHSwapRevertsForInsufficientOutputAmount() public {
         router.addLiquidityETH{value: 100_000 ether}(
-            address(weth), address(tokenA), 100_000 ether, 0, 0, address(this), block.timestamp
+            address(tokenA),100_000 ether, 0, 0, address(this), block.timestamp
         );
         address[] memory path = _path(address(weth), address(tokenA));
         uint256[] memory expected = router.getAmountsOut(1 ether, path);
 
         vm.expectRevert(bytes("TamaRouter: INSUFFICIENT_OUTPUT_AMOUNT"));
         router.swapExactETHForTokens{value: 1 ether}(
-            address(weth), expected[1] + 1, path, address(0xBEEF), block.timestamp
+            expected[1] + 1, path, address(0xBEEF), block.timestamp
         );
     }
 
     function testExactInputTokenForETHSwapRevertsForInsufficientOutputAmount() public {
         router.addLiquidityETH{value: 100_000 ether}(
-            address(weth), address(tokenA), 100_000 ether, 0, 0, address(this), block.timestamp
+            address(tokenA),100_000 ether, 0, 0, address(this), block.timestamp
         );
         address[] memory path = _path(address(tokenA), address(weth));
         uint256[] memory expected = router.getAmountsOut(1_000 ether, path);
 
         vm.expectRevert(bytes("TamaRouter: INSUFFICIENT_OUTPUT_AMOUNT"));
         router.swapExactTokensForETH(
-            address(weth), 1_000 ether, expected[1] + 1, path, address(0xBEEF), block.timestamp
+            1_000 ether, expected[1] + 1, path, address(0xBEEF), block.timestamp
         );
     }
 
@@ -343,13 +374,13 @@ contract TamaRouterTest is Test {
         vm.expectRevert(bytes("TamaRouter: EXPIRED"));
         router.swapTokensForExactTokens(1, 1, tokenPath, address(this), expired);
         vm.expectRevert(bytes("TamaRouter: EXPIRED"));
-        router.swapExactETHForTokens{value: 1}(address(weth), 0, ethInPath, address(this), expired);
+        router.swapExactETHForTokens{value: 1}(0, ethInPath, address(this), expired);
         vm.expectRevert(bytes("TamaRouter: EXPIRED"));
-        router.swapETHForExactTokens{value: 1}(address(weth), 1, ethInPath, address(this), expired);
+        router.swapETHForExactTokens{value: 1}(1, ethInPath, address(this), expired);
         vm.expectRevert(bytes("TamaRouter: EXPIRED"));
-        router.swapExactTokensForETH(address(weth), 1, 0, ethOutPath, address(this), expired);
+        router.swapExactTokensForETH(1, 0, ethOutPath, address(this), expired);
         vm.expectRevert(bytes("TamaRouter: EXPIRED"));
-        router.swapTokensForExactETH(address(weth), 1, 1, ethOutPath, address(this), expired);
+        router.swapTokensForExactETH(1, 1, ethOutPath, address(this), expired);
     }
 
     function testNativeSwapEntrypointsRejectShortPaths() public {
@@ -357,18 +388,18 @@ contract TamaRouterTest is Test {
         shortPath[0] = address(weth);
 
         vm.expectRevert(bytes("TamaRouter: INVALID_PATH"));
-        router.swapExactETHForTokens{value: 1}(address(weth), 0, shortPath, address(this), block.timestamp);
+        router.swapExactETHForTokens{value: 1}(0, shortPath, address(this), block.timestamp);
         vm.expectRevert(bytes("TamaRouter: INVALID_PATH"));
-        router.swapETHForExactTokens{value: 1}(address(weth), 1, shortPath, address(this), block.timestamp);
+        router.swapETHForExactTokens{value: 1}(1, shortPath, address(this), block.timestamp);
         vm.expectRevert(bytes("TamaRouter: INVALID_PATH"));
-        router.swapExactTokensForETH(address(weth), 1, 0, shortPath, address(this), block.timestamp);
+        router.swapExactTokensForETH(1, 0, shortPath, address(this), block.timestamp);
         vm.expectRevert(bytes("TamaRouter: INVALID_PATH"));
-        router.swapTokensForExactETH(address(weth), 1, 1, shortPath, address(this), block.timestamp);
+        router.swapTokensForExactETH(1, 1, shortPath, address(this), block.timestamp);
     }
 
     function testRemoveLiquidityETHUnwrapsWethToNativeETH() public {
         router.addLiquidityETH{value: 100_000 ether}(
-            address(weth), address(tokenA), 200_000 ether, 0, 0, address(this), block.timestamp
+            address(tokenA),200_000 ether, 0, 0, address(this), block.timestamp
         );
         address pairAddr = factory.getPair(address(tokenA), address(weth));
         UniswapV2PairIface pair = UniswapV2PairIface(pairAddr);
@@ -378,7 +409,7 @@ contract TamaRouterTest is Test {
         uint256 ethBefore = recipient.balance;
 
         (uint256 amountToken, uint256 amountETH) =
-            router.removeLiquidityETH(address(weth), address(tokenA), liquidity, 0, 0, recipient, block.timestamp);
+            router.removeLiquidityETH(address(tokenA),liquidity, 0, 0, recipient, block.timestamp);
 
         assertGt(amountToken, 0);
         assertGt(amountETH, 0);
@@ -387,20 +418,24 @@ contract TamaRouterTest is Test {
     }
 
     function testEthOutSwapRequiresWrappedNativeWithdrawToIncreaseRouterBalance() public {
+        // WETH is immutable, so the misbehaving wrapper must be bound at construction:
+        // a router whose WETH.withdraw() mints nothing must still refuse to pay out ETH.
         FakeWETH fakeWeth = new FakeWETH();
+        TamaRouter fakeRouter = new TamaRouter(address(factory), address(fakeWeth));
         fakeWeth.mint(address(this), 100_000 ether);
-        fakeWeth.approve(address(router), type(uint256).max);
-        router.addLiquidity(
+        fakeWeth.approve(address(fakeRouter), type(uint256).max);
+        tokenA.approve(address(fakeRouter), type(uint256).max);
+        fakeRouter.addLiquidity(
             address(tokenA), address(fakeWeth), 100_000 ether, 100_000 ether, 0, 0, address(this), block.timestamp
         );
-        (bool ok,) = address(router).call{value: 1 ether}("");
+        (bool ok,) = address(fakeRouter).call{value: 1 ether}("");
         assertTrue(ok);
         address[] memory path = _path(address(tokenA), address(fakeWeth));
 
         vm.expectRevert(bytes("TamaRouter: WETH_WITHDRAW_FAILED"));
-        router.swapExactTokensForETH(address(fakeWeth), 1 ether, 0, path, address(0xBEEF), block.timestamp);
+        fakeRouter.swapExactTokensForETH(1 ether, 0, path, address(0xBEEF), block.timestamp);
 
-        assertEq(address(router).balance, 1 ether);
+        assertEq(address(fakeRouter).balance, 1 ether);
     }
 
     function testRemoveLiquidityBurnsLpAndReturnsTokens() public {
@@ -425,6 +460,28 @@ contract TamaRouterTest is Test {
     function testDeadlineIsEnforced() public {
         vm.expectRevert(bytes("TamaRouter: EXPIRED"));
         router.addLiquidity(address(tokenA), address(tokenB), 1, 1, 0, 0, address(this), block.timestamp - 1);
+    }
+
+    function testConstructorRejectsZeroWeth() public {
+        vm.expectRevert(bytes("TamaRouter: ZERO_WETH"));
+        new TamaRouter(address(factory), address(0));
+    }
+
+    function testReentrancyGuardBlocksReentrantSwap() public {
+        router.addLiquidityETH{value: 100_000 ether}(
+            address(tokenA), 100_000 ether, 0, 0, address(this), block.timestamp
+        );
+        ReentryAttacker attacker = new ReentryAttacker(router);
+        address[] memory path = _path(address(weth), address(tokenA));
+        uint256 amountOut = 1 ether;
+        uint256[] memory expected = router.getAmountsIn(amountOut, path);
+
+        // Outer swap succeeds; the refund callback's reentrant swap is rejected by the guard.
+        attacker.attack{value: expected[0] + 1 ether}(amountOut, path);
+
+        assertTrue(attacker.attempted());
+        assertEq(attacker.reentryRevertReason(), "TamaRouter: REENTRANT");
+        assertEq(tokenA.balanceOf(address(attacker)), amountOut);
     }
 
     function _path(address token0, address token1) internal pure returns (address[] memory path) {

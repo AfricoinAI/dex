@@ -38,17 +38,34 @@ interface IWrappedNativeMinimal is IERC20Minimal {
 /// @dev Uses the configured factory for pair lookup/creation and supports explicit wrapped-native routes.
 contract TamaRouter {
     address public immutable factory;
+    /// @notice Canonical wrapped-native token this router wraps/unwraps for ETH routes.
+    /// @dev Fixed at construction so callers cannot substitute an arbitrary wrapper per call.
+    address public immutable WETH;
+
+    /// @dev Reentrancy guard state: 1 = unlocked, 2 = entered.
+    uint256 private _locked = 1;
 
     modifier ensure(uint256 deadline) {
         require(deadline >= block.timestamp, "TamaRouter: EXPIRED");
         _;
     }
 
-    /// @notice Creates a router bound to a Uniswap V2-compatible factory.
+    /// @dev Blocks reentrant calls into any mutating entrypoint.
+    modifier nonReentrant() {
+        require(_locked == 1, "TamaRouter: REENTRANT");
+        _locked = 2;
+        _;
+        _locked = 1;
+    }
+
+    /// @notice Creates a router bound to a Uniswap V2-compatible factory and wrapped-native token.
     /// @param factory_ Factory address used to find and create pairs.
-    constructor(address factory_) {
+    /// @param weth_ Canonical wrapped-native token used for ETH routes.
+    constructor(address factory_, address weth_) {
         require(factory_ != address(0), "TamaRouter: ZERO_FACTORY");
+        require(weth_ != address(0), "TamaRouter: ZERO_WETH");
         factory = factory_;
+        WETH = weth_;
     }
 
     receive() external payable {}
@@ -176,7 +193,7 @@ contract TamaRouter {
         uint256 amountBMin,
         address to,
         uint256 deadline
-    ) external ensure(deadline) returns (uint256 amountA, uint256 amountB, uint256 liquidity) {
+    ) external ensure(deadline) nonReentrant returns (uint256 amountA, uint256 amountB, uint256 liquidity) {
         address pair;
         (amountA, amountB, pair) = _addLiquidity(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin);
         _safeTransferFrom(tokenA, msg.sender, pair, amountA);
@@ -185,7 +202,6 @@ contract TamaRouter {
     }
 
     /// @notice Adds liquidity to a token-wrapped-native pair using native asset input.
-    /// @param weth Wrapped native token address.
     /// @param token ERC-20 token address paired with the wrapped native token.
     /// @param amountTokenDesired Desired amount of token to deposit.
     /// @param amountTokenMin Minimum acceptable amount of token to deposit.
@@ -196,20 +212,19 @@ contract TamaRouter {
     /// @return amountETH Amount of native asset wrapped and deposited.
     /// @return liquidity Amount of liquidity tokens minted.
     function addLiquidityETH(
-        address weth,
         address token,
         uint256 amountTokenDesired,
         uint256 amountTokenMin,
         uint256 amountETHMin,
         address to,
         uint256 deadline
-    ) external payable ensure(deadline) returns (uint256 amountToken, uint256 amountETH, uint256 liquidity) {
+    ) external payable ensure(deadline) nonReentrant returns (uint256 amountToken, uint256 amountETH, uint256 liquidity) {
         address pair;
         (amountToken, amountETH, pair) =
-            _addLiquidity(token, weth, amountTokenDesired, msg.value, amountTokenMin, amountETHMin);
+            _addLiquidity(token, WETH, amountTokenDesired, msg.value, amountTokenMin, amountETHMin);
         _safeTransferFrom(token, msg.sender, pair, amountToken);
-        _depositWrappedNative(weth, amountETH);
-        _safeTransfer(weth, pair, amountETH);
+        _depositWrappedNative(WETH, amountETH);
+        _safeTransfer(WETH, pair, amountETH);
         liquidity = UniswapV2PairIface(pair).mint(to);
         if (msg.value > amountETH) _safeTransferETH(msg.sender, msg.value - amountETH);
     }
@@ -232,12 +247,11 @@ contract TamaRouter {
         uint256 amountBMin,
         address to,
         uint256 deadline
-    ) external ensure(deadline) returns (uint256 amountA, uint256 amountB) {
+    ) external ensure(deadline) nonReentrant returns (uint256 amountA, uint256 amountB) {
         (amountA, amountB) = _removeLiquidity(tokenA, tokenB, liquidity, amountAMin, amountBMin, to);
     }
 
     /// @notice Removes liquidity from a token-wrapped-native pair and unwraps native asset to the recipient.
-    /// @param weth Wrapped native token address.
     /// @param token ERC-20 token address paired with the wrapped native token.
     /// @param liquidity Amount of liquidity tokens to burn.
     /// @param amountTokenMin Minimum acceptable amount of token to receive.
@@ -247,17 +261,16 @@ contract TamaRouter {
     /// @return amountToken Amount of token received.
     /// @return amountETH Amount of native asset received.
     function removeLiquidityETH(
-        address weth,
         address token,
         uint256 liquidity,
         uint256 amountTokenMin,
         uint256 amountETHMin,
         address to,
         uint256 deadline
-    ) external ensure(deadline) returns (uint256 amountToken, uint256 amountETH) {
-        (amountToken, amountETH) = _removeLiquidity(token, weth, liquidity, amountTokenMin, amountETHMin, address(this));
+    ) external ensure(deadline) nonReentrant returns (uint256 amountToken, uint256 amountETH) {
+        (amountToken, amountETH) = _removeLiquidity(token, WETH, liquidity, amountTokenMin, amountETHMin, address(this));
         _safeTransfer(token, to, amountToken);
-        _withdrawWrappedNative(weth, amountETH);
+        _withdrawWrappedNative(WETH, amountETH);
         _safeTransferETH(to, amountETH);
     }
 
@@ -300,7 +313,7 @@ contract TamaRouter {
         address[] calldata path,
         address to,
         uint256 deadline
-    ) external ensure(deadline) returns (uint256[] memory amounts) {
+    ) external ensure(deadline) nonReentrant returns (uint256[] memory amounts) {
         amounts = getAmountsOut(amountIn, path);
         require(amounts[amounts.length - 1] >= amountOutMin, "TamaRouter: INSUFFICIENT_OUTPUT_AMOUNT");
         _safeTransferFrom(path[0], msg.sender, pairFor(path[0], path[1]), amounts[0]);
@@ -320,7 +333,7 @@ contract TamaRouter {
         address[] calldata path,
         address to,
         uint256 deadline
-    ) external ensure(deadline) returns (uint256[] memory amounts) {
+    ) external ensure(deadline) nonReentrant returns (uint256[] memory amounts) {
         amounts = getAmountsIn(amountOut, path);
         require(amounts[0] <= amountInMax, "TamaRouter: EXCESSIVE_INPUT_AMOUNT");
         _safeTransferFrom(path[0], msg.sender, pairFor(path[0], path[1]), amounts[0]);
@@ -328,30 +341,27 @@ contract TamaRouter {
     }
 
     /// @notice Swaps an exact native asset amount for as many output tokens as possible.
-    /// @param weth Wrapped native token address, which must be the first path token.
     /// @param amountOutMin Minimum acceptable amount of the final output token.
     /// @param path Ordered token path beginning with the wrapped native token.
     /// @param to Recipient of the final output tokens.
     /// @param deadline Latest timestamp at which the transaction may execute.
     /// @return amounts Input and output amounts for each path token.
     function swapExactETHForTokens(
-        address weth,
         uint256 amountOutMin,
         address[] calldata path,
         address to,
         uint256 deadline
-    ) external payable ensure(deadline) returns (uint256[] memory amounts) {
+    ) external payable ensure(deadline) nonReentrant returns (uint256[] memory amounts) {
         require(path.length >= 2, "TamaRouter: INVALID_PATH");
-        require(path[0] == weth, "TamaRouter: INVALID_PATH");
+        require(path[0] == WETH, "TamaRouter: INVALID_PATH");
         amounts = getAmountsOut(msg.value, path);
         require(amounts[amounts.length - 1] >= amountOutMin, "TamaRouter: INSUFFICIENT_OUTPUT_AMOUNT");
-        _depositWrappedNative(weth, amounts[0]);
-        _safeTransfer(weth, pairFor(path[0], path[1]), amounts[0]);
+        _depositWrappedNative(WETH, amounts[0]);
+        _safeTransfer(WETH, pairFor(path[0], path[1]), amounts[0]);
         _swap(amounts, path, to);
     }
 
     /// @notice Swaps as few input tokens as needed for an exact native asset output.
-    /// @param weth Wrapped native token address, which must be the last path token.
     /// @param amountOut Exact amount of native asset to receive.
     /// @param amountInMax Maximum acceptable amount of the input token to spend.
     /// @param path Ordered token path ending with the wrapped native token.
@@ -359,25 +369,23 @@ contract TamaRouter {
     /// @param deadline Latest timestamp at which the transaction may execute.
     /// @return amounts Input and output amounts for each path token.
     function swapTokensForExactETH(
-        address weth,
         uint256 amountOut,
         uint256 amountInMax,
         address[] calldata path,
         address to,
         uint256 deadline
-    ) external ensure(deadline) returns (uint256[] memory amounts) {
+    ) external ensure(deadline) nonReentrant returns (uint256[] memory amounts) {
         require(path.length >= 2, "TamaRouter: INVALID_PATH");
-        require(path[path.length - 1] == weth, "TamaRouter: INVALID_PATH");
+        require(path[path.length - 1] == WETH, "TamaRouter: INVALID_PATH");
         amounts = getAmountsIn(amountOut, path);
         require(amounts[0] <= amountInMax, "TamaRouter: EXCESSIVE_INPUT_AMOUNT");
         _safeTransferFrom(path[0], msg.sender, pairFor(path[0], path[1]), amounts[0]);
         _swap(amounts, path, address(this));
-        _withdrawWrappedNative(weth, amounts[amounts.length - 1]);
+        _withdrawWrappedNative(WETH, amounts[amounts.length - 1]);
         _safeTransferETH(to, amounts[amounts.length - 1]);
     }
 
     /// @notice Swaps an exact token amount for as much native asset as possible.
-    /// @param weth Wrapped native token address, which must be the last path token.
     /// @param amountIn Exact amount of the input token to spend.
     /// @param amountOutMin Minimum acceptable amount of native asset to receive.
     /// @param path Ordered token path ending with the wrapped native token.
@@ -385,43 +393,40 @@ contract TamaRouter {
     /// @param deadline Latest timestamp at which the transaction may execute.
     /// @return amounts Input and output amounts for each path token.
     function swapExactTokensForETH(
-        address weth,
         uint256 amountIn,
         uint256 amountOutMin,
         address[] calldata path,
         address to,
         uint256 deadline
-    ) external ensure(deadline) returns (uint256[] memory amounts) {
+    ) external ensure(deadline) nonReentrant returns (uint256[] memory amounts) {
         require(path.length >= 2, "TamaRouter: INVALID_PATH");
-        require(path[path.length - 1] == weth, "TamaRouter: INVALID_PATH");
+        require(path[path.length - 1] == WETH, "TamaRouter: INVALID_PATH");
         amounts = getAmountsOut(amountIn, path);
         require(amounts[amounts.length - 1] >= amountOutMin, "TamaRouter: INSUFFICIENT_OUTPUT_AMOUNT");
         _safeTransferFrom(path[0], msg.sender, pairFor(path[0], path[1]), amounts[0]);
         _swap(amounts, path, address(this));
-        _withdrawWrappedNative(weth, amounts[amounts.length - 1]);
+        _withdrawWrappedNative(WETH, amounts[amounts.length - 1]);
         _safeTransferETH(to, amounts[amounts.length - 1]);
     }
 
     /// @notice Swaps native asset for an exact amount of output tokens and refunds excess native asset.
-    /// @param weth Wrapped native token address, which must be the first path token.
     /// @param amountOut Exact amount of the final output token to receive.
     /// @param path Ordered token path beginning with the wrapped native token.
     /// @param to Recipient of the final output tokens.
     /// @param deadline Latest timestamp at which the transaction may execute.
     /// @return amounts Input and output amounts for each path token.
     function swapETHForExactTokens(
-        address weth,
         uint256 amountOut,
         address[] calldata path,
         address to,
         uint256 deadline
-    ) external payable ensure(deadline) returns (uint256[] memory amounts) {
+    ) external payable ensure(deadline) nonReentrant returns (uint256[] memory amounts) {
         require(path.length >= 2, "TamaRouter: INVALID_PATH");
-        require(path[0] == weth, "TamaRouter: INVALID_PATH");
+        require(path[0] == WETH, "TamaRouter: INVALID_PATH");
         amounts = getAmountsIn(amountOut, path);
         require(amounts[0] <= msg.value, "TamaRouter: EXCESSIVE_INPUT_AMOUNT");
-        _depositWrappedNative(weth, amounts[0]);
-        _safeTransfer(weth, pairFor(path[0], path[1]), amounts[0]);
+        _depositWrappedNative(WETH, amounts[0]);
+        _safeTransfer(WETH, pairFor(path[0], path[1]), amounts[0]);
         _swap(amounts, path, to);
         if (msg.value > amounts[0]) _safeTransferETH(msg.sender, msg.value - amounts[0]);
     }
