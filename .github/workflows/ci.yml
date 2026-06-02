@@ -99,21 +99,11 @@ jobs:
       - name: Fetch Mathlib binary cache
         run: env -u CI lake exe cache get
       - run: env -u CI tama build --locked
-
-      # The frontend bootstrap tests read artifacts/tamaswap.min.html[.gz],
-      # which are gitignored and produced by script/build-tamaswap.mjs (needs
-      # bun-installed terser + forge `out/` artifacts for the router/WETH).
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
-      - name: Generate frontend bootstrap artifacts
-        run: |
-          set -euo pipefail
-          bun install --frozen-lockfile
-          forge build
-          bun script/build-tamaswap.mjs
-
       - run: env -u CI tama test
       - run: env -u CI tama audit structure
       - run: env -u CI tama audit storage-layout
       - run: env -u CI tama audit coverage
       - run: env -u CI tama audit trust-boundary
+      # Gate the hand-written periphery (TamaRouter) and its tests, which live
+      # outside the `tama test` mirror suite and are otherwise un-CI'd.
+      - run: forge test
