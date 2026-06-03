@@ -31,8 +31,12 @@ npm run build
 
 Connect this repo to Cloudflare Pages with:
 
-- Build command: `cd web && npm install && npm run build`
-- Build output directory: `web/dist`
-- Environment variable: `VITE_DYNAMIC_ENVIRONMENT_ID`
+- Root directory: `web`
+- Build command: `npm run build`
+- Build output directory: `dist`
+- Environment variables: `VITE_DYNAMIC_ENVIRONMENT_ID`, `GATEWAY_URL`,
+  `DEX_APP_ID`, `DEX_APP_KEY_ID`, `DEX_GATEWAY_SECRET`, `DEX_PUBLIC_ORIGIN`
 
-The app is a fully static SPA — no serverless functions, no API routes.
+The app is a Vite SPA plus a Cloudflare Pages Function under
+`functions/api/gateway/*`, used as the server-side signing proxy for the
+Africoin gateway. Set `DEX_GATEWAY_SECRET` as an encrypted secret.
