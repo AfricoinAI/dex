@@ -1,0 +1,10 @@
+# Server-only secrets for the gateway proxy, read by `wrangler pages dev`.
+# Copy to `.dev.vars` (gitignored) and fill in the secret. These are NEVER
+# exposed to the browser. In production, set the same values as Cloudflare
+# Pages environment variables / secrets (DEX_GATEWAY_SECRET as an encrypted
+# secret).
+GATEWAY_URL=https://gateway.africoin.ai
+DEX_APP_ID=dex
+DEX_APP_KEY_ID=dex-v1
+DEX_GATEWAY_SECRET=replace-with-server-only-shared-secret
+DEX_PUBLIC_ORIGIN=https://swap.africoin.ai

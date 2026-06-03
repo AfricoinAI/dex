@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "africoin-dex-web",
+  "compatibility_date": "2026-06-03",
+  // Cloudflare Pages project: Vite builds the SPA into dist/, and the
+  // functions/ directory is deployed as Pages Functions (the /api/gateway/*
+  // signing proxy). Server-only env vars (GATEWAY_URL, DEX_APP_ID,
+  // DEX_APP_KEY_ID, DEX_GATEWAY_SECRET, DEX_PUBLIC_ORIGIN) are set as Pages
+  // environment variables / secrets, never in the client bundle.
+  "pages_build_output_dir": "dist"
+}

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useChainId } from "wagmi";
 import { CONTRACTS } from "../config/contracts";
-import { fetchTokenList, type Token } from "./tokenList";
+import { listAssets } from "./gateway";
+import { assetsToTokens, type Token } from "./tokenList";
 
 export function useTokens(): { tokens: Token[]; ready: boolean; error: string | null } {
   const chainId = useChainId();
@@ -20,19 +21,13 @@ export function useTokens(): { tokens: Token[]; ready: boolean; error: string | 
       setError(`Chain ${chainId} not configured`);
       return;
     }
-    // The token API is the sole source of tradeable tokens: no default list and
-    // no auto-injected ETH/WETH. Until the endpoint is configured, surface an
-    // explicit empty state rather than falling back to anything.
-    if (!cfg.tokenListApiUrl) {
-      setTokens([]);
-      setReady(true);
-      setError("Token list endpoint not configured");
-      return;
-    }
-    fetchTokenList(cfg.tokenListApiUrl, chainId)
-      .then((list) => {
+    // The Africoin platform asset registry (via the same-origin gateway proxy)
+    // is the sole source of tradeable tokens: no default list and no
+    // auto-injected ETH/WETH.
+    listAssets({ limit: 200, offset: 0 })
+      .then((assets) => {
         if (cancelled) return;
-        setTokens(list);
+        setTokens(assetsToTokens(assets, chainId));
         setReady(true);
       })
       .catch((e: Error) => {

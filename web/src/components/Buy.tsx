@@ -113,8 +113,8 @@ export function Buy() {
 
       const params: PeerExtensionOnrampParams = {
         intentHash,
-        referrer: "TamaSwap",
-        referrerLogo: "https://swap.tama.tools/favicon.svg",
+        referrer: "Africoin",
+        referrerLogo: `${window.location.origin}/favicon.png`,
         inputCurrency: currency,
         inputAmount: amount,
         paymentPlatform: platform,
@@ -178,7 +178,7 @@ export function Buy() {
               return (
                 <button
                   key={sym}
-                  className={receive === sym ? "tok" : "tok empty"}
+                  className={receive === sym ? "tok selected" : "tok"}
                   disabled={!available}
                   onClick={() => setReceive(sym)}
                   style={{ justifyContent: "center", opacity: available ? 1 : 0.5 }}

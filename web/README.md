@@ -1,6 +1,6 @@
-# TamaSwap web app
+# Africoin web app
 
-React + Vite frontend for TamaSwap. Replaces the prior onchain HTML wrapper.
+React + Vite frontend for Africoin. Replaces the prior onchain HTML wrapper.
 
 - **Wallet:** [Dynamic](https://www.dynamic.xyz) via `@dynamic-labs/sdk-react-core`
   with the wagmi connector.

@@ -30,8 +30,7 @@ export function Header({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) 
   return (
     <div className="top">
       <div className="brand">
-        <div className="mark">玉</div>
-        <span>TamaSwap</span>
+        <img className="brandLogo" src="/logo-header.png" alt="Africoin" />
       </div>
       <div className="nav">
         <button className={tab === "swap" ? "on" : ""} onClick={() => setTab("swap")}>

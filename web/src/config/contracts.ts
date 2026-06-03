@@ -5,11 +5,6 @@ export type ChainContracts = {
   router: Address;
   weth: Address;
   defillamaSlug: string;
-  // Endpoint that returns the tradeable token set for this chain. This is the
-  // ONLY source of tradeable tokens — there is no default list and no
-  // auto-injected ETH/WETH. Leave empty until the Tama token API is live; an
-  // empty value surfaces an explicit "not configured" state in the UI.
-  tokenListApiUrl: string;
 };
 
 // Deployed addresses from the root README "Deployments" table.
@@ -25,8 +20,6 @@ export const CONTRACTS: Record<number, ChainContracts> = {
     router: "0x0000000000000000000000000000000000000000",
     weth: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
     defillamaSlug: "ethereum",
-    // TODO(token-api): set to the live Tama token API endpoint for Ethereum.
-    tokenListApiUrl: "",
   },
   // Base
   8453: {
@@ -34,8 +27,6 @@ export const CONTRACTS: Record<number, ChainContracts> = {
     router: "0x0000000000000000000000000000000000000000",
     weth: "0x4200000000000000000000000000000000000006",
     defillamaSlug: "base",
-    // TODO(token-api): set to the live Tama token API endpoint for Base.
-    tokenListApiUrl: "",
   },
 };
 
