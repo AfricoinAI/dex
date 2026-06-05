@@ -39,10 +39,14 @@ export function Swap() {
   const [usdIn, setUsdIn] = useState<number | null>(null);
   const [usdOut, setUsdOut] = useState<number | null>(null);
 
-  // Seed token-in to native once the token list arrives, so the form is usable.
+  // Seed the form once the token list arrives: pay with the first stablecoin,
+  // receive the first africoin asset.
   useEffect(() => {
-    if (ready && !tokenIn && tokens.length > 0) setTokenIn(tokens[0]);
-  }, [ready, tokens, tokenIn]);
+    if (!ready || tokenIn || tokens.length === 0) return;
+    setTokenIn(tokens[0]);
+    const firstAsset = tokens.find((t) => !t.stablecoin);
+    if (firstAsset && !tokenOut) setTokenOut(firstAsset);
+  }, [ready, tokens, tokenIn, tokenOut]);
 
   // Reset selections on chain change so we don't reuse cross-chain addresses.
   useEffect(() => {

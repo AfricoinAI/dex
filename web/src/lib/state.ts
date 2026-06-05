@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useChainId } from "wagmi";
 import { CONTRACTS } from "../config/contracts";
 import { listAssets } from "./gateway";
-import { assetsToTokens, type Token } from "./tokenList";
+import { assetsToTokens, stablecoinTokens, type Token } from "./tokenList";
 
 export function useTokens(): { tokens: Token[]; ready: boolean; error: string | null } {
   const chainId = useChainId();
@@ -21,18 +21,24 @@ export function useTokens(): { tokens: Token[]; ready: boolean; error: string | 
       setError(`Chain ${chainId} not configured`);
       return;
     }
-    // The Africoin platform asset registry (via the same-origin gateway proxy)
-    // is the sole source of tradeable tokens: no default list and no
-    // auto-injected ETH/WETH.
+    // Tradeable tokens are the chain's native stablecoins (USDC/USDT) plus the
+    // Africoin platform asset registry (via the same-origin gateway proxy):
+    // no default list and no auto-injected ETH/WETH. Stablecoins stay listed
+    // even when the registry is empty or unreachable.
+    const stables = stablecoinTokens(chainId);
     listAssets({ limit: 200, offset: 0 })
       .then((assets) => {
         if (cancelled) return;
-        setTokens(assetsToTokens(assets, chainId));
+        const stableAddrs = new Set(stables.map((t) => t.address.toLowerCase()));
+        const assetTokens = assetsToTokens(assets, chainId).filter(
+          (t) => !stableAddrs.has(t.address.toLowerCase()),
+        );
+        setTokens([...stables, ...assetTokens]);
         setReady(true);
       })
       .catch((e: Error) => {
         if (cancelled) return;
-        setTokens([]);
+        setTokens(stables);
         setReady(true);
         setError(e.message);
       });
