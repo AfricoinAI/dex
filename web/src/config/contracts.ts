@@ -17,14 +17,12 @@ export const CONTRACTS: Record<number, ChainContracts> = {
   // estimates there.
   11155111: {
     factory: "0x00000021543ed46B665A74484c82B71E4eB61e34",
-    // TamaRouter address is identical across chains where deployed.
-    // Fill in if/when the canonical router is published; until then the
-    // factory address is the load-bearing one for pair discovery.
-    router: "0x0000000000000000000000000000000000000000",
+    router: "0x445A367C9E9174b41ddDE65662acDd3B4fB641B3",
     weth: "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14",
     defillamaSlug: "",
   },
-  // Ethereum
+  // Ethereum — router placeholder until TamaRouter is published on mainnet;
+  // trading stays disabled there (see routerDeployed).
   1: {
     factory: "0x00000021543ed46B665A74484c82B71E4eB61e34",
     router: "0x0000000000000000000000000000000000000000",
