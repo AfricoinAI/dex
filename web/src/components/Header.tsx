@@ -1,8 +1,8 @@
+import { useRef, useState } from "react";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { CONTRACTS } from "../config/contracts";
 import { SUPPORTED_CHAINS, chainName } from "../config/chains";
-import { short } from "../lib/format";
 import { ErrorBoundary } from "./ErrorBoundary";
 
 type Tab = "swap" | "pool" | "buy";
@@ -30,6 +30,27 @@ function ChainSwitcher() {
   );
 }
 
+// Full address with the first/last four hex digits emphasized; clicking
+// copies it to the clipboard.
+function CopyAddress({ address }: { address: string }) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  const copy = async () => {
+    await navigator.clipboard.writeText(address);
+    setCopied(true);
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setCopied(false), 1200);
+  };
+  return (
+    <button className="wallet ok addr" onClick={copy} title="Copy address">
+      <b>{address.slice(0, 6)}</b>
+      {address.slice(6, -4)}
+      <b>{address.slice(-4)}</b>
+      <span className="copyMark">{copied ? "✓" : "⧉"}</span>
+    </button>
+  );
+}
+
 // Split out so a Dynamic provider crash only takes down the wallet button,
 // not the whole header. The boundary below falls back to a disabled pill.
 function ConnectButton() {
@@ -38,13 +59,23 @@ function ConnectButton() {
   const chainId = useChainId();
   const chainLabel = chainId in CONTRACTS ? chainName(chainId) : "Unsupported chain";
   const loggedIn = isConnected || !!user;
+  if (isConnected && address) {
+    return (
+      <>
+        <CopyAddress address={address} />
+        <button className="wallet" onClick={() => handleLogOut()} title={`${chainLabel} — disconnect`}>
+          Disconnect
+        </button>
+      </>
+    );
+  }
   return (
     <button
-      className={isConnected ? "wallet ok" : "wallet"}
+      className="wallet"
       onClick={() => (loggedIn ? handleLogOut() : setShowAuthFlow(true))}
-      title={isConnected ? chainLabel : "Connect a wallet via Dynamic"}
+      title="Connect a wallet via Dynamic"
     >
-      {isConnected && address ? short(address) : "Connect"}
+      Connect
     </button>
   );
 }

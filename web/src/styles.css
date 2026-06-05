@@ -129,6 +129,24 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   box-shadow: var(--shadow-control);
 }
 
+/* Full connected address: monospace so it stays readable, with the first and
+   last four hex digits emphasized. Click copies. */
+.wallet.addr {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.2px;
+}
+
+.wallet.addr b {
+  font-weight: 800;
+}
+
+.wallet.addr .copyMark {
+  margin-left: 7px;
+  opacity: 0.65;
+}
+
 .shell {
   max-width: 480px;
   margin: 58px auto 30px;
@@ -418,18 +436,6 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   background: var(--surface-container-lowest);
   color: var(--primary);
   box-shadow: var(--shadow-control);
-}
-
-.foot {
-  margin: 0 auto 28px;
-  padding: 0 18px;
-  text-align: center;
-}
-
-.foot a {
-  color: var(--primary);
-  font-weight: 900;
-  text-decoration: none;
 }
 
 .modal {
