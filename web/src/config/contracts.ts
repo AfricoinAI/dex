@@ -28,6 +28,15 @@ export const CONTRACTS: Record<number, ChainContracts> = {
     weth: "0x4200000000000000000000000000000000000006",
     defillamaSlug: "base",
   },
+  // Sepolia (testnet). Same deterministic CREATE2 factory address; canonical
+  // Sepolia WETH. DefiLlama carries no testnet prices, so the empty slug
+  // disables USD estimates there.
+  11155111: {
+    factory: "0x00000021543ed46B665A74484c82B71E4eB61e34",
+    router: "0x0000000000000000000000000000000000000000",
+    weth: "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14",
+    defillamaSlug: "",
+  },
 };
 
 export const SUPPORTED_CHAIN_IDS = Object.keys(CONTRACTS).map(Number);

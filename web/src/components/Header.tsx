@@ -1,11 +1,34 @@
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import { useAccount, useChainId } from "wagmi";
+import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { CONTRACTS } from "../config/contracts";
-import { chainName } from "../config/chains";
+import { SUPPORTED_CHAINS, chainName } from "../config/chains";
 import { short } from "../lib/format";
 import { ErrorBoundary } from "./ErrorBoundary";
 
 type Tab = "swap" | "pool" | "buy";
+
+// Segmented control over the configured chains. When a wallet is connected,
+// wagmi asks it to switch (and to add the chain if missing); when not,
+// wagmi just repoints its own active chain, so browsing works either way.
+function ChainSwitcher() {
+  const chainId = useChainId();
+  const { switchChain, isPending } = useSwitchChain();
+  return (
+    <div className="nav chains">
+      {SUPPORTED_CHAINS.map((c) => (
+        <button
+          key={c.id}
+          className={chainId === c.id ? "on" : ""}
+          disabled={isPending}
+          onClick={() => switchChain({ chainId: c.id })}
+          title={`Switch to ${c.name}`}
+        >
+          {c.name}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 // Split out so a Dynamic provider crash only takes down the wallet button,
 // not the whole header. The boundary below falls back to a disabled pill.
@@ -43,21 +66,24 @@ export function Header({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) 
           Buy
         </button>
       </div>
-      <ErrorBoundary
-        label="ConnectButton"
-        fallback={(error) => (
-          <button
-            className="wallet"
-            disabled
-            title={`Wallet unavailable: ${error.message}`}
-            style={{ opacity: 0.6, cursor: "not-allowed" }}
-          >
-            Wallet unavailable
-          </button>
-        )}
-      >
-        <ConnectButton />
-      </ErrorBoundary>
+      <div className="walletGroup">
+        <ChainSwitcher />
+        <ErrorBoundary
+          label="ConnectButton"
+          fallback={(error) => (
+            <button
+              className="wallet"
+              disabled
+              title={`Wallet unavailable: ${error.message}`}
+              style={{ opacity: 0.6, cursor: "not-allowed" }}
+            >
+              Wallet unavailable
+            </button>
+          )}
+        >
+          <ConnectButton />
+        </ErrorBoundary>
+      </div>
     </div>
   );
 }

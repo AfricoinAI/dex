@@ -4,17 +4,18 @@ import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import { DynamicWagmiConnector } from "@dynamic-labs/wagmi-connector";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider, createConfig, http } from "wagmi";
-import { mainnet, base } from "wagmi/chains";
+import { mainnet, base, sepolia } from "wagmi/chains";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
 const wagmiConfig = createConfig({
-  chains: [mainnet, base],
+  chains: [mainnet, base, sepolia],
   multiInjectedProviderDiscovery: false,
   transports: {
     [mainnet.id]: http(),
     [base.id]: http(),
+    [sepolia.id]: http(),
   },
 });
 

@@ -96,6 +96,22 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   box-shadow: 0 6px 18px rgba(23, 33, 31, 0.24);
 }
 
+.walletGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Chain switcher: same segmented look as the tab nav, but compact. */
+.nav.chains {
+  padding: 3px;
+}
+
+.nav.chains button {
+  padding: 7px 11px;
+  font-size: 13px;
+}
+
 .wallet {
   border: 1px solid rgba(225, 211, 117, 0.45);
   background: linear-gradient(135deg, #c09c3c 0%, #e1d375 100%);
@@ -577,6 +593,13 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   }
 
   .nav button { flex: 1; }
+
+  .walletGroup {
+    order: 4;
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
   .shell { margin-top: 28px; }
   .amount input { font-size: 30px; }
   .tok { min-width: 108px; }

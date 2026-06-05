@@ -1,7 +1,7 @@
-import { mainnet, base } from "viem/chains";
+import { mainnet, base, sepolia } from "viem/chains";
 import type { Chain } from "viem";
 
-export const SUPPORTED_CHAINS: readonly [Chain, ...Chain[]] = [mainnet, base];
+export const SUPPORTED_CHAINS: readonly [Chain, ...Chain[]] = [mainnet, base, sepolia];
 
 // Human-readable chain names, sourced from viem's canonical chain metadata
 // (mainnet.name === "Ethereum", base.name === "Base").
