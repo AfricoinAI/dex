@@ -1,10 +1,11 @@
-import { mainnet, base, sepolia } from "viem/chains";
+import { mainnet, sepolia } from "viem/chains";
 import type { Chain } from "viem";
 
-export const SUPPORTED_CHAINS: readonly [Chain, ...Chain[]] = [mainnet, base, sepolia];
+// Sepolia first: it is the default chain while the platform is in test mode.
+export const SUPPORTED_CHAINS: readonly [Chain, ...Chain[]] = [sepolia, mainnet];
 
 // Human-readable chain names, sourced from viem's canonical chain metadata
-// (mainnet.name === "Ethereum", base.name === "Base").
+// (mainnet.name === "Ethereum", sepolia.name === "Sepolia").
 const CHAIN_NAME: Record<number, string> = Object.fromEntries(
   SUPPORTED_CHAINS.map((c) => [c.id, c.name]),
 );

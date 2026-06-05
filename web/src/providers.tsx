@@ -4,18 +4,18 @@ import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import { DynamicWagmiConnector } from "@dynamic-labs/wagmi-connector";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider, createConfig, http } from "wagmi";
-import { mainnet, base, sepolia } from "wagmi/chains";
+import { mainnet, sepolia } from "wagmi/chains";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
+// Sepolia first: it is wagmi's default chain while the platform is in test mode.
 const wagmiConfig = createConfig({
-  chains: [mainnet, base, sepolia],
+  chains: [sepolia, mainnet],
   multiInjectedProviderDiscovery: false,
   transports: {
-    [mainnet.id]: http(),
-    [base.id]: http(),
     [sepolia.id]: http(),
+    [mainnet.id]: http(),
   },
 });
 
