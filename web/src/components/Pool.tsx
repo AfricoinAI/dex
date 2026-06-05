@@ -142,7 +142,11 @@ export function Pool() {
   }
 
   async function executeAdd() {
-    if (!walletClient || !cfg || !tokenA || !tokenB || !address) return;
+    if (!cfg || !tokenA || !tokenB || !address) return;
+    if (!walletClient) {
+      setErrMsg("Wallet client not ready — reconnect the wallet and try again.");
+      return;
+    }
     setBusy(true);
     setErrMsg(null);
     setStatus(null);
@@ -187,7 +191,11 @@ export function Pool() {
   }
 
   async function executeRemove() {
-    if (!walletClient || !cfg || !tokenA || !tokenB || !address || !pair || !burnAmounts) return;
+    if (!cfg || !tokenA || !tokenB || !address || !pair || !burnAmounts) return;
+    if (!walletClient) {
+      setErrMsg("Wallet client not ready — reconnect the wallet and try again.");
+      return;
+    }
     setBusy(true);
     setErrMsg(null);
     setStatus(null);

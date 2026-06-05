@@ -230,7 +230,11 @@ export function Swap() {
   })();
 
   async function approve() {
-    if (!walletClient || !cfg || !tokenIn || !quote || tokenIn.native) return;
+    if (!cfg || !tokenIn || !quote || tokenIn.native) return;
+    if (!walletClient) {
+      setErrMsg("Wallet client not ready — reconnect the wallet and try again.");
+      return;
+    }
     setBusy(true);
     setErrMsg(null);
     try {
@@ -251,7 +255,11 @@ export function Swap() {
   }
 
   async function execute() {
-    if (!walletClient || !cfg || !tokenIn || !tokenOut || !quote || !address) return;
+    if (!cfg || !tokenIn || !tokenOut || !quote || !address) return;
+    if (!walletClient) {
+      setErrMsg("Wallet client not ready — reconnect the wallet and try again.");
+      return;
+    }
     setBusy(true);
     setErrMsg(null);
     setStatus(null);
