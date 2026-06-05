@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
+import { DynamicContextProvider, mergeNetworks } from "@dynamic-labs/sdk-react-core";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import { DynamicWagmiConnector } from "@dynamic-labs/wagmi-connector";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -35,6 +35,23 @@ const wagmiConfig = createConfig({
 
 const DYNAMIC_ENV_ID = import.meta.env.VITE_DYNAMIC_ENVIRONMENT_ID ?? "";
 
+// Sepolia isn't enabled in the Dynamic dashboard's network list, so its
+// connectors reject the chain with "EVM network not found". Injecting the
+// network here keeps the app self-contained instead of dashboard-dependent.
+const DYNAMIC_EVM_NETWORKS = [
+  {
+    blockExplorerUrls: ["https://sepolia.etherscan.io"],
+    chainId: sepolia.id,
+    chainName: "Sepolia",
+    iconUrls: ["https://app.dynamic.xyz/assets/networks/eth.svg"],
+    name: "Sepolia",
+    nativeCurrency: { decimals: 18, name: "Sepolia Ether", symbol: "ETH" },
+    networkId: sepolia.id,
+    rpcUrls: [RPC_URLS[sepolia.id]],
+    vanityName: "Sepolia",
+  },
+];
+
 // Wagmi + react-query are pure local state; they don't depend on Dynamic and
 // should always mount. If Dynamic's provider throws (bad env ID, network
 // fetch failure, etc.) the wagmi tree underneath still renders, so the rest
@@ -64,6 +81,9 @@ function WithDynamic({ children }: { children: ReactNode }) {
       settings={{
         environmentId: DYNAMIC_ENV_ID,
         walletConnectors: [EthereumWalletConnectors],
+        overrides: {
+          evmNetworks: (networks) => mergeNetworks(DYNAMIC_EVM_NETWORKS, networks),
+        },
       }}
     >
       <CoreProviders>
