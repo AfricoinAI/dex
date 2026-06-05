@@ -203,6 +203,7 @@ export function Swap() {
     };
   }, [publicClient, cfg, tokenIn, tokenOut, amountInStr, amountOutStr, exact, mode]);
 
+  const minOut = quote ? minWithSlip(quote.amountOut, slipBps) : null;
   const maxIn = quote ? maxWithSlip(quote.amountIn, slipBps) : null;
   // Exact-out swaps may pull up to maxIn; approvals and balance checks must
   // cover that ceiling, not the quoted midpoint.
@@ -494,8 +495,23 @@ export function Swap() {
         </div>
       </div>
 
-      {quote && mode === "swap" && (
+      {quote && tokenIn && tokenOut && minOut != null && maxIn != null && mode === "swap" && (
         <div className="review">
+          <div className="plain">
+            {quote.exact === "out" ? (
+              <>
+                You&rsquo;ll get exactly <b>{fmtAmt(quote.amountOut, tokenOut.decimals)} {tokenOut.symbol}</b>, and
+                pay ~{fmtAmt(quote.amountIn, tokenIn.decimals)} {tokenIn.symbol} but never more than{" "}
+                <b>{fmtAmt(maxIn, tokenIn.decimals)} {tokenIn.symbol}</b>.
+              </>
+            ) : (
+              <>
+                You&rsquo;ll pay exactly <b>{fmtAmt(quote.amountIn, tokenIn.decimals)} {tokenIn.symbol}</b>, and
+                get ~{fmtAmt(quote.amountOut, tokenOut.decimals)} {tokenOut.symbol} but never less than{" "}
+                <b>{fmtAmt(minOut, tokenOut.decimals)} {tokenOut.symbol}</b>.
+              </>
+            )}
+          </div>
           <div>
             <span className="muted">Slippage</span>
             <span>{(Number(slipBps) / 100).toFixed(2)}%</span>

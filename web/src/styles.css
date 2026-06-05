@@ -354,6 +354,16 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 
 .review .muted { color: var(--secondary-light); }
 
+/* Plain-language trade summary: a sentence, not a label/value pair. */
+.review .plain {
+  display: block;
+  line-height: 1.5;
+}
+
+.review .plain b {
+  color: #e1d375;
+}
+
 .review a {
   color: var(--secondary-light);
   font-weight: 900;
