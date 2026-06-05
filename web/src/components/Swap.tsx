@@ -11,7 +11,9 @@ import type { Token } from "../lib/tokenList";
 import { TokenPicker } from "./TokenPicker";
 import { SettingsModal } from "./SettingsModal";
 
-type Quote = { amountIn: bigint; amountOut: bigint };
+// `exact` records which side the user fixed; the other side is quoted and the
+// swap executes with the matching exact-in/exact-out router function.
+type Quote = { amountIn: bigint; amountOut: bigint; exact: "in" | "out" };
 type Mode = "swap" | "wrap" | "unwrap";
 
 export function Swap() {
@@ -26,6 +28,8 @@ export function Swap() {
   const [tokenIn, setTokenIn] = useState<Token | null>(null);
   const [tokenOut, setTokenOut] = useState<Token | null>(null);
   const [amountInStr, setAmountInStr] = useState("");
+  const [amountOutStr, setAmountOutStr] = useState("");
+  const [exact, setExact] = useState<"in" | "out">("in");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -52,6 +56,9 @@ export function Swap() {
   useEffect(() => {
     setTokenIn(null);
     setTokenOut(null);
+    setAmountInStr("");
+    setAmountOutStr("");
+    setExact("in");
     setQuote(null);
     setStatus(null);
     setErrMsg(null);
@@ -141,9 +148,12 @@ export function Swap() {
     };
   }, [cfg, tokenIn, tokenOut]);
 
-  // Quote whenever the input amount or selection changes.
+  // Quote whenever the fixed-side amount or selection changes: exact-in
+  // quotes the output via getAmountsOut, exact-out quotes the required input
+  // via getAmountsIn.
   useEffect(() => {
-    if (!publicClient || !cfg || !tokenIn || !tokenOut || !amountInStr || mode === null) {
+    const editedStr = exact === "in" ? amountInStr : amountOutStr;
+    if (!publicClient || !cfg || !tokenIn || !tokenOut || !editedStr || mode === null) {
       setQuote(null);
       setQuoteError(null);
       return;
@@ -151,15 +161,16 @@ export function Swap() {
     let cancelled = false;
     (async () => {
       try {
-        const amountIn = parseAmt(amountInStr, tokenIn.decimals);
-        if (amountIn === 0n) {
+        const editedToken = exact === "in" ? tokenIn : tokenOut;
+        const amount = parseAmt(editedStr, editedToken.decimals);
+        if (amount === 0n) {
           setQuote(null);
           setQuoteError(null);
           return;
         }
         if (mode === "wrap" || mode === "unwrap") {
           if (!cancelled) {
-            setQuote({ amountIn, amountOut: amountIn });
+            setQuote({ amountIn: amount, amountOut: amount, exact });
             setQuoteError(null);
           }
           return;
@@ -171,11 +182,15 @@ export function Swap() {
         const amounts = (await publicClient.readContract({
           abi: routerAbi,
           address: cfg.router,
-          functionName: "getAmountsOut",
-          args: [amountIn, path],
+          functionName: exact === "in" ? "getAmountsOut" : "getAmountsIn",
+          args: [amount, path],
         })) as readonly bigint[];
         if (cancelled) return;
-        setQuote({ amountIn, amountOut: amounts[amounts.length - 1] });
+        setQuote(
+          exact === "in"
+            ? { amountIn: amount, amountOut: amounts[amounts.length - 1], exact }
+            : { amountIn: amounts[0], amountOut: amount, exact },
+        );
         setQuoteError(null);
       } catch (e) {
         if (cancelled) return;
@@ -186,22 +201,24 @@ export function Swap() {
     return () => {
       cancelled = true;
     };
-  }, [publicClient, cfg, tokenIn, tokenOut, amountInStr, mode]);
+  }, [publicClient, cfg, tokenIn, tokenOut, amountInStr, amountOutStr, exact, mode]);
 
   const minOut = quote ? minWithSlip(quote.amountOut, slipBps) : null;
   const maxIn = quote ? maxWithSlip(quote.amountIn, slipBps) : null;
-  void maxIn;
+  // Exact-out swaps may pull up to maxIn; approvals and balance checks must
+  // cover that ceiling, not the quoted midpoint.
+  const requiredIn = quote ? (quote.exact === "out" ? maxIn! : quote.amountIn) : null;
 
   const needsApproval = !!(
     routerDeployed(cfg) &&
     tokenIn &&
     !tokenIn.native &&
-    quote &&
+    requiredIn != null &&
     allowance != null &&
-    allowance < quote.amountIn
+    allowance < requiredIn
   );
 
-  const insufficient = balanceIn != null && quote != null && balanceIn < quote.amountIn;
+  const insufficient = balanceIn != null && requiredIn != null && balanceIn < requiredIn;
 
   const canSwap =
     routerDeployed(cfg) &&
@@ -220,7 +237,7 @@ export function Swap() {
     if (!routerDeployed(cfg)) return "Trading not live on this chain yet";
     if (!tokenIn || !tokenOut) return "Select tokens";
     if (mode === null) return "Select different tokens";
-    if (!amountInStr || quote?.amountIn === 0n) return "Enter an amount";
+    if (!(exact === "in" ? amountInStr : amountOutStr) || quote?.amountIn === 0n) return "Enter an amount";
     if (quoteError) return "No route";
     if (insufficient) return `Insufficient ${tokenIn.symbol}`;
     if (needsApproval) return `Approve ${tokenIn.symbol}`;
@@ -246,7 +263,7 @@ export function Swap() {
         abi: erc20Abi,
         address: tokenIn.address,
         functionName: "approve",
-        args: [cfg.router, quote.amountIn],
+        args: [cfg.router, quote.exact === "out" ? maxWithSlip(quote.amountIn, slipBps) : quote.amountIn],
       });
       setStatus({ text: `Approval submitted ${short(hash)}` });
       await publicClient!.waitForTransactionReceipt({ hash });
@@ -287,7 +304,7 @@ export function Swap() {
           functionName: "withdraw",
           args: [quote.amountIn],
         });
-      } else {
+      } else if (quote.exact === "in") {
         const dl = deadline();
         const min = minWithSlip(quote.amountOut, slipBps);
         const path: Address[] = [
@@ -317,11 +334,44 @@ export function Swap() {
             args: [quote.amountIn, min, path, address, dl],
           });
         }
+      } else {
+        // Exact-out: the user fixed the receive amount; the router pulls at
+        // most maxWithSlip(amountIn) and refunds any unspent native value.
+        const dl = deadline();
+        const max = maxWithSlip(quote.amountIn, slipBps);
+        const path: Address[] = [
+          tokenIn.native ? cfg.weth : tokenIn.address,
+          tokenOut.native ? cfg.weth : tokenOut.address,
+        ];
+        if (tokenIn.native) {
+          hash = await walletClient.writeContract({
+            abi: routerAbi,
+            address: cfg.router,
+            functionName: "swapETHForExactTokens",
+            args: [quote.amountOut, path, address, dl],
+            value: max,
+          });
+        } else if (tokenOut.native) {
+          hash = await walletClient.writeContract({
+            abi: routerAbi,
+            address: cfg.router,
+            functionName: "swapTokensForExactETH",
+            args: [quote.amountOut, max, path, address, dl],
+          });
+        } else {
+          hash = await walletClient.writeContract({
+            abi: routerAbi,
+            address: cfg.router,
+            functionName: "swapTokensForExactTokens",
+            args: [quote.amountOut, max, path, address, dl],
+          });
+        }
       }
       setStatus({ text: `Submitted ${short(hash)}` });
       await publicClient!.waitForTransactionReceipt({ hash });
       setStatus({ text: `Confirmed ${short(hash)}` });
       setAmountInStr("");
+      setAmountOutStr("");
     } catch (e) {
       setErrMsg(e instanceof Error ? e.message : "Swap failed");
     } finally {
@@ -333,6 +383,7 @@ export function Swap() {
     if (balanceIn == null || !tokenIn) return;
     const value = tokenIn.native ? (balanceIn > 10n ** 16n ? balanceIn - 10n ** 16n : 0n) : balanceIn;
     setAmountInStr(fmtFull(value, tokenIn.decimals));
+    setExact("in");
   }
 
   return (
@@ -360,8 +411,11 @@ export function Swap() {
           <input
             inputMode="decimal"
             placeholder="0"
-            value={amountInStr}
-            onChange={(e) => setAmountInStr(e.target.value)}
+            value={exact === "in" ? amountInStr : quote && tokenIn ? fmtFull(quote.amountIn, tokenIn.decimals) : ""}
+            onChange={(e) => {
+              setAmountInStr(e.target.value);
+              setExact("in");
+            }}
           />
           <button
             className={tokenIn ? "tok" : "tok empty"}
@@ -392,6 +446,8 @@ export function Swap() {
             setTokenIn(b);
             setTokenOut(a);
             setAmountInStr("");
+            setAmountOutStr("");
+            setExact("in");
             setQuote(null);
           }}
         >
@@ -408,9 +464,13 @@ export function Swap() {
         </div>
         <div className="amount">
           <input
-            readOnly
+            inputMode="decimal"
             placeholder="0"
-            value={quote && tokenOut ? fmtFull(quote.amountOut, tokenOut.decimals) : ""}
+            value={exact === "out" ? amountOutStr : quote && tokenOut ? fmtFull(quote.amountOut, tokenOut.decimals) : ""}
+            onChange={(e) => {
+              setAmountOutStr(e.target.value);
+              setExact("out");
+            }}
           />
           <button
             className={tokenOut ? "tok" : "tok empty"}
@@ -435,12 +495,19 @@ export function Swap() {
         </div>
       </div>
 
-      {quote && tokenOut && minOut != null && mode === "swap" && (
+      {quote && tokenIn && tokenOut && minOut != null && maxIn != null && mode === "swap" && (
         <div className="review">
-          <div>
-            <span className="muted">Minimum received</span>
-            <b>{fmtAmt(minOut, tokenOut.decimals)} {tokenOut.symbol}</b>
-          </div>
+          {quote.exact === "in" ? (
+            <div>
+              <span className="muted">Minimum received</span>
+              <b>{fmtAmt(minOut, tokenOut.decimals)} {tokenOut.symbol}</b>
+            </div>
+          ) : (
+            <div>
+              <span className="muted">Maximum sold</span>
+              <b>{fmtAmt(maxIn, tokenIn.decimals)} {tokenIn.symbol}</b>
+            </div>
+          )}
           <div>
             <span className="muted">Slippage</span>
             <span>{(Number(slipBps) / 100).toFixed(2)}%</span>
