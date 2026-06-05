@@ -19,7 +19,7 @@ export function Swap() {
   const cfg = CONTRACTS[chainId];
   const { address } = useAccount();
   const publicClient = usePublicClient();
-  const { data: walletClient } = useWalletClient();
+  const { data: walletClient, error: walletClientError } = useWalletClient();
   const { tokens, ready, error: tokenError } = useTokens();
   const slipBps = useSlippageBps();
 
@@ -232,7 +232,11 @@ export function Swap() {
   async function approve() {
     if (!cfg || !tokenIn || !quote || tokenIn.native) return;
     if (!walletClient) {
-      setErrMsg("Wallet client not ready — reconnect the wallet and try again.");
+      setErrMsg(
+        walletClientError
+          ? `Wallet client unavailable: ${walletClientError.message}`
+          : "Wallet client not ready — reconnect the wallet and try again.",
+      );
       return;
     }
     setBusy(true);
@@ -257,7 +261,11 @@ export function Swap() {
   async function execute() {
     if (!cfg || !tokenIn || !tokenOut || !quote || !address) return;
     if (!walletClient) {
-      setErrMsg("Wallet client not ready — reconnect the wallet and try again.");
+      setErrMsg(
+        walletClientError
+          ? `Wallet client unavailable: ${walletClientError.message}`
+          : "Wallet client not ready — reconnect the wallet and try again.",
+      );
       return;
     }
     setBusy(true);

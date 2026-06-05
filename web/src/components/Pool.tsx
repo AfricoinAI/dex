@@ -16,7 +16,7 @@ export function Pool() {
   const cfg = CONTRACTS[chainId];
   const { address } = useAccount();
   const publicClient = usePublicClient();
-  const { data: walletClient } = useWalletClient();
+  const { data: walletClient, error: walletClientError } = useWalletClient();
   const { tokens } = useTokens();
   const slipBps = useSlippageBps();
 
@@ -144,7 +144,11 @@ export function Pool() {
   async function executeAdd() {
     if (!cfg || !tokenA || !tokenB || !address) return;
     if (!walletClient) {
-      setErrMsg("Wallet client not ready — reconnect the wallet and try again.");
+      setErrMsg(
+        walletClientError
+          ? `Wallet client unavailable: ${walletClientError.message}`
+          : "Wallet client not ready — reconnect the wallet and try again.",
+      );
       return;
     }
     setBusy(true);
@@ -193,7 +197,11 @@ export function Pool() {
   async function executeRemove() {
     if (!cfg || !tokenA || !tokenB || !address || !pair || !burnAmounts) return;
     if (!walletClient) {
-      setErrMsg("Wallet client not ready — reconnect the wallet and try again.");
+      setErrMsg(
+        walletClientError
+          ? `Wallet client unavailable: ${walletClientError.message}`
+          : "Wallet client not ready — reconnect the wallet and try again.",
+      );
       return;
     }
     setBusy(true);
