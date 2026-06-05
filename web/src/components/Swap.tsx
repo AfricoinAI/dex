@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
 import { type Address, formatUnits, maxUint256 } from "viem";
-import { CONTRACTS } from "../config/contracts";
+import { CONTRACTS, routerDeployed } from "../config/contracts";
 import { chainName } from "../config/chains";
 import { erc20Abi, routerAbi, wethAbi } from "../lib/abi";
 import { deadline, fmtAmt, fmtFull, maxWithSlip, minWithSlip, money, parseAmt, short } from "../lib/format";
@@ -193,6 +193,7 @@ export function Swap() {
   void maxIn;
 
   const needsApproval = !!(
+    routerDeployed(cfg) &&
     tokenIn &&
     !tokenIn.native &&
     quote &&
@@ -203,7 +204,7 @@ export function Swap() {
   const insufficient = balanceIn != null && quote != null && balanceIn < quote.amountIn;
 
   const canSwap =
-    !!cfg &&
+    routerDeployed(cfg) &&
     !!tokenIn &&
     !!tokenOut &&
     !!quote &&
@@ -216,6 +217,7 @@ export function Swap() {
   const ctaLabel = (() => {
     if (!address) return "Connect wallet";
     if (!cfg) return "Unsupported chain";
+    if (!routerDeployed(cfg)) return "Trading not live on this chain yet";
     if (!tokenIn || !tokenOut) return "Select tokens";
     if (mode === null) return "Select different tokens";
     if (!amountInStr || quote?.amountIn === 0n) return "Enter an amount";

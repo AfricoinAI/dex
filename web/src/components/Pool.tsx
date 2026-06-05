@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
 import { type Address, zeroAddress } from "viem";
-import { CONTRACTS } from "../config/contracts";
+import { CONTRACTS, routerDeployed } from "../config/contracts";
 import { chainName } from "../config/chains";
 import { erc20Abi, factoryAbi, pairAbi, routerAbi } from "../lib/abi";
 import { deadline, fmtAmt, fmtFull, minWithSlip, parseAmt, short } from "../lib/format";
@@ -352,10 +352,16 @@ export function Pool() {
 
       <button
         className="cta"
-        disabled={busy || !address || !cfg || !tokenA || !tokenB || (mode === "remove" && !burnAmounts)}
+        disabled={busy || !address || !routerDeployed(cfg) || !tokenA || !tokenB || (mode === "remove" && !burnAmounts)}
         onClick={mode === "add" ? executeAdd : executeRemove}
       >
-        {busy ? "Submitting…" : mode === "add" ? (pair ? "Add liquidity" : "Create pool and add liquidity") : "Remove liquidity"}
+        {busy
+          ? "Submitting…"
+          : !routerDeployed(cfg)
+            ? "Trading not live on this chain yet"
+            : mode === "add"
+              ? (pair ? "Add liquidity" : "Create pool and add liquidity")
+              : "Remove liquidity"}
       </button>
 
       <div className={errMsg ? "status err" : "status"}>{errMsg ?? status ?? ""}</div>

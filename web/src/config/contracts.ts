@@ -35,6 +35,12 @@ export const CONTRACTS: Record<number, ChainContracts> = {
 
 export const SUPPORTED_CHAIN_IDS = Object.keys(CONTRACTS).map(Number);
 
+// The router address is a zero placeholder until TamaRouter is published on a
+// chain; quotes, swaps, and liquidity ops are impossible there.
+export function routerDeployed(cfg: ChainContracts | undefined): boolean {
+  return !!cfg && cfg.router !== "0x0000000000000000000000000000000000000000";
+}
+
 // Stablecoins are native tradeable tokens, independent of the gateway asset
 // registry: they form the quote side of every africoin pair. All entries are
 // the canonical issuer deployments (Circle / Tether); Tether publishes no
