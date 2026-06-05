@@ -9,13 +9,27 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
+// Explicit CORS-friendly RPC endpoints: viem's defaults (eth.merkle.io) block
+// browser origins. PublicNode is keyless; an Alchemy key upgrades both chains
+// when provided.
+const ALCHEMY_KEY = import.meta.env.VITE_ALCHEMY_API_KEY ?? "";
+
+const RPC_URLS: Record<number, string> = {
+  [sepolia.id]: ALCHEMY_KEY
+    ? `https://eth-sepolia.g.alchemy.com/v2/${ALCHEMY_KEY}`
+    : "https://ethereum-sepolia-rpc.publicnode.com",
+  [mainnet.id]: ALCHEMY_KEY
+    ? `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}`
+    : "https://ethereum-rpc.publicnode.com",
+};
+
 // Sepolia first: it is wagmi's default chain while the platform is in test mode.
 const wagmiConfig = createConfig({
   chains: [sepolia, mainnet],
   multiInjectedProviderDiscovery: false,
   transports: {
-    [sepolia.id]: http(),
-    [mainnet.id]: http(),
+    [sepolia.id]: http(RPC_URLS[sepolia.id]),
+    [mainnet.id]: http(RPC_URLS[mainnet.id]),
   },
 });
 
