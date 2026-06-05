@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Deploys TamaRouter to Sepolia against the published CREATE2 factory and the
-# canonical Sepolia WETH. The deployer key is read from SEPOLIA_DEPLOYER_KEY,
-# then ~/.sepolia_deployer_key, then a hidden interactive prompt — it is never
-# echoed or written anywhere. Paste the printed "Deployed to:" address into
-# web/src/config/contracts.ts (router, chain 11155111).
+# canonical Sepolia WETH. The deployer credential is read from
+# SEPOLIA_DEPLOYER_KEY, then ~/.sepolia_deployer_key, then a hidden
+# interactive prompt — it is never echoed or written anywhere. Either a raw
+# 0x private key or a 12/24-word seed phrase works; a phrase uses the first
+# account (MetaMask's default derivation). Paste the printed "Deployed to:"
+# address into web/src/config/contracts.ts (router, chain 11155111).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -16,9 +18,15 @@ if [ -z "$KEY" ] && [ -f "$HOME/.sepolia_deployer_key" ]; then
   KEY="$(cat "$HOME/.sepolia_deployer_key")"
 fi
 if [ -z "$KEY" ]; then
-  read -rsp "Sepolia deployer private key (input hidden): " KEY
+  read -rsp "Sepolia deployer private key or seed phrase (input hidden): " KEY
   echo
 fi
+
+# A credential containing spaces is a seed phrase: derive the first account's
+# private key from it (BIP-44 m/44'/60'/0'/0/0, MetaMask's default).
+case "$KEY" in
+  *" "*) KEY=$(cast wallet private-key --mnemonic "$KEY") ;;
+esac
 
 ADDR=$(cast wallet address --private-key "$KEY")
 BAL_WEI=$(cast balance "$ADDR" --rpc-url "$RPC")
